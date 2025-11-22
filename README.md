@@ -88,6 +88,7 @@ npm run preview
 ## Mathematical Formulas
 
 ### Lorenz Attractor
+
 ```
 dx/dt = σ(y - x)
 dy/dt = x(ρ - z) - y
@@ -95,17 +96,20 @@ dz/dt = xy - βz
 ```
 
 ### Hénon Map
+
 ```
 x(n+1) = y(n) + 1 - a·x(n)²
 y(n+1) = b·x(n)
 ```
 
 ### Logistic Map
+
 ```
 x(n+1) = r·x(n)·(1 - x(n))
 ```
 
 ### Standard Map
+
 ```
 p(n+1) = p(n) + K·sin(q(n)) mod 2π
 q(n+1) = q(n) + p(n+1) mod 2π

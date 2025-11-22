@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import * as d3 from 'd3';
+	import { base } from '$app/paths';
 
 	let container: HTMLDivElement;
 	let a = 0.9;
@@ -119,7 +120,7 @@
 			<p class="text-white/60 mt-2">Aesthetic chaos pattern with custom formula</p>
 		</div>
 		<a
-			href="/"
+			href="{base}/"
 			class="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
 		>
 			← Back
@@ -180,8 +181,8 @@
 		<p class="text-white/70 text-sm">
 			This is a custom aesthetic chaos system that generates beautiful patterns through iterative
 			transformations. The function f(x) creates a nonlinear mapping, and the coupled equations
-			produce intricate attractors. The system is highly sensitive to parameters a and b,
-			displaying a wide variety of behaviors from stable orbits to chaotic attractors.
+			produce intricate attractors. The system is highly sensitive to parameters a and b, displaying
+			a wide variety of behaviors from stable orbits to chaotic attractors.
 		</p>
 	</div>
 </div>

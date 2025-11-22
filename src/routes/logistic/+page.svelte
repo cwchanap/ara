@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import * as d3 from 'd3';
+	import { base } from '$app/paths';
 
 	let container: HTMLDivElement;
 	let r = 0.9;
@@ -38,15 +39,9 @@
 
 		const data = calculateLogistic(r, x0, iterations);
 
-		const xScale = d3
-			.scaleLinear()
-			.domain([0, iterations])
-			.range([0, width]);
+		const xScale = d3.scaleLinear().domain([0, iterations]).range([0, width]);
 
-		const yScale = d3
-			.scaleLinear()
-			.domain([0, 1])
-			.range([height, 0]);
+		const yScale = d3.scaleLinear().domain([0, 1]).range([height, 0]);
 
 		// Add axes
 		svg
@@ -117,7 +112,7 @@
 			<p class="text-white/60 mt-2">Population growth model showing chaotic behavior</p>
 		</div>
 		<a
-			href="/"
+			href="{base}/"
 			class="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
 		>
 			← Back
@@ -142,14 +137,7 @@
 
 			<div>
 				<label class="block text-white/80 text-sm mb-2"> Iterations: {iterations} </label>
-				<input
-					type="range"
-					bind:value={iterations}
-					min="10"
-					max="200"
-					step="10"
-					class="w-full"
-				/>
+				<input type="range" bind:value={iterations} min="10" max="200" step="10" class="w-full" />
 			</div>
 		</div>
 

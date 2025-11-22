@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { base } from '$app/paths';
 
 	let canvas: HTMLCanvasElement;
 	let imgWidth = 600;
@@ -28,10 +29,10 @@
 		const data = imageData.data;
 
 		for (let y = 0; y < imgHeight; y++) {
-			const zy = y * (yMax - yMin) / (imgHeight - 1) + yMin;
+			const zy = (y * (yMax - yMin)) / (imgHeight - 1) + yMin;
 
 			for (let x = 0; x < imgWidth; x++) {
-				const zx = x * (xMax - xMin) / (imgWidth - 1) + xMin;
+				const zx = (x * (xMax - xMin)) / (imgWidth - 1) + xMin;
 
 				let real = zx;
 				let imag = zy;
@@ -64,8 +65,10 @@
 					const denom = denominator_real * denominator_real + denominator_imag * denominator_imag;
 					if (denom === 0) break;
 
-					const div_real = (numerator_real * denominator_real + numerator_imag * denominator_imag) / denom;
-					const div_imag = (numerator_imag * denominator_real - numerator_real * denominator_imag) / denom;
+					const div_real =
+						(numerator_real * denominator_real + numerator_imag * denominator_imag) / denom;
+					const div_imag =
+						(numerator_imag * denominator_real - numerator_real * denominator_imag) / denom;
 
 					// z_new = z - result
 					const newReal = real - div_real;
@@ -120,7 +123,7 @@
 			<p class="text-white/60 mt-2">Fractal generated from Newton's method on complex plane</p>
 		</div>
 		<a
-			href="/"
+			href="{base}/"
 			class="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
 		>
 			← Back
@@ -132,7 +135,9 @@
 
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 			<div>
-				<label class="block text-white/80 text-sm mb-2"> x range: [{xMin.toFixed(4)}, {xMax.toFixed(4)}] </label>
+				<label class="block text-white/80 text-sm mb-2">
+					x range: [{xMin.toFixed(4)}, {xMax.toFixed(4)}]
+				</label>
 				<div class="flex gap-2">
 					<input type="range" bind:value={xMin} min="-1" max="0" step="0.001" class="w-full" />
 					<input type="range" bind:value={xMax} min="0" max="1" step="0.001" class="w-full" />
@@ -140,7 +145,9 @@
 			</div>
 
 			<div>
-				<label class="block text-white/80 text-sm mb-2"> y range: [{yMin.toFixed(4)}, {yMax.toFixed(4)}] </label>
+				<label class="block text-white/80 text-sm mb-2">
+					y range: [{yMin.toFixed(4)}, {yMax.toFixed(4)}]
+				</label>
 				<div class="flex gap-2">
 					<input type="range" bind:value={yMin} min="-1" max="0" step="0.001" class="w-full" />
 					<input type="range" bind:value={yMax} min="0" max="1" step="0.001" class="w-full" />
@@ -149,14 +156,7 @@
 
 			<div>
 				<label class="block text-white/80 text-sm mb-2"> Max Iterations: {maxIterations} </label>
-				<input
-					type="range"
-					bind:value={maxIterations}
-					min="10"
-					max="100"
-					step="5"
-					class="w-full"
-				/>
+				<input type="range" bind:value={maxIterations} min="10" max="100" step="5" class="w-full" />
 			</div>
 		</div>
 

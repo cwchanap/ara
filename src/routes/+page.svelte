@@ -32,7 +32,7 @@
 		},
 		{
 			name: 'Newton Fractal',
-			description: 'Fractal generated from Newton\'s method',
+			description: "Fractal generated from Newton's method",
 			url: '/newton',
 			color: 'from-yellow-500 to-orange-500'
 		},
@@ -53,31 +53,39 @@
 
 <div class="space-y-8">
 	<div class="text-center space-y-4">
-		<h1 class="text-5xl font-bold text-white">
-			Chaos Theory Visualizations
-		</h1>
+		<h1 class="text-5xl font-bold text-white">Chaos Theory Visualizations</h1>
 		<p class="text-xl text-white/70 max-w-2xl mx-auto">
 			Explore beautiful mathematical chaos through interactive visualizations
 		</p>
 	</div>
 
 	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-12">
-		{#each visualizations as viz}
+		{#each visualizations as viz (viz.url)}
 			<a
-				href={viz.url}
+				href="{base}{viz.url}"
 				class="group relative bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6 hover:bg-white/10 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/20"
 			>
-				<div class="absolute inset-0 bg-gradient-to-br {viz.color} opacity-0 group-hover:opacity-10 rounded-xl transition-opacity duration-300"></div>
+				<div
+					class="absolute inset-0 bg-gradient-to-br {viz.color} opacity-0 group-hover:opacity-10 rounded-xl transition-opacity duration-300"
+				></div>
 				<h2 class="text-2xl font-semibold text-white mb-2 relative z-10">
 					{viz.name}
 				</h2>
 				<p class="text-white/60 relative z-10">
 					{viz.description}
 				</p>
-				<div class="mt-4 flex items-center text-purple-400 group-hover:text-purple-300 transition-colors relative z-10">
+				<div
+					class="mt-4 flex items-center text-purple-400 group-hover:text-purple-300 transition-colors relative z-10"
+				>
 					<span class="text-sm font-medium">Explore</span>
-					<svg class="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+					<svg
+						class="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+					>
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"
+						></path>
 					</svg>
 				</div>
 			</a>

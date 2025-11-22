@@ -116,7 +116,7 @@
 			<p class="text-white/60 mt-2">Area-preserving chaotic map from dynamical systems</p>
 		</div>
 		<a
-			href="/"
+			href="{base}/"
 			class="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
 		>
 			← Back
@@ -173,10 +173,10 @@
 	<div class="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6">
 		<h3 class="text-lg font-semibold text-white mb-2">About the Standard Map</h3>
 		<p class="text-white/70 text-sm">
-			The standard map (also called the Chirikov-Taylor map) is an area-preserving chaotic map
-			from a square with side 2π onto itself. It was introduced as a simplified model for motion
-			in a magnetic field. For low values of K, the map displays regular behavior with stable
-			orbits, while larger K values lead to chaotic dynamics.
+			The standard map (also called the Chirikov-Taylor map) is an area-preserving chaotic map from
+			a square with side 2π onto itself. It was introduced as a simplified model for motion in a
+			magnetic field. For low values of K, the map displays regular behavior with stable orbits,
+			while larger K values lead to chaotic dynamics.
 		</p>
 	</div>
 </div>

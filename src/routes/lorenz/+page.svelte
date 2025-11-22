@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import * as THREE from 'three';
 	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+	import { base } from '$app/paths';
 
 	let container: HTMLDivElement;
 	let sigma = $state(95);
@@ -24,6 +25,7 @@
 
 		const renderer = new THREE.WebGLRenderer({ antialias: true });
 		renderer.setSize(container.clientWidth, container.clientHeight);
+		// eslint-disable-next-line svelte/no-dom-manipulating
 		container.appendChild(renderer.domElement);
 
 		const controls = new OrbitControls(camera, renderer.domElement);
@@ -107,6 +109,7 @@
 		window.addEventListener('resize', handleResize);
 
 		// Recreate visualization on parameter change
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		const recreate = () => {
 			scene.remove(lorenzLine);
 			lorenzLine = createLorenzLine();
@@ -117,6 +120,7 @@
 			window.removeEventListener('resize', handleResize);
 			isAnimating = false;
 			renderer.dispose();
+			// eslint-disable-next-line svelte/no-dom-manipulating
 			container.removeChild(renderer.domElement);
 		};
 	});
@@ -131,7 +135,7 @@
 			</p>
 		</div>
 		<a
-			href="/"
+			href="{base}/"
 			class="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
 		>
 			← Back
@@ -146,14 +150,7 @@
 				<label class="block text-white/80 text-sm mb-2">
 					σ (sigma): {sigma.toFixed(2)}
 				</label>
-				<input
-					type="range"
-					bind:value={sigma}
-					min="0"
-					max="100"
-					step="0.1"
-					class="w-full"
-				/>
+				<input type="range" bind:value={sigma} min="0" max="100" step="0.1" class="w-full" />
 			</div>
 
 			<div>
@@ -165,14 +162,7 @@
 				<label class="block text-white/80 text-sm mb-2">
 					β (beta): {beta.toFixed(2)}
 				</label>
-				<input
-					type="range"
-					bind:value={beta}
-					min="0"
-					max="10"
-					step="0.1"
-					class="w-full"
-				/>
+				<input type="range" bind:value={beta} min="0" max="10" step="0.1" class="w-full" />
 			</div>
 		</div>
 
@@ -192,9 +182,9 @@
 	<div class="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6">
 		<h3 class="text-lg font-semibold text-white mb-2">About the Lorenz Attractor</h3>
 		<p class="text-white/70 text-sm">
-			The Lorenz attractor is a set of chaotic solutions to the Lorenz system. It is notable for
-			its butterfly shape and for demonstrating sensitive dependence on initial conditions - a
-			hallmark of chaos theory.
+			The Lorenz attractor is a set of chaotic solutions to the Lorenz system. It is notable for its
+			butterfly shape and for demonstrating sensitive dependence on initial conditions - a hallmark
+			of chaos theory.
 		</p>
 	</div>
 </div>
