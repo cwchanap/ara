@@ -1,7 +1,7 @@
 [build]
-  command = "npm run build"
+  command = "bun run build"
   publish = "build"
 
 [dev]
-  command = "npm run dev"
+  command = "bun run dev"
   targetPort = 5173
