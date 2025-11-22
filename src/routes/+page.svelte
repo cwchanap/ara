@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { base } from '$app/paths';
+
 	const visualizations = [
 		{
 			name: 'Lorenz Attractor',
