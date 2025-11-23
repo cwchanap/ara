@@ -9,6 +9,15 @@
 	let rho = $state(28);
 	let beta = $state(8.0 / 3);
 	let isAnimating = $state(true);
+	let recreate: () => void;
+
+	$effect(() => {
+		// Track dependencies
+		void sigma;
+		void rho;
+		void beta;
+		if (recreate) recreate();
+	});
 
 	onMount(() => {
 		// Scene setup
@@ -109,8 +118,7 @@
 		window.addEventListener('resize', handleResize);
 
 		// Recreate visualization on parameter change
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
-		const recreate = () => {
+		recreate = () => {
 			scene.remove(lorenzLine);
 			lorenzLine = createLorenzLine();
 			scene.add(lorenzLine);
