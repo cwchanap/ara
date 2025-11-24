@@ -5,11 +5,11 @@
 	let canvas: HTMLCanvasElement;
 	let imgWidth = 600;
 	let imgHeight = 600;
-	let xMin = -0.01;
-	let xMax = 0.01;
-	let yMin = -0.01;
-	let yMax = 0.01;
-	let maxIterations = 50;
+	let xMin = $state(-0.01);
+	let xMax = $state(0.01);
+	let yMin = $state(-0.01);
+	let yMax = $state(0.01);
+	let maxIterations = $state(50);
 	let epsilon = 5e-19;
 	let isRendering = false;
 
@@ -20,9 +20,8 @@
 		const ctx = canvas.getContext('2d');
 		if (!ctx) return;
 
-		// Clear canvas with black background
-		ctx.fillStyle = '#000000';
-		ctx.fillRect(0, 0, imgWidth, imgHeight);
+		// Clear canvas
+		ctx.clearRect(0, 0, imgWidth, imgHeight);
 
 		// Draw Newton fractal
 		const imageData = ctx.createImageData(imgWidth, imgHeight);
@@ -87,17 +86,18 @@
 				const idx = (y * imgWidth + x) * 4;
 
 				if (real + 0.5 < epsilon) {
-					// Converged to specific root - show white
-					data[idx] = 255;
+					// Converged to specific root - show White/Cyan
+					data[idx] = 200;
 					data[idx + 1] = 255;
 					data[idx + 2] = 255;
 					data[idx + 3] = 255;
 				} else {
-					// Color based on iterations
-					const color = Math.floor((iterations / maxIterations) * 255);
-					data[idx] = color;
-					data[idx + 1] = color / 2;
-					data[idx + 2] = color / 3;
+					// Color based on iterations - Neon Gold/Amber gradient
+					const intensity = Math.floor((iterations / maxIterations) * 255);
+					// Gold: 255, 215, 0 -> Gradient
+					data[idx] = intensity * 2; // Red
+					data[idx + 1] = intensity * 1.5; // Green
+					data[idx + 2] = intensity * 0.2; // Blue
 					data[idx + 3] = 255;
 				}
 			}
@@ -111,67 +111,150 @@
 		render();
 	});
 
-	$: if (canvas && (xMin || xMax || yMin || yMax || maxIterations)) {
-		render();
-	}
+	$effect(() => {
+		void xMin;
+		void xMax;
+		void yMin;
+		void yMax;
+		void maxIterations;
+		if (canvas) render();
+	});
 </script>
 
 <div class="space-y-6">
-	<div class="flex items-center justify-between">
+	<div class="flex items-center justify-between border-b border-primary/20 pb-4">
 		<div>
-			<h1 class="text-4xl font-bold text-white">Newton Fractal</h1>
-			<p class="text-white/60 mt-2">Fractal generated from Newton's method on complex plane</p>
+			<h1
+				class="text-4xl font-['Orbitron'] font-bold text-primary tracking-wider drop-shadow-[0_0_10px_rgba(0,243,255,0.3)]"
+			>
+				NEWTON_FRACTAL
+			</h1>
+			<p class="text-muted-foreground mt-2 font-light tracking-wide">
+				CHAOTIC_SYSTEM_VISUALIZATION // MODULE_06
+			</p>
 		</div>
 		<a
 			href="{base}/"
-			class="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
+			class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
 		>
-			← Back
+			← Return
 		</a>
 	</div>
 
-	<div class="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6 space-y-4">
-		<h2 class="text-xl font-semibold text-white">Parameters</h2>
+	<div
+		class="bg-card/30 backdrop-blur-md border border-primary/20 rounded-sm p-6 space-y-6 relative overflow-hidden group"
+	>
+		<!-- Decor corners -->
+		<div class="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-primary"></div>
+		<div class="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-primary"></div>
+		<div class="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-primary"></div>
+		<div class="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-primary"></div>
 
-		<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-			<div>
-				<label class="block text-white/80 text-sm mb-2">
-					x range: [{xMin.toFixed(4)}, {xMax.toFixed(4)}]
-				</label>
-				<div class="flex gap-2">
-					<input type="range" bind:value={xMin} min="-1" max="0" step="0.001" class="w-full" />
-					<input type="range" bind:value={xMax} min="0" max="1" step="0.001" class="w-full" />
+		<h2 class="text-xl font-['Orbitron'] font-semibold text-primary flex items-center gap-2">
+			<span class="inline-block w-2 h-2 bg-primary rounded-full animate-pulse"></span>
+			SYSTEM_PARAMETERS
+		</h2>
+
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+			<div class="space-y-4">
+				<div class="flex justify-between items-end">
+					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+						x range
+					</label>
+					<span class="font-mono text-accent text-xs">[{xMin.toFixed(4)}, {xMax.toFixed(4)}]</span>
+				</div>
+				<div class="flex gap-4">
+					<input
+						type="range"
+						bind:value={xMin}
+						min="-1"
+						max="0"
+						step="0.001"
+						class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-accent transition-colors"
+					/>
+					<input
+						type="range"
+						bind:value={xMax}
+						min="0"
+						max="1"
+						step="0.001"
+						class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-accent transition-colors"
+					/>
 				</div>
 			</div>
 
-			<div>
-				<label class="block text-white/80 text-sm mb-2">
-					y range: [{yMin.toFixed(4)}, {yMax.toFixed(4)}]
-				</label>
-				<div class="flex gap-2">
-					<input type="range" bind:value={yMin} min="-1" max="0" step="0.001" class="w-full" />
-					<input type="range" bind:value={yMax} min="0" max="1" step="0.001" class="w-full" />
+			<div class="space-y-4">
+				<div class="flex justify-between items-end">
+					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+						y range
+					</label>
+					<span class="font-mono text-accent text-xs">[{yMin.toFixed(4)}, {yMax.toFixed(4)}]</span>
+				</div>
+				<div class="flex gap-4">
+					<input
+						type="range"
+						bind:value={yMin}
+						min="-1"
+						max="0"
+						step="0.001"
+						class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-accent transition-colors"
+					/>
+					<input
+						type="range"
+						bind:value={yMax}
+						min="0"
+						max="1"
+						step="0.001"
+						class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-accent transition-colors"
+					/>
 				</div>
 			</div>
 
-			<div>
-				<label class="block text-white/80 text-sm mb-2"> Max Iterations: {maxIterations} </label>
-				<input type="range" bind:value={maxIterations} min="10" max="100" step="5" class="w-full" />
+			<div class="space-y-2">
+				<div class="flex justify-between items-end">
+					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+						Max Iterations
+					</label>
+					<span class="font-mono text-accent">{maxIterations}</span>
+				</div>
+				<input
+					type="range"
+					bind:value={maxIterations}
+					min="10"
+					max="100"
+					step="5"
+					class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-accent transition-colors"
+				/>
 			</div>
 		</div>
 
-		<div class="text-sm text-white/60">
+		<div
+			class="grid grid-cols-1 gap-4 text-xs text-muted-foreground font-mono bg-black/20 p-4 rounded border border-white/5"
+		>
 			<p>z(n+1) = z(n) - (z³ - 1) / (3z²)</p>
 		</div>
 	</div>
 
-	<div class="bg-black border border-white/10 rounded-xl overflow-hidden p-4 flex justify-center">
-		<canvas bind:this={canvas} width={imgWidth} height={imgHeight}></canvas>
+	<div
+		class="bg-black/40 border border-primary/20 rounded-sm overflow-hidden shadow-[0_0_30px_rgba(0,0,0,0.5)] relative p-4 flex justify-center"
+	>
+		<canvas bind:this={canvas} width={imgWidth} height={imgHeight} class="max-w-full h-auto"
+		></canvas>
+		<div
+			class="absolute top-4 right-4 text-xs font-mono text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
+		>
+			LIVE_RENDER // CANVAS_2D
+		</div>
 	</div>
 
-	<div class="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6">
-		<h3 class="text-lg font-semibold text-white mb-2">About Newton Fractals</h3>
-		<p class="text-white/70 text-sm">
+	<div class="bg-card/30 backdrop-blur-md border border-primary/20 rounded-sm p-6 relative">
+		<div
+			class="absolute top-0 left-0 w-1 h-full bg-linear-to-b from-primary to-transparent opacity-50"
+		></div>
+		<h3 class="text-lg font-['Orbitron'] font-semibold text-primary mb-2">
+			DATA_LOG: NEWTON_FRACTAL
+		</h3>
+		<p class="text-muted-foreground text-sm leading-relaxed max-w-3xl">
 			Newton fractals are created by applying Newton's method to find roots of complex functions.
 			Each pixel is colored based on which root it converges to. The intricate boundaries between
 			basins of attraction form beautiful fractal patterns, revealing the chaotic nature of the
