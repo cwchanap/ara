@@ -1,16 +1,22 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import * as d3 from 'd3';
 	import { base } from '$app/paths';
 
 	let container: HTMLDivElement;
 	const MAX_POINTS = 15000;
+	const DEBOUNCE_MS = 250;
 	let renderTimeout: number | null = null;
+	let worker: Worker | null = null;
+	let workerRequestId = 0;
+	let latestWorkerRequestId = 0;
+	let workerAvailable = false;
 	let a = $state(0.9);
 	let b = $state(0.9999);
 	let x0 = $state(18);
 	let y0 = $state(0);
 	let iterations = $state(10000);
+	let isComputing = $state(false);
 
 	function f(x: number, a: number): number {
 		return a * x + (2 * (1 - a) * x * x) / (1 + x * x);
@@ -42,7 +48,7 @@
 		return points;
 	}
 
-	function render() {
+	function render(points: [number, number][]) {
 		if (!container) return;
 
 		d3.select(container).selectAll('*').remove();
@@ -51,6 +57,15 @@
 		const width = container.clientWidth - margin.left - margin.right;
 		const height = 600 - margin.top - margin.bottom;
 
+		const canvasSelection = d3
+			.select(container)
+			.append('canvas')
+			.attr('width', width)
+			.attr('height', height)
+			.style('position', 'absolute')
+			.style('top', `${margin.top}px`)
+			.style('left', `${margin.left}px`);
+
 		const svg = d3
 			.select(container)
 			.append('svg')
@@ -58,8 +73,6 @@
 			.attr('height', 600)
 			.append('g')
 			.attr('transform', `translate(${margin.left},${margin.top})`);
-
-		const points = calculateChaos(a, b, x0, y0, iterations, MAX_POINTS);
 
 		const xExtent = d3.extent(points, (d) => d[0]) as [number, number];
 		const yExtent = d3.extent(points, (d) => d[1]) as [number, number];
@@ -127,37 +140,102 @@
 			.attr('font-size', '14px')
 			.text('Y');
 
-		// Plot points
-		svg
-			.selectAll('circle')
-			.data(points)
-			.enter()
-			.append('circle')
-			.attr('cx', (d) => xScale(d[0]))
-			.attr('cy', (d) => yScale(d[1]))
-			.attr('r', 1.5)
-			.attr('fill', (d, i) => {
-				const t = i / points.length;
-				// Neon Pink/Purple Gradient
-				return d3.interpolate('#ff00ff', '#8a2be2')(t);
-			})
-			.attr('opacity', 0.6)
-			.attr('filter', 'drop-shadow(0 0 2px rgba(255, 0, 255, 0.5))');
+		const canvas = canvasSelection.node() as HTMLCanvasElement | null;
+		const ctx = canvas?.getContext('2d');
+		if (!canvas || !ctx) return;
+
+		ctx.clearRect(0, 0, width, height);
+		ctx.globalAlpha = 0.6;
+		ctx.shadowBlur = 4;
+		ctx.shadowColor = 'rgba(255, 0, 255, 0.5)';
+
+		for (let i = 0; i < points.length; i++) {
+			const [xVal, yVal] = points[i];
+			const x = xScale(xVal);
+			const y = yScale(yVal);
+			const t = i / points.length;
+			const color = d3.interpolate('#ff00ff', '#8a2be2')(t);
+			ctx.fillStyle = color;
+			ctx.beginPath();
+			ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+			ctx.fill();
+		}
+
+		ctx.globalAlpha = 1;
+		ctx.shadowBlur = 0;
+	}
+
+	function requestPoints() {
+		const payload = {
+			type: 'chaos' as const,
+			id: ++workerRequestId,
+			a,
+			b,
+			x0,
+			y0,
+			iterations,
+			maxPoints: MAX_POINTS
+		};
+
+		if (worker && workerAvailable) {
+			latestWorkerRequestId = payload.id;
+			isComputing = true;
+			worker.postMessage(payload);
+		} else {
+			isComputing = true;
+			const points = calculateChaos(a, b, x0, y0, iterations, MAX_POINTS);
+			render(points);
+			isComputing = false;
+		}
 	}
 
 	function scheduleRender() {
-		if (!container) return;
+		if (!container || isComputing) return;
 		if (renderTimeout !== null) {
 			clearTimeout(renderTimeout);
 		}
 		renderTimeout = setTimeout(() => {
 			renderTimeout = null;
-			render();
-		}, 120);
+			requestPoints();
+		}, DEBOUNCE_MS);
 	}
 
 	onMount(() => {
+		if (typeof window !== 'undefined' && 'Worker' in window) {
+			try {
+				worker = new Worker(new URL('../../lib/workers/chaosMapsWorker.ts', import.meta.url), {
+					type: 'module'
+				});
+				workerAvailable = true;
+				worker.onmessage = (event: MessageEvent) => {
+					const data = event.data as {
+						type: string;
+						id: number;
+						points: [number, number][];
+					};
+					if (!data || data.type !== 'chaosResult') return;
+					if (data.id !== latestWorkerRequestId) return;
+					isComputing = false;
+					render(data.points);
+				};
+			} catch {
+				worker = null;
+				workerAvailable = false;
+			}
+		}
+
 		scheduleRender();
+	});
+
+	onDestroy(() => {
+		if (worker) {
+			worker.terminate();
+			worker = null;
+		}
+		if (renderTimeout !== null) {
+			clearTimeout(renderTimeout);
+			renderTimeout = null;
+		}
 	});
 
 	$effect(() => {
@@ -213,6 +291,7 @@
 				<input
 					type="range"
 					bind:value={a}
+					disabled={isComputing}
 					min="0"
 					max="2"
 					step="0.0001"
@@ -228,6 +307,7 @@
 				<input
 					type="range"
 					bind:value={b}
+					disabled={isComputing}
 					min="0"
 					max="1.5"
 					step="0.0001"
@@ -243,6 +323,7 @@
 				<input
 					type="range"
 					bind:value={x0}
+					disabled={isComputing}
 					min="-20"
 					max="20"
 					step="0.1"
@@ -258,6 +339,7 @@
 				<input
 					type="range"
 					bind:value={y0}
+					disabled={isComputing}
 					min="-20"
 					max="20"
 					step="0.1"
@@ -275,6 +357,7 @@
 				<input
 					type="range"
 					bind:value={iterations}
+					disabled={isComputing}
 					min="1000"
 					max="20000"
 					step="1000"
@@ -293,12 +376,17 @@
 
 	<div
 		bind:this={container}
-		class="bg-black/40 border border-primary/20 rounded-sm overflow-hidden shadow-[0_0_30px_rgba(0,0,0,0.5)] relative"
+		class="bg-black/40 border border-primary/20 rounded-sm overflow-hidden shadow-[0_0_30px_rgba(0,0,0,0.5)] relative h-[600px]"
 	>
 		<div
-			class="absolute top-4 right-4 text-xs font-mono text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
+			class={`absolute top-4 right-4 text-xs font-mono px-2 py-1 pointer-events-none select-none bg-black/60 backdrop-blur-sm border ${
+				isComputing ? 'text-accent border-accent' : 'text-primary/60 border-primary/40'
+			}`}
 		>
 			LIVE_RENDER // D3.JS
+			<span class="ml-2 text-[0.65rem] tracking-widest uppercase">
+				COMPUTE: {isComputing ? 'BUSY' : 'IDLE'}
+			</span>
 		</div>
 	</div>
 

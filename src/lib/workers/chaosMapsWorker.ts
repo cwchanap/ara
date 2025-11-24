@@ -1,0 +1,132 @@
+type StandardRequest = {
+	type: 'standard';
+	id: number;
+	numP: number;
+	numQ: number;
+	iterations: number;
+	K: number;
+	maxPoints: number;
+};
+
+type ChaosRequest = {
+	type: 'chaos';
+	id: number;
+	a: number;
+	b: number;
+	x0: number;
+	y0: number;
+	iterations: number;
+	maxPoints: number;
+};
+
+type WorkerRequest = StandardRequest | ChaosRequest;
+
+type StandardResponse = {
+	type: 'standardResult';
+	id: number;
+	points: [number, number][];
+};
+
+type ChaosResponse = {
+	type: 'chaosResult';
+	id: number;
+	points: [number, number][];
+};
+
+type WorkerResponse = StandardResponse | ChaosResponse;
+
+function standardMap(
+	numP: number,
+	numQ: number,
+	iterations: number,
+	K: number,
+	maxPoints: number
+): [number, number][] {
+	const points: [number, number][] = [];
+
+	outer: for (let i = 1; i <= numP; i++) {
+		for (let j = 1; j <= numQ; j++) {
+			let p = (i / numP) % (2 * Math.PI);
+			let q = (j / numQ) % (2 * Math.PI);
+
+			for (let k = 0; k < iterations; k++) {
+				const pNew = (p + K * Math.sin(q)) % (2 * Math.PI);
+				const qNew = (q + pNew) % (2 * Math.PI);
+
+				points.push([qNew, pNew]);
+
+				p = pNew;
+				q = qNew;
+
+				if (points.length >= maxPoints) {
+					break outer;
+				}
+			}
+		}
+	}
+
+	return points;
+}
+
+function f(x: number, a: number): number {
+	return a * x + (2 * (1 - a) * x * x) / (1 + x * x);
+}
+
+function calculateChaos(
+	a: number,
+	b: number,
+	x0: number,
+	y0: number,
+	iterations: number,
+	maxPoints: number
+): [number, number][] {
+	const points: [number, number][] = [];
+	let x = x0;
+	let y = y0;
+
+	const steps = Math.min(iterations, maxPoints);
+	for (let i = 0; i < steps; i++) {
+		const xNew = y + f(x, a);
+		const yNew = -b * x + f(xNew, a);
+
+		points.push([xNew, yNew]);
+
+		x = xNew;
+		y = yNew;
+	}
+
+	return points;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const ctx: any = self as any;
+
+ctx.onmessage = (event: MessageEvent) => {
+	const data = event.data as WorkerRequest;
+	if (!data) return;
+
+	if (data.type === 'standard') {
+		const points = standardMap(data.numP, data.numQ, data.iterations, data.K, data.maxPoints);
+		const response: WorkerResponse = {
+			type: 'standardResult',
+			id: data.id,
+			points
+		};
+		ctx.postMessage(response);
+	} else if (data.type === 'chaos') {
+		const points = calculateChaos(
+			data.a,
+			data.b,
+			data.x0,
+			data.y0,
+			data.iterations,
+			data.maxPoints
+		);
+		const response: WorkerResponse = {
+			type: 'chaosResult',
+			id: data.id,
+			points
+		};
+		ctx.postMessage(response);
+	}
+};

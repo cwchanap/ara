@@ -1,15 +1,21 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import * as d3 from 'd3';
 	import { base } from '$app/paths';
 
 	let container: HTMLDivElement;
 	const MAX_POINTS = 20000;
+	const DEBOUNCE_MS = 150;
 	let renderTimeout: number | null = null;
+	let worker: Worker | null = null;
+	let workerRequestId = 0;
+	let latestWorkerRequestId = 0;
+	let workerAvailable = false;
 	let K = $state(0.971635);
 	let numP = $state(10);
 	let numQ = $state(10);
 	let iterations = $state(20000);
+	let isComputing = $state(false);
 
 	function standardMap(
 		numP: number,
@@ -44,7 +50,7 @@
 		return points;
 	}
 
-	function render() {
+	function render(points: [number, number][]) {
 		if (!container) return;
 
 		d3.select(container).selectAll('*').remove();
@@ -53,6 +59,15 @@
 		const width = container.clientWidth - margin.left - margin.right;
 		const height = 600 - margin.top - margin.bottom;
 
+		const canvasSelection = d3
+			.select(container)
+			.append('canvas')
+			.attr('width', width)
+			.attr('height', height)
+			.style('position', 'absolute')
+			.style('top', `${margin.top}px`)
+			.style('left', `${margin.left}px`);
+
 		const svg = d3
 			.select(container)
 			.append('svg')
@@ -60,8 +75,6 @@
 			.attr('height', 600)
 			.append('g')
 			.attr('transform', `translate(${margin.left},${margin.top})`);
-
-		const points = standardMap(numP, numQ, iterations, K, MAX_POINTS);
 
 		const xScale = d3
 			.scaleLinear()
@@ -126,32 +139,95 @@
 			.attr('font-size', '14px')
 			.text('p');
 
-		// Plot points
-		svg
-			.selectAll('circle')
-			.data(points)
-			.enter()
-			.append('circle')
-			.attr('cx', (d) => xScale(d[0]))
-			.attr('cy', (d) => yScale(d[1]))
-			.attr('r', 0.8)
-			.attr('fill', '#00ffcc') // Neon Teal
-			.attr('opacity', 0.4);
+		const canvas = canvasSelection.node() as HTMLCanvasElement | null;
+		const ctx = canvas?.getContext('2d');
+		if (!canvas || !ctx) return;
+
+		ctx.clearRect(0, 0, width, height);
+		ctx.fillStyle = '#00ffcc';
+		ctx.globalAlpha = 0.4;
+
+		for (const [qVal, pVal] of points) {
+			const x = xScale(qVal);
+			const y = yScale(pVal);
+			ctx.beginPath();
+			ctx.arc(x, y, 0.8, 0, Math.PI * 2);
+			ctx.fill();
+		}
+
+		ctx.globalAlpha = 1;
+	}
+
+	function requestPoints() {
+		const payload = {
+			type: 'standard' as const,
+			id: ++workerRequestId,
+			numP,
+			numQ,
+			iterations,
+			K,
+			maxPoints: MAX_POINTS
+		};
+
+		if (worker && workerAvailable) {
+			latestWorkerRequestId = payload.id;
+			isComputing = true;
+			worker.postMessage(payload);
+		} else {
+			isComputing = true;
+			const points = standardMap(numP, numQ, iterations, K, MAX_POINTS);
+			render(points);
+			isComputing = false;
+		}
 	}
 
 	function scheduleRender() {
-		if (!container) return;
+		if (!container || isComputing) return;
 		if (renderTimeout !== null) {
 			clearTimeout(renderTimeout);
 		}
 		renderTimeout = setTimeout(() => {
 			renderTimeout = null;
-			render();
-		}, 120);
+			requestPoints();
+		}, DEBOUNCE_MS);
 	}
 
 	onMount(() => {
+		if (typeof window !== 'undefined' && 'Worker' in window) {
+			try {
+				worker = new Worker(new URL('../../lib/workers/chaosMapsWorker.ts', import.meta.url), {
+					type: 'module'
+				});
+				workerAvailable = true;
+				worker.onmessage = (event: MessageEvent) => {
+					const data = event.data as {
+						type: string;
+						id: number;
+						points: [number, number][];
+					};
+					if (!data || data.type !== 'standardResult') return;
+					if (data.id !== latestWorkerRequestId) return;
+					isComputing = false;
+					render(data.points);
+				};
+			} catch {
+				worker = null;
+				workerAvailable = false;
+			}
+		}
+
 		scheduleRender();
+	});
+
+	onDestroy(() => {
+		if (worker) {
+			worker.terminate();
+			worker = null;
+		}
+		if (renderTimeout !== null) {
+			clearTimeout(renderTimeout);
+			renderTimeout = null;
+		}
 	});
 
 	$effect(() => {
@@ -206,6 +282,7 @@
 				<input
 					type="range"
 					bind:value={K}
+					disabled={isComputing}
 					min="0"
 					max="5"
 					step="0.01"
@@ -223,6 +300,7 @@
 				<input
 					type="range"
 					bind:value={numP}
+					disabled={isComputing}
 					min="1"
 					max="20"
 					step="1"
@@ -240,6 +318,7 @@
 				<input
 					type="range"
 					bind:value={numQ}
+					disabled={isComputing}
 					min="1"
 					max="20"
 					step="1"
@@ -257,6 +336,7 @@
 				<input
 					type="range"
 					bind:value={iterations}
+					disabled={isComputing}
 					min="1000"
 					max="50000"
 					step="1000"
@@ -279,12 +359,17 @@
 
 	<div
 		bind:this={container}
-		class="bg-black/40 border border-primary/20 rounded-sm overflow-hidden shadow-[0_0_30px_rgba(0,0,0,0.5)] relative"
+		class="bg-black/40 border border-primary/20 rounded-sm overflow-hidden shadow-[0_0_30px_rgba(0,0,0,0.5)] relative h-[600px]"
 	>
 		<div
-			class="absolute top-4 right-4 text-xs font-mono text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
+			class={`absolute top-4 right-4 text-xs font-mono px-2 py-1 pointer-events-none select-none bg-black/60 backdrop-blur-sm border ${
+				isComputing ? 'text-accent border-accent' : 'text-primary/60 border-primary/40'
+			}`}
 		>
 			LIVE_RENDER // D3.JS
+			<span class="ml-2 text-[0.65rem] tracking-widest uppercase">
+				COMPUTE: {isComputing ? 'BUSY' : 'IDLE'}
+			</span>
 		</div>
 	</div>
 
