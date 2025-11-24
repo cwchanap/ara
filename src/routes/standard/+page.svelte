@@ -4,15 +4,23 @@
 	import { base } from '$app/paths';
 
 	let container: HTMLDivElement;
+	const MAX_POINTS = 20000;
+	let renderTimeout: number | null = null;
 	let K = $state(0.971635);
 	let numP = $state(10);
 	let numQ = $state(10);
 	let iterations = $state(20000);
 
-	function standardMap(numP: number, numQ: number, iterations: number, K: number) {
+	function standardMap(
+		numP: number,
+		numQ: number,
+		iterations: number,
+		K: number,
+		maxPoints: number
+	) {
 		const points: [number, number][] = [];
 
-		for (let i = 1; i <= numP; i++) {
+		outer: for (let i = 1; i <= numP; i++) {
 			for (let j = 1; j <= numQ; j++) {
 				let p = (i / numP) % (2 * Math.PI);
 				let q = (j / numQ) % (2 * Math.PI);
@@ -25,6 +33,10 @@
 
 					p = pNew;
 					q = qNew;
+
+					if (points.length >= maxPoints) {
+						break outer;
+					}
 				}
 			}
 		}
@@ -49,7 +61,7 @@
 			.append('g')
 			.attr('transform', `translate(${margin.left},${margin.top})`);
 
-		const points = standardMap(numP, numQ, iterations, K);
+		const points = standardMap(numP, numQ, iterations, K, MAX_POINTS);
 
 		const xScale = d3
 			.scaleLinear()
@@ -127,8 +139,19 @@
 			.attr('opacity', 0.4);
 	}
 
+	function scheduleRender() {
+		if (!container) return;
+		if (renderTimeout !== null) {
+			clearTimeout(renderTimeout);
+		}
+		renderTimeout = setTimeout(() => {
+			renderTimeout = null;
+			render();
+		}, 120);
+	}
+
 	onMount(() => {
-		render();
+		scheduleRender();
 	});
 
 	$effect(() => {
@@ -136,7 +159,7 @@
 		void numP;
 		void numQ;
 		void iterations;
-		if (container) render();
+		scheduleRender();
 	});
 </script>
 

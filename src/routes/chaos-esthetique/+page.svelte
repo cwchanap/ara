@@ -4,6 +4,8 @@
 	import { base } from '$app/paths';
 
 	let container: HTMLDivElement;
+	const MAX_POINTS = 15000;
+	let renderTimeout: number | null = null;
 	let a = $state(0.9);
 	let b = $state(0.9999);
 	let x0 = $state(18);
@@ -14,12 +16,20 @@
 		return a * x + (2 * (1 - a) * x * x) / (1 + x * x);
 	}
 
-	function calculateChaos(a: number, b: number, x0: number, y0: number, iterations: number) {
+	function calculateChaos(
+		a: number,
+		b: number,
+		x0: number,
+		y0: number,
+		iterations: number,
+		maxPoints: number
+	) {
 		const points: [number, number][] = [];
 		let x = x0;
 		let y = y0;
 
-		for (let i = 0; i < iterations; i++) {
+		const steps = Math.min(iterations, maxPoints);
+		for (let i = 0; i < steps; i++) {
 			const xNew = y + f(x, a);
 			const yNew = -b * x + f(xNew, a);
 
@@ -49,7 +59,7 @@
 			.append('g')
 			.attr('transform', `translate(${margin.left},${margin.top})`);
 
-		const points = calculateChaos(a, b, x0, y0, iterations);
+		const points = calculateChaos(a, b, x0, y0, iterations, MAX_POINTS);
 
 		const xExtent = d3.extent(points, (d) => d[0]) as [number, number];
 		const yExtent = d3.extent(points, (d) => d[1]) as [number, number];
@@ -135,8 +145,19 @@
 			.attr('filter', 'drop-shadow(0 0 2px rgba(255, 0, 255, 0.5))');
 	}
 
+	function scheduleRender() {
+		if (!container) return;
+		if (renderTimeout !== null) {
+			clearTimeout(renderTimeout);
+		}
+		renderTimeout = setTimeout(() => {
+			renderTimeout = null;
+			render();
+		}, 120);
+	}
+
 	onMount(() => {
-		render();
+		scheduleRender();
 	});
 
 	$effect(() => {
@@ -145,7 +166,7 @@
 		void x0;
 		void y0;
 		void iterations;
-		if (container) render();
+		scheduleRender();
 	});
 </script>
 
