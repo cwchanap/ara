@@ -1,73 +1,131 @@
-# [PROJECT_NAME] Constitution
+<!--
+## Sync Impact Report
+- Version change: N/A → 1.0.0 (Initial ratification)
+- Added sections:
+  - Core Principles (5 principles)
+  - Performance Standards
+  - Development Workflow
+  - Governance
+- Templates requiring updates:
+  - `.specify/templates/plan-template.md` ✅ (aligned - uses Constitution Check section)
+  - `.specify/templates/spec-template.md` ✅ (aligned - user story format compatible)
+  - `.specify/templates/tasks-template.md` ✅ (aligned - phase structure supports principles)
+- Follow-up TODOs: None
+-->
 
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# Ara Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
+### I. Svelte 5 Runes Pattern
 
-<!-- Example: I. Library-First -->
+All reactive state management MUST use Svelte 5 runes syntax exclusively:
 
-[PRINCIPLE_1_DESCRIPTION]
+- Use `$state()` for reactive variables
+- Use `$effect()` for reactive side effects (replaces legacy `$:` statements)
+- Use `$props()` for component props
+- Follow the dependency tracking pattern: `void param;` to explicitly track dependencies
 
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+**Rationale**: Consistent reactivity patterns ensure predictable updates across all
+visualizations and prevent mixing legacy/modern syntax that causes maintenance burden.
 
-### [PRINCIPLE_2_NAME]
+### II. Visualization Library Selection
 
-<!-- Example: II. CLI Interface -->
+Each visualization MUST use the appropriate rendering library based on its requirements:
 
-[PRINCIPLE_2_DESCRIPTION]
+- **Three.js**: 3D visualizations (e.g., Lorenz attractor)
+- **D3.js**: 2D plots with axes and data binding (e.g., Hénon, Logistic, Standard maps)
+- **Canvas API**: High-performance pixel manipulation (e.g., fractals, bifurcation diagrams)
+- **Web Workers**: Heavy computations that would block the UI thread
 
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+**Rationale**: Matching the rendering library to the visualization type ensures optimal
+performance and appropriate abstraction level for each use case.
 
-### [PRINCIPLE_3_NAME]
+### III. Cleanup Discipline (NON-NEGOTIABLE)
 
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
+All visualization components MUST implement proper cleanup to prevent memory leaks:
 
-[PRINCIPLE_3_DESCRIPTION]
+- Three.js: dispose renderer, remove event listeners, set `isAnimating = false`
+- D3.js: `d3.select(container).selectAll('*').remove()` before re-render
+- Canvas: use `isRendering` flags to prevent concurrent renders
+- Web Workers: terminate workers on component unmount
 
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+**Rationale**: Visualization components create significant resources (WebGL contexts,
+DOM elements, worker threads) that must be explicitly released.
 
-### [PRINCIPLE_4_NAME]
+### IV. Sci-Fi Aesthetic Consistency
 
-<!-- Example: IV. Integration Testing -->
+All UI elements MUST adhere to the established sci-fi chaos theory aesthetic:
 
-[PRINCIPLE_4_DESCRIPTION]
+- Primary color: Neon cyan (`#00f3ff`)
+- Accent: Magenta/purple gradients
+- Typography: "Orbitron" (headings), "Rajdhani" (body)
+- Naming convention: UPPERCASE_SNAKE_CASE for visualization titles
+- UI patterns: Corner borders, glowing effects, backdrop blur, tech grid background
 
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+**Rationale**: Visual consistency reinforces the project's identity and provides a
+cohesive user experience across all 8+ visualizations.
 
-### [PRINCIPLE_5_NAME]
+### V. Base Path Compliance
 
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
+All internal navigation and asset references MUST use `{base}` from `$app/paths`:
 
-[PRINCIPLE_5_DESCRIPTION]
+- Route links: `href="{base}/visualization-name"`
+- Asset paths: Use relative imports or base-prefixed paths
 
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+**Rationale**: Enables deployment to non-root paths (e.g., subdirectories on Netlify)
+without broken links or missing assets.
 
-## [SECTION_2_NAME]
+## Performance Standards
 
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+Visualization performance requirements:
 
-[SECTION_2_CONTENT]
+- **Frame rate**: Maintain 60fps during animation and parameter adjustment
+- **Initial render**: Complete within 500ms of navigation
+- **Parameter updates**: Reflect changes within 100ms
+- **Heavy computations**: MUST use web workers if processing exceeds 50ms
+- **Bifurcation diagrams**: Limit iterations and resolution for responsiveness
 
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+Code quality gates:
 
-## [SECTION_3_NAME]
+- `npm run check` MUST pass (svelte-check for type errors)
+- `npm run lint` MUST pass (ESLint + Prettier)
+- No console errors during normal operation
+- Mathematical edge cases (NaN, Infinity) MUST be handled gracefully
 
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+## Development Workflow
 
-[SECTION_3_CONTENT]
+### Adding New Visualizations
 
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+1. Create route at `src/routes/[visualization-name]/+page.svelte`
+2. Select rendering library per Principle II
+3. Implement reactive parameters with `$state()` and `$effect()` per Principle I
+4. Add visualization card to `src/routes/+page.svelte` homepage array
+5. Include mathematical formula display in control panel
+6. Apply sci-fi themed UI per Principle IV
+7. Implement cleanup per Principle III
+8. Verify base path compliance per Principle V
+
+### Pre-Commit Requirements
+
+- Lint-staged hooks automatically run linting and formatting
+- All visualization pages must render without errors
+- Parameter controls must update visualization in real-time
 
 ## Governance
 
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+This constitution supersedes all other development practices for the Ara project.
 
-[GOVERNANCE_RULES]
+**Amendment Process**:
 
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+1. Proposed changes must be documented with rationale
+2. Changes must not break existing visualizations
+3. Version must be incremented per semantic versioning:
+   - MAJOR: Principle removal or incompatible redefinition
+   - MINOR: New principle or material expansion
+   - PATCH: Clarification or wording refinement
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
+**Compliance**: All PRs and code reviews must verify adherence to these principles.
+Use `AGENTS.md` for runtime development guidance and implementation patterns.
 
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2025-11-26 | **Last Amended**: 2025-11-26
