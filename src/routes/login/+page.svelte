@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { base } from '$app/paths';
+	import { validateEmail as sharedValidateEmail } from '$lib/auth-errors';
 
 	let { form } = $props();
 
@@ -12,12 +13,12 @@
 	let emailError = $state('');
 	let passwordError = $state('');
 
+	// Wrapper to convert null to empty string for UI display
 	function validateEmail(value: string): string {
-		if (!value) return 'Email is required';
-		if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'Please enter a valid email address';
-		return '';
+		return sharedValidateEmail(value) ?? '';
 	}
 
+	// Login only checks for presence, not length (existing accounts may have shorter passwords)
 	function validatePassword(value: string): string {
 		if (!value) return 'Password is required';
 		return '';

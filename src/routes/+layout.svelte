@@ -16,13 +16,29 @@
 	// Session expiry notification state
 	let showSessionExpiredNotification = $state(false);
 
+	// Track if user initiated logout to distinguish from session expiry
+	// This prevents showing "session expired" notification on intentional logout
+	let userInitiatedLogout = $state(false);
+
+	// Track previous auth state - stored as plain variable, updated before auth state changes
+	// This is intentionally not reactive to capture the state before onAuthStateChange fires
+	let wasAuthenticated = false;
+
 	// Browser client for auth state changes (created in onMount to avoid SSR issues)
 	let supabase: ReturnType<typeof createClient> | undefined;
 
 	// Timer ID for session expiry redirect (for cleanup)
 	let sessionExpiryTimerId: ReturnType<typeof setTimeout> | undefined;
 
+	// Handler for logout form submission to mark user-initiated logout
+	function handleLogoutSubmit() {
+		userInitiatedLogout = true;
+	}
+
 	onMount(() => {
+		// Initialize wasAuthenticated from initial data
+		wasAuthenticated = !!data.session;
+
 		// Create Supabase client only in browser context
 		supabase = createClient();
 
@@ -34,8 +50,10 @@
 
 			// Handle session expiry (T046, T047)
 			if (event === 'SIGNED_OUT' && !session) {
-				// Check if we were previously authenticated (session expired)
-				if (isAuthenticated) {
+				// Only show notification if:
+				// 1. User was previously authenticated (wasAuthenticated tracks this independently)
+				// 2. This wasn't a user-initiated logout
+				if (wasAuthenticated && !userInitiatedLogout) {
 					showSessionExpiredNotification = true;
 					// Store current path for return URL
 					const currentPath = $page.url.pathname;
@@ -48,6 +66,8 @@
 						}, 3000);
 					}
 				}
+				// Reset the flag after handling
+				userInitiatedLogout = false;
 			}
 		});
 
@@ -110,7 +130,13 @@
 						>
 							Profile
 						</a>
-						<form method="POST" action="{base}/profile?/signout" use:enhance class="inline">
+						<form
+							method="POST"
+							action="{base}/profile?/signout"
+							use:enhance
+							onsubmit={handleLogoutSubmit}
+							class="inline"
+						>
 							<button
 								type="submit"
 								class="text-sm uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors font-medium cursor-pointer"

@@ -3,6 +3,7 @@
 export interface Profile {
 	id: string;
 	username: string;
-	createdAt: Date;
-	updatedAt: Date;
+	// Timestamps are strings due to Drizzle mode: 'string' configuration
+	createdAt: string;
+	updatedAt: string;
 }

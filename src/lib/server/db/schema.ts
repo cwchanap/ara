@@ -5,8 +5,12 @@ import { pgTable, uuid, text, timestamp } from 'drizzle-orm/pg-core';
 export const profiles = pgTable('profiles', {
 	id: uuid('id').primaryKey(), // Matches Supabase auth.users.id
 	username: text('username').unique().notNull(),
-	createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-	updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
+	createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
+		.defaultNow()
+		.notNull(),
+	updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' })
+		.defaultNow()
+		.notNull()
 });
 
 // Type inference for select and insert
