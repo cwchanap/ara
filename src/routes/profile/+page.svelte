@@ -165,7 +165,7 @@
 			>
 				{#if isUpdatingUsername}
 					<span class="inline-flex items-center gap-2">
-						<svg class="animate-spin h-4 w-4" viewBox="0 0 24 24">
+						<svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
 							<circle
 								class="opacity-25"
 								cx="12"
@@ -319,7 +319,7 @@
 			>
 				{#if isChangingPassword}
 					<span class="inline-flex items-center gap-2">
-						<svg class="animate-spin h-4 w-4" viewBox="0 0 24 24">
+						<svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
 							<circle
 								class="opacity-25"
 								cx="12"

@@ -48,26 +48,42 @@
 			// Invalidate layout data to refresh session state
 			invalidate('supabase:auth');
 
-			// Handle session expiry (T046, T047)
-			if (event === 'SIGNED_OUT' && !session) {
-				// Only show notification if:
-				// 1. User was previously authenticated (wasAuthenticated tracks this independently)
-				// 2. This wasn't a user-initiated logout
-				if (wasAuthenticated && !userInitiatedLogout) {
-					showSessionExpiredNotification = true;
-					// Store current path for return URL
-					const currentPath = $page.url.pathname;
-					const isAuthPage = currentPath.includes('/login') || currentPath.includes('/signup');
-					if (!isAuthPage) {
-						// Store timer ID for cleanup on unmount
-						sessionExpiryTimerId = setTimeout(() => {
-							showSessionExpiredNotification = false;
-							goto(`${base}/login?redirect=${encodeURIComponent(currentPath)}`);
-						}, 3000);
+			// Update wasAuthenticated to reflect the latest session state
+			// This must happen before SIGNED_OUT handling so the check uses current auth state
+			if (event === 'SIGNED_IN') {
+				wasAuthenticated = true;
+			} else if (event === 'SIGNED_OUT') {
+				// Capture current state before updating for the notification check below
+				const wasAuthenticatedBefore = wasAuthenticated;
+				wasAuthenticated = false;
+
+				// Handle session expiry (T046, T047)
+				if (!session) {
+					// Only show notification if:
+					// 1. User was previously authenticated
+					// 2. This wasn't a user-initiated logout
+					if (wasAuthenticatedBefore && !userInitiatedLogout) {
+						showSessionExpiredNotification = true;
+						// Store current path for return URL
+						const currentPath = $page.url.pathname;
+						const isAuthPage = currentPath.includes('/login') || currentPath.includes('/signup');
+						if (!isAuthPage) {
+							// Store timer ID for cleanup on unmount
+							sessionExpiryTimerId = setTimeout(() => {
+								showSessionExpiredNotification = false;
+								goto(`${base}/login?redirect=${encodeURIComponent(currentPath)}`);
+							}, 3000);
+						}
 					}
+					// Reset the flag after handling
+					userInitiatedLogout = false;
 				}
-				// Reset the flag after handling
-				userInitiatedLogout = false;
+				return; // Early return since SIGNED_OUT is fully handled
+			}
+
+			// Handle other auth events that might indicate session state changes
+			if (event === 'TOKEN_REFRESHED' && session) {
+				wasAuthenticated = true;
 			}
 		});
 
