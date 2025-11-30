@@ -10,7 +10,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	// Redirect unauthenticated users to login (FR-009)
 	if (!session || !user) {
 		const redirectUrl = `/login?redirect=${encodeURIComponent(url.pathname)}`;
-		redirect(303, redirectUrl);
+		throw redirect(303, redirectUrl);
 	}
 
 	// Fetch user's profile from Neon DB
@@ -128,6 +128,6 @@ export const actions: Actions = {
 			console.error('Error signing out:', error);
 		}
 
-		redirect(303, '/login');
+		throw redirect(303, '/login');
 	}
 };
