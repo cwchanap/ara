@@ -155,3 +155,12 @@ The app uses a **sci-fi chaos theory aesthetic**:
 - Verify parameter ranges produce valid results
 - Test cleanup on component unmount (memory leaks)
 - Confirm reactive updates trigger re-renders correctly
+
+## Active Technologies
+
+- TypeScript 5.9+ (strict mode) (002-supabase-auth)
+- Supabase PostgreSQL (hosted) with `profiles` table for username storage (002-supabase-auth)
+
+## Recent Changes
+
+- 002-supabase-auth: Added TypeScript 5.9+ (strict mode)

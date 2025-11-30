@@ -2,8 +2,50 @@
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import { base } from '$app/paths';
+	import { createClient } from '$lib/supabase';
+	import { invalidate, goto } from '$app/navigation';
+	import { onMount } from 'svelte';
+	import { enhance } from '$app/forms';
+	import { page } from '$app/stores';
 
-	let { children } = $props();
+	let { children, data } = $props();
+
+	// Derive session state from layout data
+	let isAuthenticated = $derived(!!data.session);
+
+	// Session expiry notification state
+	let showSessionExpiredNotification = $state(false);
+
+	// Create browser client for auth state changes
+	const supabase = createClient();
+
+	onMount(() => {
+		const {
+			data: { subscription }
+		} = supabase.auth.onAuthStateChange((event, session) => {
+			// Invalidate layout data to refresh session state
+			invalidate('supabase:auth');
+
+			// Handle session expiry (T046, T047)
+			if (event === 'SIGNED_OUT' && !session) {
+				// Check if we were previously authenticated (session expired)
+				if (isAuthenticated) {
+					showSessionExpiredNotification = true;
+					// Store current path for return URL
+					const currentPath = $page.url.pathname;
+					const isAuthPage = currentPath.includes('/login') || currentPath.includes('/signup');
+					if (!isAuthPage) {
+						setTimeout(() => {
+							showSessionExpiredNotification = false;
+							goto(`${base}/login?redirect=${encodeURIComponent(currentPath)}`);
+						}, 3000);
+					}
+				}
+			}
+		});
+
+		return () => subscription.unsubscribe();
+	});
 </script>
 
 <svelte:head>
@@ -45,12 +87,63 @@
 					>
 						Home
 					</a>
+
+					{#if isAuthenticated}
+						<!-- Authenticated: Show Profile and Logout -->
+						<a
+							href="{base}/profile"
+							class="text-sm uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors font-medium"
+						>
+							Profile
+						</a>
+						<form method="POST" action="{base}/profile?/signout" use:enhance class="inline">
+							<button
+								type="submit"
+								class="text-sm uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors font-medium cursor-pointer"
+							>
+								Logout
+							</button>
+						</form>
+					{:else}
+						<!-- Not authenticated: Show Login and Signup -->
+						<a
+							href="{base}/login"
+							class="text-sm uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors font-medium"
+						>
+							Login
+						</a>
+						<a
+							href="{base}/signup"
+							class="text-sm uppercase tracking-widest text-primary hover:text-primary/80 transition-colors font-medium"
+						>
+							Sign Up
+						</a>
+					{/if}
 				</div>
 			</div>
 		</div>
 	</nav>
 
 	<main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+		<!-- Session Expired Notification (T047) -->
+		{#if showSessionExpiredNotification}
+			<div
+				class="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-6 py-4 bg-amber-500/10 border border-amber-500/30 rounded-lg backdrop-blur-sm shadow-lg"
+			>
+				<div class="flex items-center gap-3">
+					<svg class="w-5 h-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+						/>
+					</svg>
+					<span class="text-amber-200">Your session has expired. Redirecting to login...</span>
+				</div>
+			</div>
+		{/if}
+
 		{@render children()}
 	</main>
 </div>
