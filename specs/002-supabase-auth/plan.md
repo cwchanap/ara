@@ -16,7 +16,7 @@ Implement a complete authentication system using Supabase Auth for the Ara chaos
 - `@supabase/supabase-js` - Supabase client
 - `@supabase/ssr` - Server-side rendering support for cookie-based auth
 
-**Storage**: Supabase PostgreSQL (hosted) with `profiles` table for username storage  
+**Storage**: Application data: Neon PostgreSQL (hosted); authentication and profiles: Supabase Auth (with `profiles` table stored in Neon PostgreSQL)  
 **Testing**: Manual testing (existing project has no test framework configured)  
 **Target Platform**: Web (Netlify deployment via adapter-netlify)  
 **Project Type**: Web application (SvelteKit)  
