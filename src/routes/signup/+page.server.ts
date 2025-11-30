@@ -15,7 +15,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	// Redirect authenticated users away from signup page (FR-010)
 	if (session) {
 		const redirectTo = url.searchParams.get('redirect') || '/';
-		redirect(303, redirectTo);
+		throw redirect(303, redirectTo);
 	}
 
 	return {};
@@ -129,6 +129,6 @@ export const actions: Actions = {
 
 		// Success! Redirect to homepage or return URL (FR-010a)
 		const redirectTo = url.searchParams.get('redirect') || '/';
-		redirect(303, redirectTo);
+		throw redirect(303, redirectTo);
 	}
 };
