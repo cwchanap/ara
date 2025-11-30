@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import type { Profile } from '$lib/types';
+	import { validateUsername as sharedValidateUsername } from '$lib/auth-errors';
 
 	let { data, form } = $props();
 
@@ -27,13 +28,9 @@
 	let passwordError = $state('');
 	let passwordSuccess = $state('');
 
-	// Client-side validation
+	// Client-side validation - wrapper to convert null to empty string for UI
 	function validateUsername(value: string): string {
-		if (!value) return 'Username is required';
-		if (value.length < 3) return 'Username must be at least 3 characters';
-		if (value.length > 30) return 'Username must be at most 30 characters';
-		if (!/^[a-zA-Z0-9_]+$/.test(value)) return 'Only letters, numbers, and underscores allowed';
-		return '';
+		return sharedValidateUsername(value) ?? '';
 	}
 
 	function validateNewPassword(value: string): string {
