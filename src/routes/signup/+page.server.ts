@@ -8,6 +8,19 @@ import {
 } from '$lib/auth-errors';
 import { db, profiles } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
+import { createClient } from '@supabase/supabase-js';
+import { PUBLIC_SUPABASE_URL } from '$env/static/public';
+import { SUPABASE_SERVICE_ROLE_KEY } from '$env/static/private';
+
+// Create admin client for user cleanup operations (requires service role key)
+const supabaseAdmin = SUPABASE_SERVICE_ROLE_KEY
+	? createClient(PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+			auth: {
+				autoRefreshToken: false,
+				persistSession: false
+			}
+		})
+	: null;
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const { session } = await locals.safeGetSession();
@@ -120,10 +133,58 @@ export const actions: Actions = {
 					id: data.user.id,
 					username
 				});
-			} catch (dbError) {
-				// If profile creation fails, we should ideally delete the auth user
-				// For now, log the error - the user can update their profile later
+			} catch (dbError: unknown) {
+				// Profile creation failed - clean up orphaned Supabase auth user
 				console.error('Error creating profile in Neon DB:', dbError);
+
+				// Check if this is a unique constraint violation (race condition on username)
+				const isUniqueViolation =
+					dbError instanceof Error &&
+					(dbError.message.includes('unique') ||
+						dbError.message.includes('duplicate') ||
+						(dbError as { code?: string }).code === '23505');
+
+				// Attempt to delete the orphaned auth user using admin client
+				if (supabaseAdmin) {
+					try {
+						const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(
+							data.user.id
+						);
+						if (deleteError) {
+							console.error(
+								`Failed to delete orphaned auth user ${data.user.id}:`,
+								deleteError
+							);
+						} else {
+							console.log(`Successfully deleted orphaned auth user ${data.user.id}`);
+						}
+					} catch (cleanupError) {
+						console.error(
+							`Exception while deleting orphaned auth user ${data.user.id}:`,
+							cleanupError
+						);
+					}
+				} else {
+					console.warn(
+						`Cannot delete orphaned auth user ${data.user.id}: SUPABASE_SERVICE_ROLE_KEY not configured. ` +
+							'Manual cleanup required via Supabase Dashboard.'
+					);
+				}
+
+				// Return user-friendly error based on the failure type
+				if (isUniqueViolation) {
+					return fail(400, {
+						error: 'This username was just taken. Please choose a different username.',
+						email,
+						username
+					});
+				}
+
+				return fail(500, {
+					error: 'Account created but profile setup failed. Please try again or contact support.',
+					email,
+					username
+				});
 			}
 		}
 

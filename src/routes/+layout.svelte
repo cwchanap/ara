@@ -4,7 +4,7 @@
 	import { base } from '$app/paths';
 	import { createClient } from '$lib/supabase';
 	import { invalidate, goto } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { page } from '$app/stores';
 
@@ -16,10 +16,16 @@
 	// Session expiry notification state
 	let showSessionExpiredNotification = $state(false);
 
-	// Create browser client for auth state changes
-	const supabase = createClient();
+	// Browser client for auth state changes (created in onMount to avoid SSR issues)
+	let supabase: ReturnType<typeof createClient> | undefined;
+
+	// Timer ID for session expiry redirect (for cleanup)
+	let sessionExpiryTimerId: ReturnType<typeof setTimeout> | undefined;
 
 	onMount(() => {
+		// Create Supabase client only in browser context
+		supabase = createClient();
+
 		const {
 			data: { subscription }
 		} = supabase.auth.onAuthStateChange((event, session) => {
@@ -35,7 +41,8 @@
 					const currentPath = $page.url.pathname;
 					const isAuthPage = currentPath.includes('/login') || currentPath.includes('/signup');
 					if (!isAuthPage) {
-						setTimeout(() => {
+						// Store timer ID for cleanup on unmount
+						sessionExpiryTimerId = setTimeout(() => {
 							showSessionExpiredNotification = false;
 							goto(`${base}/login?redirect=${encodeURIComponent(currentPath)}`);
 						}, 3000);
@@ -45,6 +52,13 @@
 		});
 
 		return () => subscription.unsubscribe();
+	});
+
+	// Cleanup timer on component destroy to prevent navigation on unmounted component
+	onDestroy(() => {
+		if (sessionExpiryTimerId) {
+			clearTimeout(sessionExpiryTimerId);
+		}
 	});
 </script>
 
