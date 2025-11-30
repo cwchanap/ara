@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { base } from '$app/paths';
+	import {
+		validateEmail as sharedValidateEmail,
+		validateUsername as sharedValidateUsername,
+		validatePassword as sharedValidatePassword
+	} from '$lib/auth-errors';
 
 	let { form } = $props();
 
@@ -16,24 +21,17 @@
 	let passwordError = $state('');
 	let confirmPasswordError = $state('');
 
+	// Wrappers to convert null to empty string for UI display
 	function validateEmail(value: string): string {
-		if (!value) return 'Email is required';
-		if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'Please enter a valid email address';
-		return '';
+		return sharedValidateEmail(value) ?? '';
 	}
 
 	function validateUsername(value: string): string {
-		if (!value) return 'Username is required';
-		if (value.length < 3) return 'Username must be at least 3 characters';
-		if (value.length > 30) return 'Username must be at most 30 characters';
-		if (!/^[a-zA-Z0-9_]+$/.test(value)) return 'Only letters, numbers, and underscores allowed';
-		return '';
+		return sharedValidateUsername(value) ?? '';
 	}
 
 	function validatePassword(value: string): string {
-		if (!value) return 'Password is required';
-		if (value.length < 8) return 'Password must be at least 8 characters';
-		return '';
+		return sharedValidatePassword(value) ?? '';
 	}
 
 	function validateConfirmPassword(value: string): string {
