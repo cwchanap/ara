@@ -32,6 +32,6 @@ export default [
 		}
 	},
 	{
-		ignores: ['build/', '.svelte-kit/', 'dist/', 'drizzle/']
+		ignores: ['build/', '.svelte-kit/', 'dist/', 'drizzle/', '.netlify/']
 	}
 ];
