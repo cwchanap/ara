@@ -2,12 +2,25 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { getErrorMessage, validateEmail } from '$lib/auth-errors';
 
+/**
+ * Validates a redirect URL to prevent open redirect attacks.
+ * Only allows same-origin paths (starting with '/').
+ */
+function getSafeRedirectUrl(redirectParam: string | null): string {
+	if (!redirectParam) return '/';
+	// Only allow relative paths starting with '/' to prevent open redirects
+	if (redirectParam.startsWith('/') && !redirectParam.startsWith('//')) {
+		return redirectParam;
+	}
+	return '/';
+}
+
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const { session } = await locals.safeGetSession();
 
 	// Redirect authenticated users away from login page (FR-010)
 	if (session) {
-		const redirectTo = url.searchParams.get('redirect') || '/';
+		const redirectTo = getSafeRedirectUrl(url.searchParams.get('redirect'));
 		throw redirect(303, redirectTo);
 	}
 
@@ -45,7 +58,7 @@ export const actions: Actions = {
 		}
 
 		// Success! Redirect to homepage or return URL (FR-010a)
-		const redirectTo = url.searchParams.get('redirect') || '/';
+		const redirectTo = getSafeRedirectUrl(url.searchParams.get('redirect'));
 		throw redirect(303, redirectTo);
 	}
 };

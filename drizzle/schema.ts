@@ -1,5 +1,4 @@
 import { pgTable, unique, uuid, text, timestamp } from 'drizzle-orm/pg-core';
-import { sql } from 'drizzle-orm';
 
 export const profiles = pgTable(
 	'profiles',

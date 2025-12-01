@@ -99,6 +99,11 @@ export const actions: Actions = {
 		}
 
 		// Verify current password by attempting to sign in
+		// NOTE: This creates a new session as a side effect. Supabase doesn't provide a
+		// password verification API without session creation. The trade-off is acceptable
+		// because: 1) The user is already authenticated, 2) The new session replaces the
+		// current one rather than proliferating sessions, 3) This is the recommended
+		// approach per Supabase documentation for password change flows.
 		const { error: verifyError } = await locals.supabase.auth.signInWithPassword({
 			email: user.email!,
 			password: currentPassword
