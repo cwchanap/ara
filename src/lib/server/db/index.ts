@@ -1,10 +1,15 @@
 import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
 import * as schema from './schema';
-import { DATABASE_URL } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 
 // Create Neon SQL client
-const sql = neon(DATABASE_URL);
+// Support both DATABASE_URL (local) and NETLIFY_DATABASE_URL (Netlify Neon extension)
+const databaseUrl = env.DATABASE_URL || env.NETLIFY_DATABASE_URL;
+if (!databaseUrl) {
+	throw new Error('DATABASE_URL or NETLIFY_DATABASE_URL environment variable is required');
+}
+const sql = neon(databaseUrl);
 
 // Create Drizzle database instance with schema
 export const db = drizzle(sql, { schema });
