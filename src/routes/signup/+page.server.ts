@@ -8,18 +8,22 @@ import {
 } from '$lib/auth-errors';
 import { db, profiles } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
+import { base } from '$app/paths';
 
 /**
  * Validates a redirect URL to prevent open redirect attacks.
  * Only allows same-origin paths (starting with '/').
+ * Falls back to the configured base path for non-root deployments.
  */
 function getSafeRedirectUrl(redirectParam: string | null): string {
-	if (!redirectParam) return '/';
+	// Default to base path (or '/' if base is empty) for non-root deployments
+	const defaultPath = base || '/';
+	if (!redirectParam) return defaultPath;
 	// Only allow relative paths starting with '/' to prevent open redirects
 	if (redirectParam.startsWith('/') && !redirectParam.startsWith('//')) {
 		return redirectParam;
 	}
-	return '/';
+	return defaultPath;
 }
 
 export const load: PageServerLoad = async ({ locals, url }) => {

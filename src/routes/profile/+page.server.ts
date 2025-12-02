@@ -3,13 +3,14 @@ import type { Actions, PageServerLoad } from './$types';
 import { getErrorMessage, validateUsername, validatePassword } from '$lib/auth-errors';
 import { db, profiles } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
+import { base } from '$app/paths';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const { session, user } = await locals.safeGetSession();
 
 	// Redirect unauthenticated users to login (FR-009)
 	if (!session || !user) {
-		const redirectUrl = `/login?redirect=${encodeURIComponent(url.pathname)}`;
+		const redirectUrl = `${base}/login?redirect=${encodeURIComponent(url.pathname)}`;
 		throw redirect(303, redirectUrl);
 	}
 
@@ -133,6 +134,6 @@ export const actions: Actions = {
 			console.error('Error signing out:', error);
 		}
 
-		throw redirect(303, '/login');
+		throw redirect(303, `${base}/login`);
 	}
 };
