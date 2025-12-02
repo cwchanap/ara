@@ -62,7 +62,7 @@ export const actions: Actions = {
 		try {
 			await db
 				.update(profiles)
-				.set({ username, updatedAt: new Date() })
+				.set({ username, updatedAt: new Date().toISOString() })
 				.where(eq(profiles.id, user.id));
 		} catch (error) {
 			return fail(400, { updateError: getErrorMessage(error), username });
