@@ -140,9 +140,6 @@ export const actions: Actions = {
 			} catch (dbError: unknown) {
 				// Profile creation failed - log the error
 				console.error('Error creating profile in Neon DB:', dbError);
-				console.warn(
-					`Orphaned auth user ${data.user.id} may exist. Manual cleanup via Supabase Dashboard may be required.`
-				);
 
 				// Check if this is a unique constraint violation (race condition on username)
 				const isUniqueViolation =
@@ -151,17 +148,32 @@ export const actions: Actions = {
 						dbError.message.includes('duplicate') ||
 						(dbError as { code?: string }).code === '23505');
 
+				// Sign out the user to prevent them from being stuck in a broken authenticated state
+				// The auth user will remain orphaned but signing out allows them to retry
+				try {
+					await locals.supabase.auth.signOut();
+				} catch (signOutError) {
+					console.error(
+						'Failed to sign out user after profile creation failure:',
+						signOutError
+					);
+				}
+
+				console.warn(
+					`Orphaned auth user ${data.user.id} (${email}) exists. Manual cleanup via Supabase Dashboard required.`
+				);
+
 				// Return user-friendly error based on the failure type
 				if (isUniqueViolation) {
 					return fail(400, {
-						error: 'This username was just taken. Please choose a different username.',
+						error: 'This username was just taken. Please choose a different username and try signing up again.',
 						email,
 						username
 					});
 				}
 
 				return fail(500, {
-					error: 'Account created but profile setup failed. Please try again or contact support.',
+					error: 'Account setup failed. Please try signing up again or contact support if the problem persists.',
 					email,
 					username
 				});

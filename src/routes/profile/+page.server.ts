@@ -59,12 +59,22 @@ export const actions: Actions = {
 			return fail(400, { updateError: 'This username is already taken', username });
 		}
 
-		// Update profile in Neon DB
+		// Update or create profile in Neon DB (upsert pattern)
+		// This handles the case where a profile might be missing due to a failed signup
 		try {
-			await db
+			const result = await db
 				.update(profiles)
 				.set({ username, updatedAt: new Date().toISOString() })
-				.where(eq(profiles.id, user.id));
+				.where(eq(profiles.id, user.id))
+				.returning({ id: profiles.id });
+
+			// If no row was updated, the profile doesn't exist - create it
+			if (result.length === 0) {
+				await db.insert(profiles).values({
+					id: user.id,
+					username
+				});
+			}
 		} catch (error) {
 			return fail(400, { updateError: getErrorMessage(error), username });
 		}
