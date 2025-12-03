@@ -30,12 +30,18 @@
 	// Timer ID for session expiry redirect (for cleanup)
 	let sessionExpiryTimerId: ReturnType<typeof setTimeout> | undefined;
 
+	// Track component mount status to prevent race conditions
+	let isMounted = $state(true);
+
 	// Handler for logout form submission to mark user-initiated logout
 	function handleLogoutSubmit() {
 		userInitiatedLogout = true;
 	}
 
 	onMount(() => {
+		// Mark component as mounted
+		isMounted = true;
+
 		// Initialize wasAuthenticated from initial data
 		wasAuthenticated = !!data.session;
 
@@ -70,8 +76,11 @@
 						if (!isAuthPage) {
 							// Store timer ID for cleanup on unmount
 							sessionExpiryTimerId = setTimeout(() => {
-								showSessionExpiredNotification = false;
-								goto(`${base}/login?redirect=${encodeURIComponent(currentPath)}`);
+								// Only navigate if component is still mounted
+								if (isMounted) {
+									showSessionExpiredNotification = false;
+									goto(`${base}/login?redirect=${encodeURIComponent(currentPath)}`);
+								}
 							}, 3000);
 						}
 					}
@@ -92,6 +101,9 @@
 
 	// Cleanup timer on component destroy to prevent navigation on unmounted component
 	onDestroy(() => {
+		// Mark component as unmounted to prevent race conditions
+		isMounted = false;
+
 		if (sessionExpiryTimerId) {
 			clearTimeout(sessionExpiryTimerId);
 		}
