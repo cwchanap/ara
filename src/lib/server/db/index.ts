@@ -7,7 +7,9 @@ import { env } from '$env/dynamic/private';
 // Support both DATABASE_URL (local) and NETLIFY_DATABASE_URL (Netlify Neon extension)
 const databaseUrl = env.DATABASE_URL || env.NETLIFY_DATABASE_URL;
 if (!databaseUrl) {
-	throw new Error('DATABASE_URL or NETLIFY_DATABASE_URL environment variable is required');
+	throw new Error(
+		'DATABASE_URL environment variable is required (or NETLIFY_DATABASE_URL when deployed to Netlify)'
+	);
 }
 const sql = neon(databaseUrl);
 
