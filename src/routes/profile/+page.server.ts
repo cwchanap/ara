@@ -122,15 +122,16 @@ export const actions: Actions = {
 
 		// Verify current password by attempting to sign in
 		// NOTE: This creates a new session as a side effect. Supabase doesn't provide a
-		// password verification API without session creation. The trade-off is acceptable
-		// because: 1) The user is already authenticated, 2) The new session replaces the
-		// current one rather than proliferating sessions, 3) This is the recommended
-		// approach per Supabase documentation for password change flows.
+		// password verification API without session creation. The signInWithPassword call
+		// only replaces the session on THIS client - it does NOT revoke sessions on other
+		// devices. Those sessions remain valid until they expire or are explicitly revoked.
+		// We handle this by calling signOut({ scope: 'others' }) after a successful
+		// password change to invalidate all other sessions for security.
 		//
 		// SECURITY NOTE: user.email is guaranteed non-null here due to the explicit check
-		// on line 113-115. The TypeScript assertion on line 124 uses user.email directly
-		// (without !) because the previous null check eliminates the need for assertion.
-		// This prevents potential runtime errors from null/undefined email values.
+		// above. For single-session-per-user enforcement, Supabase Pro+ offers this as a
+		// built-in feature. For free tier, we manually revoke other sessions after
+		// password changes.
 		const { error: verifyError } = await locals.supabase.auth.signInWithPassword({
 			email: user.email,
 			password: currentPassword
@@ -147,6 +148,24 @@ export const actions: Actions = {
 
 		if (updateError) {
 			return fail(400, { passwordError: getErrorMessage(updateError) });
+		}
+
+		// Revoke all other sessions after successful password change
+		// This ensures that any sessions on other devices are invalidated for security.
+		// The current session (scope: 'others') is preserved so the user stays logged in.
+		const { error: signOutError } = await locals.supabase.auth.signOut({ scope: 'others' });
+
+		if (signOutError) {
+			// Password was changed successfully, but we couldn't revoke other sessions.
+			// Log the error but still return success since the primary operation succeeded.
+			// The user should be informed that other sessions may still be active.
+			console.error('Failed to revoke other sessions after password change:', signOutError);
+			return {
+				passwordSuccess: true,
+				passwordWarning:
+					'Password changed successfully, but we could not sign out other devices. ' +
+					'For security, please sign out manually from any other devices.'
+			};
 		}
 
 		return { passwordSuccess: true };
