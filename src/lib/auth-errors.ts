@@ -44,6 +44,9 @@ export function getErrorMessage(error: unknown): string {
 		}
 
 		// Check for error message patterns
+		// NOTE: String matching is fragile and may break if Supabase changes error messages.
+		// We prefer error codes above when available. These patterns are based on
+		// Supabase JS v2.x behavior as of November 2025.
 		if (err.message) {
 			const msg = err.message.toLowerCase();
 
