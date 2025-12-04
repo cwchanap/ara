@@ -36,13 +36,11 @@ CREATE TABLE IF NOT EXISTS profiles (
 );
 
 -- ============================================
--- 2. Create indexes for performance
+-- 2. Create helper function for updated_at
 -- ============================================
-CREATE INDEX IF NOT EXISTS idx_profiles_username ON profiles(username);
+-- NOTE: The UNIQUE constraint on username automatically creates an index,
+-- so no explicit CREATE INDEX is needed for username lookups.
 
--- ============================================
--- 3. Create helper function for updated_at
--- ============================================
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -52,7 +50,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ============================================
--- 4. Create trigger for auto-updating updated_at
+-- 3. Create trigger for auto-updating updated_at
 -- ============================================
 DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
 CREATE TRIGGER update_profiles_updated_at

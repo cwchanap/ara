@@ -16,7 +16,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	/**
 	 * Safe session getter that validates the JWT by calling getUser()
-	 * Unlike getSession(), this verifies the token with the auth server
+	 * Unlike getSession() which only reads from the local cookie/storage,
+	 * getUser() makes a request to the Supabase Auth server to verify:
+	 * 1. The JWT signature is valid
+	 * 2. The token hasn't been revoked
+	 * 3. The user still exists in the auth system
 	 */
 	event.locals.safeGetSession = async () => {
 		const {
