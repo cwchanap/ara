@@ -72,7 +72,11 @@
 						showSessionExpiredNotification = true;
 						// Store current path for return URL
 						const currentPath = $page.url.pathname;
-						const isAuthPage = currentPath.includes('/login') || currentPath.includes('/signup');
+						// Use exact path matching with base to avoid false matches
+						// (e.g., /user/login-history should not match /login)
+						const loginPath = `${base}/login`;
+						const signupPath = `${base}/signup`;
+						const isAuthPage = currentPath === loginPath || currentPath === signupPath;
 						if (!isAuthPage) {
 							// Store timer ID for cleanup on unmount
 							sessionExpiryTimerId = setTimeout(() => {
