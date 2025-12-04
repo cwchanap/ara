@@ -120,9 +120,10 @@ export const actions: Actions = {
 			});
 		}
 
-		// Check if user was created (auto-confirmed since email verification is disabled)
-		if (data.user && !data.user.email_confirmed_at && data.session === null) {
-			// Email confirmation is required but shouldn't happen per FR-002
+		// Check if email verification is enabled (should be disabled per FR-002)
+		// When email confirmation is disabled, Supabase creates a session immediately.
+		// If no session is returned but user was created, email verification is enabled.
+		if (data.user && !data.session) {
 			// This indicates email verification wasn't disabled in Supabase dashboard
 			return fail(400, {
 				error: 'Email verification is enabled. Please disable it in Supabase Dashboard → Authentication → Settings → Email.',

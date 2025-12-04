@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { onDestroy } from 'svelte';
 	import type { Profile } from '$lib/types';
 	import { validateUsername as sharedValidateUsername } from '$lib/auth-errors';
 
@@ -29,6 +30,18 @@
 	let passwordSuccess = $state('');
 	let passwordWarning = $state('');
 
+	// Track timeouts for cleanup on unmount
+	let usernameSuccessTimeout: ReturnType<typeof setTimeout> | null = null;
+	let passwordSuccessTimeout: ReturnType<typeof setTimeout> | null = null;
+	let passwordWarningTimeout: ReturnType<typeof setTimeout> | null = null;
+
+	// Cleanup timeouts on component destroy
+	onDestroy(() => {
+		if (usernameSuccessTimeout) clearTimeout(usernameSuccessTimeout);
+		if (passwordSuccessTimeout) clearTimeout(passwordSuccessTimeout);
+		if (passwordWarningTimeout) clearTimeout(passwordWarningTimeout);
+	});
+
 	// Client-side validation - wrapper to convert null to empty string for UI
 	function validateUsername(value: string): string {
 		return sharedValidateUsername(value) ?? '';
@@ -52,7 +65,8 @@
 	$effect(() => {
 		if (form?.updateSuccess) {
 			usernameSuccess = 'Username updated successfully!';
-			setTimeout(() => (usernameSuccess = ''), 3000);
+			if (usernameSuccessTimeout) clearTimeout(usernameSuccessTimeout);
+			usernameSuccessTimeout = setTimeout(() => (usernameSuccess = ''), 3000);
 		}
 		if (form?.updateError) {
 			usernameError = form.updateError;
@@ -62,11 +76,13 @@
 			currentPassword = '';
 			newPassword = '';
 			confirmPassword = '';
-			setTimeout(() => (passwordSuccess = ''), 3000);
+			if (passwordSuccessTimeout) clearTimeout(passwordSuccessTimeout);
+			passwordSuccessTimeout = setTimeout(() => (passwordSuccess = ''), 3000);
 		}
 		if (form && 'passwordWarning' in form && form.passwordWarning) {
 			passwordWarning = form.passwordWarning as string;
-			setTimeout(() => (passwordWarning = ''), 10000);
+			if (passwordWarningTimeout) clearTimeout(passwordWarningTimeout);
+			passwordWarningTimeout = setTimeout(() => (passwordWarning = ''), 10000);
 		}
 		if (form?.passwordError) {
 			passwordError = form.passwordError;
