@@ -27,6 +27,7 @@
 	let isChangingPassword = $state(false);
 	let passwordError = $state('');
 	let passwordSuccess = $state('');
+	let passwordWarning = $state('');
 
 	// Client-side validation - wrapper to convert null to empty string for UI
 	function validateUsername(value: string): string {
@@ -62,6 +63,10 @@
 			newPassword = '';
 			confirmPassword = '';
 			setTimeout(() => (passwordSuccess = ''), 3000);
+		}
+		if (form && 'passwordWarning' in form && form.passwordWarning) {
+			passwordWarning = form.passwordWarning as string;
+			setTimeout(() => (passwordWarning = ''), 10000);
 		}
 		if (form?.passwordError) {
 			passwordError = form.passwordError;
@@ -293,6 +298,14 @@
 					class="p-3 bg-green-500/10 border border-green-500/30 rounded-md text-green-400 text-sm"
 				>
 					{passwordSuccess}
+				</div>
+			{/if}
+
+			{#if passwordWarning}
+				<div
+					class="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-md text-yellow-400 text-sm"
+				>
+					{passwordWarning}
 				</div>
 			{/if}
 
