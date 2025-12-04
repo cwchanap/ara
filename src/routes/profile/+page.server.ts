@@ -105,6 +105,9 @@ export const actions: Actions = {
 			return fail(400, { passwordError });
 		}
 
+		// Security validation: Ensure password confirmation matches
+		// This prevents typos and ensures the user knows what password they're setting.
+		// A mismatch indicates either a typing error or potential security concern.
 		if (newPassword !== confirmPassword) {
 			return fail(400, { passwordError: 'New passwords do not match' });
 		}

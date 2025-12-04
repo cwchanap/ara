@@ -7,6 +7,7 @@ import {
 	validatePassword
 } from '$lib/auth-errors';
 import { db, profiles } from '$lib/server/db';
+import { deleteAuthUser } from '$lib/server/supabase-admin';
 import { eq } from 'drizzle-orm';
 import { base } from '$app/paths';
 
@@ -149,7 +150,6 @@ export const actions: Actions = {
 						(dbError as { code?: string }).code === '23505');
 
 				// Sign out the user to prevent them from being stuck in a broken authenticated state
-				// The auth user will remain orphaned but signing out allows them to retry
 				try {
 					await locals.supabase.auth.signOut();
 				} catch (signOutError) {
@@ -159,21 +159,28 @@ export const actions: Actions = {
 					);
 				}
 
-				console.warn(
-					`Orphaned auth user ${data.user.id} (${email}) exists. Manual cleanup via Supabase Dashboard required.`
-				);
+				// Attempt to delete the orphaned auth user to allow retry with same email
+				const deleted = await deleteAuthUser(data.user.id);
+				if (!deleted) {
+					// If we couldn't delete the user, log for manual cleanup
+					console.warn(
+						`Orphaned auth user ${data.user.id} (${email}) could not be auto-deleted. ` +
+							'Manual cleanup via Supabase Dashboard required. ' +
+							'Ensure SUPABASE_SERVICE_ROLE_KEY is configured.'
+					);
+				}
 
 				// Return user-friendly error based on the failure type
 				if (isUniqueViolation) {
 					return fail(400, {
-						error: 'This username was just taken. Please choose a different username and try signing up again.',
+						error: 'This username was just taken. Please choose a different username.',
 						email,
 						username
 					});
 				}
 
 				return fail(500, {
-					error: 'Account setup failed. Please try signing up again or contact support if the problem persists.',
+					error: 'Account setup failed. Please try again or contact support if the problem persists.',
 					email,
 					username
 				});
