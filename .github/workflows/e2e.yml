@@ -28,8 +28,14 @@ jobs:
 
       - name: Build application
         run: bun run build
+        env:
+          PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          PUBLIC_SUPABASE_ANON_KEY: placeholder-key
 
       - name: Run Playwright tests
+        env:
+          PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          PUBLIC_SUPABASE_ANON_KEY: placeholder-key
         run: bunx playwright test
 
       - name: Upload Playwright report
