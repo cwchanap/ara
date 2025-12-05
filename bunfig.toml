@@ -1,0 +1,3 @@
+[test]
+# Exclude playwright e2e tests from bun test runner
+root = "./src"
