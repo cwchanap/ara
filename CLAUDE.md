@@ -247,3 +247,12 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 **Form actions**: Always validate inputs using `$lib/auth-errors.ts` utilities (`validateUsername`, `validatePassword`, `getErrorMessage`).
 
 **Password changes**: Use the pattern in `src/routes/profile/+page.server.ts` which verifies current password via `signInWithPassword` before updating (Supabase has no verify-only API).
+
+## Active Technologies
+
+- TypeScript 5.x with Svelte 5 (runes syntax) + SvelteKit, Drizzle ORM, Supabase Auth, D3.js, Three.js, TailwindCSS v4 (001-save-chaos-map)
+- Neon PostgreSQL (via Drizzle ORM) for application data, Supabase for auth (001-save-chaos-map)
+
+## Recent Changes
+
+- 001-save-chaos-map: Added TypeScript 5.x with Svelte 5 (runes syntax) + SvelteKit, Drizzle ORM, Supabase Auth, D3.js, Three.js, TailwindCSS v4
