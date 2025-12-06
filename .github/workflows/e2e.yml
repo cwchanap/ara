@@ -31,11 +31,13 @@ jobs:
         env:
           PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           PUBLIC_SUPABASE_ANON_KEY: placeholder-key
+          DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
 
       - name: Run Playwright tests
         env:
           PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           PUBLIC_SUPABASE_ANON_KEY: placeholder-key
+          DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
         run: bunx playwright test
 
       - name: Upload Playwright report
