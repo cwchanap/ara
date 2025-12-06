@@ -6,7 +6,7 @@
 	let container: HTMLDivElement;
 	const MAX_POINTS = 15000;
 	const DEBOUNCE_MS = 250;
-	let renderTimeout: number | null = null;
+	let renderTimeout: ReturnType<typeof setTimeout> | null = null;
 	let worker: Worker | null = null;
 	let workerRequestId = 0;
 	let latestWorkerRequestId = 0;
