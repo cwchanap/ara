@@ -2,11 +2,74 @@
 	import { onMount } from 'svelte';
 	import * as d3 from 'd3';
 	import { base } from '$app/paths';
+	import { page } from '$app/stores';
+	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
+	import { checkParameterStability } from '$lib/chaos-validation';
+	import type { LogisticParameters } from '$lib/types';
+
+	let { data } = $props();
 
 	let container: HTMLDivElement;
 	let r = $state(3.9);
 	let x0 = $state(0.5);
 	let iterations = $state(100);
+
+	// Save dialog state
+	let showSaveDialog = $state(false);
+	let saveSuccess = $state(false);
+
+	// Stability warning state
+	let stabilityWarnings = $state<string[]>([]);
+	let showStabilityWarning = $state(false);
+
+	// Load config from URL on mount
+	$effect(() => {
+		const configParam = $page.url.searchParams.get('config');
+		if (configParam) {
+			try {
+				const params = JSON.parse(decodeURIComponent(configParam)) as LogisticParameters;
+				r = params.r ?? r;
+				x0 = params.x0 ?? x0;
+				iterations = params.iterations ?? iterations;
+
+				const stability = checkParameterStability('logistic', params);
+				if (!stability.isStable) {
+					stabilityWarnings = stability.warnings;
+					showStabilityWarning = true;
+				}
+			} catch (e) {
+				console.error('Invalid config parameter:', e);
+			}
+		}
+	});
+
+	// Get current parameters for saving
+	function getParameters(): LogisticParameters {
+		return { r, x0, iterations };
+	}
+
+	// Handle save
+	async function handleSave(name: string) {
+		const response = await fetch(`${base}/api/save-config`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				name,
+				mapType: 'logistic',
+				parameters: getParameters()
+			})
+		});
+
+		if (!response.ok) {
+			const errorData = await response.json().catch(() => ({ error: 'Failed to save' }));
+			throw new Error(errorData.error || 'Failed to save configuration');
+		}
+
+		saveSuccess = true;
+		setTimeout(() => {
+			saveSuccess = false;
+		}, 3000);
+	}
 
 	function calculateLogistic(r: number, x0: number, iterations: number) {
 		const points: { n: number; x: number }[] = [];
@@ -158,13 +221,61 @@
 				CHAOTIC_SYSTEM_VISUALIZATION // MODULE_03
 			</p>
 		</div>
-		<a
-			href="{base}/"
-			class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
-		>
-			← Return
-		</a>
+		<div class="flex gap-3">
+			<button
+				onclick={() => (showSaveDialog = true)}
+				class="px-6 py-2 bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(168,85,247,0.2)] uppercase tracking-widest text-sm font-bold"
+			>
+				💾 Save
+			</button>
+			<a
+				href="{base}/"
+				class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
+			>
+				← Return
+			</a>
+		</div>
 	</div>
+
+	<!-- Save Success Toast -->
+	{#if saveSuccess}
+		<div
+			class="fixed top-20 right-4 z-50 px-6 py-4 bg-green-500/10 border border-green-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
+		>
+			<div class="flex items-center gap-3">
+				<span class="text-green-400">✓</span>
+				<span class="text-green-200">Configuration saved successfully!</span>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Stability Warning -->
+	{#if showStabilityWarning && stabilityWarnings.length > 0}
+		<div class="bg-amber-500/10 border border-amber-500/30 rounded-sm p-4 relative">
+			<div class="flex items-start gap-3">
+				<span class="text-amber-400 text-xl">⚠️</span>
+				<div class="flex-1">
+					<h3 class="font-['Orbitron'] text-amber-400 font-semibold mb-1">
+						UNSTABLE_PARAMETERS_DETECTED
+					</h3>
+					<p class="text-amber-200/80 text-sm mb-2">
+						The loaded configuration contains parameters outside recommended stable ranges:
+					</p>
+					<ul class="text-xs text-amber-200/60 list-disc list-inside space-y-1">
+						{#each stabilityWarnings as warning, i (i)}
+							<li>{warning}</li>
+						{/each}
+					</ul>
+				</div>
+				<button
+					onclick={() => (showStabilityWarning = false)}
+					class="text-amber-400/60 hover:text-amber-400"
+				>
+					✕
+				</button>
+			</div>
+		</div>
+	{/if}
 
 	<div
 		class="bg-card/30 backdrop-blur-md border border-primary/20 rounded-sm p-6 space-y-6 relative overflow-hidden group"
@@ -266,3 +377,13 @@
 		</p>
 	</div>
 </div>
+
+<!-- Save Configuration Dialog -->
+<SaveConfigDialog
+	bind:open={showSaveDialog}
+	mapType="logistic"
+	isAuthenticated={!!data.session}
+	currentPath={$page.url.pathname}
+	onClose={() => (showSaveDialog = false)}
+	onSave={handleSave}
+/>
