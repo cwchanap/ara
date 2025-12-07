@@ -155,7 +155,13 @@
 					</a>
 
 					{#if isAuthenticated}
-						<!-- Authenticated: Show Profile and Logout -->
+						<!-- Authenticated: Show Saved Configs, Profile and Logout -->
+						<a
+							href="{base}/saved-configs"
+							class="text-sm uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors font-medium"
+						>
+							My Configs
+						</a>
 						<a
 							href="{base}/profile"
 							class="text-sm uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors font-medium"
