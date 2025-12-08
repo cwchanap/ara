@@ -81,7 +81,10 @@
 		try {
 			const response = await fetch(`${base}/saved-configs?/delete`, {
 				method: 'POST',
-				body: formData
+				body: formData,
+				headers: {
+					Accept: 'application/json'
+				}
 			});
 
 			const result = await response.json();
