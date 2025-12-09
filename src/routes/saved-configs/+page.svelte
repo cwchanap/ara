@@ -142,7 +142,7 @@
 			</p>
 		</div>
 		<a
-			href="{base}/"
+			href={base + '/'}
 			class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
 		>
 			← Return
@@ -184,7 +184,7 @@
 			<h2 class="font-['Orbitron'] text-xl font-bold text-primary mb-2">NO_CONFIGURATIONS_FOUND</h2>
 			<p class="text-muted-foreground mb-6">You haven't saved any chaos map configurations yet.</p>
 			<a
-				href="{base}/"
+				href={base + '/'}
 				class="inline-block px-6 py-2 bg-primary/20 border border-primary/50 text-primary hover:bg-primary/30 transition-colors font-['Orbitron'] text-sm tracking-wider"
 			>
 				EXPLORE_CHAOS_MAPS
