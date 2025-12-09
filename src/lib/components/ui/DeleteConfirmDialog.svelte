@@ -10,11 +10,19 @@
 		open: boolean;
 		configName: string;
 		isDeleting: boolean;
+		error: string;
 		onClose: () => void;
 		onConfirm: () => Promise<void>;
 	}
 
-	let { open = $bindable(false), configName, isDeleting, onClose, onConfirm }: Props = $props();
+	let {
+		open = $bindable(false),
+		configName,
+		isDeleting = $bindable(false),
+		error = $bindable(''),
+		onClose,
+		onConfirm
+	}: Props = $props();
 
 	let dialogRef: HTMLDialogElement | undefined = $state();
 
@@ -39,7 +47,15 @@
 
 	// Handle confirm click
 	async function handleConfirm() {
-		await onConfirm();
+		isDeleting = true;
+		error = '';
+		try {
+			await onConfirm();
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'An error occurred';
+		} finally {
+			isDeleting = false;
+		}
 	}
 
 	// Handle keyboard events
@@ -82,6 +98,15 @@
 			<p class="font-['Orbitron'] text-primary text-lg">"{configName}"</p>
 			<p class="text-sm text-muted-foreground/70 mt-2">This action cannot be undone.</p>
 		</div>
+
+		<!-- Error message -->
+		{#if error}
+			<div
+				class="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded text-red-400 text-sm text-center"
+			>
+				{error}
+			</div>
+		{/if}
 
 		<!-- Action buttons -->
 		<div class="flex gap-3 justify-center">

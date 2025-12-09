@@ -72,6 +72,64 @@ export interface StabilityCheckResult {
 	warnings: string[];
 }
 
+export interface ParameterValidationResult {
+	isValid: boolean;
+	errors: string[];
+}
+
+/**
+ * Validate that parameters match the expected structure for a given map type.
+ *
+ * @param mapType - The type of chaos map
+ * @param params - The parameters to validate
+ * @returns Validation result with any errors
+ */
+export function validateParameters(
+	mapType: ChaosMapType,
+	params: unknown
+): ParameterValidationResult {
+	const errors: string[] = [];
+
+	// Check if params is an object
+	if (!params || typeof params !== 'object') {
+		errors.push('Parameters must be an object');
+		return { isValid: false, errors };
+	}
+
+	const paramObj = params as Record<string, unknown>;
+	const ranges = STABLE_RANGES[mapType];
+
+	if (!ranges) {
+		errors.push(`Unknown map type: ${mapType}`);
+		return { isValid: false, errors };
+	}
+
+	const expectedKeys = Object.keys(ranges);
+	const actualKeys = Object.keys(paramObj);
+
+	// Check for missing keys
+	const missingKeys = expectedKeys.filter((key) => !actualKeys.includes(key));
+	if (missingKeys.length > 0) {
+		errors.push(`Missing required parameters: ${missingKeys.join(', ')}`);
+	}
+
+	// Check for extra keys
+	const extraKeys = actualKeys.filter((key) => !expectedKeys.includes(key));
+	if (extraKeys.length > 0) {
+		errors.push(`Unexpected parameters: ${extraKeys.join(', ')}`);
+	}
+
+	// Check that all values are numbers
+	for (const key of actualKeys) {
+		const value = paramObj[key];
+		if (typeof value !== 'number' || isNaN(value)) {
+			errors.push(`Parameter '${key}' must be a valid number, got: ${typeof value}`);
+		}
+	}
+
+	return { isValid: errors.length === 0, errors };
+}
+
 /**
  * Check if chaos map parameters are within stable ranges.
  *
@@ -90,6 +148,14 @@ export function checkParameterStability(
 	params: ChaosMapParameters
 ): StabilityCheckResult {
 	const warnings: string[] = [];
+
+	// First, validate parameter structure
+	const validation = validateParameters(mapType, params);
+	if (!validation.isValid) {
+		warnings.push(...validation.errors);
+		return { isStable: false, warnings };
+	}
+
 	const ranges = STABLE_RANGES[mapType];
 
 	if (!ranges) {
@@ -107,6 +173,28 @@ export function checkParameterStability(
 				);
 			}
 		}
+	}
+
+	// Check min/max parameter relationships
+	switch (mapType) {
+		case 'newton':
+			if (paramRecord.xMin >= paramRecord.xMax) {
+				warnings.push('xMin must be less than xMax');
+			}
+			if (paramRecord.yMin >= paramRecord.yMax) {
+				warnings.push('yMin must be less than yMax');
+			}
+			break;
+		case 'bifurcation-logistic':
+			if (paramRecord.rMin >= paramRecord.rMax) {
+				warnings.push('rMin must be less than rMax');
+			}
+			break;
+		case 'bifurcation-henon':
+			if (paramRecord.aMin >= paramRecord.aMax) {
+				warnings.push('aMin must be less than aMax');
+			}
+			break;
 	}
 
 	return {

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import * as d3 from 'd3';
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
@@ -17,6 +17,9 @@
 	// Save dialog state
 	let showSaveDialog = $state(false);
 	let saveSuccess = $state(false);
+	let isSaving = $state(false);
+	let saveError = $state<string | null>(null);
+	let timeoutId = $state<number | null>(null);
 
 	// Stability warning state
 	let stabilityWarnings = $state<string[]>([]);
@@ -39,6 +42,9 @@
 				}
 			} catch (e) {
 				console.error('Invalid config parameter:', e);
+				// Show error banner or toast to inform user
+				stabilityWarnings = ['Invalid configuration format in URL'];
+				showStabilityWarning = true;
 			}
 		}
 	});
@@ -50,25 +56,39 @@
 
 	// Handle save
 	async function handleSave(name: string) {
-		const response = await fetch(`${base}/api/save-config`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				name,
-				mapType: 'logistic',
-				parameters: getParameters()
-			})
-		});
+		isSaving = true;
+		saveError = null;
 
-		if (!response.ok) {
-			const errorData = await response.json().catch(() => ({ error: 'Failed to save' }));
-			throw new Error(errorData.error || 'Failed to save configuration');
+		try {
+			const response = await fetch(`${base}/api/save-config`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					name,
+					mapType: 'logistic',
+					parameters: getParameters()
+				})
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({ error: 'Failed to save' }));
+				throw new Error(errorData.error || 'Failed to save configuration');
+			}
+
+			saveSuccess = true;
+			showSaveDialog = false;
+			saveError = null;
+
+			// Clear previous timeout
+			if (timeoutId) clearTimeout(timeoutId);
+			timeoutId = setTimeout(() => {
+				saveSuccess = false;
+			}, 3000);
+		} catch (err) {
+			saveError = err instanceof Error ? err.message : 'Failed to save configuration';
+		} finally {
+			isSaving = false;
 		}
-
-		saveSuccess = true;
-		setTimeout(() => {
-			saveSuccess = false;
-		}, 3000);
 	}
 
 	function calculateLogistic(r: number, x0: number, iterations: number) {
@@ -201,6 +221,10 @@
 		render();
 	});
 
+	onDestroy(() => {
+		if (timeoutId) clearTimeout(timeoutId);
+	});
+
 	$effect(() => {
 		void r;
 		void x0;
@@ -224,7 +248,8 @@
 		<div class="flex gap-3">
 			<button
 				onclick={() => (showSaveDialog = true)}
-				class="px-6 py-2 bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(168,85,247,0.2)] uppercase tracking-widest text-sm font-bold"
+				disabled={isSaving}
+				class="px-6 py-2 bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(168,85,247,0.2)] uppercase tracking-widest text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
 			>
 				💾 Save
 			</button>
@@ -245,6 +270,18 @@
 			<div class="flex items-center gap-3">
 				<span class="text-green-400">✓</span>
 				<span class="text-green-200">Configuration saved successfully!</span>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Save Error Toast -->
+	{#if saveError}
+		<div
+			class="fixed top-32 right-4 z-50 px-6 py-4 bg-red-500/10 border border-red-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
+		>
+			<div class="flex items-center gap-3">
+				<span class="text-red-400">✗</span>
+				<span class="text-red-200">{saveError}</span>
 			</div>
 		</div>
 	{/if}

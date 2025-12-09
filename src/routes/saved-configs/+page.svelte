@@ -6,7 +6,7 @@
 -->
 <script lang="ts">
 	import { base } from '$app/paths';
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { enhance } from '$app/forms';
 	import { CHAOS_MAP_DISPLAY_NAMES } from '$lib/types';
 	import type { SavedConfiguration, ChaosMapType } from '$lib/types';
@@ -18,7 +18,6 @@
 	let showDeleteDialog = $state(false);
 	let configToDelete = $state<SavedConfiguration | null>(null);
 	let isDeleting = $state(false);
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	let deleteError = $state('');
 
 	// Rename state
@@ -75,36 +74,11 @@
 		deleteError = '';
 
 		// Submit the delete form programmatically
-		const formData = new FormData();
-		formData.append('configurationId', configToDelete.id);
-
-		try {
-			const response = await fetch(`${base}/saved-configs?/delete`, {
-				method: 'POST',
-				body: formData,
-				headers: {
-					Accept: 'application/json'
-				}
-			});
-
-			const result = await response.json();
-
-			if (result.type === 'failure') {
-				deleteError = result.data?.deleteError || 'Failed to delete configuration';
-				isDeleting = false;
-			} else {
-				// Success - close dialog and refresh
-				closeDeleteDialog();
-				showDeleteSuccess = true;
-				setTimeout(() => {
-					showDeleteSuccess = false;
-				}, 3000);
-				// Reload the page to get fresh data
-				location.reload();
-			}
-		} catch {
-			deleteError = 'Failed to delete configuration';
-			isDeleting = false;
+		const form = document.getElementById('delete-form') as HTMLFormElement;
+		if (form) {
+			const input = form.querySelector('input[name="configurationId"]') as HTMLInputElement;
+			input.value = configToDelete.id;
+			form.submit();
 		}
 	}
 
@@ -125,10 +99,16 @@
 	// Handle form results
 	$effect(() => {
 		if (form?.deleteSuccess) {
+			closeDeleteDialog();
 			showDeleteSuccess = true;
 			setTimeout(() => {
 				showDeleteSuccess = false;
 			}, 3000);
+			invalidateAll();
+		}
+		if (form?.deleteError) {
+			deleteError = form.deleteError;
+			isDeleting = false;
 		}
 		if (form?.renameSuccess) {
 			renamingConfigId = null;
@@ -142,6 +122,11 @@
 		}
 	});
 </script>
+
+<!-- Hidden delete form -->
+<form id="delete-form" method="POST" action="?/delete" use:enhance>
+	<input type="hidden" name="configurationId" value={configToDelete?.id || ''} />
+</form>
 
 <div class="space-y-6">
 	<!-- Header -->
@@ -165,24 +150,17 @@
 	</div>
 
 	<!-- Success Toast -->
-	{#if showDeleteSuccess}
+	{#if showDeleteSuccess || showRenameSuccess}
 		<div
 			class="fixed top-20 right-4 z-50 px-6 py-4 bg-green-500/10 border border-green-500/30 rounded-lg backdrop-blur-sm shadow-lg"
 		>
 			<div class="flex items-center gap-3">
 				<span class="text-green-400">✓</span>
-				<span class="text-green-200">Configuration deleted successfully!</span>
-			</div>
-		</div>
-	{/if}
-
-	{#if showRenameSuccess}
-		<div
-			class="fixed top-20 right-4 z-50 px-6 py-4 bg-green-500/10 border border-green-500/30 rounded-lg backdrop-blur-sm shadow-lg"
-		>
-			<div class="flex items-center gap-3">
-				<span class="text-green-400">✓</span>
-				<span class="text-green-200">Configuration renamed successfully!</span>
+				<span class="text-green-200">
+					{showDeleteSuccess
+						? 'Configuration deleted successfully!'
+						: 'Configuration renamed successfully!'}
+				</span>
 			</div>
 		</div>
 	{/if}
@@ -330,6 +308,7 @@
 	bind:open={showDeleteDialog}
 	configName={configToDelete?.name || ''}
 	{isDeleting}
+	error={deleteError}
 	onClose={closeDeleteDialog}
 	onConfirm={handleDeleteConfirm}
 />
