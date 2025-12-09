@@ -196,12 +196,11 @@ export const actions: Actions = {
 				});
 			}
 
-			// Update the configuration name and updated_at timestamp
+			// Update the configuration name (updated_at is handled automatically by ORM)
 			await db
 				.update(savedConfigurations)
 				.set({
-					name: trimmedName,
-					updatedAt: new Date().toISOString()
+					name: trimmedName
 				})
 				.where(eq(savedConfigurations.id, configurationId));
 

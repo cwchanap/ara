@@ -64,7 +64,7 @@ export const actions: Actions = {
 		try {
 			const result = await db
 				.update(profiles)
-				.set({ username, updatedAt: new Date().toISOString() })
+				.set({ username })
 				.where(eq(profiles.id, user.id))
 				.returning({ id: profiles.id });
 

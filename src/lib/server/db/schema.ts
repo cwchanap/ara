@@ -10,6 +10,7 @@ export const profiles = pgTable('profiles', {
 		.notNull(),
 	updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' })
 		.defaultNow()
+		.$onUpdate(() => new Date().toISOString())
 		.notNull()
 });
 
@@ -34,6 +35,7 @@ export const savedConfigurations = pgTable(
 			.notNull(),
 		updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' })
 			.defaultNow()
+			.$onUpdate(() => new Date().toISOString())
 			.notNull()
 	},
 	(table) => [

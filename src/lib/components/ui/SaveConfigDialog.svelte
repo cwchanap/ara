@@ -95,7 +95,7 @@
 	onkeydown={handleKeyDown}
 	class="fixed inset-0 m-auto w-full max-w-md bg-background border border-primary/30 rounded-lg shadow-2xl backdrop:bg-black/70"
 >
-	<div class="p-6">
+	<div class="p-6 relative">
 		<!-- Header with corner accents -->
 		<div class="relative mb-6">
 			<!-- Top corners -->

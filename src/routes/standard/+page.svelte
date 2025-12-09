@@ -26,32 +26,12 @@
 	// Save dialog state
 	let showSaveDialog = $state(false);
 	let saveSuccess = $state(false);
+	let saveError = $state<string | null>(null);
+	let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	// Stability warning state
 	let stabilityWarnings = $state<string[]>([]);
 	let showStabilityWarning = $state(false);
-
-	// Load config from URL on mount
-	$effect(() => {
-		const configParam = $page.url.searchParams.get('config');
-		if (configParam) {
-			try {
-				const params = JSON.parse(decodeURIComponent(configParam)) as StandardParameters;
-				K = params.K ?? K;
-				numP = params.numP ?? numP;
-				numQ = params.numQ ?? numQ;
-				iterations = params.iterations ?? iterations;
-
-				const stability = checkParameterStability('standard', params);
-				if (!stability.isStable) {
-					stabilityWarnings = stability.warnings;
-					showStabilityWarning = true;
-				}
-			} catch (e) {
-				console.error('Invalid config parameter:', e);
-			}
-		}
-	});
 
 	// Get current parameters for saving
 	function getParameters(): StandardParameters {
@@ -60,25 +40,48 @@
 
 	// Handle save
 	async function handleSave(name: string) {
-		const response = await fetch(`${base}/api/save-config`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				name,
-				mapType: 'standard',
-				parameters: getParameters()
-			})
-		});
+		// Clear previous error state
+		saveError = null;
 
-		if (!response.ok) {
-			const errorData = await response.json().catch(() => ({ error: 'Failed to save' }));
-			throw new Error(errorData.error || 'Failed to save configuration');
+		try {
+			const response = await fetch(`${base}/api/save-config`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					name,
+					mapType: 'standard',
+					parameters: getParameters()
+				})
+			});
+
+			if (!response.ok) {
+				const errorData = await response
+					.json()
+					.catch(() => ({ error: 'Failed to save configuration' }));
+				saveError = errorData.error || 'Failed to save configuration';
+				return;
+			}
+
+			saveSuccess = true;
+			if (saveTimeout !== null) {
+				clearTimeout(saveTimeout);
+			}
+			saveTimeout = setTimeout(() => {
+				saveSuccess = false;
+				saveTimeout = null;
+			}, 3000);
+		} catch (error) {
+			saveError =
+				'Failed to save configuration: ' +
+				(error instanceof Error ? error.message : 'Network error');
+			if (saveTimeout !== null) {
+				clearTimeout(saveTimeout);
+			}
+			saveTimeout = setTimeout(() => {
+				saveError = null;
+				saveTimeout = null;
+			}, 5000);
 		}
-
-		saveSuccess = true;
-		setTimeout(() => {
-			saveSuccess = false;
-		}, 3000);
 	}
 
 	function standardMap(
@@ -257,6 +260,26 @@
 	}
 
 	onMount(() => {
+		// Load config from URL on mount
+		const configParam = $page.url.searchParams.get('config');
+		if (configParam) {
+			try {
+				const params = JSON.parse(decodeURIComponent(configParam)) as StandardParameters;
+				K = params.K ?? K;
+				numP = params.numP ?? numP;
+				numQ = params.numQ ?? numQ;
+				iterations = params.iterations ?? iterations;
+
+				const stability = checkParameterStability('standard', params);
+				if (!stability.isStable) {
+					stabilityWarnings = stability.warnings;
+					showStabilityWarning = true;
+				}
+			} catch (e) {
+				console.error('Invalid config parameter:', e);
+			}
+		}
+
 		if (typeof window !== 'undefined' && 'Worker' in window) {
 			try {
 				worker = new Worker(new URL('../../lib/workers/chaosMapsWorker.ts', import.meta.url), {
@@ -291,6 +314,10 @@
 		if (renderTimeout !== null) {
 			clearTimeout(renderTimeout);
 			renderTimeout = null;
+		}
+		if (saveTimeout !== null) {
+			clearTimeout(saveTimeout);
+			saveTimeout = null;
 		}
 	});
 
@@ -339,6 +366,18 @@
 			<div class="flex items-center gap-3">
 				<span class="text-green-400">✓</span>
 				<span class="text-green-200">Configuration saved successfully!</span>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Save Error Toast -->
+	{#if saveError}
+		<div
+			class="fixed top-20 right-4 z-50 px-6 py-4 bg-red-500/10 border border-red-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
+		>
+			<div class="flex items-center gap-3">
+				<span class="text-red-400">✗</span>
+				<span class="text-red-200">{saveError}</span>
 			</div>
 		</div>
 	{/if}
