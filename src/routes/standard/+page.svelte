@@ -4,7 +4,7 @@
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
-	import { checkParameterStability } from '$lib/chaos-validation';
+	import { checkParameterStability, validateParameters } from '$lib/chaos-validation';
 	import type { StandardParameters } from '$lib/types';
 
 	let { data } = $props();
@@ -35,7 +35,7 @@
 
 	// Get current parameters for saving
 	function getParameters(): StandardParameters {
-		return { K, numP, numQ, iterations };
+		return { type: 'standard', K, numP, numQ, iterations };
 	}
 
 	// Handle save
@@ -264,19 +264,33 @@
 		const configParam = $page.url.searchParams.get('config');
 		if (configParam) {
 			try {
-				const params = JSON.parse(decodeURIComponent(configParam)) as StandardParameters;
-				K = params.K ?? K;
-				numP = params.numP ?? numP;
-				numQ = params.numQ ?? numQ;
-				iterations = params.iterations ?? iterations;
+				const params = JSON.parse(decodeURIComponent(configParam));
 
-				const stability = checkParameterStability('standard', params);
+				// Validate parameters structure before using
+				const validation = validateParameters('standard', params);
+				if (!validation.isValid) {
+					console.error('Invalid parameters structure:', validation.errors);
+					stabilityWarnings = validation.errors;
+					showStabilityWarning = true;
+					return;
+				}
+
+				// Now we can safely cast since validation passed
+				const typedParams = params as StandardParameters;
+				K = typedParams.K ?? K;
+				numP = typedParams.numP ?? numP;
+				numQ = typedParams.numQ ?? numQ;
+				iterations = typedParams.iterations ?? iterations;
+
+				const stability = checkParameterStability('standard', typedParams);
 				if (!stability.isStable) {
 					stabilityWarnings = stability.warnings;
 					showStabilityWarning = true;
 				}
 			} catch (e) {
 				console.error('Invalid config parameter:', e);
+				stabilityWarnings = ['Failed to parse configuration parameters'];
+				showStabilityWarning = true;
 			}
 		}
 

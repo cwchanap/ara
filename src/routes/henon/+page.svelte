@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import * as d3 from 'd3';
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
-	import { checkParameterStability } from '$lib/chaos-validation';
+	import { checkParameterStability, validateParameters } from '$lib/chaos-validation';
 	import type { HenonParameters } from '$lib/types';
 
 	let { data } = $props();
@@ -18,6 +18,9 @@
 	let showSaveDialog = $state(false);
 	let saveSuccess = $state(false);
 
+	// Timeout ID for save success reset
+	let saveSuccessTimeoutId: NodeJS.Timeout | null = null;
+
 	// Stability warning state
 	let stabilityWarnings = $state<string[]>([]);
 	let showStabilityWarning = $state(false);
@@ -27,25 +30,39 @@
 		const configParam = $page.url.searchParams.get('config');
 		if (configParam) {
 			try {
-				const params = JSON.parse(decodeURIComponent(configParam)) as HenonParameters;
-				a = params.a ?? a;
-				b = params.b ?? b;
-				iterations = params.iterations ?? iterations;
+				const params = JSON.parse(decodeURIComponent(configParam));
 
-				const stability = checkParameterStability('henon', params);
+				// Validate parameters structure before using
+				const validation = validateParameters('henon', params);
+				if (!validation.isValid) {
+					console.error('Invalid parameters structure:', validation.errors);
+					stabilityWarnings = validation.errors;
+					showStabilityWarning = true;
+					return;
+				}
+
+				// Now we can safely cast since validation passed
+				const typedParams = params as HenonParameters;
+				a = typedParams.a ?? a;
+				b = typedParams.b ?? b;
+				iterations = typedParams.iterations ?? iterations;
+
+				const stability = checkParameterStability('henon', typedParams);
 				if (!stability.isStable) {
 					stabilityWarnings = stability.warnings;
 					showStabilityWarning = true;
 				}
 			} catch (e) {
 				console.error('Invalid config parameter:', e);
+				stabilityWarnings = ['Failed to parse configuration parameters'];
+				showStabilityWarning = true;
 			}
 		}
 	});
 
 	// Get current parameters for saving
 	function getParameters(): HenonParameters {
-		return { a, b, iterations };
+		return { type: 'henon', a, b, iterations };
 	}
 
 	// Handle save
@@ -66,7 +83,14 @@
 		}
 
 		saveSuccess = true;
-		setTimeout(() => {
+
+		// Clear any existing timeout
+		if (saveSuccessTimeoutId) {
+			clearTimeout(saveSuccessTimeoutId);
+		}
+
+		// Set new timeout and store the ID
+		saveSuccessTimeoutId = setTimeout(() => {
 			saveSuccess = false;
 		}, 3000);
 	}
@@ -193,6 +217,13 @@
 
 	onMount(() => {
 		render();
+	});
+
+	// Cleanup timeout on component unmount
+	onDestroy(() => {
+		if (saveSuccessTimeoutId) {
+			clearTimeout(saveSuccessTimeoutId);
+		}
 	});
 
 	$effect(() => {

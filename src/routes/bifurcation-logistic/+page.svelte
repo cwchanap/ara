@@ -3,7 +3,7 @@
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
-	import { checkParameterStability } from '$lib/chaos-validation';
+	import { checkParameterStability, validateParameters } from '$lib/chaos-validation';
 	import type { BifurcationLogisticParameters } from '$lib/types';
 
 	let { data } = $props();
@@ -29,25 +29,69 @@
 		const configParam = $page.url.searchParams.get('config');
 		if (configParam) {
 			try {
-				const params = JSON.parse(decodeURIComponent(configParam)) as BifurcationLogisticParameters;
-				rMin = params.rMin ?? rMin;
-				rMax = params.rMax ?? rMax;
-				maxIterations = params.maxIterations ?? maxIterations;
+				const params = JSON.parse(decodeURIComponent(configParam));
 
-				const stability = checkParameterStability('bifurcation-logistic', params);
+				// Validate parameters structure before using
+				const validation = validateParameters('bifurcation-logistic', params);
+				if (!validation.isValid) {
+					console.error('Invalid parameters structure:', validation.errors);
+					stabilityWarnings = validation.errors;
+					showStabilityWarning = true;
+					return;
+				}
+
+				// Now we can safely cast since validation passed
+				const typedParams = params as BifurcationLogisticParameters;
+
+				// Coerce to numbers and validate ranges
+				const newRMin = Number(typedParams.rMin);
+				const newRMax = Number(typedParams.rMax);
+				const newMaxIterations = Number(typedParams.maxIterations);
+
+				// Validate and clamp rMin (2.5 - 4.0)
+				if (!Number.isNaN(newRMin)) {
+					rMin = Math.max(2.5, Math.min(4.0, newRMin));
+				}
+
+				// Validate and clamp rMax (2.5 - 4.0)
+				if (!Number.isNaN(newRMax)) {
+					rMax = Math.max(2.5, Math.min(4.0, newRMax));
+				}
+
+				// Enforce rMin <= rMax
+				if (rMin > rMax) {
+					// Swap values to maintain rMin <= rMax
+					const temp = rMin;
+					rMin = rMax;
+					rMax = temp;
+				}
+
+				// Validate and clamp maxIterations (100 - 2000)
+				if (!Number.isNaN(newMaxIterations)) {
+					maxIterations = Math.max(100, Math.min(2000, newMaxIterations));
+				}
+
+				const stability = checkParameterStability('bifurcation-logistic', {
+					type: 'bifurcation-logistic',
+					rMin,
+					rMax,
+					maxIterations
+				});
 				if (!stability.isStable) {
 					stabilityWarnings = stability.warnings;
 					showStabilityWarning = true;
 				}
 			} catch (e) {
 				console.error('Invalid config parameter:', e);
+				stabilityWarnings = ['Failed to parse configuration parameters'];
+				showStabilityWarning = true;
 			}
 		}
 	});
 
 	// Get current parameters for saving
 	function getParameters(): BifurcationLogisticParameters {
-		return { rMin, rMax, maxIterations };
+		return { type: 'bifurcation-logistic', rMin, rMax, maxIterations };
 	}
 
 	// Handle save

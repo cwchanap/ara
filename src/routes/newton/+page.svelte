@@ -3,7 +3,7 @@
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
-	import { checkParameterStability } from '$lib/chaos-validation';
+	import { checkParameterStability, validateParameters } from '$lib/chaos-validation';
 	import type { NewtonParameters } from '$lib/types';
 
 	let { data } = $props();
@@ -32,27 +32,41 @@
 		const configParam = $page.url.searchParams.get('config');
 		if (configParam) {
 			try {
-				const params = JSON.parse(decodeURIComponent(configParam)) as NewtonParameters;
-				xMin = params.xMin ?? xMin;
-				xMax = params.xMax ?? xMax;
-				yMin = params.yMin ?? yMin;
-				yMax = params.yMax ?? yMax;
-				maxIterations = params.maxIterations ?? maxIterations;
+				const params = JSON.parse(decodeURIComponent(configParam));
 
-				const stability = checkParameterStability('newton', params);
+				// Validate parameters structure before using
+				const validation = validateParameters('newton', params);
+				if (!validation.isValid) {
+					console.error('Invalid parameters structure:', validation.errors);
+					stabilityWarnings = validation.errors;
+					showStabilityWarning = true;
+					return;
+				}
+
+				// Now we can safely cast since validation passed
+				const typedParams = params as NewtonParameters;
+				xMin = typedParams.xMin ?? xMin;
+				xMax = typedParams.xMax ?? xMax;
+				yMin = typedParams.yMin ?? yMin;
+				yMax = typedParams.yMax ?? yMax;
+				maxIterations = typedParams.maxIterations ?? maxIterations;
+
+				const stability = checkParameterStability('newton', typedParams);
 				if (!stability.isStable) {
 					stabilityWarnings = stability.warnings;
 					showStabilityWarning = true;
 				}
 			} catch (e) {
 				console.error('Invalid config parameter:', e);
+				stabilityWarnings = ['Failed to parse configuration parameters'];
+				showStabilityWarning = true;
 			}
 		}
 	});
 
 	// Get current parameters for saving
 	function getParameters(): NewtonParameters {
-		return { xMin, xMax, yMin, yMax, maxIterations };
+		return { type: 'newton', xMin, xMax, yMin, yMax, maxIterations };
 	}
 
 	// Handle save
@@ -380,7 +394,7 @@
 <SaveConfigDialog
 	bind:open={showSaveDialog}
 	mapType="newton"
-	isAuthenticated={!!data.session}
+	isAuthenticated={!!data?.session}
 	currentPath={$page.url.pathname}
 	onClose={() => (showSaveDialog = false)}
 	onSave={handleSave}
