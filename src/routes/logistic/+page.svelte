@@ -4,7 +4,7 @@
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
-	import { checkParameterStability } from '$lib/chaos-validation';
+	import { checkParameterStability, validateParameters } from '$lib/chaos-validation';
 	import type { LogisticParameters } from '$lib/types';
 
 	let { data } = $props();
@@ -19,7 +19,7 @@
 	let saveSuccess = $state(false);
 	let isSaving = $state(false);
 	let saveError = $state<string | null>(null);
-	let timeoutId = $state<number | null>(null);
+	let timeoutId: ReturnType<typeof setTimeout> | null = $state(null);
 
 	// Stability warning state
 	let stabilityWarnings = $state<string[]>([]);
@@ -30,20 +30,31 @@
 		const configParam = $page.url.searchParams.get('config');
 		if (configParam) {
 			try {
-				const params = JSON.parse(decodeURIComponent(configParam)) as LogisticParameters;
-				r = params.r ?? r;
-				x0 = params.x0 ?? x0;
-				iterations = params.iterations ?? iterations;
+				const params = JSON.parse(decodeURIComponent(configParam));
 
-				const stability = checkParameterStability('logistic', params);
+				// Validate parameters structure before using
+				const validation = validateParameters('logistic', params);
+				if (!validation.isValid) {
+					console.error('Invalid parameters structure:', validation.errors);
+					stabilityWarnings = validation.errors;
+					showStabilityWarning = true;
+					return;
+				}
+
+				// Now we can safely cast since validation passed
+				const typedParams = params as LogisticParameters;
+				r = typedParams.r ?? r;
+				x0 = typedParams.x0 ?? x0;
+				iterations = typedParams.iterations ?? iterations;
+
+				const stability = checkParameterStability('logistic', typedParams);
 				if (!stability.isStable) {
 					stabilityWarnings = stability.warnings;
 					showStabilityWarning = true;
 				}
 			} catch (e) {
 				console.error('Invalid config parameter:', e);
-				// Show error banner or toast to inform user
-				stabilityWarnings = ['Invalid configuration format in URL'];
+				stabilityWarnings = ['Failed to parse configuration parameters'];
 				showStabilityWarning = true;
 			}
 		}
@@ -51,7 +62,7 @@
 
 	// Get current parameters for saving
 	function getParameters(): LogisticParameters {
-		return { r, x0, iterations };
+		return { type: 'logistic', r, x0, iterations };
 	}
 
 	// Handle save

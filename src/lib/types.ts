@@ -21,24 +21,28 @@ export type ChaosMapType =
 
 // Parameter interfaces for each chaos map type
 export interface LorenzParameters {
+	type: 'lorenz';
 	sigma: number;
 	rho: number;
 	beta: number;
 }
 
 export interface HenonParameters {
+	type: 'henon';
 	a: number;
 	b: number;
 	iterations: number;
 }
 
 export interface LogisticParameters {
+	type: 'logistic';
 	r: number;
 	x0: number;
 	iterations: number;
 }
 
 export interface NewtonParameters {
+	type: 'newton';
 	xMin: number;
 	xMax: number;
 	yMin: number;
@@ -47,6 +51,7 @@ export interface NewtonParameters {
 }
 
 export interface StandardParameters {
+	type: 'standard';
 	K: number;
 	numP: number;
 	numQ: number;
@@ -54,12 +59,14 @@ export interface StandardParameters {
 }
 
 export interface BifurcationLogisticParameters {
+	type: 'bifurcation-logistic';
 	rMin: number;
 	rMax: number;
 	maxIterations: number;
 }
 
 export interface BifurcationHenonParameters {
+	type: 'bifurcation-henon';
 	aMin: number;
 	aMax: number;
 	b: number;
@@ -67,6 +74,7 @@ export interface BifurcationHenonParameters {
 }
 
 export interface ChaosEsthetiqueParameters {
+	type: 'chaos-esthetique';
 	a: number;
 	b: number;
 	x0: number;
@@ -109,13 +117,44 @@ export const VALID_MAP_TYPES: ChaosMapType[] = [
 	'chaos-esthetique'
 ];
 
-// Saved configuration interface (matches Drizzle schema)
-export interface SavedConfiguration {
+// Saved configuration discriminated union (matches Drizzle schema)
+export type SavedConfiguration = {
 	id: string;
 	userId: string;
 	name: string;
-	mapType: ChaosMapType;
-	parameters: ChaosMapParameters;
 	createdAt: string;
 	updatedAt: string;
-}
+} & (
+	| {
+			mapType: 'lorenz';
+			parameters: LorenzParameters;
+	  }
+	| {
+			mapType: 'henon';
+			parameters: HenonParameters;
+	  }
+	| {
+			mapType: 'logistic';
+			parameters: LogisticParameters;
+	  }
+	| {
+			mapType: 'newton';
+			parameters: NewtonParameters;
+	  }
+	| {
+			mapType: 'standard';
+			parameters: StandardParameters;
+	  }
+	| {
+			mapType: 'bifurcation-logistic';
+			parameters: BifurcationLogisticParameters;
+	  }
+	| {
+			mapType: 'bifurcation-henon';
+			parameters: BifurcationHenonParameters;
+	  }
+	| {
+			mapType: 'chaos-esthetique';
+			parameters: ChaosEsthetiqueParameters;
+	  }
+);

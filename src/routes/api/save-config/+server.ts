@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { db, savedConfigurations } from '$lib/server/db';
 import { VALID_MAP_TYPES } from '$lib/types';
 import type { ChaosMapType, ChaosMapParameters } from '$lib/types';
+import { validateParameters } from '$lib/chaos-validation';
 
 /**
  * POST /api/save-config
@@ -56,9 +57,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, `Invalid map type. Must be one of: ${VALID_MAP_TYPES.join(', ')}`);
 	}
 
-	// Validate parameters
-	if (!parameters || typeof parameters !== 'object' || Array.isArray(parameters)) {
-		throw error(400, 'Parameters is required and must be an object');
+	// Validate parameters structure and types
+	const validation = validateParameters(mapType as ChaosMapType, parameters);
+	if (!validation.isValid) {
+		throw error(400, `Invalid parameters: ${validation.errors.join(', ')}`);
 	}
 
 	try {

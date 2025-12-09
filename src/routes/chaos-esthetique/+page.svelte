@@ -4,7 +4,7 @@
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
-	import { checkParameterStability } from '$lib/chaos-validation';
+	import { checkParameterStability, validateParameters } from '$lib/chaos-validation';
 	import type { ChaosEsthetiqueParameters } from '$lib/types';
 
 	let { data } = $props();
@@ -37,27 +37,41 @@
 		const configParam = $page.url.searchParams.get('config');
 		if (configParam) {
 			try {
-				const params = JSON.parse(decodeURIComponent(configParam)) as ChaosEsthetiqueParameters;
-				a = params.a ?? a;
-				b = params.b ?? b;
-				x0 = params.x0 ?? x0;
-				y0 = params.y0 ?? y0;
-				iterations = params.iterations ?? iterations;
+				const params = JSON.parse(decodeURIComponent(configParam));
 
-				const stability = checkParameterStability('chaos-esthetique', params);
+				// Validate parameters structure before using
+				const validation = validateParameters('chaos-esthetique', params);
+				if (!validation.isValid) {
+					console.error('Invalid parameters structure:', validation.errors);
+					stabilityWarnings = validation.errors;
+					showStabilityWarning = true;
+					return;
+				}
+
+				// Now we can safely cast since validation passed
+				const typedParams = params as ChaosEsthetiqueParameters;
+				a = typedParams.a ?? a;
+				b = typedParams.b ?? b;
+				x0 = typedParams.x0 ?? x0;
+				y0 = typedParams.y0 ?? y0;
+				iterations = typedParams.iterations ?? iterations;
+
+				const stability = checkParameterStability('chaos-esthetique', typedParams);
 				if (!stability.isStable) {
 					stabilityWarnings = stability.warnings;
 					showStabilityWarning = true;
 				}
 			} catch (e) {
 				console.error('Invalid config parameter:', e);
+				stabilityWarnings = ['Failed to parse configuration parameters'];
+				showStabilityWarning = true;
 			}
 		}
 	});
 
 	// Get current parameters for saving
 	function getParameters(): ChaosEsthetiqueParameters {
-		return { a, b, x0, y0, iterations };
+		return { type: 'chaos-esthetique', a, b, x0, y0, iterations };
 	}
 
 	// Handle save

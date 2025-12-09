@@ -5,7 +5,7 @@
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
-	import { checkParameterStability } from '$lib/chaos-validation';
+	import { checkParameterStability, validateParameters } from '$lib/chaos-validation';
 	import type { LorenzParameters } from '$lib/types';
 
 	let { data } = $props();
@@ -27,30 +27,47 @@
 
 	// Get current parameters for saving
 	function getParameters(): LorenzParameters {
-		return { sigma, rho, beta };
+		return { type: 'lorenz', sigma, rho, beta };
 	}
+
+	// Save state
+	let saveError = $state<string | null>(null);
+	let timeoutId: ReturnType<typeof setTimeout> | null = $state(null);
 
 	// Handle save
 	async function handleSave(name: string) {
-		const response = await fetch(`${base}/api/save-config`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				name,
-				mapType: 'lorenz',
-				parameters: getParameters()
-			})
-		});
-
-		if (!response.ok) {
-			const errorData = await response.json().catch(() => ({ error: 'Failed to save' }));
-			throw new Error(errorData.error || 'Failed to save configuration');
+		// Clear any existing timeout and errors
+		if (timeoutId) {
+			clearTimeout(timeoutId);
+			timeoutId = null;
 		}
+		saveError = null;
 
-		saveSuccess = true;
-		setTimeout(() => {
-			saveSuccess = false;
-		}, 3000);
+		try {
+			const response = await fetch(`${base}/api/save-config`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					name,
+					mapType: 'lorenz',
+					parameters: getParameters()
+				})
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({ error: 'Failed to save' }));
+				saveError = errorData.error || 'Failed to save configuration';
+				return;
+			}
+
+			saveSuccess = true;
+			timeoutId = setTimeout(() => {
+				saveSuccess = false;
+				timeoutId = null;
+			}, 3000);
+		} catch (error) {
+			saveError = error instanceof Error ? error.message : 'Failed to save configuration';
+		}
 	}
 
 	// Load config from URL on mount
@@ -58,19 +75,33 @@
 		const configParam = $page.url.searchParams.get('config');
 		if (configParam) {
 			try {
-				const params = JSON.parse(decodeURIComponent(configParam)) as LorenzParameters;
-				if (typeof params.sigma === 'number') sigma = params.sigma;
-				if (typeof params.rho === 'number') rho = params.rho;
-				if (typeof params.beta === 'number') beta = params.beta;
+				const params = JSON.parse(decodeURIComponent(configParam));
+
+				// Validate parameters structure before using
+				const validation = validateParameters('lorenz', params);
+				if (!validation.isValid) {
+					console.error('Invalid parameters structure:', validation.errors);
+					stabilityWarnings = validation.errors;
+					showStabilityWarning = true;
+					return;
+				}
+
+				// Now we can safely cast since validation passed
+				const typedParams = params as LorenzParameters;
+				if (typeof typedParams.sigma === 'number') sigma = typedParams.sigma;
+				if (typeof typedParams.rho === 'number') rho = typedParams.rho;
+				if (typeof typedParams.beta === 'number') beta = typedParams.beta;
 
 				// Check stability
-				const stability = checkParameterStability('lorenz', params);
+				const stability = checkParameterStability('lorenz', typedParams);
 				if (!stability.isStable) {
 					stabilityWarnings = stability.warnings;
 					showStabilityWarning = true;
 				}
 			} catch (e) {
 				console.error('Invalid config parameter:', e);
+				stabilityWarnings = ['Failed to parse configuration parameters'];
+				showStabilityWarning = true;
 			}
 		}
 	});
@@ -207,6 +238,12 @@
 			isAnimating = false;
 			renderer.dispose();
 
+			// Clear timeout to prevent memory leaks
+			if (timeoutId) {
+				clearTimeout(timeoutId);
+				timeoutId = null;
+			}
+
 			if (container && renderer.domElement.parentNode === container) {
 				// eslint-disable-next-line svelte/no-dom-manipulating
 				container.removeChild(renderer.domElement);
@@ -251,6 +288,21 @@
 			<div class="flex items-center gap-3">
 				<span class="text-green-400">✓</span>
 				<span class="text-green-200">Configuration saved successfully!</span>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Save Error Toast -->
+	{#if saveError}
+		<div
+			class="fixed top-20 right-4 z-50 px-6 py-4 bg-red-500/10 border border-red-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
+		>
+			<div class="flex items-center gap-3">
+				<span class="text-red-400">✕</span>
+				<span class="text-red-200">{saveError}</span>
+				<button onclick={() => (saveError = null)} class="text-red-400/60 hover:text-red-400 ml-2">
+					✕
+				</button>
 			</div>
 		</div>
 	{/if}

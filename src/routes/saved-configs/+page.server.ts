@@ -6,6 +6,7 @@ import { eq, desc } from 'drizzle-orm';
 import { VALID_MAP_TYPES } from '$lib/types';
 import type { ChaosMapType, ChaosMapParameters, SavedConfiguration } from '$lib/types';
 import { fail } from '@sveltejs/kit';
+import { validateParameters } from '$lib/chaos-validation';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const { session, user } = await locals.safeGetSession();
@@ -23,11 +24,30 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		.orderBy(desc(savedConfigurations.createdAt));
 
 	// Type-cast the results to include proper types
-	const typedConfigurations: SavedConfiguration[] = configurations.map((config) => ({
-		...config,
-		mapType: config.mapType as ChaosMapType,
-		parameters: config.parameters as ChaosMapParameters
-	}));
+	// Note: We need to validate the parameters from the database to ensure they match the expected structure
+	const typedConfigurations: SavedConfiguration[] = configurations
+		.map((config) => {
+			// Validate parameters structure before casting
+			const validation = validateParameters(
+				config.mapType as ChaosMapType,
+				config.parameters
+			);
+			if (!validation.isValid) {
+				console.error(
+					`Invalid parameters in database for config ${config.id}:`,
+					validation.errors
+				);
+				// For now, we'll skip invalid configurations, but could also handle this differently
+				return null;
+			}
+
+			return {
+				...config,
+				mapType: config.mapType as ChaosMapType,
+				parameters: config.parameters as ChaosMapParameters
+			};
+		})
+		.filter((config): config is SavedConfiguration => config !== null);
 
 	return {
 		configurations: typedConfigurations
@@ -69,7 +89,7 @@ export const actions: Actions = {
 			return fail(400, { saveError: 'Parameters are required', mapType, name: trimmedName });
 		}
 
-		let parameters: ChaosMapParameters;
+		let parameters: unknown;
 		try {
 			parameters = JSON.parse(parametersJson);
 		} catch {
@@ -80,6 +100,19 @@ export const actions: Actions = {
 			});
 		}
 
+		// Validate parameters structure and types
+		const validation = validateParameters(mapType as ChaosMapType, parameters);
+		if (!validation.isValid) {
+			return fail(400, {
+				saveError: `Invalid parameters: ${validation.errors.join(', ')}`,
+				mapType,
+				name: trimmedName
+			});
+		}
+
+		// Now we can safely cast since validation passed
+		const typedParameters = parameters as ChaosMapParameters;
+
 		try {
 			const [newConfig] = await db
 				.insert(savedConfigurations)
@@ -87,7 +120,7 @@ export const actions: Actions = {
 					userId: user.id,
 					name: trimmedName,
 					mapType: mapType as ChaosMapType,
-					parameters
+					parameters: typedParameters
 				})
 				.returning({ id: savedConfigurations.id });
 
