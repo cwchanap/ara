@@ -112,7 +112,7 @@
 			<div class="text-center py-4">
 				<p class="text-muted-foreground mb-4">Please log in to save configurations</p>
 				<a
-					href="{base}/login?redirect={encodeURIComponent(currentPath)}"
+					href={`${base}/login?redirect=${encodeURIComponent(currentPath)}`}
 					class="inline-block px-6 py-2 bg-primary/20 border border-primary/50 text-primary hover:bg-primary/30 transition-colors font-['Orbitron'] text-sm tracking-wider"
 				>
 					LOG_IN
