@@ -113,14 +113,15 @@ export function validateParameters(
 		errors.push(`Missing required parameters: ${missingKeys.join(', ')}`);
 	}
 
-	// Check for extra keys
-	const extraKeys = actualKeys.filter((key) => !expectedKeys.includes(key));
+	// Check for extra keys (but allow 'type' field as it's used for discriminated unions)
+	const extraKeys = actualKeys.filter((key) => !expectedKeys.includes(key) && key !== 'type');
 	if (extraKeys.length > 0) {
 		errors.push(`Unexpected parameters: ${extraKeys.join(', ')}`);
 	}
 
-	// Check that all values are numbers
+	// Check that all values are numbers (except 'type' field which is a string)
 	for (const key of actualKeys) {
+		if (key === 'type') continue; // Skip type field as it's a string discriminator
 		const value = paramObj[key];
 		if (typeof value !== 'number' || isNaN(value)) {
 			errors.push(`Parameter '${key}' must be a valid number, got: ${typeof value}`);
