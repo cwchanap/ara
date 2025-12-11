@@ -43,7 +43,11 @@
 				// Now we can safely cast since validation passed
 				const typedParams = params as BifurcationLogisticParameters;
 
-				// Coerce to numbers and validate ranges
+				// NOTE: Redundant type coercion using Number() after validation.
+				// The validateParameters function already checks that all parameter values are numbers (line 126 in chaos-validation.ts).
+				// This extra coercion is unnecessary and creates a false sense of uncertainty about type safety.
+				// After validation passes, the values are guaranteed to be numbers, so direct assignment is sufficient.
+				// The clamping logic is good for UX, but the Number() coercion is superfluous.
 				const newRMin = Number(typedParams.rMin);
 				const newRMax = Number(typedParams.rMax);
 				const newMaxIterations = Number(typedParams.maxIterations);

@@ -17,9 +17,10 @@
 	// Save dialog state
 	let showSaveDialog = $state(false);
 	let saveSuccess = $state(false);
+	let saveError = $state<string | null>(null);
 
 	// Timeout ID for save success reset
-	let saveSuccessTimeoutId: NodeJS.Timeout | null = null;
+	let saveSuccessTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 	// Stability warning state
 	let stabilityWarnings = $state<string[]>([]);
@@ -67,32 +68,50 @@
 
 	// Handle save
 	async function handleSave(name: string) {
-		const response = await fetch(`${base}/api/save-config`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				name,
-				mapType: 'henon',
-				parameters: getParameters()
-			})
-		});
+		// Clear previous error state
+		saveError = null;
 
-		if (!response.ok) {
-			const errorData = await response.json().catch(() => ({ error: 'Failed to save' }));
-			throw new Error(errorData.error || 'Failed to save configuration');
+		try {
+			const response = await fetch(`${base}/api/save-config`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					name,
+					mapType: 'henon',
+					parameters: getParameters()
+				})
+			});
+
+			if (!response.ok) {
+				const errorData = await response
+					.json()
+					.catch(() => ({ error: 'Failed to save configuration' }));
+				saveError = errorData.error || 'Failed to save configuration';
+				return;
+			}
+
+			saveSuccess = true;
+
+			// Clear any existing timeout
+			if (saveSuccessTimeoutId) {
+				clearTimeout(saveSuccessTimeoutId);
+			}
+
+			// Set new timeout and store the ID
+			saveSuccessTimeoutId = setTimeout(() => {
+				saveSuccess = false;
+			}, 3000);
+		} catch (error) {
+			saveError =
+				'Failed to save configuration: ' +
+				(error instanceof Error ? error.message : 'Network error');
+			if (saveSuccessTimeoutId) {
+				clearTimeout(saveSuccessTimeoutId);
+			}
+			saveSuccessTimeoutId = setTimeout(() => {
+				saveError = null;
+			}, 5000);
 		}
-
-		saveSuccess = true;
-
-		// Clear any existing timeout
-		if (saveSuccessTimeoutId) {
-			clearTimeout(saveSuccessTimeoutId);
-		}
-
-		// Set new timeout and store the ID
-		saveSuccessTimeoutId = setTimeout(() => {
-			saveSuccess = false;
-		}, 3000);
 	}
 
 	function calculateHenon(a: number, b: number, iterations: number) {
@@ -270,6 +289,18 @@
 			<div class="flex items-center gap-3">
 				<span class="text-green-400">✓</span>
 				<span class="text-green-200">Configuration saved successfully!</span>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Save Error Toast -->
+	{#if saveError}
+		<div
+			class="fixed top-20 right-4 z-50 px-6 py-4 bg-red-500/10 border border-red-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
+		>
+			<div class="flex items-center gap-3">
+				<span class="text-red-400">✗</span>
+				<span class="text-red-200">{saveError}</span>
 			</div>
 		</div>
 	{/if}

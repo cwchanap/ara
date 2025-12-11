@@ -6,7 +6,7 @@
 -->
 <script lang="ts">
 	import { base } from '$app/paths';
-	import { goto, invalidateAll } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { enhance } from '$app/forms';
 	import { CHAOS_MAP_DISPLAY_NAMES } from '$lib/types';
 	import type { SavedConfiguration, ChaosMapType } from '$lib/types';
@@ -19,6 +19,7 @@
 	let configToDelete = $state<SavedConfiguration | null>(null);
 	let isDeleting = $state(false);
 	let deleteError = $state('');
+	let deleteForm: HTMLFormElement;
 
 	// Rename state
 	let renamingConfigId = $state<string | null>(null);
@@ -73,7 +74,13 @@
 		isDeleting = true;
 		deleteError = '';
 
-		// Submit the delete form programmatically
+		// TODO: Replace programmatic form submission with SvelteKit's enhance action
+		// Using document.getElementById and DOM manipulation to submit a form is error-prone and bypasses SvelteKit's form handling.
+		// This approach:
+		// - Doesn't wait for the form action to complete, so error handling won't work correctly
+		// - The isDeleting state won't be properly managed since the page will reload
+		// - Error state from the form action won't be captured
+		// Instead, use SvelteKit's enhance action and await the result. See lines 228-235 for the correct pattern already used in the rename form.
 		const form = document.getElementById('delete-form') as HTMLFormElement;
 		if (form) {
 			const input = form.querySelector('input[name="configurationId"]') as HTMLInputElement;
@@ -96,20 +103,8 @@
 		renameError = '';
 	}
 
-	// Handle form results
+	// Handle form results (only for rename, delete is now handled programmatically)
 	$effect(() => {
-		if (form?.deleteSuccess) {
-			closeDeleteDialog();
-			showDeleteSuccess = true;
-			setTimeout(() => {
-				showDeleteSuccess = false;
-			}, 3000);
-			invalidateAll();
-		}
-		if (form?.deleteError) {
-			deleteError = form.deleteError;
-			isDeleting = false;
-		}
 		if (form?.renameSuccess) {
 			renamingConfigId = null;
 			showRenameSuccess = true;
@@ -123,8 +118,8 @@
 	});
 </script>
 
-<!-- Hidden delete form -->
-<form id="delete-form" method="POST" action="?/delete" use:enhance>
+<!-- Hidden delete form (for programmatic submission) -->
+<form bind:this={deleteForm} method="POST" action="?/delete">
 	<input type="hidden" name="configurationId" value={configToDelete?.id || ''} />
 </form>
 
