@@ -6,7 +6,7 @@
 -->
 <script lang="ts">
 	import { base } from '$app/paths';
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { enhance } from '$app/forms';
 	import { CHAOS_MAP_DISPLAY_NAMES } from '$lib/types';
 	import type { SavedConfiguration, ChaosMapType } from '$lib/types';
@@ -19,7 +19,6 @@
 	let configToDelete = $state<SavedConfiguration | null>(null);
 	let isDeleting = $state(false);
 	let deleteError = $state('');
-	let deleteForm: HTMLFormElement;
 
 	// Rename state
 	let renamingConfigId = $state<string | null>(null);
@@ -74,18 +73,48 @@
 		isDeleting = true;
 		deleteError = '';
 
-		// TODO: Replace programmatic form submission with SvelteKit's enhance action
-		// Using document.getElementById and DOM manipulation to submit a form is error-prone and bypasses SvelteKit's form handling.
-		// This approach:
-		// - Doesn't wait for the form action to complete, so error handling won't work correctly
-		// - The isDeleting state won't be properly managed since the page will reload
-		// - Error state from the form action won't be captured
-		// Instead, use SvelteKit's enhance action and await the result. See lines 228-235 for the correct pattern already used in the rename form.
-		const form = document.getElementById('delete-form') as HTMLFormElement;
-		if (form) {
-			const input = form.querySelector('input[name="configurationId"]') as HTMLInputElement;
-			input.value = configToDelete.id;
-			form.submit();
+		try {
+			// TODO: Replace programmatic form submission with SvelteKit's enhance action
+			// Using document.getElementById and DOM manipulation to submit a form is error-prone and bypasses SvelteKit's form handling.
+			// This approach:
+			// - Doesn't wait for the form action to complete, so error handling won't work correctly
+			// - The isDeleting state won't be properly managed since the page will reload
+			// - Error state from the form action won't be captured
+			// Instead, use SvelteKit's enhance action and await the result. See lines 228-235 for the correct pattern already used in the rename form.
+			const formData = new FormData();
+			formData.set('configurationId', configToDelete.id);
+
+			const response = await fetch('?/delete', {
+				method: 'POST',
+				headers: {
+					accept: 'application/json',
+					'x-sveltekit-action': 'true'
+				},
+				body: formData
+			});
+
+			const result = (await response.json().catch(() => null)) as {
+				type: string;
+				status?: number;
+				data?: { deleteError?: string };
+			} | null;
+
+			if (!response.ok || !result || result.type !== 'success') {
+				deleteError = result?.data?.deleteError || 'Failed to delete configuration';
+				return;
+			}
+
+			showDeleteSuccess = true;
+			setTimeout(() => {
+				showDeleteSuccess = false;
+			}, 3000);
+
+			closeDeleteDialog();
+			await invalidateAll();
+		} catch (err) {
+			deleteError = err instanceof Error ? err.message : 'Failed to delete configuration';
+		} finally {
+			isDeleting = false;
 		}
 	}
 
@@ -117,11 +146,6 @@
 		}
 	});
 </script>
-
-<!-- Hidden delete form (for programmatic submission) -->
-<form bind:this={deleteForm} method="POST" action="?/delete">
-	<input type="hidden" name="configurationId" value={configToDelete?.id || ''} />
-</form>
 
 <div class="space-y-6">
 	<!-- Header -->
@@ -221,7 +245,13 @@
 							method="POST"
 							action="?/rename"
 							use:enhance={() => {
-								return async ({ result, update }) => {
+								return async ({
+									result,
+									update
+								}: {
+									result: { type: string };
+									update: () => Promise<void>;
+								}) => {
 									if (result.type === 'success') {
 										renamingConfigId = null;
 									}

@@ -15,10 +15,12 @@
 	let rMax = $state(4.0);
 	let maxIterations = $state(1000);
 	let isRendering = false;
+	let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	// Save dialog state
 	let showSaveDialog = $state(false);
 	let saveSuccess = $state(false);
+	let saveError = $state<string | null>(null);
 
 	// Stability warning state
 	let stabilityWarnings = $state<string[]>([]);
@@ -100,25 +102,51 @@
 
 	// Handle save
 	async function handleSave(name: string) {
-		const response = await fetch(`${base}/api/save-config`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				name,
-				mapType: 'bifurcation-logistic',
-				parameters: getParameters()
-			})
-		});
+		// Clear previous error state
+		saveError = null;
 
-		if (!response.ok) {
-			const errorData = await response.json().catch(() => ({ error: 'Failed to save' }));
-			throw new Error(errorData.error || 'Failed to save configuration');
-		}
+		try {
+			const response = await fetch(`${base}/api/save-config`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					name,
+					mapType: 'bifurcation-logistic',
+					parameters: getParameters()
+				})
+			});
 
-		saveSuccess = true;
-		setTimeout(() => {
+			if (!response.ok) {
+				const errorData = await response
+					.json()
+					.catch(() => ({ error: 'Failed to save configuration' }));
+				saveSuccess = false;
+				if (saveTimeout !== null) {
+					clearTimeout(saveTimeout);
+					saveTimeout = null;
+				}
+				saveError = errorData.error || 'Failed to save configuration';
+				return;
+			}
+
+			saveSuccess = true;
+			if (saveTimeout !== null) {
+				clearTimeout(saveTimeout);
+			}
+			saveTimeout = setTimeout(() => {
+				saveSuccess = false;
+				saveTimeout = null;
+			}, 3000);
+		} catch (error) {
 			saveSuccess = false;
-		}, 3000);
+			if (saveTimeout !== null) {
+				clearTimeout(saveTimeout);
+				saveTimeout = null;
+			}
+			saveError =
+				'Failed to save configuration: ' +
+				(error instanceof Error ? error.message : 'Network error');
+		}
 	}
 
 	function render() {
@@ -206,6 +234,18 @@
 			<div class="flex items-center gap-3">
 				<span class="text-green-400">✓</span>
 				<span class="text-green-200">Configuration saved successfully!</span>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Save Error Toast -->
+	{#if saveError}
+		<div
+			class="fixed top-20 right-4 z-50 px-6 py-4 bg-red-500/10 border border-red-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
+		>
+			<div class="flex items-center gap-3">
+				<span class="text-red-400">✗</span>
+				<span class="text-red-200">{saveError}</span>
 			</div>
 		</div>
 	{/if}
