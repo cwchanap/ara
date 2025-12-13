@@ -2,6 +2,12 @@
 	import { onMount, onDestroy } from 'svelte';
 	import * as d3 from 'd3';
 	import { base } from '$app/paths';
+	import { page } from '$app/stores';
+	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
+	import { checkParameterStability, validateParameters } from '$lib/chaos-validation';
+	import type { StandardParameters } from '$lib/types';
+
+	let { data } = $props();
 
 	let container: HTMLDivElement;
 	const MAX_POINTS = 20000;
@@ -16,6 +22,67 @@
 	let numQ = $state(10);
 	let iterations = $state(20000);
 	let isComputing = $state(false);
+
+	// Save dialog state
+	let showSaveDialog = $state(false);
+	let saveSuccess = $state(false);
+	let saveError = $state<string | null>(null);
+	let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+
+	// Stability warning state
+	let stabilityWarnings = $state<string[]>([]);
+	let showStabilityWarning = $state(false);
+
+	// Get current parameters for saving
+	function getParameters(): StandardParameters {
+		return { type: 'standard', K, numP, numQ, iterations };
+	}
+
+	// Handle save
+	async function handleSave(name: string) {
+		// Clear previous error state
+		saveError = null;
+
+		try {
+			const response = await fetch(`${base}/api/save-config`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					name,
+					mapType: 'standard',
+					parameters: getParameters()
+				})
+			});
+
+			if (!response.ok) {
+				const errorData = await response
+					.json()
+					.catch(() => ({ error: 'Failed to save configuration' }));
+				saveError = errorData.error || 'Failed to save configuration';
+				return;
+			}
+
+			saveSuccess = true;
+			if (saveTimeout !== null) {
+				clearTimeout(saveTimeout);
+			}
+			saveTimeout = setTimeout(() => {
+				saveSuccess = false;
+				saveTimeout = null;
+			}, 3000);
+		} catch (error) {
+			saveError =
+				'Failed to save configuration: ' +
+				(error instanceof Error ? error.message : 'Network error');
+			if (saveTimeout !== null) {
+				clearTimeout(saveTimeout);
+			}
+			saveTimeout = setTimeout(() => {
+				saveError = null;
+				saveTimeout = null;
+			}, 5000);
+		}
+	}
 
 	function standardMap(
 		numP: number,
@@ -193,6 +260,40 @@
 	}
 
 	onMount(() => {
+		// Load config from URL on mount
+		const configParam = $page.url.searchParams.get('config');
+		if (configParam) {
+			try {
+				const params = JSON.parse(decodeURIComponent(configParam));
+
+				// Validate parameters structure before using
+				const validation = validateParameters('standard', params);
+				if (!validation.isValid) {
+					console.error('Invalid parameters structure:', validation.errors);
+					stabilityWarnings = validation.errors;
+					showStabilityWarning = true;
+					return;
+				}
+
+				// Now we can safely cast since validation passed
+				const typedParams = params as StandardParameters;
+				K = typedParams.K ?? K;
+				numP = typedParams.numP ?? numP;
+				numQ = typedParams.numQ ?? numQ;
+				iterations = typedParams.iterations ?? iterations;
+
+				const stability = checkParameterStability('standard', typedParams);
+				if (!stability.isStable) {
+					stabilityWarnings = stability.warnings;
+					showStabilityWarning = true;
+				}
+			} catch (e) {
+				console.error('Invalid config parameter:', e);
+				stabilityWarnings = ['Failed to parse configuration parameters'];
+				showStabilityWarning = true;
+			}
+		}
+
 		if (typeof window !== 'undefined' && 'Worker' in window) {
 			try {
 				worker = new Worker(new URL('../../lib/workers/chaosMapsWorker.ts', import.meta.url), {
@@ -228,6 +329,10 @@
 			clearTimeout(renderTimeout);
 			renderTimeout = null;
 		}
+		if (saveTimeout !== null) {
+			clearTimeout(saveTimeout);
+			saveTimeout = null;
+		}
 	});
 
 	$effect(() => {
@@ -251,13 +356,73 @@
 				CHAOTIC_SYSTEM_VISUALIZATION // MODULE_07
 			</p>
 		</div>
-		<a
-			href="{base}/"
-			class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
-		>
-			← Return
-		</a>
+		<div class="flex gap-3">
+			<button
+				onclick={() => (showSaveDialog = true)}
+				class="px-6 py-2 bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(168,85,247,0.2)] uppercase tracking-widest text-sm font-bold"
+			>
+				💾 Save
+			</button>
+			<a
+				href={base + '/'}
+				class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
+			>
+				← Return
+			</a>
+		</div>
 	</div>
+
+	<!-- Save Success Toast -->
+	{#if saveSuccess}
+		<div
+			class="fixed top-20 right-4 z-50 px-6 py-4 bg-green-500/10 border border-green-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
+		>
+			<div class="flex items-center gap-3">
+				<span class="text-green-400">✓</span>
+				<span class="text-green-200">Configuration saved successfully!</span>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Save Error Toast -->
+	{#if saveError}
+		<div
+			class="fixed top-20 right-4 z-50 px-6 py-4 bg-red-500/10 border border-red-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
+		>
+			<div class="flex items-center gap-3">
+				<span class="text-red-400">✗</span>
+				<span class="text-red-200">{saveError}</span>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Stability Warning -->
+	{#if showStabilityWarning && stabilityWarnings.length > 0}
+		<div class="bg-amber-500/10 border border-amber-500/30 rounded-sm p-4 relative">
+			<div class="flex items-start gap-3">
+				<span class="text-amber-400 text-xl">⚠️</span>
+				<div class="flex-1">
+					<h3 class="font-['Orbitron'] text-amber-400 font-semibold mb-1">
+						UNSTABLE_PARAMETERS_DETECTED
+					</h3>
+					<p class="text-amber-200/80 text-sm mb-2">
+						The loaded configuration contains parameters outside recommended stable ranges:
+					</p>
+					<ul class="text-xs text-amber-200/60 list-disc list-inside space-y-1">
+						{#each stabilityWarnings as warning, i (i)}
+							<li>{warning}</li>
+						{/each}
+					</ul>
+				</div>
+				<button
+					onclick={() => (showStabilityWarning = false)}
+					class="text-amber-400/60 hover:text-amber-400"
+				>
+					✕
+				</button>
+			</div>
+		</div>
+	{/if}
 
 	<div
 		class="bg-card/30 backdrop-blur-md border border-primary/20 rounded-sm p-6 space-y-6 relative overflow-hidden group"
@@ -388,3 +553,13 @@
 		</p>
 	</div>
 </div>
+
+<!-- Save Configuration Dialog -->
+<SaveConfigDialog
+	bind:open={showSaveDialog}
+	mapType="standard"
+	isAuthenticated={!!data.session}
+	currentPath={$page.url.pathname}
+	onClose={() => (showSaveDialog = false)}
+	onSave={handleSave}
+/>

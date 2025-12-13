@@ -247,3 +247,22 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 **Form actions**: Always validate inputs using `$lib/auth-errors.ts` utilities (`validateUsername`, `validatePassword`, `getErrorMessage`).
 
 **Password changes**: Use the pattern in `src/routes/profile/+page.server.ts` which verifies current password via `signInWithPassword` before updating (Supabase has no verify-only API).
+
+## Active Technologies
+
+- TypeScript 5.x with Svelte 5 (runes syntax) + SvelteKit, Drizzle ORM, Supabase Auth, D3.js, Three.js, TailwindCSS v4 (001-save-chaos-map)
+- Neon PostgreSQL (via Drizzle ORM) for application data, Supabase for auth (001-save-chaos-map)
+
+## Recent Changes
+
+- 001-save-chaos-map: Implemented "Save Chaos Map Configuration" feature:
+  - Database: `saved_configurations` table with JSONB parameters storage
+  - Save: Users can save configurations with custom names from any chaos map page
+  - View: `/saved-configs` page lists all saved configurations with map type badges
+  - Load: Click-to-load navigates to chaos map with parameters applied via URL query params
+  - Delete: Confirmation dialog before deletion with ownership verification
+  - Rename: Inline rename UI with validation (1-100 chars)
+  - Stability: Parameter validation warns users when loading potentially unstable configurations
+  - Components: `SaveConfigDialog`, `DeleteConfirmDialog` using native `<dialog>` element
+  - API: `/api/save-config` POST endpoint for cross-page saving
+  - Auth: Redirects unauthenticated users to login with return URL
