@@ -74,13 +74,7 @@
 		deleteError = '';
 
 		try {
-			// TODO: Replace programmatic form submission with SvelteKit's enhance action
-			// Using document.getElementById and DOM manipulation to submit a form is error-prone and bypasses SvelteKit's form handling.
-			// This approach:
-			// - Doesn't wait for the form action to complete, so error handling won't work correctly
-			// - The isDeleting state won't be properly managed since the page will reload
-			// - Error state from the form action won't be captured
-			// Instead, use SvelteKit's enhance action and await the result. See lines 228-235 for the correct pattern already used in the rename form.
+			// Delete is handled via fetch() to the SvelteKit action and requests a JSON ActionResult so errors can be surfaced.
 			const formData = new FormData();
 			formData.set('configurationId', configToDelete.id);
 

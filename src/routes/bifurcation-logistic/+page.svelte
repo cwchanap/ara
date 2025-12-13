@@ -25,73 +25,81 @@
 	// Stability warning state
 	let stabilityWarnings = $state<string[]>([]);
 	let showStabilityWarning = $state(false);
+	let lastConfigParam: string | null = null;
 
 	// Load config from URL on mount
 	$effect(() => {
 		const configParam = $page.url.searchParams.get('config');
-		if (configParam) {
-			try {
-				const params = JSON.parse(decodeURIComponent(configParam));
+		if (!configParam) {
+			lastConfigParam = null;
+			return;
+		}
+		if (configParam === lastConfigParam) return;
+		lastConfigParam = configParam;
 
-				// Validate parameters structure before using
-				const validation = validateParameters('bifurcation-logistic', params);
-				if (!validation.isValid) {
-					console.error('Invalid parameters structure:', validation.errors);
-					stabilityWarnings = validation.errors;
-					showStabilityWarning = true;
-					return;
-				}
+		try {
+			const params = JSON.parse(decodeURIComponent(configParam));
 
-				// Now we can safely cast since validation passed
-				const typedParams = params as BifurcationLogisticParameters;
+			// Validate parameters structure before using
+			const validation = validateParameters('bifurcation-logistic', params);
+			if (!validation.isValid) {
+				console.error('Invalid parameters structure:', validation.errors);
+				stabilityWarnings = validation.errors;
+				showStabilityWarning = true;
+				return;
+			}
 
-				// NOTE: Redundant type coercion using Number() after validation.
-				// The validateParameters function already checks that all parameter values are numbers (line 126 in chaos-validation.ts).
-				// This extra coercion is unnecessary and creates a false sense of uncertainty about type safety.
-				// After validation passes, the values are guaranteed to be numbers, so direct assignment is sufficient.
-				// The clamping logic is good for UX, but the Number() coercion is superfluous.
-				const newRMin = Number(typedParams.rMin);
-				const newRMax = Number(typedParams.rMax);
-				const newMaxIterations = Number(typedParams.maxIterations);
+			// Now we can safely cast since validation passed
+			const typedParams = params as BifurcationLogisticParameters;
 
-				// Validate and clamp rMin (2.5 - 4.0)
-				if (!Number.isNaN(newRMin)) {
-					rMin = Math.max(2.5, Math.min(4.0, newRMin));
-				}
+			// NOTE: Redundant type coercion using Number() after validation.
+			// The validateParameters function already checks that all parameter values are numbers (line 126 in chaos-validation.ts).
+			// This extra coercion is unnecessary and creates a false sense of uncertainty about type safety.
+			// After validation passes, the values are guaranteed to be numbers, so direct assignment is sufficient.
+			// The clamping logic is good for UX, but the Number() coercion is superfluous.
+			const newRMin = typedParams.rMin;
+			const newRMax = typedParams.rMax;
+			const newMaxIterations = typedParams.maxIterations;
 
-				// Validate and clamp rMax (2.5 - 4.0)
-				if (!Number.isNaN(newRMax)) {
-					rMax = Math.max(2.5, Math.min(4.0, newRMax));
-				}
+			let nextRMin = 3.5;
+			let nextRMax = 4.0;
+			let nextMaxIterations = 1000;
 
-				// Enforce rMin <= rMax
-				if (rMin > rMax) {
-					// Swap values to maintain rMin <= rMax
-					const temp = rMin;
-					rMin = rMax;
-					rMax = temp;
-				}
+			// Validate and clamp rMin (2.5 - 4.0)
+			nextRMin = Math.max(2.5, Math.min(4.0, newRMin));
 
-				// Validate and clamp maxIterations (100 - 2000)
-				if (!Number.isNaN(newMaxIterations)) {
-					maxIterations = Math.max(100, Math.min(2000, newMaxIterations));
-				}
+			// Validate and clamp rMax (2.5 - 4.0)
+			nextRMax = Math.max(2.5, Math.min(4.0, newRMax));
 
-				const stability = checkParameterStability('bifurcation-logistic', {
-					type: 'bifurcation-logistic',
-					rMin,
-					rMax,
-					maxIterations
-				});
-				if (!stability.isStable) {
-					stabilityWarnings = stability.warnings;
-					showStabilityWarning = true;
-				}
-			} catch (e) {
-				console.error('Invalid config parameter:', e);
-				stabilityWarnings = ['Failed to parse configuration parameters'];
+			// Enforce rMin <= rMax
+			if (nextRMin > nextRMax) {
+				// Swap values to maintain rMin <= rMax
+				const temp = nextRMin;
+				nextRMin = nextRMax;
+				nextRMax = temp;
+			}
+
+			// Validate and clamp maxIterations (100 - 2000)
+			nextMaxIterations = Math.max(100, Math.min(2000, newMaxIterations));
+
+			const stability = checkParameterStability('bifurcation-logistic', {
+				type: 'bifurcation-logistic',
+				rMin: nextRMin,
+				rMax: nextRMax,
+				maxIterations: nextMaxIterations
+			});
+
+			rMin = nextRMin;
+			rMax = nextRMax;
+			maxIterations = nextMaxIterations;
+			if (!stability.isStable) {
+				stabilityWarnings = stability.warnings;
 				showStabilityWarning = true;
 			}
+		} catch (e) {
+			console.error('Invalid config parameter:', e);
+			stabilityWarnings = ['Failed to parse configuration parameters'];
+			showStabilityWarning = true;
 		}
 	});
 

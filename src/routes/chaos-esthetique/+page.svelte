@@ -23,6 +23,7 @@
 	let y0 = $state(0);
 	let iterations = $state(10000);
 	let isComputing = $state(false);
+	let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	// Save dialog state
 	let showSaveDialog = $state(false);
@@ -101,8 +102,12 @@
 			// Success
 			saveSuccess = true;
 			saveError = '';
-			setTimeout(() => {
+			if (saveTimeout !== null) {
+				clearTimeout(saveTimeout);
+			}
+			saveTimeout = setTimeout(() => {
 				saveSuccess = false;
+				saveTimeout = null;
 			}, 3000);
 		} catch (err) {
 			// Handle network errors or other exceptions
@@ -328,6 +333,10 @@
 		if (renderTimeout !== null) {
 			clearTimeout(renderTimeout);
 			renderTimeout = null;
+		}
+		if (saveTimeout !== null) {
+			clearTimeout(saveTimeout);
+			saveTimeout = null;
 		}
 	});
 
