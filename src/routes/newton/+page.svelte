@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { onDestroy } from 'svelte';
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
@@ -22,6 +23,7 @@
 	// Save dialog state
 	let showSaveDialog = $state(false);
 	let saveSuccess = $state(false);
+	let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	// Stability warning state
 	let stabilityWarnings = $state<string[]>([]);
@@ -87,8 +89,12 @@
 		}
 
 		saveSuccess = true;
-		setTimeout(() => {
+		if (saveTimeout !== null) {
+			clearTimeout(saveTimeout);
+		}
+		saveTimeout = setTimeout(() => {
 			saveSuccess = false;
+			saveTimeout = null;
 		}, 3000);
 	}
 
@@ -188,6 +194,13 @@
 
 	onMount(() => {
 		render();
+	});
+
+	onDestroy(() => {
+		if (saveTimeout !== null) {
+			clearTimeout(saveTimeout);
+			saveTimeout = null;
+		}
 	});
 
 	$effect(() => {
