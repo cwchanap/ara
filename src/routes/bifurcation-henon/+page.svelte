@@ -20,7 +20,9 @@
 	// Save dialog state
 	let showSaveDialog = $state(false);
 	let saveSuccess = $state(false);
+	let saveError = $state('');
 	let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+	let saveErrorTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	// Stability warning state
 	let stabilityWarnings = $state<string[]>([]);
@@ -69,29 +71,63 @@
 
 	// Handle save
 	async function handleSave(name: string) {
-		const response = await fetch(`${base}/api/save-config`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				name,
-				mapType: 'bifurcation-henon',
-				parameters: getParameters()
-			})
-		});
+		// Clear any previous error/success states
+		saveError = '';
+		saveSuccess = false;
 
-		if (!response.ok) {
-			const errorData = await response.json().catch(() => ({ error: 'Failed to save' }));
-			throw new Error(errorData.error || 'Failed to save configuration');
-		}
+		try {
+			const response = await fetch(`${base}/api/save-config`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					name,
+					mapType: 'bifurcation-henon',
+					parameters: getParameters()
+				})
+			});
 
-		saveSuccess = true;
-		if (saveTimeout !== null) {
-			clearTimeout(saveTimeout);
-		}
-		saveTimeout = setTimeout(() => {
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({ error: 'Failed to save' }));
+				saveSuccess = false;
+				saveError = errorData.error || 'Failed to save configuration';
+
+				if (saveErrorTimeout !== null) {
+					clearTimeout(saveErrorTimeout);
+					saveErrorTimeout = null;
+				}
+				saveErrorTimeout = setTimeout(() => {
+					saveError = '';
+					saveErrorTimeout = null;
+				}, 3000);
+				return;
+			}
+
+			// Success
+			saveSuccess = true;
+			saveError = '';
+			if (saveTimeout !== null) {
+				clearTimeout(saveTimeout);
+			}
+			saveTimeout = setTimeout(() => {
+				saveSuccess = false;
+				saveTimeout = null;
+			}, 3000);
+		} catch (err) {
 			saveSuccess = false;
-			saveTimeout = null;
-		}, 3000);
+			saveError =
+				err instanceof Error
+					? `Failed to save configuration: ${err.message}`
+					: 'Failed to save configuration';
+
+			if (saveErrorTimeout !== null) {
+				clearTimeout(saveErrorTimeout);
+				saveErrorTimeout = null;
+			}
+			saveErrorTimeout = setTimeout(() => {
+				saveError = '';
+				saveErrorTimeout = null;
+			}, 3000);
+		}
 	}
 
 	function render() {
@@ -148,6 +184,10 @@
 			clearTimeout(saveTimeout);
 			saveTimeout = null;
 		}
+		if (saveErrorTimeout !== null) {
+			clearTimeout(saveErrorTimeout);
+			saveErrorTimeout = null;
+		}
 	});
 
 	$effect(() => {
@@ -195,6 +235,25 @@
 			<div class="flex items-center gap-3">
 				<span class="text-green-400">✓</span>
 				<span class="text-green-200">Configuration saved successfully!</span>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Save Error Toast -->
+	{#if saveError}
+		<div
+			class="fixed top-20 right-4 z-50 px-6 py-4 bg-red-500/10 border border-red-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
+		>
+			<div class="flex items-center gap-3">
+				<span class="text-red-400">✕</span>
+				<span class="text-red-200">{saveError}</span>
+				<button
+					onclick={() => (saveError = '')}
+					class="ml-2 text-red-400/60 hover:text-red-400 transition-colors"
+					aria-label="Close error message"
+				>
+					×
+				</button>
 			</div>
 		</div>
 	{/if}
@@ -344,7 +403,7 @@
 <SaveConfigDialog
 	bind:open={showSaveDialog}
 	mapType="bifurcation-henon"
-	isAuthenticated={!!data.session}
+	isAuthenticated={Boolean(data?.session)}
 	currentPath={$page.url.pathname}
 	onClose={() => (showSaveDialog = false)}
 	onSave={handleSave}

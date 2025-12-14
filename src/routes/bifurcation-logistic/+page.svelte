@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
@@ -198,6 +198,13 @@
 		render();
 	});
 
+	onDestroy(() => {
+		if (saveTimeout !== null) {
+			clearTimeout(saveTimeout);
+			saveTimeout = null;
+		}
+	});
+
 	$effect(() => {
 		void rMin;
 		void rMax;
@@ -388,7 +395,7 @@
 <SaveConfigDialog
 	bind:open={showSaveDialog}
 	mapType="bifurcation-logistic"
-	isAuthenticated={!!data.session}
+	isAuthenticated={Boolean(data?.session)}
 	currentPath={$page.url.pathname}
 	onClose={() => (showSaveDialog = false)}
 	onSave={handleSave}

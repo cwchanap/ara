@@ -10,6 +10,8 @@ CREATE TABLE "saved_configurations" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+ALTER TABLE "saved_configurations" ADD CONSTRAINT "check_valid_map_type" CHECK ("map_type" IN ('lorenz','henon','logistic','newton','standard','bifurcation-logistic','bifurcation-henon','chaos-esthetique'));
+--> statement-breakpoint
 ALTER TABLE "saved_configurations" ADD CONSTRAINT "saved_configurations_user_id_profiles_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "saved_configurations_user_id_idx" ON "saved_configurations" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "saved_configurations_user_created_at_idx" ON "saved_configurations" USING btree ("user_id","created_at");
