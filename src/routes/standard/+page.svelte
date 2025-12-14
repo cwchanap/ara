@@ -306,20 +306,19 @@
 						console.error(parsed.logMessage, parsed.logDetails);
 						configErrors = parsed.errors;
 						showConfigError = true;
-						return;
-					}
+					} else {
+						// Now we can safely cast since validation passed
+						const typedParams = parsed.parameters;
+						K = typedParams.K ?? K;
+						numP = typedParams.numP ?? numP;
+						numQ = typedParams.numQ ?? numQ;
+						iterations = typedParams.iterations ?? iterations;
 
-					// Now we can safely cast since validation passed
-					const typedParams = parsed.parameters;
-					K = typedParams.K ?? K;
-					numP = typedParams.numP ?? numP;
-					numQ = typedParams.numQ ?? numQ;
-					iterations = typedParams.iterations ?? iterations;
-
-					const stability = checkParameterStability('standard', typedParams);
-					if (!stability.isStable) {
-						stabilityWarnings = stability.warnings;
-						showStabilityWarning = true;
+						const stability = checkParameterStability('standard', typedParams);
+						if (!stability.isStable) {
+							stabilityWarnings = stability.warnings;
+							showStabilityWarning = true;
+						}
 					}
 				} catch (e) {
 					console.error('Invalid config parameter:', e);

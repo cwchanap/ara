@@ -14,6 +14,7 @@
 	let r = $state(3.9);
 	let x0 = $state(0.5);
 	let iterations = $state(100);
+	let lastAppliedConfigKey = $state<string | null>(null);
 
 	// Save dialog state
 	let showSaveDialog = $state(false);
@@ -31,6 +32,11 @@
 	// Load config from URL on mount
 	$effect(() => {
 		const configId = $page.url.searchParams.get('configId');
+		const configParam = $page.url.searchParams.get('config');
+		const configKey = configId ? `id:${configId}` : configParam ? `param:${configParam}` : null;
+		if (configKey === lastAppliedConfigKey) return;
+		lastAppliedConfigKey = configKey;
+
 		if (configId) {
 			configErrors = [];
 			showConfigError = false;
@@ -64,7 +70,6 @@
 			return;
 		}
 
-		const configParam = $page.url.searchParams.get('config');
 		if (configParam) {
 			try {
 				configErrors = [];

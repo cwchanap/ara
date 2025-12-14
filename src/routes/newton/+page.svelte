@@ -25,8 +25,11 @@
 	let showSaveDialog = $state(false);
 	let saveSuccess = $state(false);
 	let saveError = $state('');
+	let isSaving = $state(false);
 	let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 	let saveErrorTimeout: ReturnType<typeof setTimeout> | null = null;
+	let saveAbortController: AbortController | null = null;
+	let isDestroyed = false;
 
 	// Stability warning state
 	let configErrors = $state<string[]>([]);
@@ -117,14 +120,30 @@
 
 	// Handle save
 	async function handleSave(name: string) {
+		if (isSaving) return;
+		isSaving = true;
+
 		// Clear any previous error/success states
 		saveError = '';
 		saveSuccess = false;
+		if (saveTimeout !== null) {
+			clearTimeout(saveTimeout);
+			saveTimeout = null;
+		}
+		if (saveErrorTimeout !== null) {
+			clearTimeout(saveErrorTimeout);
+			saveErrorTimeout = null;
+		}
+
+		saveAbortController?.abort();
+		saveAbortController = new AbortController();
+		const signal = saveAbortController.signal;
 
 		try {
 			const response = await fetch(`${base}/api/save-config`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
+				signal,
 				body: JSON.stringify({
 					name,
 					mapType: 'newton',
@@ -132,8 +151,10 @@
 				})
 			});
 
+			if (isDestroyed || signal.aborted) return;
 			if (!response.ok) {
 				const errorData = await response.json().catch(() => ({ error: 'Failed to save' }));
+				if (isDestroyed || signal.aborted) return;
 				saveSuccess = false;
 				saveError = errorData.error || 'Failed to save configuration';
 
@@ -149,6 +170,7 @@
 			}
 
 			// Success
+			if (isDestroyed || signal.aborted) return;
 			saveSuccess = true;
 			saveError = '';
 			if (saveTimeout !== null) {
@@ -159,6 +181,10 @@
 				saveTimeout = null;
 			}, 3000);
 		} catch (err) {
+			if (err instanceof Error && err.name === 'AbortError') {
+				return;
+			}
+			if (isDestroyed || signal.aborted) return;
 			saveSuccess = false;
 			saveError =
 				err instanceof Error
@@ -173,6 +199,13 @@
 				saveError = '';
 				saveErrorTimeout = null;
 			}, 3000);
+		} finally {
+			if (saveAbortController?.signal === signal) {
+				saveAbortController = null;
+			}
+			if (!isDestroyed) {
+				isSaving = false;
+			}
 		}
 	}
 
@@ -275,6 +308,7 @@
 	});
 
 	onDestroy(() => {
+		isDestroyed = true;
 		if (saveTimeout !== null) {
 			clearTimeout(saveTimeout);
 			saveTimeout = null;
@@ -283,6 +317,8 @@
 			clearTimeout(saveErrorTimeout);
 			saveErrorTimeout = null;
 		}
+		saveAbortController?.abort();
+		saveAbortController = null;
 	});
 
 	$effect(() => {
