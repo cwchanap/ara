@@ -28,6 +28,8 @@
 	let saveErrorTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	// Stability warning state
+	let configErrors = $state<string[]>([]);
+	let showConfigError = $state(false);
 	let stabilityWarnings = $state<string[]>([]);
 	let showStabilityWarning = $state(false);
 
@@ -36,14 +38,19 @@
 		const configParam = $page.url.searchParams.get('config');
 		if (configParam) {
 			try {
+				configErrors = [];
+				showConfigError = false;
+				stabilityWarnings = [];
+				showStabilityWarning = false;
+
 				const params = JSON.parse(decodeURIComponent(configParam));
 
 				// Validate parameters structure before using
 				const validation = validateParameters('newton', params);
 				if (!validation.isValid) {
 					console.error('Invalid parameters structure:', validation.errors);
-					stabilityWarnings = validation.errors;
-					showStabilityWarning = true;
+					configErrors = validation.errors;
+					showConfigError = true;
 					return;
 				}
 
@@ -62,8 +69,8 @@
 				}
 			} catch (e) {
 				console.error('Invalid config parameter:', e);
-				stabilityWarnings = ['Failed to parse configuration parameters'];
-				showStabilityWarning = true;
+				configErrors = ['Failed to parse configuration parameters'];
+				showConfigError = true;
 			}
 		}
 	});
@@ -307,6 +314,31 @@
 					aria-label="Close error message"
 				>
 					×
+				</button>
+			</div>
+		</div>
+	{/if}
+
+	{#if showConfigError && configErrors.length > 0}
+		<div class="bg-red-500/10 border border-red-500/30 rounded-sm p-4 relative">
+			<div class="flex items-start gap-3">
+				<span class="text-red-400 text-xl">✕</span>
+				<div class="flex-1">
+					<h3 class="font-['Orbitron'] text-red-400 font-semibold mb-1">INVALID_CONFIGURATION</h3>
+					<p class="text-red-200/80 text-sm mb-2">
+						The loaded configuration could not be applied due to validation errors:
+					</p>
+					<ul class="text-xs text-red-200/60 list-disc list-inside space-y-1">
+						{#each configErrors as err, i (i)}
+							<li>{err}</li>
+						{/each}
+					</ul>
+				</div>
+				<button
+					onclick={() => (showConfigError = false)}
+					class="text-red-400/60 hover:text-red-400"
+				>
+					✕
 				</button>
 			</div>
 		</div>

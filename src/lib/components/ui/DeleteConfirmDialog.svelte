@@ -45,6 +45,12 @@
 		}
 	}
 
+	function handleCancel(e: Event) {
+		if (isDeleting) {
+			e.preventDefault();
+		}
+	}
+
 	// Handle confirm click
 	async function handleConfirm() {
 		isDeleting = true;
@@ -68,6 +74,7 @@
 
 <dialog
 	bind:this={dialogRef}
+	oncancel={handleCancel}
 	onclose={handleDialogClose}
 	onkeydown={handleKeyDown}
 	class="fixed inset-0 m-auto w-full max-w-sm bg-background border border-red-500/30 rounded-lg shadow-2xl backdrop:bg-black/70"
@@ -122,10 +129,24 @@
 				type="button"
 				onclick={handleConfirm}
 				disabled={isDeleting}
+				aria-busy={isDeleting}
+				aria-disabled={isDeleting}
 				class="px-6 py-2 bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30 transition-colors font-['Orbitron'] text-sm tracking-wider disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
 			>
 				{#if isDeleting}
-					<span class="animate-spin">⟳</span>
+					<svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" aria-hidden="true">
+						<circle
+							class="opacity-25"
+							cx="12"
+							cy="12"
+							r="10"
+							stroke="currentColor"
+							stroke-width="4"
+							fill="none"
+						></circle>
+						<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+						></path>
+					</svg>
 					DELETING...
 				{:else}
 					DELETE

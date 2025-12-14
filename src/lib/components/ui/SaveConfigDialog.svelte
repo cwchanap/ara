@@ -80,19 +80,11 @@
 			isSaving = false;
 		}
 	}
-
-	// Handle keyboard events
-	function handleKeyDown(e: KeyboardEvent) {
-		if (e.key === 'Escape') {
-			handleDialogClose();
-		}
-	}
 </script>
 
 <dialog
 	bind:this={dialogRef}
 	onclose={handleDialogClose}
-	onkeydown={handleKeyDown}
 	class="fixed inset-0 m-auto w-full max-w-md bg-background border border-primary/30 rounded-lg shadow-2xl backdrop:bg-black/70"
 >
 	<div class="p-6 relative">
