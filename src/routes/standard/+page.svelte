@@ -4,7 +4,8 @@
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
-	import { checkParameterStability, validateParameters } from '$lib/chaos-validation';
+	import { checkParameterStability } from '$lib/chaos-validation';
+	import { loadSavedConfigParameters, parseConfigParam } from '$lib/saved-config-loader';
 	import type { StandardParameters } from '$lib/types';
 
 	let { data } = $props();
@@ -268,22 +269,22 @@
 		stabilityWarnings = [];
 		showStabilityWarning = false;
 
-		const configParam = $page.url.searchParams.get('config');
-		if (configParam) {
-			try {
-				const params = JSON.parse(decodeURIComponent(configParam));
-
-				// Validate parameters structure before using
-				const validation = validateParameters('standard', params);
-				if (!validation.isValid) {
-					console.error('Invalid parameters structure:', validation.errors);
-					configErrors = validation.errors;
+		const configId = $page.url.searchParams.get('configId');
+		if (configId) {
+			void (async () => {
+				const result = await loadSavedConfigParameters({
+					configId,
+					mapType: 'standard',
+					base,
+					fetchFn: fetch
+				});
+				if (!result.ok) {
+					configErrors = result.errors;
 					showConfigError = true;
 					return;
 				}
 
-				// Now we can safely cast since validation passed
-				const typedParams = params as StandardParameters;
+				const typedParams = result.parameters;
 				K = typedParams.K ?? K;
 				numP = typedParams.numP ?? numP;
 				numQ = typedParams.numQ ?? numQ;
@@ -294,10 +295,37 @@
 					stabilityWarnings = stability.warnings;
 					showStabilityWarning = true;
 				}
-			} catch (e) {
-				console.error('Invalid config parameter:', e);
-				configErrors = ['Failed to parse configuration parameters'];
-				showConfigError = true;
+			})();
+		} else {
+			const configParam = $page.url.searchParams.get('config');
+			if (configParam) {
+				try {
+					// Validate parameters structure before using
+					const parsed = parseConfigParam({ mapType: 'standard', configParam });
+					if (!parsed.ok) {
+						console.error(parsed.logMessage, parsed.logDetails);
+						configErrors = parsed.errors;
+						showConfigError = true;
+						return;
+					}
+
+					// Now we can safely cast since validation passed
+					const typedParams = parsed.parameters;
+					K = typedParams.K ?? K;
+					numP = typedParams.numP ?? numP;
+					numQ = typedParams.numQ ?? numQ;
+					iterations = typedParams.iterations ?? iterations;
+
+					const stability = checkParameterStability('standard', typedParams);
+					if (!stability.isStable) {
+						stabilityWarnings = stability.warnings;
+						showStabilityWarning = true;
+					}
+				} catch (e) {
+					console.error('Invalid config parameter:', e);
+					configErrors = ['Failed to parse configuration parameters'];
+					showConfigError = true;
+				}
 			}
 		}
 

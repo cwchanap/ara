@@ -3,7 +3,8 @@
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
-	import { checkParameterStability, validateParameters } from '$lib/chaos-validation';
+	import { checkParameterStability } from '$lib/chaos-validation';
+	import { loadSavedConfigParameters, parseConfigParam } from '$lib/saved-config-loader';
 	import type { BifurcationHenonParameters } from '$lib/types';
 
 	let { data } = $props();
@@ -34,6 +35,41 @@
 
 	// Load config from URL on mount
 	$effect(() => {
+		const configId = $page.url.searchParams.get('configId');
+		if (configId) {
+			configErrors = [];
+			showConfigError = false;
+			stabilityWarnings = [];
+			showStabilityWarning = false;
+
+			void (async () => {
+				const result = await loadSavedConfigParameters({
+					configId,
+					mapType: 'bifurcation-henon',
+					base,
+					fetchFn: fetch
+				});
+				if (!result.ok) {
+					configErrors = result.errors;
+					showConfigError = true;
+					return;
+				}
+
+				const typedParams = result.parameters;
+				aMin = typedParams.aMin ?? aMin;
+				aMax = typedParams.aMax ?? aMax;
+				b = typedParams.b ?? b;
+				maxIterations = typedParams.maxIterations ?? maxIterations;
+
+				const stability = checkParameterStability('bifurcation-henon', typedParams);
+				if (!stability.isStable) {
+					stabilityWarnings = stability.warnings;
+					showStabilityWarning = true;
+				}
+			})();
+			return;
+		}
+
 		const configParam = $page.url.searchParams.get('config');
 		if (configParam) {
 			try {
@@ -42,19 +78,17 @@
 				stabilityWarnings = [];
 				showStabilityWarning = false;
 
-				const params = JSON.parse(decodeURIComponent(configParam));
-
 				// Validate parameters structure before using
-				const validation = validateParameters('bifurcation-henon', params);
-				if (!validation.isValid) {
-					console.error('Invalid parameters structure:', validation.errors);
-					configErrors = validation.errors;
+				const parsed = parseConfigParam({ mapType: 'bifurcation-henon', configParam });
+				if (!parsed.ok) {
+					console.error(parsed.logMessage, parsed.logDetails);
+					configErrors = parsed.errors;
 					showConfigError = true;
 					return;
 				}
 
 				// Now we can safely cast since validation passed
-				const typedParams = params as BifurcationHenonParameters;
+				const typedParams = parsed.parameters;
 				aMin = typedParams.aMin ?? aMin;
 				aMax = typedParams.aMax ?? aMax;
 				b = typedParams.b ?? b;

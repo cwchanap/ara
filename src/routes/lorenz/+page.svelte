@@ -5,7 +5,8 @@
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
-	import { checkParameterStability, validateParameters } from '$lib/chaos-validation';
+	import { checkParameterStability } from '$lib/chaos-validation';
+	import { loadSavedConfigParameters, parseConfigParam } from '$lib/saved-config-loader';
 	import type { LorenzParameters } from '$lib/types';
 
 	let { data } = $props();
@@ -79,22 +80,49 @@
 		stabilityWarnings = [];
 		showStabilityWarning = false;
 
+		const configId = $page.url.searchParams.get('configId');
+		if (configId) {
+			void (async () => {
+				const result = await loadSavedConfigParameters({
+					configId,
+					mapType: 'lorenz',
+					base,
+					fetchFn: fetch
+				});
+				if (!result.ok) {
+					configErrors = result.errors;
+					showConfigError = true;
+					return;
+				}
+
+				const typedParams = result.parameters;
+				if (typeof typedParams.sigma === 'number') sigma = typedParams.sigma;
+				if (typeof typedParams.rho === 'number') rho = typedParams.rho;
+				if (typeof typedParams.beta === 'number') beta = typedParams.beta;
+
+				const stability = checkParameterStability('lorenz', typedParams);
+				if (!stability.isStable) {
+					stabilityWarnings = stability.warnings;
+					showStabilityWarning = true;
+				}
+			})();
+			return;
+		}
+
 		const configParam = $page.url.searchParams.get('config');
 		if (configParam) {
 			try {
-				const params = JSON.parse(decodeURIComponent(configParam));
-
 				// Validate parameters structure before using
-				const validation = validateParameters('lorenz', params);
-				if (!validation.isValid) {
-					console.error('Invalid parameters structure:', validation.errors);
-					configErrors = validation.errors;
+				const parsed = parseConfigParam({ mapType: 'lorenz', configParam });
+				if (!parsed.ok) {
+					console.error(parsed.logMessage, parsed.logDetails);
+					configErrors = parsed.errors;
 					showConfigError = true;
 					return;
 				}
 
 				// Now we can safely cast since validation passed
-				const typedParams = params as LorenzParameters;
+				const typedParams = parsed.parameters;
 				if (typeof typedParams.sigma === 'number') sigma = typedParams.sigma;
 				if (typeof typedParams.rho === 'number') rho = typedParams.rho;
 				if (typeof typedParams.beta === 'number') beta = typedParams.beta;
