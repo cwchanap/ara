@@ -579,7 +579,7 @@
 <SaveConfigDialog
 	bind:open={showSaveDialog}
 	mapType="chaos-esthetique"
-	isAuthenticated={!!data.session}
+	isAuthenticated={!!data?.session}
 	currentPath={$page.url.pathname}
 	onClose={() => (showSaveDialog = false)}
 	onSave={handleSave}
