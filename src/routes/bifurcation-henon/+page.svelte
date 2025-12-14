@@ -25,7 +25,9 @@
 	let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 	let saveErrorTimeout: ReturnType<typeof setTimeout> | null = null;
 	let saveAbortController: AbortController | null = null;
+	let configLoadAbortController: AbortController | null = null;
 	let isUnmounted = false;
+	let lastAppliedConfigKey = $state<string | null>(null);
 
 	// Stability warning state
 	let configErrors = $state<string[]>([]);
@@ -36,19 +38,33 @@
 	// Load config from URL on mount
 	$effect(() => {
 		const configId = $page.url.searchParams.get('configId');
+		const configParam = $page.url.searchParams.get('config');
+		const configKey = configId ? `id:${configId}` : configParam ? `param:${configParam}` : null;
+		if (configKey === lastAppliedConfigKey) return;
+		lastAppliedConfigKey = configKey;
+
+		configLoadAbortController?.abort();
+		configLoadAbortController = null;
+
 		if (configId) {
 			configErrors = [];
 			showConfigError = false;
 			stabilityWarnings = [];
 			showStabilityWarning = false;
+			const controller = new AbortController();
+			configLoadAbortController = controller;
+			const { signal } = controller;
+			const currentConfigKey = configKey;
 
 			void (async () => {
 				const result = await loadSavedConfigParameters({
 					configId,
 					mapType: 'bifurcation-henon',
 					base,
-					fetchFn: fetch
+					fetchFn: (input, init) => fetch(input, { ...init, signal })
 				});
+				if (isUnmounted || signal.aborted) return;
+				if (lastAppliedConfigKey !== currentConfigKey) return;
 				if (!result.ok) {
 					configErrors = result.errors;
 					showConfigError = true;
@@ -70,7 +86,6 @@
 			return;
 		}
 
-		const configParam = $page.url.searchParams.get('config');
 		if (configParam) {
 			try {
 				configErrors = [];
@@ -253,6 +268,10 @@
 
 	onDestroy(() => {
 		isUnmounted = true;
+		if (configLoadAbortController) {
+			configLoadAbortController.abort();
+			configLoadAbortController = null;
+		}
 		if (saveAbortController) {
 			saveAbortController.abort();
 			saveAbortController = null;
