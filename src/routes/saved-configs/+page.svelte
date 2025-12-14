@@ -48,8 +48,13 @@
 
 	// Handle load configuration - navigate to map with params
 	function loadConfiguration(config: SavedConfiguration) {
-		const params = encodeURIComponent(JSON.stringify(config.parameters));
-		goto(`${base}/${config.mapType}?config=${params}`);
+		const storageKey = `saved-config:${config.id}`;
+		try {
+			sessionStorage.setItem(storageKey, JSON.stringify(config.parameters));
+		} catch (e) {
+			void e;
+		}
+		goto(`${base}/${config.mapType}?configId=${encodeURIComponent(config.id)}`);
 	}
 
 	// Open delete confirmation

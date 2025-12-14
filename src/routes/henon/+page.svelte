@@ -5,7 +5,8 @@
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
-	import { checkParameterStability, validateParameters } from '$lib/chaos-validation';
+	import { checkParameterStability } from '$lib/chaos-validation';
+	import { loadSavedConfigParameters, parseConfigParam } from '$lib/saved-config-loader';
 	import type { HenonParameters } from '$lib/types';
 
 	let { data } = $props();
@@ -36,22 +37,49 @@
 		stabilityWarnings = [];
 		showStabilityWarning = false;
 
+		const configId = get(page).url.searchParams.get('configId');
+		if (configId) {
+			void (async () => {
+				const result = await loadSavedConfigParameters({
+					configId,
+					mapType: 'henon',
+					base,
+					fetchFn: fetch
+				});
+				if (!result.ok) {
+					configErrors = result.errors;
+					showConfigError = true;
+					return;
+				}
+
+				const typedParams = result.parameters;
+				a = typedParams.a ?? a;
+				b = typedParams.b ?? b;
+				iterations = typedParams.iterations ?? iterations;
+
+				const stability = checkParameterStability('henon', typedParams);
+				if (!stability.isStable) {
+					stabilityWarnings = stability.warnings;
+					showStabilityWarning = true;
+				}
+			})();
+			return;
+		}
+
 		const configParam = get(page).url.searchParams.get('config');
 		if (configParam) {
 			try {
-				const params = JSON.parse(decodeURIComponent(configParam));
-
 				// Validate parameters structure before using
-				const validation = validateParameters('henon', params);
-				if (!validation.isValid) {
-					console.error('Invalid parameters structure:', validation.errors);
-					configErrors = validation.errors;
+				const parsed = parseConfigParam({ mapType: 'henon', configParam });
+				if (!parsed.ok) {
+					console.error(parsed.logMessage, parsed.logDetails);
+					configErrors = parsed.errors;
 					showConfigError = true;
 					return;
 				}
 
 				// Now we can safely cast since validation passed
-				const typedParams = params as HenonParameters;
+				const typedParams = parsed.parameters;
 				a = typedParams.a ?? a;
 				b = typedParams.b ?? b;
 				iterations = typedParams.iterations ?? iterations;
@@ -95,6 +123,12 @@
 					.json()
 					.catch(() => ({ error: 'Failed to save configuration' }));
 				saveError = errorData.error || 'Failed to save configuration';
+				if (saveSuccessTimeoutId) {
+					clearTimeout(saveSuccessTimeoutId);
+				}
+				saveSuccessTimeoutId = setTimeout(() => {
+					saveError = null;
+				}, 5000);
 				return;
 			}
 

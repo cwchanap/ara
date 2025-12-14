@@ -3,7 +3,8 @@
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
-	import { checkParameterStability, validateParameters } from '$lib/chaos-validation';
+	import { checkParameterStability } from '$lib/chaos-validation';
+	import { loadSavedConfigParameters, parseConfigParam } from '$lib/saved-config-loader';
 	import type { BifurcationLogisticParameters } from '$lib/types';
 
 	let { data } = $props();
@@ -28,9 +29,73 @@
 	let stabilityWarnings = $state<string[]>([]);
 	let showStabilityWarning = $state(false);
 	let lastConfigParam: string | null = null;
+	let lastConfigId: string | null = null;
 
 	// Load config from URL on mount
 	$effect(() => {
+		const configId = $page.url.searchParams.get('configId');
+		if (configId) {
+			if (configId === lastConfigId) return;
+			lastConfigId = configId;
+			lastConfigParam = null;
+			configErrors = [];
+			showConfigError = false;
+			stabilityWarnings = [];
+			showStabilityWarning = false;
+
+			void (async () => {
+				const result = await loadSavedConfigParameters({
+					configId,
+					mapType: 'bifurcation-logistic',
+					base,
+					fetchFn: fetch
+				});
+				if (!result.ok) {
+					configErrors = result.errors;
+					showConfigError = true;
+					return;
+				}
+
+				const typedParams = result.parameters;
+				const newRMin = typedParams.rMin;
+				const newRMax = typedParams.rMax;
+				const newMaxIterations = typedParams.maxIterations;
+
+				let nextRMin = 3.5;
+				let nextRMax = 4.0;
+				let nextMaxIterations = 1000;
+
+				nextRMin = Math.max(2.5, Math.min(4.0, newRMin));
+				nextRMax = Math.max(2.5, Math.min(4.0, newRMax));
+
+				if (nextRMin > nextRMax) {
+					const temp = nextRMin;
+					nextRMin = nextRMax;
+					nextRMax = temp;
+				}
+
+				nextMaxIterations = Math.max(100, Math.min(2000, newMaxIterations));
+
+				const stability = checkParameterStability('bifurcation-logistic', {
+					type: 'bifurcation-logistic',
+					rMin: nextRMin,
+					rMax: nextRMax,
+					maxIterations: nextMaxIterations
+				});
+
+				rMin = nextRMin;
+				rMax = nextRMax;
+				maxIterations = nextMaxIterations;
+
+				if (!stability.isStable) {
+					stabilityWarnings = stability.warnings;
+					showStabilityWarning = true;
+				}
+			})();
+			return;
+		}
+		lastConfigId = null;
+
 		const configParam = $page.url.searchParams.get('config');
 		if (!configParam) {
 			lastConfigParam = null;
@@ -49,19 +114,17 @@
 			stabilityWarnings = [];
 			showStabilityWarning = false;
 
-			const params = JSON.parse(decodeURIComponent(configParam));
-
 			// Validate parameters structure before using
-			const validation = validateParameters('bifurcation-logistic', params);
-			if (!validation.isValid) {
-				console.error('Invalid parameters structure:', validation.errors);
-				configErrors = validation.errors;
+			const parsed = parseConfigParam({ mapType: 'bifurcation-logistic', configParam });
+			if (!parsed.ok) {
+				console.error(parsed.logMessage, parsed.logDetails);
+				configErrors = parsed.errors;
 				showConfigError = true;
 				return;
 			}
 
 			// Now we can safely cast since validation passed
-			const typedParams = params as BifurcationLogisticParameters;
+			const typedParams = parsed.parameters;
 
 			// NOTE: Redundant type coercion using Number() after validation.
 			// The validateParameters function already checks that all parameter values are numbers (line 126 in chaos-validation.ts).
