@@ -3,6 +3,68 @@ import type { ChaosMapParameters, ChaosMapType } from '$lib/types';
 
 type ParametersFor<T extends ChaosMapType> = Extract<ChaosMapParameters, { type: T }>;
 
+const MAX_DECODED_CONFIG_PARAM_LENGTH = 50 * 1024;
+const MAX_JSON_NESTING_DEPTH = 20;
+const MAX_LOG_MESSAGE_LENGTH = 2000;
+
+function truncateForLog(value: string, maxLength: number) {
+	if (value.length <= maxLength) return value;
+	return `${value.slice(0, maxLength)}...`;
+}
+
+function normalizeErrorForLog(err: unknown) {
+	if (err instanceof Error) {
+		return {
+			name: err.name,
+			message: truncateForLog(err.message, MAX_LOG_MESSAGE_LENGTH)
+		};
+	}
+	return {
+		error: truncateForLog(String(err), MAX_LOG_MESSAGE_LENGTH)
+	};
+}
+
+function getMaxJsonNestingDepth(text: string) {
+	let depth = 0;
+	let maxDepth = 0;
+	let inString = false;
+	let escaped = false;
+
+	for (let i = 0; i < text.length; i++) {
+		const ch = text[i];
+		if (inString) {
+			if (escaped) {
+				escaped = false;
+				continue;
+			}
+			if (ch === '\\') {
+				escaped = true;
+				continue;
+			}
+			if (ch === '"') {
+				inString = false;
+			}
+			continue;
+		}
+
+		if (ch === '"') {
+			inString = true;
+			continue;
+		}
+		if (ch === '{' || ch === '[') {
+			depth++;
+			if (depth > maxDepth) maxDepth = depth;
+			continue;
+		}
+		if (ch === '}' || ch === ']') {
+			depth--;
+			if (depth < 0) return { ok: false as const, maxDepth };
+		}
+	}
+
+	return { ok: true as const, maxDepth };
+}
+
 export type LoadSavedConfigResult<T extends ChaosMapType> =
 	| {
 			ok: true;
@@ -34,17 +96,60 @@ export function parseConfigParam<T extends ChaosMapType>(args: {
 	mapType: T;
 	configParam: string;
 }): ParseConfigParamResult<T> {
-	let parsed: unknown;
+	let decoded: string;
 	try {
-		parsed = JSON.parse(decodeURIComponent(args.configParam));
+		decoded = decodeURIComponent(args.configParam);
 	} catch (e) {
-		void e;
 		return {
 			ok: false,
 			error: 'Failed to parse configuration parameters',
 			errors: ['Failed to parse configuration parameters'],
 			logMessage: 'Invalid config parameter:',
-			logDetails: e
+			logDetails: normalizeErrorForLog(e)
+		};
+	}
+
+	if (decoded.length > MAX_DECODED_CONFIG_PARAM_LENGTH) {
+		return {
+			ok: false,
+			error: 'Configuration parameter too large',
+			errors: [
+				`Configuration parameter too large (max ${MAX_DECODED_CONFIG_PARAM_LENGTH} chars)`
+			],
+			logMessage: 'Config parameter too large:',
+			logDetails: {
+				decodedLength: decoded.length,
+				maxDecodedLength: MAX_DECODED_CONFIG_PARAM_LENGTH
+			}
+		};
+	}
+
+	const depthCheck = getMaxJsonNestingDepth(decoded);
+	if (!depthCheck.ok || depthCheck.maxDepth > MAX_JSON_NESTING_DEPTH) {
+		return {
+			ok: false,
+			error: 'Configuration parameter too deeply nested',
+			errors: [
+				`Configuration parameter too deeply nested (max depth ${MAX_JSON_NESTING_DEPTH})`
+			],
+			logMessage: 'Config parameter too deeply nested:',
+			logDetails: {
+				maxDepth: depthCheck.maxDepth,
+				maxAllowedDepth: MAX_JSON_NESTING_DEPTH
+			}
+		};
+	}
+
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(decoded);
+	} catch (e) {
+		return {
+			ok: false,
+			error: 'Failed to parse configuration parameters',
+			errors: ['Failed to parse configuration parameters'],
+			logMessage: 'Invalid config parameter:',
+			logDetails: normalizeErrorForLog(e)
 		};
 	}
 

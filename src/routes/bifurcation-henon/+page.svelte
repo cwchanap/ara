@@ -57,11 +57,17 @@
 			const currentConfigKey = configKey;
 
 			void (async () => {
+				const fetchWithSignal: typeof fetch = Object.assign(
+					(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
+						fetch(input, { ...init, signal }),
+					{ preconnect: fetch.preconnect }
+				);
+
 				const result = await loadSavedConfigParameters({
 					configId,
 					mapType: 'bifurcation-henon',
 					base,
-					fetchFn: (input, init) => fetch(input, { ...init, signal })
+					fetchFn: fetchWithSignal
 				});
 				if (isUnmounted || signal.aborted) return;
 				if (lastAppliedConfigKey !== currentConfigKey) return;
@@ -83,10 +89,7 @@
 					showStabilityWarning = true;
 				}
 			})();
-			return;
-		}
-
-		if (configParam) {
+		} else if (configParam) {
 			try {
 				configErrors = [];
 				showConfigError = false;

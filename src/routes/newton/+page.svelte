@@ -36,47 +36,82 @@
 	let showConfigError = $state(false);
 	let stabilityWarnings = $state<string[]>([]);
 	let showStabilityWarning = $state(false);
+	let configLoadAbortController: AbortController | null = null;
+	let lastAppliedConfigKey = $state<string | null>(null);
 
 	// Load config from URL on mount
 	$effect(() => {
 		const configId = $page.url.searchParams.get('configId');
+		const configParam = $page.url.searchParams.get('config');
+		const configKey = configId ? `id:${configId}` : configParam ? `param:${configParam}` : null;
+		if (configKey === lastAppliedConfigKey) return;
+		lastAppliedConfigKey = configKey;
+
+		configLoadAbortController?.abort();
+		configLoadAbortController = null;
+
 		if (configId) {
 			configErrors = [];
 			showConfigError = false;
 			stabilityWarnings = [];
 			showStabilityWarning = false;
+			const controller = new AbortController();
+			configLoadAbortController = controller;
+			const { signal } = controller;
+			const currentConfigKey = configKey;
 
 			void (async () => {
-				const result = await loadSavedConfigParameters({
-					configId,
-					mapType: 'newton',
-					base,
-					fetchFn: fetch
-				});
-				if (!result.ok) {
-					configErrors = result.errors;
+				const fetchWithSignal: typeof fetch = Object.assign(
+					(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
+						fetch(input, { ...init, signal }),
+					{ preconnect: fetch.preconnect }
+				);
+
+				try {
+					const result = await loadSavedConfigParameters({
+						configId,
+						mapType: 'newton',
+						base,
+						fetchFn: fetchWithSignal
+					});
+					if (isDestroyed || signal.aborted) return;
+					if (lastAppliedConfigKey !== currentConfigKey) return;
+					if (!result.ok) {
+						configErrors = result.errors;
+						showConfigError = true;
+						return;
+					}
+
+					const typedParams = result.parameters;
+					xMin = typedParams.xMin ?? xMin;
+					xMax = typedParams.xMax ?? xMax;
+					yMin = typedParams.yMin ?? yMin;
+					yMax = typedParams.yMax ?? yMax;
+					maxIterations = typedParams.maxIterations ?? maxIterations;
+
+					const stability = checkParameterStability('newton', typedParams);
+					if (!stability.isStable) {
+						stabilityWarnings = stability.warnings;
+						showStabilityWarning = true;
+					}
+				} catch (err) {
+					if (
+						isDestroyed ||
+						signal.aborted ||
+						(err instanceof DOMException && err.name === 'AbortError') ||
+						(err instanceof Error && err.name === 'AbortError')
+					) {
+						return;
+					}
+					configErrors = ['Failed to load configuration parameters'];
 					showConfigError = true;
-					return;
-				}
-
-				const typedParams = result.parameters;
-				xMin = typedParams.xMin ?? xMin;
-				xMax = typedParams.xMax ?? xMax;
-				yMin = typedParams.yMin ?? yMin;
-				yMax = typedParams.yMax ?? yMax;
-				maxIterations = typedParams.maxIterations ?? maxIterations;
-
-				const stability = checkParameterStability('newton', typedParams);
-				if (!stability.isStable) {
-					stabilityWarnings = stability.warnings;
-					showStabilityWarning = true;
+				} finally {
+					if (configLoadAbortController === controller) {
+						configLoadAbortController = null;
+					}
 				}
 			})();
-			return;
-		}
-
-		const configParam = $page.url.searchParams.get('config');
-		if (configParam) {
+		} else if (configParam) {
 			try {
 				configErrors = [];
 				showConfigError = false;
@@ -309,6 +344,8 @@
 
 	onDestroy(() => {
 		isDestroyed = true;
+		configLoadAbortController?.abort();
+		configLoadAbortController = null;
 		if (saveTimeout !== null) {
 			clearTimeout(saveTimeout);
 			saveTimeout = null;

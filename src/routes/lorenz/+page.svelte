@@ -75,6 +75,14 @@
 
 	// Load config from URL on mount
 	onMount(() => {
+		const controller = new AbortController();
+		const { signal } = controller;
+		const fetchWithSignal: typeof fetch = Object.assign(
+			(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
+				fetch(input, { ...init, signal }),
+			{ preconnect: fetch.preconnect }
+		);
+
 		configErrors = [];
 		showConfigError = false;
 		stabilityWarnings = [];
@@ -83,62 +91,84 @@
 		const configId = $page.url.searchParams.get('configId');
 		if (configId) {
 			void (async () => {
-				const result = await loadSavedConfigParameters({
-					configId,
-					mapType: 'lorenz',
-					base,
-					fetchFn: fetch
-				});
-				if (!result.ok) {
-					configErrors = result.errors;
+				try {
+					const result = await loadSavedConfigParameters({
+						configId,
+						mapType: 'lorenz',
+						base,
+						fetchFn: fetchWithSignal
+					});
+					if (signal.aborted) return;
+					if (!result.ok) {
+						if (signal.aborted) return;
+						configErrors = result.errors;
+						showConfigError = true;
+						return;
+					}
+
+					const typedParams = result.parameters;
+					if (signal.aborted) return;
+					if (typeof typedParams.sigma === 'number') sigma = typedParams.sigma;
+					if (typeof typedParams.rho === 'number') rho = typedParams.rho;
+					if (typeof typedParams.beta === 'number') beta = typedParams.beta;
+
+					const stability = checkParameterStability('lorenz', typedParams);
+					if (signal.aborted) return;
+					if (!stability.isStable) {
+						stabilityWarnings = stability.warnings;
+						showStabilityWarning = true;
+					}
+				} catch (err) {
+					if (
+						signal.aborted ||
+						(err instanceof DOMException && err.name === 'AbortError') ||
+						(err instanceof Error && err.name === 'AbortError')
+					) {
+						return;
+					}
+					configErrors = ['Failed to load configuration parameters'];
 					showConfigError = true;
-					return;
-				}
-
-				const typedParams = result.parameters;
-				if (typeof typedParams.sigma === 'number') sigma = typedParams.sigma;
-				if (typeof typedParams.rho === 'number') rho = typedParams.rho;
-				if (typeof typedParams.beta === 'number') beta = typedParams.beta;
-
-				const stability = checkParameterStability('lorenz', typedParams);
-				if (!stability.isStable) {
-					stabilityWarnings = stability.warnings;
-					showStabilityWarning = true;
 				}
 			})();
-			return;
-		}
+		} else {
+			const configParam = $page.url.searchParams.get('config');
+			if (configParam) {
+				try {
+					// Validate parameters structure before using
+					const parsed = parseConfigParam({ mapType: 'lorenz', configParam });
+					if (!parsed.ok) {
+						console.error(parsed.logMessage, parsed.logDetails);
+						if (signal.aborted) return;
+						configErrors = parsed.errors;
+						showConfigError = true;
+					} else {
+						// Now we can safely cast since validation passed
+						const typedParams = parsed.parameters;
+						if (signal.aborted) return;
+						if (typeof typedParams.sigma === 'number') sigma = typedParams.sigma;
+						if (typeof typedParams.rho === 'number') rho = typedParams.rho;
+						if (typeof typedParams.beta === 'number') beta = typedParams.beta;
 
-		const configParam = $page.url.searchParams.get('config');
-		if (configParam) {
-			try {
-				// Validate parameters structure before using
-				const parsed = parseConfigParam({ mapType: 'lorenz', configParam });
-				if (!parsed.ok) {
-					console.error(parsed.logMessage, parsed.logDetails);
-					configErrors = parsed.errors;
+						// Check stability
+						const stability = checkParameterStability('lorenz', typedParams);
+						if (signal.aborted) return;
+						if (!stability.isStable) {
+							stabilityWarnings = stability.warnings;
+							showStabilityWarning = true;
+						}
+					}
+				} catch (e) {
+					console.error('Invalid config parameter:', e);
+					if (signal.aborted) return;
+					configErrors = ['Failed to parse configuration parameters'];
 					showConfigError = true;
-					return;
 				}
-
-				// Now we can safely cast since validation passed
-				const typedParams = parsed.parameters;
-				if (typeof typedParams.sigma === 'number') sigma = typedParams.sigma;
-				if (typeof typedParams.rho === 'number') rho = typedParams.rho;
-				if (typeof typedParams.beta === 'number') beta = typedParams.beta;
-
-				// Check stability
-				const stability = checkParameterStability('lorenz', typedParams);
-				if (!stability.isStable) {
-					stabilityWarnings = stability.warnings;
-					showStabilityWarning = true;
-				}
-			} catch (e) {
-				console.error('Invalid config parameter:', e);
-				configErrors = ['Failed to parse configuration parameters'];
-				showConfigError = true;
 			}
 		}
+
+		return () => {
+			controller.abort();
+		};
 	});
 
 	$effect(() => {
