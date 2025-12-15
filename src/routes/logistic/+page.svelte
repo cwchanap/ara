@@ -15,6 +15,8 @@
 	let x0 = $state(0.5);
 	let iterations = $state(100);
 	let lastAppliedConfigKey = $state<string | null>(null);
+	let configLoadAbortController: AbortController | null = null;
+	let isUnmounted = false;
 
 	// Save dialog state
 	let showSaveDialog = $state(false);
@@ -37,19 +39,34 @@
 		if (configKey === lastAppliedConfigKey) return;
 		lastAppliedConfigKey = configKey;
 
+		configLoadAbortController?.abort();
+		configLoadAbortController = null;
+
 		if (configId) {
 			configErrors = [];
 			showConfigError = false;
 			stabilityWarnings = [];
 			showStabilityWarning = false;
+			const controller = new AbortController();
+			configLoadAbortController = controller;
+			const { signal } = controller;
+			const currentConfigKey = configKey;
 
 			void (async () => {
+				const fetchWithSignal: typeof fetch = Object.assign(
+					(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
+						fetch(input, { ...init, signal }),
+					{ preconnect: fetch.preconnect }
+				);
+
 				const result = await loadSavedConfigParameters({
 					configId,
 					mapType: 'logistic',
 					base,
-					fetchFn: fetch
+					fetchFn: fetchWithSignal
 				});
+				if (isUnmounted || signal.aborted) return;
+				if (lastAppliedConfigKey !== currentConfigKey) return;
 				if (!result.ok) {
 					configErrors = result.errors;
 					showConfigError = true;
@@ -67,10 +84,7 @@
 					showStabilityWarning = true;
 				}
 			})();
-			return;
-		}
-
-		if (configParam) {
+		} else if (configParam) {
 			try {
 				configErrors = [];
 				showConfigError = false;
@@ -278,6 +292,11 @@
 	});
 
 	onDestroy(() => {
+		isUnmounted = true;
+		if (configLoadAbortController) {
+			configLoadAbortController.abort();
+			configLoadAbortController = null;
+		}
 		if (timeoutId) clearTimeout(timeoutId);
 	});
 
