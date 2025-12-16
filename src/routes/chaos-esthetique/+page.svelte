@@ -36,47 +36,83 @@
 	let showConfigError = $state(false);
 	let stabilityWarnings = $state<string[]>([]);
 	let showStabilityWarning = $state(false);
+	let lastAppliedConfigKey = $state<string | null>(null);
+	let configLoadAbortController: AbortController | null = null;
+	let isUnmounted = false;
 
 	// Load config from URL on mount
 	$effect(() => {
 		const configId = $page.url.searchParams.get('configId');
+		const configParam = $page.url.searchParams.get('config');
+		const configKey = configId ? `id:${configId}` : configParam ? `param:${configParam}` : null;
+		if (configKey === lastAppliedConfigKey) return;
+		lastAppliedConfigKey = configKey;
+
+		configLoadAbortController?.abort();
+		configLoadAbortController = null;
+
 		if (configId) {
 			configErrors = [];
 			showConfigError = false;
 			stabilityWarnings = [];
 			showStabilityWarning = false;
+			const controller = new AbortController();
+			configLoadAbortController = controller;
+			const { signal } = controller;
+			const currentConfigKey = configKey;
 
 			void (async () => {
-				const result = await loadSavedConfigParameters({
-					configId,
-					mapType: 'chaos-esthetique',
-					base,
-					fetchFn: fetch
-				});
-				if (!result.ok) {
-					configErrors = result.errors;
+				const fetchWithSignal: typeof fetch = Object.assign(
+					(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
+						fetch(input, { ...init, signal }),
+					{ preconnect: fetch.preconnect }
+				);
+
+				try {
+					const result = await loadSavedConfigParameters({
+						configId,
+						mapType: 'chaos-esthetique',
+						base,
+						fetchFn: fetchWithSignal
+					});
+					if (isUnmounted || signal.aborted) return;
+					if (lastAppliedConfigKey !== currentConfigKey) return;
+					if (!result.ok) {
+						configErrors = result.errors;
+						showConfigError = true;
+						return;
+					}
+
+					const typedParams = result.parameters;
+					if (typeof typedParams.a === 'number') a = typedParams.a;
+					if (typeof typedParams.b === 'number') b = typedParams.b;
+					if (typeof typedParams.x0 === 'number') x0 = typedParams.x0;
+					if (typeof typedParams.y0 === 'number') y0 = typedParams.y0;
+					if (typeof typedParams.iterations === 'number') iterations = typedParams.iterations;
+
+					const stability = checkParameterStability('chaos-esthetique', typedParams);
+					if (!stability.isStable) {
+						stabilityWarnings = stability.warnings;
+						showStabilityWarning = true;
+					}
+				} catch (err) {
+					if (
+						isUnmounted ||
+						signal.aborted ||
+						(err instanceof DOMException && err.name === 'AbortError') ||
+						(err instanceof Error && err.name === 'AbortError')
+					) {
+						return;
+					}
+					configErrors = ['Failed to load configuration parameters'];
 					showConfigError = true;
-					return;
-				}
-
-				const typedParams = result.parameters;
-				a = typedParams.a ?? a;
-				b = typedParams.b ?? b;
-				x0 = typedParams.x0 ?? x0;
-				y0 = typedParams.y0 ?? y0;
-				iterations = typedParams.iterations ?? iterations;
-
-				const stability = checkParameterStability('chaos-esthetique', typedParams);
-				if (!stability.isStable) {
-					stabilityWarnings = stability.warnings;
-					showStabilityWarning = true;
+				} finally {
+					if (configLoadAbortController === controller) {
+						configLoadAbortController = null;
+					}
 				}
 			})();
-			return;
-		}
-
-		const configParam = $page.url.searchParams.get('config');
-		if (configParam) {
+		} else if (configParam) {
 			try {
 				configErrors = [];
 				showConfigError = false;
@@ -94,11 +130,11 @@
 
 				// Now we can safely cast since validation passed
 				const typedParams = parsed.parameters;
-				a = typedParams.a ?? a;
-				b = typedParams.b ?? b;
-				x0 = typedParams.x0 ?? x0;
-				y0 = typedParams.y0 ?? y0;
-				iterations = typedParams.iterations ?? iterations;
+				if (typeof typedParams.a === 'number') a = typedParams.a;
+				if (typeof typedParams.b === 'number') b = typedParams.b;
+				if (typeof typedParams.x0 === 'number') x0 = typedParams.x0;
+				if (typeof typedParams.y0 === 'number') y0 = typedParams.y0;
+				if (typeof typedParams.iterations === 'number') iterations = typedParams.iterations;
 
 				const stability = checkParameterStability('chaos-esthetique', typedParams);
 				if (!stability.isStable) {
@@ -368,6 +404,9 @@
 	});
 
 	onDestroy(() => {
+		isUnmounted = true;
+		configLoadAbortController?.abort();
+		configLoadAbortController = null;
 		if (worker) {
 			worker.terminate();
 			worker = null;

@@ -537,7 +537,7 @@
 <SaveConfigDialog
 	bind:open={showSaveDialog}
 	mapType="lorenz"
-	isAuthenticated={!!data.session}
+	isAuthenticated={!!data?.session}
 	currentPath={$page.url.pathname}
 	onClose={() => (showSaveDialog = false)}
 	onSave={handleSave}
