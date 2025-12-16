@@ -220,8 +220,21 @@ export async function loadSavedConfigParameters<T extends ChaosMapType>(args: {
 		};
 	}
 
+	const clearSessionStorageCandidate = () => {
+		if (candidateSource === 'sessionStorage' && sessionStorageKeyToClear) {
+			try {
+				if (typeof sessionStorage !== 'undefined') {
+					sessionStorage.removeItem(sessionStorageKeyToClear);
+				}
+			} catch (e) {
+				void e;
+			}
+		}
+	};
+
 	const validation = validateParameters(args.mapType, candidateParams);
 	if (!validation.isValid) {
+		clearSessionStorageCandidate();
 		return {
 			ok: false,
 			error: 'Invalid parameters structure',
@@ -230,15 +243,7 @@ export async function loadSavedConfigParameters<T extends ChaosMapType>(args: {
 		};
 	}
 
-	if (candidateSource === 'sessionStorage' && sessionStorageKeyToClear) {
-		try {
-			if (typeof sessionStorage !== 'undefined') {
-				sessionStorage.removeItem(sessionStorageKeyToClear);
-			}
-		} catch (e) {
-			void e;
-		}
-	}
+	clearSessionStorageCandidate();
 
 	return {
 		ok: true,
