@@ -174,8 +174,9 @@ export async function loadSavedConfigParameters<T extends ChaosMapType>(args: {
 	base: string;
 	fetchFn: typeof fetch;
 }): Promise<LoadSavedConfigResult<T>> {
-	let loadedParams: unknown | null = null;
-	let source: 'api' | 'sessionStorage' | null = null;
+	let candidateParams: unknown | null = null;
+	let candidateSource: 'api' | 'sessionStorage' | null = null;
+	let sessionStorageKeyToClear: string | null = null;
 
 	try {
 		const response = await args.fetchFn(
@@ -187,23 +188,23 @@ export async function loadSavedConfigParameters<T extends ChaosMapType>(args: {
 				parameters?: unknown;
 			} | null;
 			if (data?.mapType === args.mapType) {
-				loadedParams = data.parameters ?? null;
-				source = 'api';
+				candidateParams = data.parameters ?? null;
+				candidateSource = 'api';
 			}
 		}
 	} catch (e) {
 		void e;
 	}
 
-	if (!loadedParams) {
+	if (!candidateParams) {
 		const storageKey = `saved-config:${args.configId}`;
 		try {
 			if (typeof sessionStorage !== 'undefined') {
 				const raw = sessionStorage.getItem(storageKey);
 				if (raw) {
-					loadedParams = JSON.parse(raw);
-					sessionStorage.removeItem(storageKey);
-					source = 'sessionStorage';
+					candidateParams = JSON.parse(raw);
+					candidateSource = 'sessionStorage';
+					sessionStorageKeyToClear = storageKey;
 				}
 			}
 		} catch (e) {
@@ -211,7 +212,7 @@ export async function loadSavedConfigParameters<T extends ChaosMapType>(args: {
 		}
 	}
 
-	if (!loadedParams || !source) {
+	if (!candidateParams || !candidateSource) {
 		return {
 			ok: false,
 			error: 'Failed to load configuration parameters',
@@ -219,7 +220,7 @@ export async function loadSavedConfigParameters<T extends ChaosMapType>(args: {
 		};
 	}
 
-	const validation = validateParameters(args.mapType, loadedParams);
+	const validation = validateParameters(args.mapType, candidateParams);
 	if (!validation.isValid) {
 		return {
 			ok: false,
@@ -229,9 +230,19 @@ export async function loadSavedConfigParameters<T extends ChaosMapType>(args: {
 		};
 	}
 
+	if (candidateSource === 'sessionStorage' && sessionStorageKeyToClear) {
+		try {
+			if (typeof sessionStorage !== 'undefined') {
+				sessionStorage.removeItem(sessionStorageKeyToClear);
+			}
+		} catch (e) {
+			void e;
+		}
+	}
+
 	return {
 		ok: true,
-		parameters: loadedParams as ParametersFor<T>,
-		source
+		parameters: candidateParams as ParametersFor<T>,
+		source: candidateSource
 	};
 }
