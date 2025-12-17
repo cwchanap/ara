@@ -244,8 +244,56 @@
 			return new THREE.Line(geometry, material);
 		}
 
-		let rosslerLine = createRosslerLine();
-		scene.add(rosslerLine);
+		const disposeMaterial = (material: THREE.Material) => {
+			const mat = material as unknown as Record<string, unknown>;
+			const textureKeys = [
+				'map',
+				'alphaMap',
+				'aoMap',
+				'bumpMap',
+				'displacementMap',
+				'emissiveMap',
+				'envMap',
+				'lightMap',
+				'metalnessMap',
+				'normalMap',
+				'roughnessMap',
+				'specularMap',
+				'gradientMap',
+				'clearcoatMap',
+				'clearcoatNormalMap',
+				'clearcoatRoughnessMap',
+				'sheenColorMap',
+				'sheenRoughnessMap',
+				'transmissionMap',
+				'thicknessMap',
+				'iridescenceMap',
+				'iridescenceThicknessMap'
+			];
+
+			for (const key of textureKeys) {
+				const texture = mat[key];
+				if (texture && typeof (texture as { dispose?: unknown }).dispose === 'function') {
+					(texture as { dispose: () => void }).dispose();
+					mat[key] = null;
+				}
+			}
+
+			material.dispose();
+		};
+
+		const disposeLine = (line: THREE.Line) => {
+			line.geometry.dispose();
+			if (Array.isArray(line.material)) {
+				line.material.forEach(disposeMaterial);
+			} else {
+				disposeMaterial(line.material);
+			}
+		};
+
+		const initialRosslerLine = createRosslerLine();
+		let rosslerLine: THREE.Line | null = initialRosslerLine;
+		scene.add(initialRosslerLine);
 
 		// Add faint grid helper for reference
 		const gridHelper = new THREE.GridHelper(100, 20, 0x3b82f6, 0x2d1b69);
@@ -275,7 +323,12 @@
 
 		// Recreate visualization on parameter change
 		recreate = () => {
-			scene.remove(rosslerLine);
+			if (rosslerLine) {
+				disposeLine(rosslerLine);
+				scene.remove(rosslerLine);
+				rosslerLine = null;
+			}
+
 			rosslerLine = createRosslerLine();
 			scene.add(rosslerLine);
 		};
