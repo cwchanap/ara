@@ -49,6 +49,12 @@
 			description: 'Aesthetic chaos pattern with custom formula',
 			url: '/chaos-esthetique',
 			color: 'from-pink-500 to-rose-600'
+		},
+		{
+			name: 'Rössler Attractor',
+			description: 'A 3D chaotic system with continuous scroll structure',
+			url: '/rossler',
+			color: 'from-blue-500 to-purple-600'
 		}
 	];
 </script>

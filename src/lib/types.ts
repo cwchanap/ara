@@ -8,9 +8,10 @@ export interface Profile {
 	updatedAt: string;
 }
 
-// Chaos Map Types - the 8 supported visualization types
+// Chaos Map Types - the 9 supported visualization types
 export type ChaosMapType =
 	| 'lorenz'
+	| 'rossler'
 	| 'henon'
 	| 'logistic'
 	| 'newton'
@@ -25,6 +26,13 @@ export interface LorenzParameters {
 	sigma: number;
 	rho: number;
 	beta: number;
+}
+
+export interface RosslerParameters {
+	type: 'rossler';
+	a: number;
+	b: number;
+	c: number;
 }
 
 export interface HenonParameters {
@@ -85,6 +93,7 @@ export interface ChaosEsthetiqueParameters {
 // Union type for all chaos map parameters
 export type ChaosMapParameters =
 	| LorenzParameters
+	| RosslerParameters
 	| HenonParameters
 	| LogisticParameters
 	| NewtonParameters
@@ -96,6 +105,7 @@ export type ChaosMapParameters =
 // Display names for chaos map types (UPPERCASE_SNAKE_CASE per constitution)
 export const CHAOS_MAP_DISPLAY_NAMES: Record<ChaosMapType, string> = {
 	lorenz: 'LORENZ_ATTRACTOR',
+	rossler: 'RÖSSLER_ATTRACTOR',
 	henon: 'HÉNON_MAP',
 	logistic: 'LOGISTIC_MAP',
 	newton: 'NEWTON_FRACTAL',
@@ -108,6 +118,7 @@ export const CHAOS_MAP_DISPLAY_NAMES: Record<ChaosMapType, string> = {
 // Valid chaos map types array for validation
 export const VALID_MAP_TYPES: ChaosMapType[] = [
 	'lorenz',
+	'rossler',
 	'henon',
 	'logistic',
 	'newton',
@@ -128,6 +139,10 @@ export type SavedConfiguration = {
 	| {
 			mapType: 'lorenz';
 			parameters: LorenzParameters;
+	  }
+	| {
+			mapType: 'rossler';
+			parameters: RosslerParameters;
 	  }
 	| {
 			mapType: 'henon';
