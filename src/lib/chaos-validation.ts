@@ -25,9 +25,9 @@ const STABLE_RANGES: Record<ChaosMapType, StableRanges<Record<string, number>>> 
 		beta: { min: 0, max: 10 }
 	},
 	rossler: {
-		a: { min: 0, max: 1 },
-		b: { min: 0, max: 1 },
-		c: { min: 0, max: 30 }
+		a: { min: 0.126, max: 0.43295 },
+		b: { min: 0.01, max: 2 },
+		c: { min: 1, max: 30 }
 	},
 	henon: {
 		a: { min: 0, max: 2 },
