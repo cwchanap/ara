@@ -380,30 +380,35 @@
 		</div>
 	</div>
 
-	<!-- Save Success Toast -->
-	{#if saveSuccess}
-		<div
-			class="fixed top-20 right-4 z-50 px-6 py-4 bg-green-500/10 border border-green-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
-		>
-			<div class="flex items-center gap-3">
-				<span class="text-green-400">✓</span>
-				<span class="text-green-200">Configuration saved successfully!</span>
-			</div>
-		</div>
-	{/if}
+	{#if saveSuccess || saveError}
+		<div class="fixed top-20 right-4 z-50 flex flex-col gap-3">
+			{#if saveSuccess}
+				<div
+					class="px-6 py-4 bg-green-500/10 border border-green-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
+				>
+					<div class="flex items-center gap-3">
+						<span class="text-green-400">✓</span>
+						<span class="text-green-200">Configuration saved successfully!</span>
+					</div>
+				</div>
+			{/if}
 
-	<!-- Save Error Toast -->
-	{#if saveError}
-		<div
-			class="fixed top-20 right-4 z-50 px-6 py-4 bg-red-500/10 border border-red-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
-		>
-			<div class="flex items-center gap-3">
-				<span class="text-red-400">✕</span>
-				<span class="text-red-200">{saveError}</span>
-				<button onclick={() => (saveError = null)} class="text-red-400/60 hover:text-red-400 ml-2">
-					✕
-				</button>
-			</div>
+			{#if saveError}
+				<div
+					class="px-6 py-4 bg-red-500/10 border border-red-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
+				>
+					<div class="flex items-center gap-3">
+						<span class="text-red-400">✕</span>
+						<span class="text-red-200">{saveError}</span>
+						<button
+							onclick={() => (saveError = null)}
+							class="text-red-400/60 hover:text-red-400 ml-2"
+						>
+							✕
+						</button>
+					</div>
+				</div>
+			{/if}
 		</div>
 	{/if}
 
@@ -488,8 +493,8 @@
 					id="param-a"
 					type="range"
 					bind:value={a}
-					min="0"
-					max="1"
+					min="0.126"
+					max="0.43295"
 					step="0.01"
 					class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-accent transition-colors"
 				/>
@@ -506,8 +511,8 @@
 					id="param-b"
 					type="range"
 					bind:value={b}
-					min="0"
-					max="1"
+					min="0.01"
+					max="2"
 					step="0.01"
 					class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-accent transition-colors"
 				/>
@@ -524,7 +529,7 @@
 					id="param-c"
 					type="range"
 					bind:value={c}
-					min="0"
+					min="1"
 					max="30"
 					step="0.1"
 					class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-accent transition-colors"

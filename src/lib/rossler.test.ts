@@ -54,14 +54,23 @@ describe('calculateRossler', () => {
 
 		const points = calculateRossler({ x0, y0, z0, steps: 1, dt, a, b, c });
 
-		// Calculate expected values using Euler method
-		const dx = -y0 - z0; // -1 - 1 = -2
-		const dy = x0 + a * y0; // 1 + 0.2*1 = 1.2
-		const dz = b + z0 * (x0 - c); // 0.2 + 1*(1 - 5.7) = 0.2 - 4.7 = -4.5
+		const derivatives = (x: number, y: number, z: number) => {
+			return {
+				dx: -y - z,
+				dy: x + a * y,
+				dz: b + z * (x - c)
+			};
+		};
 
-		const expectedX = x0 + dx * dt; // 1 + (-2)*0.01 = 0.98
-		const expectedY = y0 + dy * dt; // 1 + 1.2*0.01 = 1.012
-		const expectedZ = z0 + dz * dt; // 1 + (-4.5)*0.01 = 0.955
+		// Calculate expected values using RK4 method
+		const k1 = derivatives(x0, y0, z0);
+		const k2 = derivatives(x0 + (dt * k1.dx) / 2, y0 + (dt * k1.dy) / 2, z0 + (dt * k1.dz) / 2);
+		const k3 = derivatives(x0 + (dt * k2.dx) / 2, y0 + (dt * k2.dy) / 2, z0 + (dt * k2.dz) / 2);
+		const k4 = derivatives(x0 + dt * k3.dx, y0 + dt * k3.dy, z0 + dt * k3.dz);
+
+		const expectedX = x0 + (dt / 6) * (k1.dx + 2 * k2.dx + 2 * k3.dx + k4.dx);
+		const expectedY = y0 + (dt / 6) * (k1.dy + 2 * k2.dy + 2 * k3.dy + k4.dy);
+		const expectedZ = z0 + (dt / 6) * (k1.dz + 2 * k2.dz + 2 * k3.dz + k4.dz);
 
 		expect(points[0].x).toBeCloseTo(expectedX, 10);
 		expect(points[0].y).toBeCloseTo(expectedY, 10);
@@ -103,13 +112,35 @@ describe('calculateRossler', () => {
 
 		// First point should be different from initial conditions (evolved one step)
 		const firstPoint = points[0];
-		// After one step from (0.1, 0, 0):
-		// dx = -0 - 0 = 0
-		// dy = 0.1 + 0.2*0 = 0.1
-		// dz = 0.2 + 0*(0.1 - 5.7) = 0.2
-		expect(firstPoint.x).toBeCloseTo(0.1, 5); // x stays nearly same
-		expect(firstPoint.y).toBeCloseTo(0.001, 5); // y increases slightly
-		expect(firstPoint.z).toBeCloseTo(0.002, 5); // z increases slightly
+
+		const x0 = 0.1,
+			y0 = 0,
+			z0 = 0;
+		const a = 0.2,
+			b = 0.2,
+			c = 5.7;
+		const dt = 0.01;
+
+		const derivatives = (x: number, y: number, z: number) => {
+			return {
+				dx: -y - z,
+				dy: x + a * y,
+				dz: b + z * (x - c)
+			};
+		};
+
+		const k1 = derivatives(x0, y0, z0);
+		const k2 = derivatives(x0 + (dt * k1.dx) / 2, y0 + (dt * k1.dy) / 2, z0 + (dt * k1.dz) / 2);
+		const k3 = derivatives(x0 + (dt * k2.dx) / 2, y0 + (dt * k2.dy) / 2, z0 + (dt * k2.dz) / 2);
+		const k4 = derivatives(x0 + dt * k3.dx, y0 + dt * k3.dy, z0 + dt * k3.dz);
+
+		const expectedX = x0 + (dt / 6) * (k1.dx + 2 * k2.dx + 2 * k3.dx + k4.dx);
+		const expectedY = y0 + (dt / 6) * (k1.dy + 2 * k2.dy + 2 * k3.dy + k4.dy);
+		const expectedZ = z0 + (dt / 6) * (k1.dz + 2 * k2.dz + 2 * k3.dz + k4.dz);
+
+		expect(firstPoint.x).toBeCloseTo(expectedX, 10);
+		expect(firstPoint.y).toBeCloseTo(expectedY, 10);
+		expect(firstPoint.z).toBeCloseTo(expectedZ, 10);
 	});
 
 	test('different parameters produce different trajectories', () => {

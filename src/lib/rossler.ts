@@ -40,16 +40,27 @@ export function calculateRossler(params: RosslerParams): RosslerPoint[] {
 	let y = y0;
 	let z = z0;
 
-	for (let i = 0; i < steps; i++) {
-		// Rössler equations
-		const dx = -y - z;
-		const dy = x + a * y;
-		const dz = b + z * (x - c);
+	const derivatives = (xVal: number, yVal: number, zVal: number) => {
+		return {
+			dx: -yVal - zVal,
+			dy: xVal + a * yVal,
+			dz: b + zVal * (xVal - c)
+		};
+	};
 
-		// Euler integration
-		x += dx * dt;
-		y += dy * dt;
-		z += dz * dt;
+	for (let i = 0; i < steps; i++) {
+		const k1 = derivatives(x, y, z);
+		const k2 = derivatives(x + (dt * k1.dx) / 2, y + (dt * k1.dy) / 2, z + (dt * k1.dz) / 2);
+		const k3 = derivatives(x + (dt * k2.dx) / 2, y + (dt * k2.dy) / 2, z + (dt * k2.dz) / 2);
+		const k4 = derivatives(x + dt * k3.dx, y + dt * k3.dy, z + dt * k3.dz);
+
+		const nextX = x + (dt / 6) * (k1.dx + 2 * k2.dx + 2 * k3.dx + k4.dx);
+		const nextY = y + (dt / 6) * (k1.dy + 2 * k2.dy + 2 * k3.dy + k4.dy);
+		const nextZ = z + (dt / 6) * (k1.dz + 2 * k2.dz + 2 * k3.dz + k4.dz);
+
+		x = nextX;
+		y = nextY;
+		z = nextZ;
 
 		points.push({ x, y, z });
 	}
