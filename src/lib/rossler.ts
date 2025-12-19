@@ -27,7 +27,7 @@ export interface RosslerParams {
 }
 
 /**
- * Calculate Rössler attractor trajectory using Euler integration.
+ * Calculate Rössler attractor trajectory using 4th-order Runge–Kutta (RK4) integration.
  *
  * @param params - Initial conditions and system parameters
  * @returns Array of 3D points representing the trajectory

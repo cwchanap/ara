@@ -235,7 +235,6 @@
 
 			const material = new THREE.LineBasicMaterial({
 				vertexColors: true,
-				linewidth: 2,
 				blending: THREE.AdditiveBlending,
 				transparent: true,
 				opacity: 0.8

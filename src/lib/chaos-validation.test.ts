@@ -50,42 +50,42 @@ describe('checkParameterStability for rossler', () => {
 		expect(result.warnings).toHaveLength(0);
 	});
 
-	test('returns warnings for a outside stable range', () => {
+	test('returns warnings for a below stable range (a < 0.126)', () => {
 		const params = { type: 'rossler' as const, a: 0.05, b: 0.2, c: 5.7 }; // a < 0.126
 		const result = checkParameterStability('rossler', params);
 		expect(result.isStable).toBe(false);
 		expect(result.warnings.some((w) => w.includes('a'))).toBe(true);
 	});
 
-	test('returns warnings for a outside stable range', () => {
+	test('returns warnings for a above stable range (a > 0.43295)', () => {
 		const params = { type: 'rossler' as const, a: 0.5, b: 0.2, c: 5.7 }; // a > 0.43295
 		const result = checkParameterStability('rossler', params);
 		expect(result.isStable).toBe(false);
 		expect(result.warnings.some((w) => w.includes('a'))).toBe(true);
 	});
 
-	test('returns warnings for b outside stable range', () => {
+	test('returns warnings for b below stable range (b < 0.01)', () => {
 		const params = { type: 'rossler' as const, a: 0.2, b: 0.005, c: 5.7 }; // b < 0.01
 		const result = checkParameterStability('rossler', params);
 		expect(result.isStable).toBe(false);
 		expect(result.warnings.some((w) => w.includes('b'))).toBe(true);
 	});
 
-	test('returns warnings for b outside stable range', () => {
+	test('returns warnings for b above stable range (b > 2)', () => {
 		const params = { type: 'rossler' as const, a: 0.2, b: 2.5, c: 5.7 }; // b > 2
 		const result = checkParameterStability('rossler', params);
 		expect(result.isStable).toBe(false);
 		expect(result.warnings.some((w) => w.includes('b'))).toBe(true);
 	});
 
-	test('returns warnings for c outside stable range', () => {
+	test('returns warnings for c below stable range (c < 1)', () => {
 		const params = { type: 'rossler' as const, a: 0.2, b: 0.2, c: 0.5 }; // c < 1
 		const result = checkParameterStability('rossler', params);
 		expect(result.isStable).toBe(false);
 		expect(result.warnings.some((w) => w.includes('c'))).toBe(true);
 	});
 
-	test('returns warnings for c outside stable range', () => {
+	test('returns warnings for c above stable range (c > 30)', () => {
 		const params = { type: 'rossler' as const, a: 0.2, b: 0.2, c: 35 }; // c > 30
 		const result = checkParameterStability('rossler', params);
 		expect(result.isStable).toBe(false);
