@@ -200,7 +200,7 @@
 		// eslint-disable-next-line svelte/no-dom-manipulating
 		container.appendChild(renderer.domElement);
 
-		const controls = new OrbitControls(camera, renderer.domElement);
+		let controls: OrbitControls | null = new OrbitControls(camera, renderer.domElement);
 		controls.enableDamping = true;
 		controls.autoRotate = true;
 		controls.autoRotateSpeed = 0.5;
@@ -295,7 +295,7 @@
 		scene.add(initialRosslerLine);
 
 		// Add faint grid helper for reference
-		const gridHelper = new THREE.GridHelper(100, 20, 0x3b82f6, 0x2d1b69);
+		let gridHelper: THREE.GridHelper | null = new THREE.GridHelper(100, 20, 0x3b82f6, 0x2d1b69);
 		gridHelper.position.y = -20;
 		(gridHelper.material as THREE.Material).transparent = true;
 		(gridHelper.material as THREE.Material).opacity = 0.2;
@@ -305,7 +305,7 @@
 		function animate() {
 			if (!isAnimating) return;
 			requestAnimationFrame(animate);
-			controls.update();
+			if (controls) controls.update();
 			renderer.render(scene, camera);
 		}
 
@@ -335,6 +335,18 @@
 		return () => {
 			window.removeEventListener('resize', handleResize);
 			isAnimating = false;
+
+			if (controls) {
+				controls.dispose();
+				controls = null;
+			}
+
+			if (gridHelper) {
+				scene.remove(gridHelper);
+				disposeLine(gridHelper);
+				gridHelper = null;
+			}
+
 			renderer.dispose();
 
 			// Clear timeout to prevent memory leaks
