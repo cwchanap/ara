@@ -262,6 +262,53 @@
 			return new THREE.Line(geometry, material);
 		}
 
+		const disposeMaterial = (material: THREE.Material) => {
+			const mat = material as unknown as Record<string, unknown>;
+			const textureKeys = [
+				'map',
+				'alphaMap',
+				'aoMap',
+				'bumpMap',
+				'displacementMap',
+				'emissiveMap',
+				'envMap',
+				'lightMap',
+				'metalnessMap',
+				'normalMap',
+				'roughnessMap',
+				'specularMap',
+				'gradientMap',
+				'clearcoatMap',
+				'clearcoatNormalMap',
+				'clearcoatRoughnessMap',
+				'sheenColorMap',
+				'sheenRoughnessMap',
+				'transmissionMap',
+				'thicknessMap',
+				'iridescenceMap',
+				'iridescenceThicknessMap'
+			];
+
+			for (const key of textureKeys) {
+				const texture = mat[key];
+				if (texture && typeof (texture as { dispose?: unknown }).dispose === 'function') {
+					(texture as { dispose: () => void }).dispose();
+					mat[key] = null;
+				}
+			}
+
+			material.dispose();
+		};
+
+		const disposeLine = (line: THREE.Line) => {
+			line.geometry.dispose();
+			if (Array.isArray(line.material)) {
+				line.material.forEach(disposeMaterial);
+			} else {
+				disposeMaterial(line.material);
+			}
+		};
+
 		let lorenzLine = createLorenzLine();
 		scene.add(lorenzLine);
 
@@ -294,6 +341,7 @@
 		// Recreate visualization on parameter change
 		recreate = () => {
 			scene.remove(lorenzLine);
+			disposeLine(lorenzLine);
 			lorenzLine = createLorenzLine();
 			scene.add(lorenzLine);
 		};
@@ -301,6 +349,20 @@
 		return () => {
 			window.removeEventListener('resize', handleResize);
 			isAnimating = false;
+
+			controls.dispose();
+
+			scene.remove(gridHelper);
+			gridHelper.geometry.dispose();
+			if (Array.isArray(gridHelper.material)) {
+				gridHelper.material.forEach(disposeMaterial);
+			} else {
+				disposeMaterial(gridHelper.material);
+			}
+
+			scene.remove(lorenzLine);
+			disposeLine(lorenzLine);
+
 			renderer.dispose();
 
 			// Clear timeout to prevent memory leaks
