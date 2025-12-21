@@ -69,6 +69,12 @@ const STABLE_RANGES: Record<ChaosMapType, StableRanges<Record<string, number>>> 
 		x0: { min: -50, max: 50 },
 		y0: { min: -50, max: 50 },
 		iterations: { min: 1, max: 100000 }
+	},
+	lyapunov: {
+		rMin: { min: 2.5, max: 4 },
+		rMax: { min: 2.5, max: 4 },
+		iterations: { min: 100, max: 10000 },
+		transientIterations: { min: 50, max: 5000 }
 	}
 };
 

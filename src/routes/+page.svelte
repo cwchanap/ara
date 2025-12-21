@@ -55,6 +55,12 @@
 			description: 'A 3D chaotic system with continuous scroll structure',
 			url: '/rossler',
 			color: 'from-blue-500 to-purple-600'
+		},
+		{
+			name: 'Lyapunov Exponents',
+			description: 'Quantifying chaos through trajectory divergence rates',
+			url: '/lyapunov',
+			color: 'from-cyan-400 to-teal-600'
 		}
 	];
 </script>

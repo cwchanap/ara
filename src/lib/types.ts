@@ -8,7 +8,7 @@ export interface Profile {
 	updatedAt: string;
 }
 
-// Chaos Map Types - the 9 supported visualization types
+// Chaos Map Types - the 10 supported visualization types
 export type ChaosMapType =
 	| 'lorenz'
 	| 'rossler'
@@ -18,7 +18,8 @@ export type ChaosMapType =
 	| 'standard'
 	| 'bifurcation-logistic'
 	| 'bifurcation-henon'
-	| 'chaos-esthetique';
+	| 'chaos-esthetique'
+	| 'lyapunov';
 
 // Parameter interfaces for each chaos map type
 export interface LorenzParameters {
@@ -90,6 +91,14 @@ export interface ChaosEsthetiqueParameters {
 	iterations: number;
 }
 
+export interface LyapunovParameters {
+	type: 'lyapunov';
+	rMin: number;
+	rMax: number;
+	iterations: number;
+	transientIterations: number;
+}
+
 // Union type for all chaos map parameters
 export type ChaosMapParameters =
 	| LorenzParameters
@@ -100,7 +109,8 @@ export type ChaosMapParameters =
 	| StandardParameters
 	| BifurcationLogisticParameters
 	| BifurcationHenonParameters
-	| ChaosEsthetiqueParameters;
+	| ChaosEsthetiqueParameters
+	| LyapunovParameters;
 
 // Display names for chaos map types (UPPERCASE_SNAKE_CASE per constitution)
 export const CHAOS_MAP_DISPLAY_NAMES: Record<ChaosMapType, string> = {
@@ -112,7 +122,8 @@ export const CHAOS_MAP_DISPLAY_NAMES: Record<ChaosMapType, string> = {
 	standard: 'STANDARD_MAP',
 	'bifurcation-logistic': 'BIFURCATION_LOGISTIC',
 	'bifurcation-henon': 'BIFURCATION_HÉNON',
-	'chaos-esthetique': 'CHAOS_ESTHÉTIQUE'
+	'chaos-esthetique': 'CHAOS_ESTHÉTIQUE',
+	lyapunov: 'LYAPUNOV_EXPONENTS'
 };
 
 // Valid chaos map types array for validation
@@ -125,7 +136,8 @@ export const VALID_MAP_TYPES: ChaosMapType[] = [
 	'standard',
 	'bifurcation-logistic',
 	'bifurcation-henon',
-	'chaos-esthetique'
+	'chaos-esthetique',
+	'lyapunov'
 ];
 
 // Saved configuration discriminated union (matches Drizzle schema)
@@ -171,5 +183,9 @@ export type SavedConfiguration = {
 	| {
 			mapType: 'chaos-esthetique';
 			parameters: ChaosEsthetiqueParameters;
+	  }
+	| {
+			mapType: 'lyapunov';
+			parameters: LyapunovParameters;
 	  }
 );
