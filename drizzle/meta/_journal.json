@@ -15,6 +15,13 @@
 			"when": 1765008288888,
 			"tag": "0001_married_baron_zemo",
 			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "7",
+			"when": 1765330000000,
+			"tag": "0002_add_rossler_map_type",
+			"breakpoints": true
 		}
 	]
 }
