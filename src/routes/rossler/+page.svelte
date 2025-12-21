@@ -200,7 +200,7 @@
 		// eslint-disable-next-line svelte/no-dom-manipulating
 		container.appendChild(renderer.domElement);
 
-		let controls: OrbitControls | null = new OrbitControls(camera, renderer.domElement);
+		const controls = new OrbitControls(camera, renderer.domElement);
 		controls.enableDamping = true;
 		controls.autoRotate = true;
 		controls.autoRotateSpeed = 0.5;
@@ -295,7 +295,7 @@
 		scene.add(initialRosslerLine);
 
 		// Add faint grid helper for reference
-		let gridHelper: THREE.GridHelper | null = new THREE.GridHelper(100, 20, 0x3b82f6, 0x2d1b69);
+		const gridHelper = new THREE.GridHelper(100, 20, 0x3b82f6, 0x2d1b69);
 		gridHelper.position.y = -20;
 		(gridHelper.material as THREE.Material).transparent = true;
 		(gridHelper.material as THREE.Material).opacity = 0.2;
@@ -305,7 +305,7 @@
 		function animate() {
 			if (!isAnimating) return;
 			requestAnimationFrame(animate);
-			if (controls) controls.update();
+			controls.update();
 			renderer.render(scene, camera);
 		}
 
@@ -336,20 +336,14 @@
 			window.removeEventListener('resize', handleResize);
 			isAnimating = false;
 
-			if (controls) {
-				controls.dispose();
-				controls = null;
-			}
+			controls.dispose();
 
-			if (gridHelper) {
-				scene.remove(gridHelper);
-				gridHelper.geometry.dispose();
-				if (Array.isArray(gridHelper.material)) {
-					gridHelper.material.forEach(disposeMaterial);
-				} else {
-					disposeMaterial(gridHelper.material);
-				}
-				gridHelper = null;
+			scene.remove(gridHelper);
+			gridHelper.geometry.dispose();
+			if (Array.isArray(gridHelper.material)) {
+				gridHelper.material.forEach(disposeMaterial);
+			} else {
+				disposeMaterial(gridHelper.material);
 			}
 
 			if (rosslerLine) {
@@ -394,7 +388,7 @@
 				💾 Save
 			</button>
 			<a
-				href={base + '/'}
+				href="{base}/"
 				class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
 			>
 				← Return
