@@ -345,9 +345,9 @@
 				scene.remove(gridHelper);
 				gridHelper.geometry.dispose();
 				if (Array.isArray(gridHelper.material)) {
-					gridHelper.material.forEach((material) => material.dispose());
+					gridHelper.material.forEach(disposeMaterial);
 				} else {
-					gridHelper.material.dispose();
+					disposeMaterial(gridHelper.material);
 				}
 				gridHelper = null;
 			}
