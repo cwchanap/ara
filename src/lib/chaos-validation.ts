@@ -207,6 +207,14 @@ export function checkParameterStability(
 				warnings.push('aMin must be less than aMax');
 			}
 			break;
+		case 'lyapunov':
+			if (paramRecord.rMin >= paramRecord.rMax) {
+				warnings.push('rMin must be less than rMax');
+			}
+			if (paramRecord.transientIterations > paramRecord.iterations) {
+				warnings.push('transientIterations must be <= iterations');
+			}
+			break;
 	}
 
 	return {
