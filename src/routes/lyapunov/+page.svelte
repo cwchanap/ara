@@ -288,15 +288,29 @@
 
 		// Calculate data points
 		const numPoints = Math.max(2, Math.min(500, width)); // Ensure at least two points, limit for performance
+
+		// Handle degenerate case when rMin equals rMax
+		let actualRMin = rMin;
+		let actualRMax = rMax;
+		let showRangeWarning = false;
+
+		if (Math.abs(rMax - rMin) < 0.001) {
+			// Pad the domain with a small epsilon to prevent NaN values
+			const epsilon = 0.01;
+			actualRMin = rMin - epsilon;
+			actualRMax = rMax + epsilon;
+			showRangeWarning = true;
+		}
+
 		const data = [];
 		for (let i = 0; i < numPoints; i++) {
-			const r = rMin + (rMax - rMin) * (i / (numPoints - 1));
+			const r = actualRMin + (actualRMax - actualRMin) * (i / (numPoints - 1));
 			const lyapunov = calculateLyapunovExponent(r, iterations, transientIterations);
 			data.push({ r, lyapunov });
 		}
 
 		// Scales
-		const xScale = d3.scaleLinear().domain([rMin, rMax]).range([0, width]);
+		const xScale = d3.scaleLinear().domain([actualRMin, actualRMax]).range([0, width]);
 		const yScale = d3
 			.scaleLinear()
 			.domain(d3.extent(data, (d) => d.lyapunov) as [number, number])
@@ -435,6 +449,20 @@
 			.attr('font-size', '12px')
 			.attr('opacity', 0.7)
 			.text('CHAOS');
+
+		// Show warning if range was padded
+		if (showRangeWarning) {
+			svg
+				.append('text')
+				.attr('x', width / 2)
+				.attr('y', height - 10)
+				.attr('fill', '#ffaa00')
+				.attr('font-family', 'Rajdhani')
+				.attr('font-size', '11px')
+				.attr('text-anchor', 'middle')
+				.attr('opacity', 0.8)
+				.text('⚠ Range padded: rMin ≈ rMax');
+		}
 
 		isRendering = false;
 	}
