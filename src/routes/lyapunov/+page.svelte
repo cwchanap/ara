@@ -287,7 +287,7 @@
 			.attr('transform', `translate(${margin.left},${margin.top})`);
 
 		// Calculate data points
-		const numPoints = Math.min(500, width); // Limit points for performance
+		const numPoints = Math.max(2, Math.min(500, width)); // Ensure at least two points, limit for performance
 		const data = [];
 		for (let i = 0; i < numPoints; i++) {
 			const r = rMin + (rMax - rMin) * (i / (numPoints - 1));
