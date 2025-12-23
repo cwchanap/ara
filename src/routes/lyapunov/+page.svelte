@@ -296,9 +296,18 @@
 
 		if (Math.abs(rMax - rMin) < 0.001) {
 			// Pad the domain with a small epsilon to prevent NaN values
+			// Clamp to valid logistic map range [2.5, 4.0]
 			const epsilon = 0.01;
-			actualRMin = rMin - epsilon;
-			actualRMax = rMax + epsilon;
+			actualRMin = Math.max(2.5, rMin - epsilon);
+			actualRMax = Math.min(4.0, rMax + epsilon);
+
+			// If we're at a boundary, pad asymmetrically
+			if (actualRMin === 2.5 && actualRMax === 2.5) {
+				actualRMax = Math.min(4.0, 2.5 + epsilon * 2);
+			} else if (actualRMax === 4.0 && actualRMin === 4.0) {
+				actualRMin = Math.max(2.5, 4.0 - epsilon * 2);
+			}
+
 			showRangeWarning = true;
 		}
 
@@ -388,29 +397,8 @@
 			.y((d) => yScale(d.lyapunov))
 			.curve(d3.curveLinear);
 
-		// Create gradient based on sign of Lyapunov exponent
+		// Create line segments with individual colors based on Lyapunov exponent sign
 		const defs = svg.append('defs');
-		const gradient = defs
-			.append('linearGradient')
-			.attr('id', 'lyapunov-gradient')
-			.attr('x1', '0%')
-			.attr('x2', '100%');
-
-		// Find where the exponent crosses zero
-		const zeroCrossing = data.findIndex((d) => d.lyapunov > 0);
-
-		if (zeroCrossing > 0) {
-			const crossingX = (zeroCrossing / data.length) * 100;
-			gradient.append('stop').attr('offset', '0%').attr('stop-color', '#00f3ff'); // Cyan for negative (stable)
-			gradient.append('stop').attr('offset', `${crossingX}%`).attr('stop-color', '#00f3ff');
-			gradient.append('stop').attr('offset', `${crossingX}%`).attr('stop-color', '#ff00ff'); // Magenta for positive (chaotic)
-			gradient.append('stop').attr('offset', '100%').attr('stop-color', '#ff00ff');
-		} else {
-			// All negative or all positive
-			const color = data[0].lyapunov < 0 ? '#00f3ff' : '#ff00ff';
-			gradient.append('stop').attr('offset', '0%').attr('stop-color', color);
-			gradient.append('stop').attr('offset', '100%').attr('stop-color', color);
-		}
 
 		// Glow effect definition
 		const filter = defs.append('filter').attr('id', 'glow');
@@ -419,15 +407,20 @@
 		feMerge.append('feMergeNode').attr('in', 'coloredBlur');
 		feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
 
-		// Draw the line
-		svg
-			.append('path')
-			.datum(data)
-			.attr('fill', 'none')
-			.attr('stroke', 'url(#lyapunov-gradient)')
-			.attr('stroke-width', 2)
-			.attr('d', line)
-			.attr('filter', 'url(#glow)');
+		// Draw the line as individual segments colored by sign
+		for (let i = 0; i < data.length - 1; i++) {
+			const segment = data.slice(i, i + 2);
+			const color = segment[0].lyapunov < 0 ? '#00f3ff' : '#ff00ff'; // Cyan for negative (stable), Magenta for positive (chaotic)
+
+			svg
+				.append('path')
+				.datum(segment)
+				.attr('fill', 'none')
+				.attr('stroke', color)
+				.attr('stroke-width', 2)
+				.attr('d', line)
+				.attr('filter', 'url(#glow)');
+		}
 
 		// Add labels for regions
 		svg
