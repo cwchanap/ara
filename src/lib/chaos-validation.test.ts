@@ -125,7 +125,7 @@ describe('validateParameters for lyapunov', () => {
 	test('returns valid for correct lyapunov parameters', () => {
 		const params = {
 			type: 'lyapunov',
-			rMin: 2.5,
+			rMin: 0,
 			rMax: 3.5,
 			iterations: 500,
 			transientIterations: 200
@@ -199,7 +199,7 @@ describe('checkParameterStability for lyapunov', () => {
 	test('returns warnings when rMin is below stable range', () => {
 		const params = {
 			type: 'lyapunov' as const,
-			rMin: 2.0,
+			rMin: -0.5,
 			rMax: 3.5,
 			iterations: 500,
 			transientIterations: 200
@@ -279,7 +279,7 @@ describe('checkParameterStability for lyapunov', () => {
 	test('returns stable for boundary values', () => {
 		const params = {
 			type: 'lyapunov' as const,
-			rMin: 2.5,
+			rMin: 0,
 			rMax: 4.0,
 			iterations: 100,
 			transientIterations: 50
@@ -299,8 +299,8 @@ describe('getStableRanges for lyapunov', () => {
 	test('returns correct ranges for lyapunov', () => {
 		const ranges = getStableRanges('lyapunov');
 		expect(ranges).toBeDefined();
-		expect(ranges?.rMin).toEqual({ min: 2.5, max: 4 });
-		expect(ranges?.rMax).toEqual({ min: 2.5, max: 4 });
+		expect(ranges?.rMin).toEqual({ min: 0, max: 4 });
+		expect(ranges?.rMax).toEqual({ min: 0, max: 4 });
 		expect(ranges?.iterations).toEqual({ min: 100, max: 10000 });
 		expect(ranges?.transientIterations).toEqual({ min: 50, max: 5000 });
 	});
