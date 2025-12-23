@@ -250,9 +250,14 @@
 		// Transient iterations to settle into attractor
 		for (let i = 0; i < transientIterations; i++) {
 			x = r * x * (1 - x);
+			// Restart if x gets stuck at 0 or 1 (fixed points)
+			if (x < 1e-10 || x > 1 - 1e-10) {
+				x = 0.5; // Reset to initial condition
+			}
 		}
 
 		let sum = 0;
+		let validIterations = 0;
 
 		// Calculate Lyapunov exponent
 		for (let i = 0; i < iterations; i++) {
@@ -260,12 +265,18 @@
 			const derivative = Math.abs(r * (1 - 2 * x));
 
 			// Avoid log(0) which would be -infinity
-			if (derivative > 0) {
+			// Also skip if x is at a fixed point (0 or 1)
+			if (derivative > 0 && x > 1e-10 && x < 1 - 1e-10) {
 				sum += Math.log(derivative);
+				validIterations++;
+			} else if (x < 1e-10 || x > 1 - 1e-10) {
+				// Restart if we hit a fixed point
+				x = 0.5;
 			}
 		}
 
-		return sum / iterations;
+		// Return average, handling case where no valid iterations
+		return validIterations > 0 ? sum / validIterations : -Infinity;
 	}
 
 	function render() {
@@ -602,10 +613,13 @@
 		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold"> r min </label>
+					<label for="r-min" class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+						r min
+					</label>
 					<span class="font-mono text-accent">{rMin.toFixed(3)}</span>
 				</div>
 				<input
+					id="r-min"
 					type="range"
 					bind:value={rMin}
 					min="2.5"
@@ -617,10 +631,13 @@
 
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold"> r max </label>
+					<label for="r-max" class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+						r max
+					</label>
 					<span class="font-mono text-accent">{rMax.toFixed(3)}</span>
 				</div>
 				<input
+					id="r-max"
 					type="range"
 					bind:value={rMax}
 					min="2.5"
@@ -632,12 +649,16 @@
 
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+					<label
+						for="iterations"
+						class="text-primary/80 text-xs uppercase tracking-widest font-bold"
+					>
 						Iterations
 					</label>
 					<span class="font-mono text-accent">{iterations}</span>
 				</div>
 				<input
+					id="iterations"
 					type="range"
 					bind:value={iterations}
 					min="100"
@@ -649,12 +670,16 @@
 
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+					<label
+						for="transient"
+						class="text-primary/80 text-xs uppercase tracking-widest font-bold"
+					>
 						Transient
 					</label>
 					<span class="font-mono text-accent">{transientIterations}</span>
 				</div>
 				<input
+					id="transient"
 					type="range"
 					bind:value={transientIterations}
 					min="50"
