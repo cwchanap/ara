@@ -11,10 +11,17 @@
 	let { data } = $props();
 
 	let container: HTMLDivElement;
-	let rMin = $state(2.5);
-	let rMax = $state(4.0);
-	let iterations = $state(1000);
-	let transientIterations = $state(500);
+	const R_MIN_LIMIT = 0;
+	const R_MAX_LIMIT = 4;
+	const DEFAULT_R_MIN = 2.5;
+	const DEFAULT_R_MAX = 4.0;
+	const DEFAULT_ITERATIONS = 1000;
+	const DEFAULT_TRANSIENT_ITERATIONS = 500;
+
+	let rMin = $state(DEFAULT_R_MIN);
+	let rMax = $state(DEFAULT_R_MAX);
+	let iterations = $state(DEFAULT_ITERATIONS);
+	let transientIterations = $state(DEFAULT_TRANSIENT_ITERATIONS);
 	let isRendering = false;
 	let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -62,13 +69,13 @@
 				const newIterations = typedParams.iterations;
 				const newTransientIterations = typedParams.transientIterations;
 
-				let nextRMin = 2.5;
-				let nextRMax = 4.0;
-				let nextIterations = 1000;
-				let nextTransientIterations = 500;
+				let nextRMin = DEFAULT_R_MIN;
+				let nextRMax = DEFAULT_R_MAX;
+				let nextIterations = DEFAULT_ITERATIONS;
+				let nextTransientIterations = DEFAULT_TRANSIENT_ITERATIONS;
 
-				nextRMin = Math.max(2.5, Math.min(4.0, newRMin));
-				nextRMax = Math.max(2.5, Math.min(4.0, newRMax));
+				nextRMin = Math.max(R_MIN_LIMIT, Math.min(R_MAX_LIMIT, newRMin));
+				nextRMax = Math.max(R_MIN_LIMIT, Math.min(R_MAX_LIMIT, newRMax));
 
 				if (nextRMin > nextRMax) {
 					const temp = nextRMin;
@@ -136,16 +143,16 @@
 			const newIterations = typedParams.iterations;
 			const newTransientIterations = typedParams.transientIterations;
 
-			let nextRMin = 2.5;
-			let nextRMax = 4.0;
-			let nextIterations = 1000;
-			let nextTransientIterations = 500;
+			let nextRMin = DEFAULT_R_MIN;
+			let nextRMax = DEFAULT_R_MAX;
+			let nextIterations = DEFAULT_ITERATIONS;
+			let nextTransientIterations = DEFAULT_TRANSIENT_ITERATIONS;
 
-			// Validate and clamp rMin (2.5 - 4.0)
-			nextRMin = Math.max(2.5, Math.min(4.0, newRMin));
+			// Validate and clamp rMin
+			nextRMin = Math.max(R_MIN_LIMIT, Math.min(R_MAX_LIMIT, newRMin));
 
-			// Validate and clamp rMax (2.5 - 4.0)
-			nextRMax = Math.max(2.5, Math.min(4.0, newRMax));
+			// Validate and clamp rMax
+			nextRMax = Math.max(R_MIN_LIMIT, Math.min(R_MAX_LIMIT, newRMax));
 
 			// Enforce rMin <= rMax
 			if (nextRMin > nextRMax) {
@@ -307,16 +314,16 @@
 
 		if (Math.abs(rMax - rMin) < 0.001) {
 			// Pad the domain with a small epsilon to prevent NaN values
-			// Clamp to valid logistic map range [2.5, 4.0]
+			// Clamp to valid logistic map range
 			const epsilon = 0.01;
-			actualRMin = Math.max(2.5, rMin - epsilon);
-			actualRMax = Math.min(4.0, rMax + epsilon);
+			actualRMin = Math.max(R_MIN_LIMIT, rMin - epsilon);
+			actualRMax = Math.min(R_MAX_LIMIT, rMax + epsilon);
 
 			// If we're at a boundary, pad asymmetrically
-			if (actualRMin === 2.5 && actualRMax === 2.5) {
-				actualRMax = Math.min(4.0, 2.5 + epsilon * 2);
-			} else if (actualRMax === 4.0 && actualRMin === 4.0) {
-				actualRMin = Math.max(2.5, 4.0 - epsilon * 2);
+			if (actualRMin === R_MIN_LIMIT && actualRMax === R_MIN_LIMIT) {
+				actualRMax = Math.min(R_MAX_LIMIT, R_MIN_LIMIT + epsilon * 2);
+			} else if (actualRMax === R_MAX_LIMIT && actualRMin === R_MAX_LIMIT) {
+				actualRMin = Math.max(R_MIN_LIMIT, R_MAX_LIMIT - epsilon * 2);
 			}
 
 			showRangeWarning = true;
@@ -622,8 +629,8 @@
 					id="r-min"
 					type="range"
 					bind:value={rMin}
-					min="2.5"
-					max="4"
+					min={R_MIN_LIMIT}
+					max={R_MAX_LIMIT}
 					step="0.01"
 					class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-accent transition-colors"
 				/>
@@ -640,8 +647,8 @@
 					id="r-max"
 					type="range"
 					bind:value={rMax}
-					min="2.5"
-					max="4"
+					min={R_MIN_LIMIT}
+					max={R_MAX_LIMIT}
 					step="0.01"
 					class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-accent transition-colors"
 				/>
