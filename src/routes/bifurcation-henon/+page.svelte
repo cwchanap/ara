@@ -3,13 +3,14 @@
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
+	import SnapshotButton from '$lib/components/ui/SnapshotButton.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
 	import { loadSavedConfigParameters, parseConfigParam } from '$lib/saved-config-loader';
 	import type { BifurcationHenonParameters } from '$lib/types';
 
 	let { data } = $props();
 
-	let canvas: HTMLCanvasElement;
+	let canvas: HTMLCanvasElement | undefined = $state();
 	let imgWidth = 1000;
 	let imgHeight = 1500;
 	let aMin = $state(1.04);
@@ -311,6 +312,7 @@
 			</p>
 		</div>
 		<div class="flex gap-3">
+			<SnapshotButton target={canvas} targetType="canvas" mapType="bifurcation-henon" />
 			<button
 				onclick={() => (showSaveDialog = true)}
 				class="px-6 py-2 bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(168,85,247,0.2)] uppercase tracking-widest text-sm font-bold"

@@ -4,13 +4,14 @@
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
+	import SnapshotButton from '$lib/components/ui/SnapshotButton.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
 	import { loadSavedConfigParameters, parseConfigParam } from '$lib/saved-config-loader';
 	import type { LogisticParameters } from '$lib/types';
 
 	let { data } = $props();
 
-	let container: HTMLDivElement;
+	let container: HTMLDivElement | undefined = $state();
 	let r = $state(3.9);
 	let x0 = $state(0.5);
 	let iterations = $state(100);
@@ -321,6 +322,7 @@
 			</p>
 		</div>
 		<div class="flex gap-3">
+			<SnapshotButton target={container} targetType="container" mapType="logistic" />
 			<button
 				onclick={() => (showSaveDialog = true)}
 				disabled={isSaving}
