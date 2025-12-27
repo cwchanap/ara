@@ -25,7 +25,7 @@ export interface SnapshotResult {
  */
 export function generateFilename(mapType: string, extension: string = 'png'): string {
 	const now = new Date();
-	const timestamp = now.toISOString().replace(/[T]/g, '_').replace(/[:.]/g, '-').slice(0, 19);
+	const timestamp = now.toISOString().replace(/:/g, '-').replace('T', '_').split('.')[0];
 	return `${mapType}_${timestamp}.${extension}`;
 }
 
