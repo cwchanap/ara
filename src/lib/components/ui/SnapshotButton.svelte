@@ -58,10 +58,22 @@
 		try {
 			let result;
 
+			// Runtime validation: ensure target type matches targetType declaration
 			if (targetType === 'canvas') {
-				result = await captureCanvas(target as HTMLCanvasElement, options);
+				if (!(target instanceof HTMLCanvasElement)) {
+					throw new Error(
+						`Type mismatch: targetType is 'canvas' but target is ${target?.constructor?.name || 'unknown'}. Expected HTMLCanvasElement.`
+					);
+				}
+				result = await captureCanvas(target, options);
 			} else {
-				result = await captureContainer(target as HTMLDivElement, options);
+				// targetType === 'container'
+				if (!(target instanceof HTMLElement)) {
+					throw new Error(
+						`Type mismatch: targetType is 'container' but target is ${target?.constructor?.name || 'unknown'}. Expected HTMLElement (div or other container).`
+					);
+				}
+				result = await captureContainer(target, options);
 			}
 
 			if (result.success && result.dataUrl) {

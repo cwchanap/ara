@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/svelte';
+import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/svelte';
 import SnapshotButton from './SnapshotButton.svelte';
 
 // Mock the snapshot module
@@ -78,7 +78,7 @@ describe('SnapshotButton', () => {
 
 		await fireEvent.click(screen.getByRole('button'));
 
-		expect(captureCanvas).toHaveBeenCalledWith(mockCanvas, {});
+		await waitFor(() => expect(captureCanvas).toHaveBeenCalledWith(mockCanvas, {}));
 	});
 
 	it('calls captureContainer for container targetType', async () => {
@@ -98,7 +98,7 @@ describe('SnapshotButton', () => {
 
 		await fireEvent.click(screen.getByRole('button'));
 
-		expect(captureContainer).toHaveBeenCalledWith(mockContainer, {});
+		await waitFor(() => expect(captureContainer).toHaveBeenCalledWith(mockContainer, {}));
 	});
 
 	it('calls downloadSnapshot on successful capture', async () => {
@@ -118,9 +118,11 @@ describe('SnapshotButton', () => {
 
 		await fireEvent.click(screen.getByRole('button'));
 
-		expect(downloadSnapshot).toHaveBeenCalledWith(
-			'data:image/png;base64,test',
-			'standard_2024-01-01_12-00-00.png'
+		await waitFor(() =>
+			expect(downloadSnapshot).toHaveBeenCalledWith(
+				'data:image/png;base64,test',
+				'standard_2024-01-01_12-00-00.png'
+			)
 		);
 	});
 
@@ -141,7 +143,7 @@ describe('SnapshotButton', () => {
 
 		await fireEvent.click(screen.getByRole('button'));
 
-		expect(screen.getByText('✓ Saved')).toBeInTheDocument();
+		await screen.findByText('✓ Saved');
 	});
 
 	it('shows error message on failed capture', async () => {
@@ -161,7 +163,7 @@ describe('SnapshotButton', () => {
 
 		await fireEvent.click(screen.getByRole('button'));
 
-		expect(screen.getByText('✗ Capture failed')).toBeInTheDocument();
+		await screen.findByText('✗ Capture failed');
 	});
 
 	it('has correct aria-label for accessibility', () => {
@@ -198,6 +200,8 @@ describe('SnapshotButton', () => {
 
 		await fireEvent.click(screen.getByRole('button'));
 
-		expect(captureCanvas).toHaveBeenCalledWith(mockCanvas, { format: 'jpeg', quality: 0.8 });
+		await waitFor(() =>
+			expect(captureCanvas).toHaveBeenCalledWith(mockCanvas, { format: 'jpeg', quality: 0.8 })
+		);
 	});
 });
