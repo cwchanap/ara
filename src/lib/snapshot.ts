@@ -102,7 +102,7 @@ async function svgToCanvas(
  * Composites them onto a single canvas for export.
  */
 export async function captureContainer(
-	container: HTMLDivElement,
+	container: HTMLElement,
 	options: SnapshotOptions = {}
 ): Promise<SnapshotResult> {
 	if (!container) {

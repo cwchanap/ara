@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import '@testing-library/jest-dom/vitest';
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/svelte';
 import SnapshotButton from './SnapshotButton.svelte';
 

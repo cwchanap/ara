@@ -6,6 +6,7 @@
   Follows sci-fi aesthetic with neon cyan styling.
 -->
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import {
 		captureCanvas,
 		captureContainer,
@@ -17,9 +18,9 @@
 	type TargetType = 'canvas' | 'container';
 
 	interface Props {
-		/** The target element to capture - either a canvas or a container div */
-		target: HTMLCanvasElement | HTMLDivElement | undefined;
-		/** Type of target: 'canvas' for direct canvas, 'container' for div with canvas/svg */
+		/** The target element to capture - either a canvas or a container element */
+		target: HTMLCanvasElement | HTMLElement | undefined;
+		/** Type of target: 'canvas' for direct canvas, 'container' for element with canvas/svg */
 		targetType?: TargetType;
 		/** The chaos map type, used for filename */
 		mapType: string;
@@ -57,12 +58,14 @@
 
 		try {
 			let result;
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ctorName = (target as any)?.constructor?.name ?? 'unknown';
 
 			// Runtime validation: ensure target type matches targetType declaration
 			if (targetType === 'canvas') {
 				if (!(target instanceof HTMLCanvasElement)) {
 					throw new Error(
-						`Type mismatch: targetType is 'canvas' but target is ${target?.constructor?.name || 'unknown'}. Expected HTMLCanvasElement.`
+						`Type mismatch: targetType is 'canvas' but target is ${ctorName}. Expected HTMLCanvasElement.`
 					);
 				}
 				result = await captureCanvas(target, options);
@@ -70,7 +73,7 @@
 				// targetType === 'container'
 				if (!(target instanceof HTMLElement)) {
 					throw new Error(
-						`Type mismatch: targetType is 'container' but target is ${target?.constructor?.name || 'unknown'}. Expected HTMLElement (div or other container).`
+						`Type mismatch: targetType is 'container' but target is ${ctorName}. Expected HTMLElement (div or other container).`
 					);
 				}
 				result = await captureContainer(target, options);
@@ -103,7 +106,6 @@
 	}
 
 	// Cleanup timeouts on destroy
-	import { onDestroy } from 'svelte';
 	onDestroy(() => {
 		if (successTimeout) clearTimeout(successTimeout);
 		if (errorTimeout) clearTimeout(errorTimeout);
