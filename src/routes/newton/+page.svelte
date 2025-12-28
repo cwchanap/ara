@@ -499,23 +499,27 @@
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
 			<div class="space-y-4">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+					<label for="xMin" class="text-primary/80 text-xs uppercase tracking-widest font-bold">
 						x range
 					</label>
 					<span class="font-mono text-accent text-xs">[{xMin.toFixed(4)}, {xMax.toFixed(4)}]</span>
 				</div>
 				<div class="flex gap-4">
 					<input
+						id="xMin"
 						type="range"
 						bind:value={xMin}
 						min="-1"
 						max="0"
 						step="0.001"
 						class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-accent transition-colors"
+						aria-label="x minimum"
 					/>
 					<input
+						id="xMax"
 						type="range"
 						bind:value={xMax}
+						aria-label="x maximum"
 						min="0"
 						max="1"
 						step="0.001"
@@ -526,23 +530,27 @@
 
 			<div class="space-y-4">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+					<label for="yMin" class="text-primary/80 text-xs uppercase tracking-widest font-bold">
 						y range
 					</label>
 					<span class="font-mono text-accent text-xs">[{yMin.toFixed(4)}, {yMax.toFixed(4)}]</span>
 				</div>
 				<div class="flex gap-4">
 					<input
+						id="yMin"
 						type="range"
 						bind:value={yMin}
 						min="-1"
 						max="0"
 						step="0.001"
 						class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-accent transition-colors"
+						aria-label="y minimum"
 					/>
 					<input
+						id="yMax"
 						type="range"
 						bind:value={yMax}
+						aria-label="y maximum"
 						min="0"
 						max="1"
 						step="0.001"
@@ -553,12 +561,16 @@
 
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+					<label
+						for="maxIterations"
+						class="text-primary/80 text-xs uppercase tracking-widest font-bold"
+					>
 						Max Iterations
 					</label>
 					<span class="font-mono text-accent">{maxIterations}</span>
 				</div>
 				<input
+					id="maxIterations"
 					type="range"
 					bind:value={maxIterations}
 					min="10"

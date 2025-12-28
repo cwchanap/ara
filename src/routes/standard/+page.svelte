@@ -502,10 +502,13 @@
 		<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold"> K </label>
+					<label for="K" class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+						K
+					</label>
 					<span class="font-mono text-accent">{K.toFixed(6)}</span>
 				</div>
 				<input
+					id="K"
 					type="range"
 					bind:value={K}
 					disabled={isComputing}
@@ -518,12 +521,13 @@
 
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+					<label for="numP" class="text-primary/80 text-xs uppercase tracking-widest font-bold">
 						Initial p points
 					</label>
 					<span class="font-mono text-accent">{numP}</span>
 				</div>
 				<input
+					id="numP"
 					type="range"
 					bind:value={numP}
 					disabled={isComputing}
@@ -536,12 +540,13 @@
 
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+					<label for="numQ" class="text-primary/80 text-xs uppercase tracking-widest font-bold">
 						Initial q points
 					</label>
 					<span class="font-mono text-accent">{numQ}</span>
 				</div>
 				<input
+					id="numQ"
 					type="range"
 					bind:value={numQ}
 					disabled={isComputing}
@@ -554,12 +559,16 @@
 
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+					<label
+						for="iterations"
+						class="text-primary/80 text-xs uppercase tracking-widest font-bold"
+					>
 						Iterations
 					</label>
 					<span class="font-mono text-accent">{iterations}</span>
 				</div>
 				<input
+					id="iterations"
 					type="range"
 					bind:value={iterations}
 					disabled={isComputing}

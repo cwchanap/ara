@@ -419,10 +419,13 @@
 		<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold"> a </label>
+					<label for="a" class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+						a
+					</label>
 					<span class="font-mono text-accent">{a.toFixed(3)}</span>
 				</div>
 				<input
+					id="a"
 					type="range"
 					bind:value={a}
 					min="0.5"
@@ -434,10 +437,13 @@
 
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold"> b </label>
+					<label for="b" class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+						b
+					</label>
 					<span class="font-mono text-accent">{b.toFixed(3)}</span>
 				</div>
 				<input
+					id="b"
 					type="range"
 					bind:value={b}
 					min="0"
@@ -449,12 +455,16 @@
 
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+					<label
+						for="iterations"
+						class="text-primary/80 text-xs uppercase tracking-widest font-bold"
+					>
 						Iterations
 					</label>
 					<span class="font-mono text-accent">{iterations}</span>
 				</div>
 				<input
+					id="iterations"
 					type="range"
 					bind:value={iterations}
 					min="100"

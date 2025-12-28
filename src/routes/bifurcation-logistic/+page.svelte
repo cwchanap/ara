@@ -412,10 +412,13 @@
 		<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold"> r min </label>
+					<label for="rMin" class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+						r min
+					</label>
 					<span class="font-mono text-accent">{rMin.toFixed(3)}</span>
 				</div>
 				<input
+					id="rMin"
 					type="range"
 					bind:value={rMin}
 					min="2.5"
@@ -427,10 +430,13 @@
 
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold"> r max </label>
+					<label for="rMax" class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+						r max
+					</label>
 					<span class="font-mono text-accent">{rMax.toFixed(3)}</span>
 				</div>
 				<input
+					id="rMax"
 					type="range"
 					bind:value={rMax}
 					min="2.5"
@@ -442,12 +448,16 @@
 
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+					<label
+						for="maxIterations"
+						class="text-primary/80 text-xs uppercase tracking-widest font-bold"
+					>
 						Iterations
 					</label>
 					<span class="font-mono text-accent">{maxIterations}</span>
 				</div>
 				<input
+					id="maxIterations"
 					type="range"
 					bind:value={maxIterations}
 					min="100"
