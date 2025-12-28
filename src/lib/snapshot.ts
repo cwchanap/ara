@@ -25,7 +25,13 @@ export interface SnapshotResult {
  */
 export function generateFilename(mapType: string, extension: string = 'png'): string {
 	const now = new Date();
-	const timestamp = now.toISOString().replace(/:/g, '-').replace('T', '_').split('.')[0];
+	const year = now.getFullYear();
+	const month = String(now.getMonth() + 1).padStart(2, '0');
+	const day = String(now.getDate()).padStart(2, '0');
+	const hours = String(now.getHours()).padStart(2, '0');
+	const minutes = String(now.getMinutes()).padStart(2, '0');
+	const seconds = String(now.getSeconds()).padStart(2, '0');
+	const timestamp = `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
 	return `${mapType}_${timestamp}.${extension}`;
 }
 
@@ -179,8 +185,25 @@ export async function captureContainer(
  * Triggers a download of the snapshot
  */
 export function downloadSnapshot(dataUrl: string, filename: string): void {
+	if (typeof document === 'undefined') {
+		throw new Error('Download is only available in the browser');
+	}
+
 	const link = document.createElement('a');
 	link.href = dataUrl;
 	link.download = filename;
-	link.click();
+	link.style.display = 'none';
+
+	const body = document.body;
+	if (!body) {
+		link.click();
+		return;
+	}
+
+	body.appendChild(link);
+	try {
+		link.click();
+	} finally {
+		link.remove();
+	}
 }
