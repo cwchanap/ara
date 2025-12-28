@@ -506,12 +506,13 @@
 		<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+					<label for="sigma" class="text-primary/80 text-xs uppercase tracking-widest font-bold">
 						σ (sigma)
 					</label>
 					<span class="font-mono text-accent">{sigma.toFixed(2)}</span>
 				</div>
 				<input
+					id="sigma"
 					type="range"
 					bind:value={sigma}
 					min="0"
@@ -523,12 +524,13 @@
 
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+					<label for="rho" class="text-primary/80 text-xs uppercase tracking-widest font-bold">
 						ρ (rho)
 					</label>
 					<span class="font-mono text-accent">{rho.toFixed(2)}</span>
 				</div>
 				<input
+					id="rho"
 					type="range"
 					bind:value={rho}
 					min="0"
@@ -540,12 +542,13 @@
 
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+					<label for="beta" class="text-primary/80 text-xs uppercase tracking-widest font-bold">
 						β (beta)
 					</label>
 					<span class="font-mono text-accent">{beta.toFixed(2)}</span>
 				</div>
 				<input
+					id="beta"
 					type="range"
 					bind:value={beta}
 					min="0"

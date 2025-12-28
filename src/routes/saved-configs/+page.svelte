@@ -267,7 +267,6 @@
 									bind:value={renameValue}
 									maxlength={100}
 									class="flex-1 px-2 py-1 text-sm bg-background/50 border border-primary/30 rounded text-foreground focus:border-primary focus:outline-none"
-									autofocus
 								/>
 								<button type="submit" class="px-2 py-1 text-xs text-green-400 hover:text-green-300">
 									✓

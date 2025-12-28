@@ -430,10 +430,13 @@
 		<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold"> a min </label>
+					<label for="aMin" class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+						a min
+					</label>
 					<span class="font-mono text-accent">{aMin.toFixed(3)}</span>
 				</div>
 				<input
+					id="aMin"
 					type="range"
 					bind:value={aMin}
 					min="0.5"
@@ -445,10 +448,13 @@
 
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold"> a max </label>
+					<label for="aMax" class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+						a max
+					</label>
 					<span class="font-mono text-accent">{aMax.toFixed(3)}</span>
 				</div>
 				<input
+					id="aMax"
 					type="range"
 					bind:value={aMax}
 					min="0.5"
@@ -460,10 +466,13 @@
 
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold"> b </label>
+					<label for="b" class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+						b
+					</label>
 					<span class="font-mono text-accent">{b.toFixed(3)}</span>
 				</div>
 				<input
+					id="b"
 					type="range"
 					bind:value={b}
 					min="0"
@@ -475,12 +484,16 @@
 
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+					<label
+						for="maxIterations"
+						class="text-primary/80 text-xs uppercase tracking-widest font-bold"
+					>
 						Iterations
 					</label>
 					<span class="font-mono text-accent">{maxIterations}</span>
 				</div>
 				<input
+					id="maxIterations"
 					type="range"
 					bind:value={maxIterations}
 					min="100"

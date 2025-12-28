@@ -562,10 +562,13 @@
 		<div class="grid grid-cols-1 md:grid-cols-5 gap-4">
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold"> a </label>
+					<label for="a" class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+						a
+					</label>
 					<span class="font-mono text-accent">{a.toFixed(4)}</span>
 				</div>
 				<input
+					id="a"
 					type="range"
 					bind:value={a}
 					disabled={isComputing}
@@ -578,10 +581,13 @@
 
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold"> b </label>
+					<label for="b" class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+						b
+					</label>
 					<span class="font-mono text-accent">{b.toFixed(4)}</span>
 				</div>
 				<input
+					id="b"
 					type="range"
 					bind:value={b}
 					disabled={isComputing}
@@ -594,10 +600,13 @@
 
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold"> x₀ </label>
+					<label for="x0" class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+						x₀
+					</label>
 					<span class="font-mono text-accent">{x0.toFixed(2)}</span>
 				</div>
 				<input
+					id="x0"
 					type="range"
 					bind:value={x0}
 					disabled={isComputing}
@@ -610,10 +619,13 @@
 
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold"> y₀ </label>
+					<label for="y0" class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+						y₀
+					</label>
 					<span class="font-mono text-accent">{y0.toFixed(2)}</span>
 				</div>
 				<input
+					id="y0"
 					type="range"
 					bind:value={y0}
 					disabled={isComputing}
@@ -626,12 +638,16 @@
 
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+					<label
+						for="iterations"
+						class="text-primary/80 text-xs uppercase tracking-widest font-bold"
+					>
 						Iterations
 					</label>
 					<span class="font-mono text-accent">{iterations}</span>
 				</div>
 				<input
+					id="iterations"
 					type="range"
 					bind:value={iterations}
 					disabled={isComputing}
