@@ -22,17 +22,40 @@ bun run build              # Build for production
 bun run preview            # Preview production build
 ```
 
-### Code Quality & Testing
+### Code Quality
 
 ```bash
 bun run check              # Run svelte-check for type errors
 bun run check:watch        # Run svelte-check in watch mode
 bun run lint               # Run ESLint and Prettier checks
 bun run format             # Format all files with Prettier
-bun test                   # Run tests
 ```
 
 Note: Pre-commit hooks automatically run linting and formatting via `lint-staged`.
+
+### Testing
+
+The project uses three test runners for different purposes:
+
+```bash
+# Bun tests (unit tests for non-DOM code)
+bun test                   # Run all *.test.ts files
+bun test src/lib/auth-errors.test.ts  # Run a single test file
+
+# Vitest (Svelte component tests requiring jsdom)
+bun run test:unit          # Run all *.vitest.ts files
+bun run test:unit:watch    # Run in watch mode
+
+# Playwright (E2E browser tests)
+bun run test:e2e           # Run all e2e/*.spec.ts files
+bun run test:e2e:ui        # Run with interactive UI
+```
+
+**File naming conventions**:
+
+- `*.test.ts` - Bun unit tests (pure logic, no DOM)
+- `*.vitest.ts` - Vitest component tests (requires jsdom for Svelte components)
+- `e2e/*.spec.ts` - Playwright E2E tests
 
 ### Database Management
 
@@ -151,39 +174,14 @@ const profile = await db.select().from(profiles).where(eq(profiles.id, user.id))
 
 **Profile management**: Uses upsert pattern in `src/routes/profile/+page.server.ts` to handle missing profiles (update first, then insert if no rows affected).
 
-### File Structure
+### Key Files
 
-```
-src/
-├── routes/
-│   ├── +layout.server.ts           # Load session/user for all routes
-│   ├── +layout.svelte              # App layout with nav & background
-│   ├── +page.svelte                # Homepage with visualization cards
-│   ├── login/+page.server.ts       # Login form action
-│   ├── signup/+page.server.ts      # Signup form action
-│   ├── profile/+page.server.ts     # Profile management (username, password)
-│   ├── lorenz/+page.svelte         # Three.js 3D visualization
-│   ├── henon/+page.svelte          # D3.js 2D plot
-│   ├── logistic/+page.svelte       # D3.js line chart
-│   ├── bifurcation-logistic/       # Canvas bifurcation
-│   ├── bifurcation-henon/          # Canvas bifurcation
-│   ├── newton/+page.svelte         # Canvas fractal
-│   ├── standard/+page.svelte       # D3.js with web worker
-│   └── chaos-esthetique/           # Canvas with web worker
-├── lib/
-│   ├── server/
-│   │   ├── db/
-│   │   │   ├── index.ts            # Drizzle database instance
-│   │   │   └── schema.ts           # Database schema (profiles table)
-│   │   └── supabase-admin.ts       # Admin Supabase client
-│   ├── workers/                    # Web workers for heavy computation
-│   ├── supabase.ts                 # Browser Supabase client factory
-│   ├── auth-errors.ts              # Auth validation utilities
-│   ├── types.ts                    # Shared TypeScript types
-│   └── utils.ts                    # Utility functions
-├── hooks.server.ts                 # Supabase client setup & safeGetSession
-└── app.d.ts                        # App-wide type definitions
-```
+- `src/hooks.server.ts` - Supabase client setup, `safeGetSession()` for JWT validation
+- `src/app.d.ts` - App-wide type definitions for `App.Locals` and `App.PageData`
+- `src/lib/server/db/schema.ts` - Drizzle schema: `profiles` and `savedConfigurations` tables
+- `src/lib/server/db/index.ts` - Drizzle database instance
+- `src/lib/workers/chaosMapsWorker.ts` - Web worker for heavy computations
+- `src/routes/api/save-config/+server.ts` - API endpoint for saving configurations
 
 ### Styling Conventions
 
@@ -248,21 +246,13 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 **Password changes**: Use the pattern in `src/routes/profile/+page.server.ts` which verifies current password via `signInWithPassword` before updating (Supabase has no verify-only API).
 
-## Active Technologies
+## Save Configuration Feature
 
-- TypeScript 5.x with Svelte 5 (runes syntax) + SvelteKit, Drizzle ORM, Supabase Auth, D3.js, Three.js, TailwindCSS v4 (001-save-chaos-map)
-- Neon PostgreSQL (via Drizzle ORM) for application data, Supabase for auth (001-save-chaos-map)
+Users can save chaos map configurations to their account:
 
-## Recent Changes
-
-- 001-save-chaos-map: Implemented "Save Chaos Map Configuration" feature:
-  - Database: `saved_configurations` table with JSONB parameters storage
-  - Save: Users can save configurations with custom names from any chaos map page
-  - View: `/saved-configs` page lists all saved configurations with map type badges
-  - Load: Click-to-load navigates to chaos map with parameters applied via URL query params
-  - Delete: Confirmation dialog before deletion with ownership verification
-  - Rename: Inline rename UI with validation (1-100 chars)
-  - Stability: Parameter validation warns users when loading potentially unstable configurations
-  - Components: `SaveConfigDialog`, `DeleteConfirmDialog` using native `<dialog>` element
-  - API: `/api/save-config` POST endpoint for cross-page saving
-  - Auth: Redirects unauthenticated users to login with return URL
+- **Database**: `saved_configurations` table stores map type + JSONB parameters
+- **Save**: From any chaos map page via `SaveConfigDialog` component
+- **View/Load/Delete/Rename**: `/saved-configs` page with click-to-load navigation
+- **API**: `/api/save-config` POST endpoint for cross-page saving
+- **URL params**: Configurations are loaded via URL query parameters (e.g., `/lorenz?sigma=10&rho=28`)
+- **Stability warnings**: Validates parameters and warns users about potentially unstable configurations
