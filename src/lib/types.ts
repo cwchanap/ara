@@ -8,11 +8,12 @@ export interface Profile {
 	updatedAt: string;
 }
 
-// Chaos Map Types - the 10 supported visualization types
+// Chaos Map Types - the 11 supported visualization types
 export type ChaosMapType =
 	| 'lorenz'
 	| 'rossler'
 	| 'henon'
+	| 'lozi'
 	| 'logistic'
 	| 'newton'
 	| 'standard'
@@ -40,6 +41,15 @@ export interface HenonParameters {
 	type: 'henon';
 	a: number;
 	b: number;
+	iterations: number;
+}
+
+export interface LoziParameters {
+	type: 'lozi';
+	a: number;
+	b: number;
+	x0: number;
+	y0: number;
 	iterations: number;
 }
 
@@ -104,6 +114,7 @@ export type ChaosMapParameters =
 	| LorenzParameters
 	| RosslerParameters
 	| HenonParameters
+	| LoziParameters
 	| LogisticParameters
 	| NewtonParameters
 	| StandardParameters
@@ -117,6 +128,7 @@ export const CHAOS_MAP_DISPLAY_NAMES: Record<ChaosMapType, string> = {
 	lorenz: 'LORENZ_ATTRACTOR',
 	rossler: 'RÖSSLER_ATTRACTOR',
 	henon: 'HÉNON_MAP',
+	lozi: 'LOZI_MAP',
 	logistic: 'LOGISTIC_MAP',
 	newton: 'NEWTON_FRACTAL',
 	standard: 'STANDARD_MAP',
@@ -131,6 +143,7 @@ export const VALID_MAP_TYPES: ChaosMapType[] = [
 	'lorenz',
 	'rossler',
 	'henon',
+	'lozi',
 	'logistic',
 	'newton',
 	'standard',
@@ -159,6 +172,10 @@ export type SavedConfiguration = {
 	| {
 			mapType: 'henon';
 			parameters: HenonParameters;
+	  }
+	| {
+			mapType: 'lozi';
+			parameters: LoziParameters;
 	  }
 	| {
 			mapType: 'logistic';

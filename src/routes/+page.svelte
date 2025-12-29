@@ -15,6 +15,12 @@
 			color: 'from-fuchsia-500 to-purple-600'
 		},
 		{
+			name: 'Lozi Map',
+			description: 'Piecewise-linear counterpart to the Hénon map',
+			url: '/lozi',
+			color: 'from-indigo-500 to-violet-600'
+		},
+		{
 			name: 'Logistic Map',
 			description: 'Population growth model showing chaotic behavior',
 			url: '/logistic',
