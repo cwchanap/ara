@@ -305,3 +305,127 @@ describe('getStableRanges for lyapunov', () => {
 		expect(ranges?.transientIterations).toEqual({ min: 50, max: 5000 });
 	});
 });
+
+describe('validateParameters for lozi', () => {
+	test('returns valid for correct lozi parameters', () => {
+		const params = { type: 'lozi', a: 1.7, b: 0.5, x0: 0, y0: 0, iterations: 2000 };
+		const result = validateParameters('lozi', params);
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toHaveLength(0);
+	});
+
+	test('returns invalid for missing parameters', () => {
+		const params = { type: 'lozi', a: 1.7, b: 0.5, x0: 0, y0: 0 }; // missing iterations
+		const result = validateParameters('lozi', params);
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('iterations'))).toBe(true);
+	});
+
+	test('returns invalid for non-numeric parameters', () => {
+		const params = { type: 'lozi', a: 'not a number', b: 0.5, x0: 0, y0: 0, iterations: 2000 };
+		const result = validateParameters('lozi', params);
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('a'))).toBe(true);
+	});
+
+	test('returns invalid for NaN parameters', () => {
+		const params = { type: 'lozi', a: NaN, b: 0.5, x0: 0, y0: 0, iterations: 2000 };
+		const result = validateParameters('lozi', params);
+		expect(result.isValid).toBe(false);
+	});
+
+	test('returns invalid for extra parameters', () => {
+		const params = { type: 'lozi', a: 1.7, b: 0.5, x0: 0, y0: 0, iterations: 2000, extra: 123 };
+		const result = validateParameters('lozi', params);
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('extra'))).toBe(true);
+	});
+});
+
+describe('checkParameterStability for lozi', () => {
+	test('returns stable for in-range parameters', () => {
+		const params = { type: 'lozi' as const, a: 1.7, b: 0.5, x0: 0, y0: 0, iterations: 2000 };
+		const result = checkParameterStability('lozi', params);
+		expect(result.isStable).toBe(true);
+		expect(result.warnings).toHaveLength(0);
+	});
+
+	test('returns warnings for a below stable range (a < 0)', () => {
+		const params = { type: 'lozi' as const, a: -0.5, b: 0.5, x0: 0, y0: 0, iterations: 2000 };
+		const result = checkParameterStability('lozi', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('a'))).toBe(true);
+	});
+
+	test('returns warnings for a above stable range (a > 2)', () => {
+		const params = { type: 'lozi' as const, a: 2.5, b: 0.5, x0: 0, y0: 0, iterations: 2000 };
+		const result = checkParameterStability('lozi', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('a'))).toBe(true);
+	});
+
+	test('returns warnings for b below stable range (b < 0)', () => {
+		const params = { type: 'lozi' as const, a: 1.7, b: -0.5, x0: 0, y0: 0, iterations: 2000 };
+		const result = checkParameterStability('lozi', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('b'))).toBe(true);
+	});
+
+	test('returns warnings for b above stable range (b > 1)', () => {
+		const params = { type: 'lozi' as const, a: 1.7, b: 1.5, x0: 0, y0: 0, iterations: 2000 };
+		const result = checkParameterStability('lozi', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('b'))).toBe(true);
+	});
+
+	test('returns warnings for x0 outside stable range', () => {
+		const params = { type: 'lozi' as const, a: 1.7, b: 0.5, x0: 5, y0: 0, iterations: 2000 };
+		const result = checkParameterStability('lozi', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('x0'))).toBe(true);
+	});
+
+	test('returns warnings for y0 outside stable range', () => {
+		const params = { type: 'lozi' as const, a: 1.7, b: 0.5, x0: 0, y0: -5, iterations: 2000 };
+		const result = checkParameterStability('lozi', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('y0'))).toBe(true);
+	});
+
+	test('returns warnings for iterations outside stable range', () => {
+		const params = { type: 'lozi' as const, a: 1.7, b: 0.5, x0: 0, y0: 0, iterations: 100000 };
+		const result = checkParameterStability('lozi', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('iterations'))).toBe(true);
+	});
+
+	test('returns stable for boundary values (min)', () => {
+		const params = { type: 'lozi' as const, a: 0, b: 0, x0: -2, y0: -2, iterations: 1 };
+		const result = checkParameterStability('lozi', params);
+		expect(result.isStable).toBe(true);
+	});
+
+	test('returns stable for boundary values (max)', () => {
+		const params = { type: 'lozi' as const, a: 2, b: 1, x0: 2, y0: 2, iterations: 50000 };
+		const result = checkParameterStability('lozi', params);
+		expect(result.isStable).toBe(true);
+	});
+});
+
+describe('isValidMapType for lozi', () => {
+	test('returns true for lozi', () => {
+		expect(isValidMapType('lozi')).toBe(true);
+	});
+});
+
+describe('getStableRanges for lozi', () => {
+	test('returns correct ranges for lozi', () => {
+		const ranges = getStableRanges('lozi');
+		expect(ranges).toBeDefined();
+		expect(ranges?.a).toEqual({ min: 0, max: 2 });
+		expect(ranges?.b).toEqual({ min: 0, max: 1 });
+		expect(ranges?.x0).toEqual({ min: -2, max: 2 });
+		expect(ranges?.y0).toEqual({ min: -2, max: 2 });
+		expect(ranges?.iterations).toEqual({ min: 1, max: 50000 });
+	});
+});

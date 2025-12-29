@@ -34,6 +34,13 @@ const STABLE_RANGES: Record<ChaosMapType, StableRanges<Record<string, number>>> 
 		b: { min: -1, max: 1 },
 		iterations: { min: 1, max: 50000 }
 	},
+	lozi: {
+		a: { min: 0, max: 2 },
+		b: { min: 0, max: 1 },
+		x0: { min: -2, max: 2 },
+		y0: { min: -2, max: 2 },
+		iterations: { min: 1, max: 50000 }
+	},
 	logistic: {
 		r: { min: 0, max: 4 },
 		x0: { min: 0, max: 1 },
