@@ -14,6 +14,7 @@
 	let { data } = $props();
 
 	let container: HTMLDivElement | undefined = $state();
+	let plotContainer: HTMLDivElement | undefined = $state();
 	let a = $state(0.5);
 	let b = $state(0.3);
 	let x0 = $state(0);
@@ -174,19 +175,19 @@
 	}
 
 	function render() {
-		if (!container) return;
+		if (!container || !plotContainer) return;
 
 		// Clear previous content
-		d3.select(container).selectAll('*').remove();
+		d3.select(plotContainer).selectAll('*').remove();
 
 		const margin = { top: 20, right: 20, bottom: 50, left: 60 };
-		const width = container.clientWidth - margin.left - margin.right;
+		const width = plotContainer.clientWidth - margin.left - margin.right;
 		const height = 600 - margin.top - margin.bottom;
 
 		const svg = d3
-			.select(container)
+			.select(plotContainer)
 			.append('svg')
-			.attr('width', container.clientWidth)
+			.attr('width', plotContainer.clientWidth)
 			.attr('height', 600)
 			.append('g')
 			.attr('transform', `translate(${margin.left},${margin.top})`);
@@ -544,6 +545,7 @@
 		class="bg-black/40 border border-primary/20 rounded-sm overflow-hidden shadow-[0_0_30px_rgba(0,0,0,0.5)] relative"
 		style="height: 600px;"
 	>
+		<div bind:this={plotContainer} class="h-full w-full"></div>
 		<div
 			class="absolute top-4 right-4 text-xs font-mono text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
 		>
