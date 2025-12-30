@@ -44,29 +44,38 @@
 		const configId = get(page).url.searchParams.get('configId');
 		if (configId) {
 			void (async () => {
-				const result = await loadSavedConfigParameters({
-					configId,
-					mapType: 'lozi',
-					base,
-					fetchFn: fetch
-				});
-				if (!result.ok) {
-					configErrors = result.errors;
+				try {
+					const result = await loadSavedConfigParameters({
+						configId,
+						mapType: 'lozi',
+						base,
+						fetchFn: fetch
+					});
+					if (!result.ok) {
+						configErrors = result.errors;
+						showConfigError = true;
+						return;
+					}
+
+					const typedParams = result.parameters;
+					a = typedParams.a ?? a;
+					b = typedParams.b ?? b;
+					x0 = typedParams.x0 ?? x0;
+					y0 = typedParams.y0 ?? y0;
+					iterations = typedParams.iterations ?? iterations;
+
+					const stability = checkParameterStability('lozi', typedParams);
+					if (!stability.isStable) {
+						stabilityWarnings = stability.warnings;
+						showStabilityWarning = true;
+					}
+				} catch (error) {
+					console.error('Failed to load saved configuration:', error);
+					configErrors = [
+						'Failed to load configuration: ' +
+							(error instanceof Error ? error.message : 'Unknown error')
+					];
 					showConfigError = true;
-					return;
-				}
-
-				const typedParams = result.parameters;
-				a = typedParams.a ?? a;
-				b = typedParams.b ?? b;
-				x0 = typedParams.x0 ?? x0;
-				y0 = typedParams.y0 ?? y0;
-				iterations = typedParams.iterations ?? iterations;
-
-				const stability = checkParameterStability('lozi', typedParams);
-				if (!stability.isStable) {
-					stabilityWarnings = stability.warnings;
-					showStabilityWarning = true;
 				}
 			})();
 			return;
@@ -182,10 +191,27 @@
 			.append('g')
 			.attr('transform', `translate(${margin.left},${margin.top})`);
 
-		const points = calculateLoziTuples({ a, b, x0, y0, iterations });
+		let points: [number, number][] = [];
 
-		const xExtent = d3.extent(points, (d) => d[0]) as [number, number];
-		const yExtent = d3.extent(points, (d) => d[1]) as [number, number];
+		try {
+			points = calculateLoziTuples({ a, b, x0, y0, iterations });
+		} catch (error) {
+			console.error('Error calculating Lozi tuples:', error);
+		}
+
+		// Use safe defaults if points is empty or calculation failed
+		const xExtentRaw = d3.extent(points, (d) => d[0]);
+		const yExtentRaw = d3.extent(points, (d) => d[1]);
+
+		// Defensively handle undefined extents with safe defaults
+		const xExtent: [number, number] = [
+			xExtentRaw[0] !== undefined ? xExtentRaw[0] : -1,
+			xExtentRaw[1] !== undefined ? xExtentRaw[1] : 1
+		];
+		const yExtent: [number, number] = [
+			yExtentRaw[0] !== undefined ? yExtentRaw[0] : -1,
+			yExtentRaw[1] !== undefined ? yExtentRaw[1] : 1
+		];
 
 		const xScale = d3
 			.scaleLinear()
@@ -415,10 +441,11 @@
 					<label for="a" class="text-primary/80 text-xs uppercase tracking-widest font-bold">
 						a
 					</label>
-					<span class="font-mono text-accent">{a.toFixed(3)}</span>
+					<span data-testid="value-a" class="font-mono text-accent">{a.toFixed(3)}</span>
 				</div>
 				<input
 					id="a"
+					data-testid="slider-a"
 					type="range"
 					bind:value={a}
 					min="0.5"

@@ -71,17 +71,21 @@ test.describe('Lozi Map Page', () => {
 	test('parameter sliders are interactive', async ({ page }) => {
 		await page.goto('/lozi');
 
-		// Find the 'a' parameter slider (first slider)
-		const aSlider = page.locator('input[type="range"]').first();
+		// Find the 'a' parameter slider using stable data-testid
+		const aSlider = page.locator('[data-testid="slider-a"]');
+		const aValueDisplay = page.locator('[data-testid="value-a"]');
 
-		// Get initial value display (a defaults to 0.5)
-		await expect(page.getByText('0.500')).toBeVisible();
+		// Verify initial value display (a defaults to 0.5)
+		await expect(aValueDisplay).toHaveText('0.500');
 
 		// Change the slider value to 1.5
 		await aSlider.fill('1.5');
 
-		// Verify the value changed
-		await expect(page.getByText('1.500')).toBeVisible();
+		// Verify the slider value attribute changed
+		await expect(aSlider).toHaveValue('1.5');
+
+		// Verify the scoped value display updated
+		await expect(aValueDisplay).toHaveText('1.500');
 	});
 
 	test('Return link navigates back to homepage', async ({ page }) => {
@@ -105,8 +109,15 @@ test.describe('Lozi Map Page', () => {
 		// Wait for SVG to be rendered with circles (D3.js scatter plot)
 		await expect(page.locator('svg circle').first()).toBeVisible({ timeout: 5000 });
 
-		// Verify multiple points are rendered
+		// Read the iterations parameter from the page and compute expected minimum
+		const iterations = await page.evaluate(() => {
+			const slider = document.getElementById('iterations') as HTMLInputElement;
+			return slider ? parseInt(slider.value, 10) : 2000; // Default if not found
+		});
+
+		// Verify multiple points are rendered (allowing for some points to be outside visible range)
 		const circleCount = await page.locator('svg circle').count();
-		expect(circleCount).toBeGreaterThan(100);
+		const expectedMinimum = Math.max(10, Math.floor(iterations * 0.8));
+		expect(circleCount).toBeGreaterThan(expectedMinimum);
 	});
 });
