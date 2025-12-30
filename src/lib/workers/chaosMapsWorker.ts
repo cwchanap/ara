@@ -98,11 +98,11 @@ function calculateChaos(
 	return points;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const ctx: any = self as any;
+// Worker self typing is provided by TypeScript's webworker lib
+// The global 'self' is already typed as WorkerGlobalScope
 
-ctx.onmessage = (event: MessageEvent) => {
-	const data = event.data as WorkerRequest;
+self.onmessage = (event: MessageEvent<WorkerRequest>) => {
+	const data = event.data;
 	if (!data) return;
 
 	if (data.type === 'standard') {
@@ -112,7 +112,7 @@ ctx.onmessage = (event: MessageEvent) => {
 			id: data.id,
 			points
 		};
-		ctx.postMessage(response);
+		self.postMessage(response);
 	} else if (data.type === 'chaos') {
 		const points = calculateChaos(
 			data.a,
@@ -127,6 +127,6 @@ ctx.onmessage = (event: MessageEvent) => {
 			id: data.id,
 			points
 		};
-		ctx.postMessage(response);
+		self.postMessage(response);
 	}
 };
