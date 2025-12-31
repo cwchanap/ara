@@ -32,6 +32,12 @@ export default [
 		}
 	},
 	{
+		files: ['src/lib/components/ui/ParameterSlider.svelte'],
+		rules: {
+			'svelte/prefer-writable-derived': 'off'
+		}
+	},
+	{
 		ignores: ['build/', '.svelte-kit/', 'dist/', 'drizzle/', '.netlify/']
 	}
 ];
