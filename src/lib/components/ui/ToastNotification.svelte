@@ -40,6 +40,7 @@
 			borderClass: 'border-green-500/30',
 			iconClass: 'text-green-400',
 			textClass: 'text-green-200',
+			buttonClass: 'text-green-400/60 hover:text-green-500 ml-2',
 			duration: TOAST_SUCCESS_DURATION_MS
 		},
 		error: {
@@ -48,6 +49,7 @@
 			borderClass: 'border-red-500/30',
 			iconClass: 'text-red-400',
 			textClass: 'text-red-200',
+			buttonClass: 'text-red-400/60 hover:text-red-500 ml-2',
 			duration: TOAST_ERROR_DURATION_MS
 		},
 		warning: {
@@ -56,6 +58,7 @@
 			borderClass: 'border-amber-500/30',
 			iconClass: 'text-amber-400',
 			textClass: 'text-amber-200',
+			buttonClass: 'text-amber-400/60 hover:text-amber-500 ml-2',
 			duration: TOAST_WARNING_DURATION_MS
 		}
 	};
@@ -106,7 +109,7 @@
 			{#if dismissable}
 				<button
 					onclick={handleDismiss}
-					class="{config.iconClass}/60 hover:{config.iconClass} ml-2"
+					class={config.buttonClass}
 					aria-label="Dismiss notification"
 				>
 					✕

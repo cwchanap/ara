@@ -37,7 +37,12 @@
 	}: Props = $props();
 
 	let timeoutId: ReturnType<typeof setTimeout> | null = null;
-	let internalValue = $derived.by(() => value);
+	let internalValue = $state(value);
+
+	// Sync internalValue from external value changes
+	$effect(() => {
+		internalValue = value;
+	});
 
 	function handleInput(event: Event) {
 		const target = event.target as HTMLInputElement;
@@ -69,11 +74,7 @@
 		};
 	});
 
-	const displayValue = $derived(
-		Number.isInteger(step) && decimals === 2
-			? internalValue.toString()
-			: internalValue.toFixed(decimals)
-	);
+	const displayValue = $derived(internalValue.toFixed(decimals));
 </script>
 
 <div class="space-y-2">
