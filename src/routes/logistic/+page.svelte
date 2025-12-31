@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import * as d3 from 'd3';
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
@@ -7,6 +7,7 @@
 	import SnapshotButton from '$lib/components/ui/SnapshotButton.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
 	import { loadSavedConfigParameters, parseConfigParam } from '$lib/saved-config-loader';
+	import { createSaveHandler, createInitialSaveState } from '$lib/use-visualization-save';
 	import type { LogisticParameters } from '$lib/types';
 
 	let { data } = $props();
@@ -20,11 +21,8 @@
 	let isUnmounted = false;
 
 	// Save dialog state
-	let showSaveDialog = $state(false);
-	let saveSuccess = $state(false);
+	const saveState = $state(createInitialSaveState());
 	let isSaving = $state(false);
-	let saveError = $state<string | null>(null);
-	let timeoutId: ReturnType<typeof setTimeout> | null = $state(null);
 
 	// Stability warning state
 	let configErrors = $state<string[]>([]);
@@ -125,42 +123,12 @@
 		return { type: 'logistic', r, x0, iterations };
 	}
 
-	// Handle save
-	async function handleSave(name: string) {
-		isSaving = true;
-		saveError = null;
-
-		try {
-			const response = await fetch(`${base}/api/save-config`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					name,
-					mapType: 'logistic',
-					parameters: getParameters()
-				})
-			});
-
-			if (!response.ok) {
-				const errorData = await response.json().catch(() => ({ error: 'Failed to save' }));
-				throw new Error(errorData.error || 'Failed to save configuration');
-			}
-
-			saveSuccess = true;
-			showSaveDialog = false;
-			saveError = null;
-
-			// Clear previous timeout
-			if (timeoutId) clearTimeout(timeoutId);
-			timeoutId = setTimeout(() => {
-				saveSuccess = false;
-			}, 3000);
-		} catch (err) {
-			saveError = err instanceof Error ? err.message : 'Failed to save configuration';
-		} finally {
-			isSaving = false;
-		}
-	}
+	// Create save handler with cleanup
+	const { save: handleSave, cleanup: cleanupSaveHandler } = createSaveHandler(
+		'logistic',
+		saveState,
+		getParameters
+	);
 
 	function calculateLogistic(r: number, x0: number, iterations: number) {
 		const points: { n: number; x: number }[] = [];
@@ -290,15 +258,16 @@
 
 	onMount(() => {
 		render();
-	});
 
-	onDestroy(() => {
-		isUnmounted = true;
-		if (configLoadAbortController) {
-			configLoadAbortController.abort();
-			configLoadAbortController = null;
-		}
-		if (timeoutId) clearTimeout(timeoutId);
+		return () => {
+			isUnmounted = true;
+			if (configLoadAbortController) {
+				configLoadAbortController.abort();
+				configLoadAbortController = null;
+			}
+			// Clear save handler timeout to prevent state updates after unmount
+			cleanupSaveHandler();
+		};
 	});
 
 	$effect(() => {
@@ -324,7 +293,7 @@
 		<div class="flex gap-3">
 			<SnapshotButton target={container} targetType="container" mapType="logistic" />
 			<button
-				onclick={() => (showSaveDialog = true)}
+				onclick={() => (saveState.showSaveDialog = true)}
 				disabled={isSaving}
 				class="px-6 py-2 bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(168,85,247,0.2)] uppercase tracking-widest text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
 			>
@@ -340,7 +309,7 @@
 	</div>
 
 	<!-- Save Success Toast -->
-	{#if saveSuccess}
+	{#if saveState.saveSuccess}
 		<div
 			class="fixed top-20 right-4 z-50 px-6 py-4 bg-green-500/10 border border-green-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
 		>
@@ -352,13 +321,13 @@
 	{/if}
 
 	<!-- Save Error Toast -->
-	{#if saveError}
+	{#if saveState.saveError}
 		<div
 			class="fixed top-32 right-4 z-50 px-6 py-4 bg-red-500/10 border border-red-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
 		>
 			<div class="flex items-center gap-3">
 				<span class="text-red-400">✗</span>
-				<span class="text-red-200">{saveError}</span>
+				<span class="text-red-200">{saveState.saveError}</span>
 			</div>
 		</div>
 	{/if}
@@ -525,10 +494,10 @@
 
 <!-- Save Configuration Dialog -->
 <SaveConfigDialog
-	bind:open={showSaveDialog}
+	bind:open={saveState.showSaveDialog}
 	mapType="logistic"
 	isAuthenticated={!!data.session}
 	currentPath={$page.url.pathname}
-	onClose={() => (showSaveDialog = false)}
+	onClose={() => (saveState.showSaveDialog = false)}
 	onSave={handleSave}
 />

@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { onDestroy, onMount } from 'svelte';
+	import { onMount } from 'svelte';
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
 	import SnapshotButton from '$lib/components/ui/SnapshotButton.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
 	import { loadSavedConfigParameters, parseConfigParam } from '$lib/saved-config-loader';
+	import { createSaveHandler, createInitialSaveState } from '$lib/use-visualization-save';
 	import type { BifurcationLogisticParameters } from '$lib/types';
 
 	let { data } = $props();
@@ -17,12 +18,9 @@
 	let rMax = $state(4.0);
 	let maxIterations = $state(1000);
 	let isRendering = false;
-	let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	// Save dialog state
-	let showSaveDialog = $state(false);
-	let saveSuccess = $state(false);
-	let saveError = $state<string | null>(null);
+	const saveState = $state(createInitialSaveState());
 
 	// Stability warning state
 	let configErrors = $state<string[]>([]);
@@ -183,55 +181,12 @@
 		return { type: 'bifurcation-logistic', rMin, rMax, maxIterations };
 	}
 
-	// Handle save
-	async function handleSave(name: string) {
-		// Clear previous error state
-		saveError = null;
-
-		try {
-			const response = await fetch(`${base}/api/save-config`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					name,
-					mapType: 'bifurcation-logistic',
-					parameters: getParameters()
-				})
-			});
-
-			if (!response.ok) {
-				const errorData = await response
-					.json()
-					.catch(() => ({ error: 'Failed to save configuration' }));
-				saveSuccess = false;
-				if (saveTimeout !== null) {
-					clearTimeout(saveTimeout);
-					saveTimeout = null;
-				}
-				saveError = errorData.error || 'Failed to save configuration';
-				return;
-			}
-
-			saveSuccess = true;
-			saveError = null;
-			if (saveTimeout !== null) {
-				clearTimeout(saveTimeout);
-			}
-			saveTimeout = setTimeout(() => {
-				saveSuccess = false;
-				saveTimeout = null;
-			}, 3000);
-		} catch (error) {
-			saveSuccess = false;
-			if (saveTimeout !== null) {
-				clearTimeout(saveTimeout);
-				saveTimeout = null;
-			}
-			saveError =
-				'Failed to save configuration: ' +
-				(error instanceof Error ? error.message : 'Network error');
-		}
-	}
+	// Create save handler with cleanup
+	const { save: handleSave, cleanup: cleanupSaveHandler } = createSaveHandler(
+		'bifurcation-logistic',
+		saveState,
+		getParameters
+	);
 
 	function render() {
 		if (!canvas || isRendering) return;
@@ -274,11 +229,11 @@
 		render();
 	});
 
-	onDestroy(() => {
-		if (saveTimeout !== null) {
-			clearTimeout(saveTimeout);
-			saveTimeout = null;
-		}
+	onMount(() => {
+		return () => {
+			// Clear save handler timeout to prevent state updates after unmount
+			cleanupSaveHandler();
+		};
 	});
 
 	$effect(() => {
@@ -304,7 +259,7 @@
 		<div class="flex gap-3">
 			<SnapshotButton target={canvas} targetType="canvas" mapType="bifurcation-logistic" />
 			<button
-				onclick={() => (showSaveDialog = true)}
+				onclick={() => (saveState.showSaveDialog = true)}
 				class="px-6 py-2 bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(168,85,247,0.2)] uppercase tracking-widest text-sm font-bold"
 			>
 				💾 Save
@@ -319,7 +274,7 @@
 	</div>
 
 	<!-- Save Success Toast -->
-	{#if saveSuccess}
+	{#if saveState.saveSuccess}
 		<div
 			class="fixed top-20 right-4 z-50 px-6 py-4 bg-green-500/10 border border-green-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
 		>
@@ -331,13 +286,13 @@
 	{/if}
 
 	<!-- Save Error Toast -->
-	{#if saveError}
+	{#if saveState.saveError}
 		<div
 			class="fixed top-20 right-4 z-50 px-6 py-4 bg-red-500/10 border border-red-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
 		>
 			<div class="flex items-center gap-3">
 				<span class="text-red-400">✗</span>
-				<span class="text-red-200">{saveError}</span>
+				<span class="text-red-200">{saveState.saveError}</span>
 			</div>
 		</div>
 	{/if}
@@ -505,10 +460,10 @@
 
 <!-- Save Configuration Dialog -->
 <SaveConfigDialog
-	bind:open={showSaveDialog}
+	bind:open={saveState.showSaveDialog}
 	mapType="bifurcation-logistic"
 	isAuthenticated={Boolean(data?.session)}
 	currentPath={$page.url.pathname}
-	onClose={() => (showSaveDialog = false)}
+	onClose={() => (saveState.showSaveDialog = false)}
 	onSave={handleSave}
 />

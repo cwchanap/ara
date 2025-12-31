@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import * as d3 from 'd3';
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
@@ -7,6 +7,7 @@
 	import SnapshotButton from '$lib/components/ui/SnapshotButton.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
 	import { loadSavedConfigParameters, parseConfigParam } from '$lib/saved-config-loader';
+	import { createSaveHandler, createInitialSaveState } from '$lib/use-visualization-save';
 	import type { ChaosEsthetiqueParameters } from '$lib/types';
 
 	let { data } = $props();
@@ -25,12 +26,9 @@
 	let y0 = $state(0);
 	let iterations = $state(10000);
 	let isComputing = $state(false);
-	let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	// Save dialog state
-	let showSaveDialog = $state(false);
-	let saveSuccess = $state(false);
-	let saveError = $state('');
+	const saveState = $state(createInitialSaveState());
 
 	// Stability warning state
 	let configErrors = $state<string[]>([]);
@@ -155,45 +153,12 @@
 		return { type: 'chaos-esthetique', a, b, x0, y0, iterations };
 	}
 
-	// Handle save
-	async function handleSave(name: string) {
-		// Clear any previous error/success states
-		saveError = '';
-		saveSuccess = false;
-
-		try {
-			const response = await fetch(`${base}/api/save-config`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					name,
-					mapType: 'chaos-esthetique',
-					parameters: getParameters()
-				})
-			});
-
-			if (!response.ok) {
-				const errorData = await response.json().catch(() => ({ error: 'Failed to save' }));
-				saveError = errorData.error || 'Failed to save configuration';
-				return;
-			}
-
-			// Success
-			saveSuccess = true;
-			saveError = '';
-			if (saveTimeout !== null) {
-				clearTimeout(saveTimeout);
-			}
-			saveTimeout = setTimeout(() => {
-				saveSuccess = false;
-				saveTimeout = null;
-			}, 3000);
-		} catch (err) {
-			// Handle network errors or other exceptions
-			saveError = err instanceof Error ? err.message : 'Failed to save configuration';
-			saveSuccess = false;
-		}
-	}
+	// Create save handler with cleanup
+	const { save: handleSave, cleanup: cleanupSaveHandler } = createSaveHandler(
+		'chaos-esthetique',
+		saveState,
+		getParameters
+	);
 
 	function f(x: number, a: number): number {
 		return a * x + (2 * (1 - a) * x * x) / (1 + x * x);
@@ -404,22 +369,22 @@
 		scheduleRender();
 	});
 
-	onDestroy(() => {
-		isUnmounted = true;
-		configLoadAbortController?.abort();
-		configLoadAbortController = null;
-		if (worker) {
-			worker.terminate();
-			worker = null;
-		}
-		if (renderTimeout !== null) {
-			clearTimeout(renderTimeout);
-			renderTimeout = null;
-		}
-		if (saveTimeout !== null) {
-			clearTimeout(saveTimeout);
-			saveTimeout = null;
-		}
+	onMount(() => {
+		return () => {
+			isUnmounted = true;
+			configLoadAbortController?.abort();
+			configLoadAbortController = null;
+			if (worker) {
+				worker.terminate();
+				worker = null;
+			}
+			if (renderTimeout !== null) {
+				clearTimeout(renderTimeout);
+				renderTimeout = null;
+			}
+			// Clear save handler timeout to prevent state updates after unmount
+			cleanupSaveHandler();
+		};
 	});
 
 	$effect(() => {
@@ -447,7 +412,7 @@
 		<div class="flex gap-3">
 			<SnapshotButton target={container} targetType="container" mapType="chaos-esthetique" />
 			<button
-				onclick={() => (showSaveDialog = true)}
+				onclick={() => (saveState.showSaveDialog = true)}
 				class="px-6 py-2 bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(168,85,247,0.2)] uppercase tracking-widest text-sm font-bold"
 			>
 				💾 Save
@@ -462,7 +427,7 @@
 	</div>
 
 	<!-- Save Success Toast -->
-	{#if saveSuccess}
+	{#if saveState.saveSuccess}
 		<div
 			class="fixed top-20 right-4 z-50 px-6 py-4 bg-green-500/10 border border-green-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
 		>
@@ -474,15 +439,15 @@
 	{/if}
 
 	<!-- Save Error Toast -->
-	{#if saveError}
+	{#if saveState.saveError}
 		<div
 			class="fixed top-20 right-4 z-50 px-6 py-4 bg-red-500/10 border border-red-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
 		>
 			<div class="flex items-center gap-3">
 				<span class="text-red-400">✕</span>
-				<span class="text-red-200">{saveError}</span>
+				<span class="text-red-200">{saveState.saveError}</span>
 				<button
-					onclick={() => (saveError = '')}
+					onclick={() => (saveState.saveError = null)}
 					class="ml-2 text-red-400/60 hover:text-red-400 transition-colors"
 					aria-label="Close error message"
 				>
@@ -701,10 +666,10 @@
 
 <!-- Save Configuration Dialog -->
 <SaveConfigDialog
-	bind:open={showSaveDialog}
+	bind:open={saveState.showSaveDialog}
 	mapType="chaos-esthetique"
 	isAuthenticated={!!data?.session}
 	currentPath={$page.url.pathname}
-	onClose={() => (showSaveDialog = false)}
+	onClose={() => (saveState.showSaveDialog = false)}
 	onSave={handleSave}
 />

@@ -34,6 +34,11 @@ export interface SaveHandlers {
 	dismissStabilityWarning: () => void;
 }
 
+export interface SaveHandlerWithCleanup {
+	save: (name: string) => Promise<void>;
+	cleanup: () => void;
+}
+
 export interface LoadConfigOptions<T extends ChaosMapType> {
 	mapType: T;
 	searchParams: URLSearchParams;
@@ -60,15 +65,17 @@ export type LoadConfigResult<T extends ChaosMapType> =
  *
  * @param mapType - The chaos map type
  * @param state - The reactive state object
- * @returns Save handler function
+ * @param getParameters - Function to get current parameters
+ * @returns Object containing save handler and cleanup function
  */
 export function createSaveHandler(
 	mapType: ChaosMapType,
-	state: SaveState
-): (name: string, getParameters: () => ChaosMapParameters) => Promise<void> {
+	state: SaveState,
+	getParameters: () => ChaosMapParameters
+): SaveHandlerWithCleanup {
 	let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-	return async (name: string, getParameters: () => ChaosMapParameters) => {
+	const save = async (name: string) => {
 		// Clear any existing timeout and errors
 		if (timeoutId) {
 			clearTimeout(timeoutId);
@@ -112,6 +119,15 @@ export function createSaveHandler(
 			}, TOAST_ERROR_DURATION_MS);
 		}
 	};
+
+	const cleanup = () => {
+		if (timeoutId) {
+			clearTimeout(timeoutId);
+			timeoutId = null;
+		}
+	};
+
+	return { save, cleanup };
 }
 
 /**

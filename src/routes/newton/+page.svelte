@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { onDestroy } from 'svelte';
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
 	import SnapshotButton from '$lib/components/ui/SnapshotButton.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
 	import { loadSavedConfigParameters, parseConfigParam } from '$lib/saved-config-loader';
+	import { createSaveHandler, createInitialSaveState } from '$lib/use-visualization-save';
 	import type { NewtonParameters } from '$lib/types';
 
 	let { data } = $props();
@@ -23,12 +23,7 @@
 	let isRendering = false;
 
 	// Save dialog state
-	let showSaveDialog = $state(false);
-	let saveSuccess = $state(false);
-	let saveError = $state('');
-	let isSaving = $state(false);
-	let saveTimeout: ReturnType<typeof setTimeout> | null = null;
-	let saveErrorTimeout: ReturnType<typeof setTimeout> | null = null;
+	const saveState = $state(createInitialSaveState());
 	let saveAbortController: AbortController | null = null;
 	let isDestroyed = false;
 
@@ -154,96 +149,12 @@
 		return { type: 'newton', xMin, xMax, yMin, yMax, maxIterations };
 	}
 
-	// Handle save
-	async function handleSave(name: string) {
-		if (isSaving) return;
-		isSaving = true;
-
-		// Clear any previous error/success states
-		saveError = '';
-		saveSuccess = false;
-		if (saveTimeout !== null) {
-			clearTimeout(saveTimeout);
-			saveTimeout = null;
-		}
-		if (saveErrorTimeout !== null) {
-			clearTimeout(saveErrorTimeout);
-			saveErrorTimeout = null;
-		}
-
-		saveAbortController?.abort();
-		saveAbortController = new AbortController();
-		const signal = saveAbortController.signal;
-
-		try {
-			const response = await fetch(`${base}/api/save-config`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				signal,
-				body: JSON.stringify({
-					name,
-					mapType: 'newton',
-					parameters: getParameters()
-				})
-			});
-
-			if (isDestroyed || signal.aborted) return;
-			if (!response.ok) {
-				const errorData = await response.json().catch(() => ({ error: 'Failed to save' }));
-				if (isDestroyed || signal.aborted) return;
-				saveSuccess = false;
-				saveError = errorData.error || 'Failed to save configuration';
-
-				if (saveErrorTimeout !== null) {
-					clearTimeout(saveErrorTimeout);
-					saveErrorTimeout = null;
-				}
-				saveErrorTimeout = setTimeout(() => {
-					saveError = '';
-					saveErrorTimeout = null;
-				}, 3000);
-				return;
-			}
-
-			// Success
-			if (isDestroyed || signal.aborted) return;
-			saveSuccess = true;
-			saveError = '';
-			if (saveTimeout !== null) {
-				clearTimeout(saveTimeout);
-			}
-			saveTimeout = setTimeout(() => {
-				saveSuccess = false;
-				saveTimeout = null;
-			}, 3000);
-		} catch (err) {
-			if (err instanceof Error && err.name === 'AbortError') {
-				return;
-			}
-			if (isDestroyed || signal.aborted) return;
-			saveSuccess = false;
-			saveError =
-				err instanceof Error
-					? `Failed to save configuration: ${err.message}`
-					: 'Failed to save configuration';
-
-			if (saveErrorTimeout !== null) {
-				clearTimeout(saveErrorTimeout);
-				saveErrorTimeout = null;
-			}
-			saveErrorTimeout = setTimeout(() => {
-				saveError = '';
-				saveErrorTimeout = null;
-			}, 3000);
-		} finally {
-			if (saveAbortController?.signal === signal) {
-				saveAbortController = null;
-			}
-			if (!isDestroyed) {
-				isSaving = false;
-			}
-		}
-	}
+	// Create save handler with cleanup
+	const { save: handleSave, cleanup: cleanupSaveHandler } = createSaveHandler(
+		'newton',
+		saveState,
+		getParameters
+	);
 
 	function render() {
 		if (!canvas || isRendering) return;
@@ -343,20 +254,16 @@
 		render();
 	});
 
-	onDestroy(() => {
-		isDestroyed = true;
-		configLoadAbortController?.abort();
-		configLoadAbortController = null;
-		if (saveTimeout !== null) {
-			clearTimeout(saveTimeout);
-			saveTimeout = null;
-		}
-		if (saveErrorTimeout !== null) {
-			clearTimeout(saveErrorTimeout);
-			saveErrorTimeout = null;
-		}
-		saveAbortController?.abort();
-		saveAbortController = null;
+	onMount(() => {
+		return () => {
+			isDestroyed = true;
+			configLoadAbortController?.abort();
+			configLoadAbortController = null;
+			saveAbortController?.abort();
+			saveAbortController = null;
+			// Clear save handler timeout to prevent state updates after unmount
+			cleanupSaveHandler();
+		};
 	});
 
 	$effect(() => {
@@ -384,7 +291,7 @@
 		<div class="flex gap-3">
 			<SnapshotButton target={canvas} targetType="canvas" mapType="newton" />
 			<button
-				onclick={() => (showSaveDialog = true)}
+				onclick={() => (saveState.showSaveDialog = true)}
 				class="px-6 py-2 bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(168,85,247,0.2)] uppercase tracking-widest text-sm font-bold"
 			>
 				💾 Save
@@ -399,7 +306,7 @@
 	</div>
 
 	<!-- Save Success Toast -->
-	{#if saveSuccess}
+	{#if saveState.saveSuccess}
 		<div
 			class="fixed top-20 right-4 z-50 px-6 py-4 bg-green-500/10 border border-green-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
 		>
@@ -411,15 +318,15 @@
 	{/if}
 
 	<!-- Save Error Toast -->
-	{#if saveError}
+	{#if saveState.saveError}
 		<div
 			class="fixed top-20 right-4 z-50 px-6 py-4 bg-red-500/10 border border-red-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
 		>
 			<div class="flex items-center gap-3">
 				<span class="text-red-400">✕</span>
-				<span class="text-red-200">{saveError}</span>
+				<span class="text-red-200">{saveState.saveError}</span>
 				<button
-					onclick={() => (saveError = '')}
+					onclick={() => (saveState.saveError = null)}
 					class="ml-2 text-red-400/60 hover:text-red-400 transition-colors"
 					aria-label="Close error message"
 				>
@@ -618,10 +525,10 @@
 
 <!-- Save Configuration Dialog -->
 <SaveConfigDialog
-	bind:open={showSaveDialog}
+	bind:open={saveState.showSaveDialog}
 	mapType="newton"
 	isAuthenticated={!!data?.session}
 	currentPath={$page.url.pathname}
-	onClose={() => (showSaveDialog = false)}
+	onClose={() => (saveState.showSaveDialog = false)}
 	onSave={handleSave}
 />
