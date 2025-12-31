@@ -51,6 +51,7 @@
 				</ul>
 			</div>
 			<button
+				type="button"
 				onclick={handleDismissError}
 				class="text-red-400/60 hover:text-red-400"
 				aria-label="Dismiss error"
@@ -80,6 +81,7 @@
 				</ul>
 			</div>
 			<button
+				type="button"
 				onclick={handleDismissWarning}
 				class="text-amber-400/60 hover:text-amber-400"
 				aria-label="Dismiss warning"

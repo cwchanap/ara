@@ -32,6 +32,8 @@
 	}: Props = $props();
 
 	let timeoutId: ReturnType<typeof setTimeout> | null = null;
+	let wasShowing = false;
+	let wasAutoDismiss = false;
 
 	const variantConfig = {
 		success: {
@@ -64,10 +66,18 @@
 	};
 
 	$effect(() => {
-		if (show && autoDismiss) {
-			// Clear any existing timeout
+		const shouldStartTimer = show && autoDismiss && (!wasShowing || !wasAutoDismiss);
+		const shouldClearTimer = !show;
+
+		if (shouldClearTimer && timeoutId) {
+			clearTimeout(timeoutId);
+			timeoutId = null;
+		}
+
+		if (shouldStartTimer) {
 			if (timeoutId) {
 				clearTimeout(timeoutId);
+				timeoutId = null;
 			}
 
 			const duration = variantConfig[variant].duration;
@@ -76,6 +86,9 @@
 				onDismiss?.();
 			}, duration);
 		}
+
+		wasShowing = show;
+		wasAutoDismiss = autoDismiss;
 
 		return () => {
 			if (timeoutId) {
@@ -108,6 +121,7 @@
 			<span class={config.textClass}>{message}</span>
 			{#if dismissable}
 				<button
+					type="button"
 					onclick={handleDismiss}
 					class={config.buttonClass}
 					aria-label="Dismiss notification"
