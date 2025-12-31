@@ -7,6 +7,7 @@
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
 	import { loadSavedConfigParameters, parseConfigParam } from '$lib/saved-config-loader';
+	import { createSaveHandler, createInitialSaveState } from '$lib/use-visualization-save';
 	import type { LorenzParameters } from '$lib/types';
 
 	let { data } = $props();
@@ -19,8 +20,7 @@
 	let recreate: () => void;
 
 	// Save dialog state
-	let showSaveDialog = $state(false);
-	let saveSuccess = $state(false);
+	const saveState = $state(createInitialSaveState());
 
 	// Config loading state
 	let configErrors = $state<string[]>([]);
@@ -33,45 +33,12 @@
 		return { type: 'lorenz', sigma, rho, beta };
 	}
 
-	// Save state
-	let saveError = $state<string | null>(null);
-	let timeoutId: ReturnType<typeof setTimeout> | null = $state(null);
-
-	// Handle save
-	async function handleSave(name: string) {
-		// Clear any existing timeout and errors
-		if (timeoutId) {
-			clearTimeout(timeoutId);
-			timeoutId = null;
-		}
-		saveError = null;
-
-		try {
-			const response = await fetch(`${base}/api/save-config`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					name,
-					mapType: 'lorenz',
-					parameters: getParameters()
-				})
-			});
-
-			if (!response.ok) {
-				const errorData = await response.json().catch(() => ({ error: 'Failed to save' }));
-				saveError = errorData.error || 'Failed to save configuration';
-				return;
-			}
-
-			saveSuccess = true;
-			timeoutId = setTimeout(() => {
-				saveSuccess = false;
-				timeoutId = null;
-			}, 3000);
-		} catch (error) {
-			saveError = error instanceof Error ? error.message : 'Failed to save configuration';
-		}
-	}
+	// Create save handler with cleanup
+	const { save: handleSave, cleanup: cleanupSaveHandler } = createSaveHandler(
+		'lorenz',
+		saveState,
+		getParameters
+	);
 
 	// Load config from URL on mount
 	onMount(() => {
@@ -365,11 +332,8 @@
 
 			renderer.dispose();
 
-			// Clear timeout to prevent memory leaks
-			if (timeoutId) {
-				clearTimeout(timeoutId);
-				timeoutId = null;
-			}
+			// Clear save handler timeout to prevent state updates after unmount
+			cleanupSaveHandler();
 
 			if (container && renderer.domElement.parentNode === container) {
 				// eslint-disable-next-line svelte/no-dom-manipulating
@@ -393,7 +357,7 @@
 		</div>
 		<div class="flex gap-3">
 			<button
-				onclick={() => (showSaveDialog = true)}
+				onclick={() => (saveState.showSaveDialog = true)}
 				class="px-6 py-2 bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(168,85,247,0.2)] uppercase tracking-widest text-sm font-bold"
 			>
 				💾 Save
@@ -408,7 +372,7 @@
 	</div>
 
 	<!-- Save Success Toast -->
-	{#if saveSuccess}
+	{#if saveState.saveSuccess}
 		<div
 			class="fixed top-20 right-4 z-50 px-6 py-4 bg-green-500/10 border border-green-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
 		>
@@ -420,14 +384,17 @@
 	{/if}
 
 	<!-- Save Error Toast -->
-	{#if saveError}
+	{#if saveState.saveError}
 		<div
 			class="fixed top-20 right-4 z-50 px-6 py-4 bg-red-500/10 border border-red-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
 		>
 			<div class="flex items-center gap-3">
 				<span class="text-red-400">✕</span>
-				<span class="text-red-200">{saveError}</span>
-				<button onclick={() => (saveError = null)} class="text-red-400/60 hover:text-red-400 ml-2">
+				<span class="text-red-200">{saveState.saveError}</span>
+				<button
+					onclick={() => (saveState.saveError = null)}
+					class="text-red-400/60 hover:text-red-400 ml-2"
+				>
 					✕
 				</button>
 			</div>
@@ -600,10 +567,10 @@
 
 <!-- Save Configuration Dialog -->
 <SaveConfigDialog
-	bind:open={showSaveDialog}
+	bind:open={saveState.showSaveDialog}
 	mapType="lorenz"
 	isAuthenticated={!!data?.session}
 	currentPath={$page.url.pathname}
-	onClose={() => (showSaveDialog = false)}
+	onClose={() => (saveState.showSaveDialog = false)}
 	onSave={handleSave}
 />

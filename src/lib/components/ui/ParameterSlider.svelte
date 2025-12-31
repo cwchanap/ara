@@ -41,6 +41,11 @@
 
 	// Sync internalValue from external value changes
 	$effect(() => {
+		// Cancel any pending debounced user update to prevent race condition
+		if (timeoutId) {
+			clearTimeout(timeoutId);
+			timeoutId = null;
+		}
 		internalValue = value;
 	});
 
