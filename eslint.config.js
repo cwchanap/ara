@@ -34,6 +34,10 @@ export default [
 	{
 		files: ['src/lib/components/ui/ParameterSlider.svelte'],
 		rules: {
+			// This component intentionally keeps separate state for immediate UI feedback
+			// (e.g., `internalValue`) and debounced prop updates (`value`). The
+			// `svelte/prefer-writable-derived` rule does not account for this pattern,
+			// so it is disabled here by design.
 			'svelte/prefer-writable-derived': 'off'
 		}
 	},

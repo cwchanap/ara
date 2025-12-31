@@ -1,5 +1,16 @@
 import { test, expect } from '@playwright/test';
 
+async function setRangeValue(
+	locator: ReturnType<import('@playwright/test').Page['locator']>,
+	value: number
+) {
+	await locator.evaluate((el, nextValue) => {
+		if (!(el instanceof HTMLInputElement)) return;
+		el.value = String(nextValue);
+		el.dispatchEvent(new Event('input', { bubbles: true }));
+	}, value);
+}
+
 test.describe('Lozi Map Page', () => {
 	test('homepage displays Lozi Map card', async ({ page }) => {
 		await page.goto('/');
@@ -50,8 +61,8 @@ test.describe('Lozi Map Page', () => {
 	test('Lozi page has visualization container', async ({ page }) => {
 		await page.goto('/lozi');
 
-		// Check for the D3.js visualization label (text may have whitespace around it)
-		await expect(page.getByText('LIVE_RENDER')).toBeVisible();
+		// Visualization is rendered as an SVG plot
+		await expect(page.locator('svg').first()).toBeVisible();
 	});
 
 	test('Lozi page has Save button', async ({ page }) => {
@@ -71,15 +82,16 @@ test.describe('Lozi Map Page', () => {
 	test('parameter sliders are interactive', async ({ page }) => {
 		await page.goto('/lozi');
 
-		// Find the 'a' parameter slider using stable data-testid
-		const aSlider = page.locator('[data-testid="slider-a"]');
-		const aValueDisplay = page.locator('[data-testid="value-a"]');
+		const aSlider = page.getByRole('slider', { name: 'a', exact: true });
+		const aValueDisplay = aSlider.locator(
+			'xpath=ancestor::div[contains(@class, "space-y-2")]//span[contains(@class, "font-mono")]'
+		);
 
 		// Verify initial value display (a defaults to 0.5)
 		await expect(aValueDisplay).toHaveText('0.500');
 
 		// Change the slider value to 1.5
-		await aSlider.fill('1.5');
+		await setRangeValue(aSlider, 1.5);
 
 		// Verify the slider value attribute changed
 		await expect(aSlider).toHaveValue('1.5');
