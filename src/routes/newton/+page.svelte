@@ -24,7 +24,6 @@
 
 	// Save dialog state
 	const saveState = $state(createInitialSaveState());
-	let saveAbortController: AbortController | null = null;
 	let isDestroyed = false;
 
 	// Stability warning state
@@ -70,7 +69,7 @@
 						base,
 						fetchFn: fetchWithSignal
 					});
-					if (isDestroyed || signal.aborted) return;
+					if (signal.aborted || isDestroyed) return;
 					if (lastAppliedConfigKey !== currentConfigKey) return;
 					if (!result.ok) {
 						configErrors = result.errors;
@@ -252,16 +251,9 @@
 
 	onMount(() => {
 		render();
-	});
-
-	onMount(() => {
 		return () => {
 			isDestroyed = true;
 			configLoadAbortController?.abort();
-			configLoadAbortController = null;
-			saveAbortController?.abort();
-			saveAbortController = null;
-			// Clear save handler timeout to prevent state updates after unmount
 			cleanupSaveHandler();
 		};
 	});

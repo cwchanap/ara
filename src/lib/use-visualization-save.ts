@@ -16,6 +16,7 @@ import type { ChaosMapType, ChaosMapParameters } from '$lib/types';
 
 export interface SaveState {
 	showSaveDialog: boolean;
+	isSaving: boolean;
 	saveSuccess: boolean;
 	saveError: string | null;
 	configErrors: string[];
@@ -74,19 +75,31 @@ export function createSaveHandler(
 	getParameters: () => ChaosMapParameters
 ): SaveHandlerWithCleanup {
 	let timeoutId: ReturnType<typeof setTimeout> | null = null;
+	let abortController: AbortController | null = null;
 
 	const save = async (name: string) => {
+		// Prevent multiple concurrent saves
+		if (state.isSaving) return;
+
+		// Cancel any in-flight request
+		if (abortController) {
+			abortController.abort();
+		}
+		abortController = new AbortController();
+
 		// Clear any existing timeout and errors
 		if (timeoutId) {
 			clearTimeout(timeoutId);
 			timeoutId = null;
 		}
 		state.saveError = null;
+		state.isSaving = true;
 
 		try {
 			const response = await fetch(`${base}/api/save-config`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
+				signal: abortController.signal,
 				body: JSON.stringify({
 					name,
 					mapType,
@@ -111,12 +124,20 @@ export function createSaveHandler(
 				timeoutId = null;
 			}, TOAST_SUCCESS_DURATION_MS);
 		} catch (error) {
+			// Don't set error if it was a manual abort
+			if (error instanceof Error && error.name === 'AbortError') {
+				return;
+			}
+
 			state.saveError =
 				error instanceof Error ? error.message : 'Failed to save configuration';
 			timeoutId = setTimeout(() => {
 				state.saveError = null;
 				timeoutId = null;
 			}, TOAST_ERROR_DURATION_MS);
+		} finally {
+			state.isSaving = false;
+			abortController = null;
 		}
 	};
 
@@ -124,6 +145,10 @@ export function createSaveHandler(
 		if (timeoutId) {
 			clearTimeout(timeoutId);
 			timeoutId = null;
+		}
+		if (abortController) {
+			abortController.abort();
+			abortController = null;
 		}
 	};
 
@@ -207,6 +232,7 @@ export async function loadConfigFromUrl<T extends ChaosMapType>(
 export function createInitialSaveState(): SaveState {
 	return {
 		showSaveDialog: false,
+		isSaving: false,
 		saveSuccess: false,
 		saveError: null,
 		configErrors: [],
