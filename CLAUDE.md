@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a SvelteKit-based interactive web application that visualizes 8 different chaos theory mathematical systems. The project reproduces Python-based chaos visualizations using modern web technologies, featuring real-time parameter manipulation and beautiful sci-fi themed UI.
+This is a SvelteKit-based interactive web application that visualizes 11 different chaos theory mathematical systems (Lorenz, Rössler, Hénon, Lozi, Logistic, Newton, Standard, Bifurcation-Logistic, Bifurcation-Hénon, Chaos Esthetique, Lyapunov). The project reproduces Python-based chaos visualizations using modern web technologies, featuring real-time parameter manipulation and beautiful sci-fi themed UI.
 
 ## Development Commands
 
@@ -181,6 +181,8 @@ const profile = await db.select().from(profiles).where(eq(profiles.id, user.id))
 - `src/lib/server/db/schema.ts` - Drizzle schema: `profiles` and `savedConfigurations` tables
 - `src/lib/server/db/index.ts` - Drizzle database instance
 - `src/lib/workers/chaosMapsWorker.ts` - Web worker for heavy computations
+- `src/lib/chaos-validation.ts` - Parameter validation and stability checks for chaos maps
+- `src/lib/types.ts` - Shared type definitions (`ChaosMapType`, `ChaosMapParameters`, `VALID_MAP_TYPES`)
 - `src/routes/api/save-config/+server.ts` - API endpoint for saving configurations
 
 ### Styling Conventions
@@ -230,19 +232,9 @@ The app uses a **sci-fi chaos theory aesthetic**:
 
 ### Working with Authentication
 
-**Protected routes**: Use `locals.safeGetSession()` in load functions and redirect if unauthenticated:
+**Protected routes**: Use the `locals.safeGetSession()` pattern shown in "Authentication & Authorization" above, and redirect unauthenticated users to `/login?redirect={currentPath}`.
 
-```typescript
-export const load: PageServerLoad = async ({ locals, url }) => {
-	const { session, user } = await locals.safeGetSession();
-	if (!session || !user) {
-		throw redirect(303, `${base}/login?redirect=${encodeURIComponent(url.pathname)}`);
-	}
-	// ... fetch user data
-};
-```
-
-**Form actions**: Always validate inputs using `$lib/auth-errors.ts` utilities (`validateUsername`, `validatePassword`, `getErrorMessage`).
+**Form actions**: Always validate inputs using `$lib/auth-errors.ts` utilities (`validateUsername`, `validatePassword`, `validateEmail`, `getErrorMessage`).
 
 **Password changes**: Use the pattern in `src/routes/profile/+page.server.ts` which verifies current password via `signInWithPassword` before updating (Supabase has no verify-only API).
 
