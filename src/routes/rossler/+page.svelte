@@ -5,9 +5,11 @@
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
+	import ShareDialog from '$lib/components/ui/ShareDialog.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
 	import { loadSavedConfigParameters, parseConfigParam } from '$lib/saved-config-loader';
 	import { createSaveHandler, createInitialSaveState } from '$lib/use-visualization-save';
+	import { createShareHandler, createInitialShareState } from '$lib/use-visualization-share';
 	import type { RosslerParameters } from '$lib/types';
 	import { calculateRossler } from '$lib/rossler';
 
@@ -22,6 +24,9 @@
 
 	// Save dialog state
 	const saveState = $state(createInitialSaveState());
+
+	// Share dialog state
+	const shareState = $state(createInitialShareState());
 
 	// Config loading state
 	let configErrors = $state<string[]>([]);
@@ -38,6 +43,13 @@
 	const { save: handleSave, cleanup: cleanupSaveHandler } = createSaveHandler(
 		'rossler',
 		saveState,
+		getParameters
+	);
+
+	// Create share handler with cleanup
+	const { share: handleShare, cleanup: cleanupShareHandler } = createShareHandler(
+		'rossler',
+		shareState,
 		getParameters
 	);
 
@@ -321,8 +333,9 @@
 
 			renderer.dispose();
 
-			// Clear save handler timeout to prevent state updates after unmount
+			// Clear save/share handler timeouts to prevent state updates after unmount
 			cleanupSaveHandler();
+			cleanupShareHandler();
 
 			if (container && renderer.domElement.parentNode === container) {
 				// eslint-disable-next-line svelte/no-dom-manipulating
@@ -345,6 +358,12 @@
 			</p>
 		</div>
 		<div class="flex gap-3">
+			<button
+				onclick={() => (shareState.showShareDialog = true)}
+				class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
+			>
+				🔗 Share
+			</button>
 			<button
 				onclick={() => (saveState.showSaveDialog = true)}
 				class="px-6 py-2 bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(168,85,247,0.2)] uppercase tracking-widest text-sm font-bold"
@@ -565,4 +584,14 @@
 	currentPath={$page.url.pathname}
 	onClose={() => (saveState.showSaveDialog = false)}
 	onSave={handleSave}
+/>
+
+<!-- Share Configuration Dialog -->
+<ShareDialog
+	bind:open={shareState.showShareDialog}
+	mapType="rossler"
+	isAuthenticated={!!data?.session}
+	currentPath={$page.url.pathname}
+	onClose={() => (shareState.showShareDialog = false)}
+	onShare={handleShare}
 />

@@ -17,7 +17,7 @@ const sql = neon(databaseUrl);
 export const db = drizzle(sql, { schema });
 
 // Re-export schema tables for convenience
-export { profiles, savedConfigurations } from './schema';
+export { profiles, savedConfigurations, sharedConfigurations } from './schema';
 
 // Re-export types from shared types module
 export type { Profile, SavedConfiguration, ChaosMapType, ChaosMapParameters } from '$lib/types';

@@ -131,6 +131,40 @@ export const HTTP_STATUS = {
 	CREATED: 201,
 	BAD_REQUEST: 400,
 	UNAUTHORIZED: 401,
+	FORBIDDEN: 403,
 	NOT_FOUND: 404,
+	TOO_MANY_REQUESTS: 429,
+	GONE: 410,
 	INTERNAL_SERVER_ERROR: 500
 } as const;
+
+// ============================================================================
+// Share Feature Constants
+// ============================================================================
+
+/**
+ * Length of generated share short codes.
+ * 8 alphanumeric chars = 62^8 ≈ 218 trillion combinations.
+ */
+export const SHARE_CODE_LENGTH = 8;
+
+/**
+ * Characters used for generating share codes.
+ * Alphanumeric (A-Z, a-z, 0-9) for URL-safe codes.
+ */
+export const SHARE_CODE_CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+
+/**
+ * Maximum shares allowed per user per hour.
+ */
+export const SHARE_RATE_LIMIT_PER_HOUR = 10;
+
+/**
+ * Share expiration time in days.
+ */
+export const SHARE_EXPIRATION_DAYS = 7;
+
+/**
+ * Maximum retry attempts for generating unique short codes.
+ */
+export const SHARE_CODE_MAX_RETRIES = 5;
