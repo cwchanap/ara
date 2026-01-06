@@ -15,20 +15,41 @@
 	const displayName =
 		CHAOS_MAP_DISPLAY_NAMES[data.mapType as ChaosMapType] ?? data.mapType.toUpperCase();
 
+	// Safe stringify helper
+	function safeStringify(obj: unknown): string {
+		try {
+			return JSON.stringify(obj, null, 2);
+		} catch (err) {
+			console.error('Failed to stringify parameters:', err);
+			return '/* [Error: Non-serializable parameters] */';
+		}
+	}
+
 	// Build the URL to the actual visualization with parameters
 	function getVisualizationUrl(): string {
-		const configParam = encodeURIComponent(JSON.stringify(data.parameters));
-		const sharedByParam = encodeURIComponent(data.username);
-		return `${base}/${data.mapType}?config=${configParam}&shared=true&sharedBy=${sharedByParam}`;
+		try {
+			const configParam = encodeURIComponent(JSON.stringify(data.parameters));
+			const sharedByParam = encodeURIComponent(data.username);
+			return `${base}/${data.mapType}?config=${configParam}&shared=true&sharedBy=${sharedByParam}`;
+		} catch (err) {
+			console.error('Failed to build visualization URL:', err);
+			return `${base}/${data.mapType}?shared=true`;
+		}
 	}
 
 	// Format date for display
 	function formatDate(dateStr: string): string {
-		return new Date(dateStr).toLocaleDateString('en-US', {
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric'
-		});
+		try {
+			const date = new Date(dateStr);
+			if (isNaN(date.getTime())) return 'UNKNOWN_DATE';
+			return date.toLocaleDateString('en-US', {
+				month: 'short',
+				day: 'numeric',
+				year: 'numeric'
+			});
+		} catch {
+			return 'UNKNOWN_DATE';
+		}
 	}
 </script>
 
@@ -93,7 +114,9 @@
 				<span class="text-amber-400 text-xl">⚠️</span>
 				<div>
 					<p class="text-amber-200 font-medium">
-						{#if data.daysRemaining <= 0}
+						{#if data.daysRemaining < 0}
+							This share has expired.
+						{:else if data.daysRemaining === 0}
 							This share expires today!
 						{:else if data.daysRemaining === 1}
 							This share expires tomorrow!
@@ -113,7 +136,7 @@
 			PARAMETERS
 		</h2>
 		<div class="font-mono text-sm bg-black/30 p-4 rounded border border-white/5 overflow-x-auto">
-			<pre class="text-muted-foreground">{JSON.stringify(data.parameters, null, 2)}</pre>
+			<pre class="text-muted-foreground">{safeStringify(data.parameters)}</pre>
 		</div>
 	</div>
 

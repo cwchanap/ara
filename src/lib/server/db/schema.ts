@@ -64,8 +64,9 @@ export const sharedConfigurations = pgTable(
 	{
 		id: uuid('id').defaultRandom().primaryKey(),
 		shortCode: varchar('short_code', { length: 8 }).unique().notNull(),
-		userId: uuid('user_id').references(() => profiles.id, { onDelete: 'set null' }),
-		username: text('username'), // Denormalized for public display after user deletion
+		userId: uuid('user_id')
+			.references(() => profiles.id, { onDelete: 'cascade' })
+			.notNull(),
 		mapType: text('map_type').notNull(),
 		parameters: jsonb('parameters').notNull(),
 		viewCount: integer('view_count').default(0).notNull(),
@@ -75,7 +76,6 @@ export const sharedConfigurations = pgTable(
 		expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }).notNull()
 	},
 	(table) => [
-		index('shared_configurations_short_code_idx').on(table.shortCode),
 		index('shared_configurations_user_id_idx').on(table.userId),
 		index('shared_configurations_expires_at_idx').on(table.expiresAt)
 	]
