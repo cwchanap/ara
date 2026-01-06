@@ -7,8 +7,7 @@
 
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { db, sharedConfigurations, profiles } from '$lib/server/db';
-import { eq } from 'drizzle-orm';
+import { db, sharedConfigurations } from '$lib/server/db';
 import { validateParameters } from '$lib/chaos-validation';
 import { VALID_MAP_TYPES } from '$lib/types';
 import type { ChaosMapType, ChaosMapParameters } from '$lib/types';
@@ -60,15 +59,6 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 		throw error(HTTP_STATUS.BAD_REQUEST, `Invalid parameters: ${validation.errors.join(', ')}`);
 	}
 
-	// Get user's username for attribution
-	const [profile] = await db
-		.select({ username: profiles.username })
-		.from(profiles)
-		.where(eq(profiles.id, user.id))
-		.limit(1);
-
-	const username = profile?.username ?? 'Anonymous';
-
 	// Generate unique short code
 	const shortCode = await generateUniqueShortCode();
 	if (!shortCode) {
@@ -88,7 +78,6 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 			.values({
 				shortCode,
 				userId: user.id,
-				username,
 				mapType: mapType as ChaosMapType,
 				parameters: parameters as ChaosMapParameters,
 				expiresAt: expiresAt.toISOString()

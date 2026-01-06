@@ -7,7 +7,7 @@
 
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { db, sharedConfigurations } from '$lib/server/db';
+import { db, sharedConfigurations, profiles } from '$lib/server/db';
 import { eq, sql } from 'drizzle-orm';
 import { HTTP_STATUS } from '$lib/constants';
 import { isShareExpired, getDaysUntilExpiration } from '$lib/server/share-utils';
@@ -21,12 +21,12 @@ export const load: PageServerLoad = async ({ params }) => {
 		throw error(HTTP_STATUS.BAD_REQUEST, 'Invalid share code');
 	}
 
-	// Fetch the shared configuration
+	// Fetch the shared configuration with profile data
 	const [share] = await db
 		.select({
 			id: sharedConfigurations.id,
 			shortCode: sharedConfigurations.shortCode,
-			username: sharedConfigurations.username,
+			username: profiles.username,
 			mapType: sharedConfigurations.mapType,
 			parameters: sharedConfigurations.parameters,
 			viewCount: sharedConfigurations.viewCount,
@@ -34,6 +34,7 @@ export const load: PageServerLoad = async ({ params }) => {
 			expiresAt: sharedConfigurations.expiresAt
 		})
 		.from(sharedConfigurations)
+		.innerJoin(profiles, eq(sharedConfigurations.userId, profiles.id))
 		.where(eq(sharedConfigurations.shortCode, code))
 		.limit(1);
 
@@ -44,7 +45,11 @@ export const load: PageServerLoad = async ({ params }) => {
 	// Check if expired
 	if (isShareExpired(share.expiresAt)) {
 		// Delete expired share (lazy cleanup)
-		await db.delete(sharedConfigurations).where(eq(sharedConfigurations.id, share.id));
+		try {
+			await db.delete(sharedConfigurations).where(eq(sharedConfigurations.id, share.id));
+		} catch (err) {
+			console.error('Failed to delete expired share:', err);
+		}
 		throw error(HTTP_STATUS.GONE, 'This shared configuration has expired');
 	}
 
@@ -57,7 +62,6 @@ export const load: PageServerLoad = async ({ params }) => {
 	db.update(sharedConfigurations)
 		.set({ viewCount: sql`${sharedConfigurations.viewCount} + 1` })
 		.where(eq(sharedConfigurations.id, share.id))
-		.then(() => {})
 		.catch((err) => console.error('Failed to increment view count:', err));
 
 	const daysRemaining = getDaysUntilExpiration(share.expiresAt);
