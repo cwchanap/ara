@@ -149,7 +149,7 @@
 			🚀 VIEW_VISUALIZATION
 		</a>
 		<a
-			href="{base}/"
+			href={base || '/'}
 			class="px-8 py-3 bg-card/50 hover:bg-card/70 text-muted-foreground hover:text-foreground border border-white/10 rounded-sm transition-all uppercase tracking-widest text-sm font-bold text-center"
 		>
 			← EXPLORE_MORE
