@@ -8,7 +8,11 @@
 	import ShareDialog from '$lib/components/ui/ShareDialog.svelte';
 	import SnapshotButton from '$lib/components/ui/SnapshotButton.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
-	import { loadSavedConfigParameters, parseConfigParam } from '$lib/saved-config-loader';
+	import {
+		loadSavedConfigParameters,
+		loadSharedConfigParameters,
+		parseConfigParam
+	} from '$lib/saved-config-loader';
 	import { calculateLoziTuples } from '$lib/lozi';
 	import { createSaveHandler, createInitialSaveState } from '$lib/use-visualization-save';
 	import { createShareHandler, createInitialShareState } from '$lib/use-visualization-share';
@@ -43,16 +47,29 @@
 		stabilityWarnings = [];
 		showStabilityWarning = false;
 
+		const shareCode = get(page).url.searchParams.get('share');
 		const configId = get(page).url.searchParams.get('configId');
-		if (configId) {
+
+		if (shareCode || configId) {
 			void (async () => {
 				try {
-					const result = await loadSavedConfigParameters({
-						configId,
-						mapType: 'lozi',
-						base,
-						fetchFn: fetch
-					});
+					let result;
+					if (shareCode) {
+						result = await loadSharedConfigParameters({
+							shareCode,
+							mapType: 'lozi',
+							base,
+							fetchFn: fetch
+						});
+					} else {
+						result = await loadSavedConfigParameters({
+							configId: configId!,
+							mapType: 'lozi',
+							base,
+							fetchFn: fetch
+						});
+					}
+
 					if (!result.ok) {
 						configErrors = result.errors;
 						showConfigError = true;
@@ -72,7 +89,7 @@
 						showStabilityWarning = true;
 					}
 				} catch (error) {
-					console.error('Failed to load saved configuration:', error);
+					console.error('Failed to load configuration:', error);
 					configErrors = [
 						'Failed to load configuration: ' +
 							(error instanceof Error ? error.message : 'Unknown error')

@@ -6,7 +6,11 @@
 	import ShareDialog from '$lib/components/ui/ShareDialog.svelte';
 	import SnapshotButton from '$lib/components/ui/SnapshotButton.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
-	import { loadSavedConfigParameters, parseConfigParam } from '$lib/saved-config-loader';
+	import {
+		loadSavedConfigParameters,
+		loadSharedConfigParameters,
+		parseConfigParam
+	} from '$lib/saved-config-loader';
 	import { createSaveHandler, createInitialSaveState } from '$lib/use-visualization-save';
 	import { createShareHandler, createInitialShareState } from '$lib/use-visualization-share';
 	import type { BifurcationHenonParameters } from '$lib/types';
@@ -41,15 +45,22 @@
 	// Load config from URL on mount
 	$effect(() => {
 		const configId = $page.url.searchParams.get('configId');
+		const shareCode = $page.url.searchParams.get('share');
 		const configParam = $page.url.searchParams.get('config');
-		const configKey = configId ? `id:${configId}` : configParam ? `param:${configParam}` : null;
+		const configKey = shareCode
+			? `share:${shareCode}`
+			: configId
+				? `id:${configId}`
+				: configParam
+					? `param:${configParam}`
+					: null;
 		if (configKey === lastAppliedConfigKey) return;
 		lastAppliedConfigKey = configKey;
 
 		configLoadAbortController?.abort();
 		configLoadAbortController = null;
 
-		if (configId) {
+		if (shareCode || configId) {
 			configErrors = [];
 			showConfigError = false;
 			stabilityWarnings = [];
@@ -66,12 +77,23 @@
 					{ preconnect: fetch.preconnect }
 				);
 
-				const result = await loadSavedConfigParameters({
-					configId,
-					mapType: 'bifurcation-henon',
-					base,
-					fetchFn: fetchWithSignal
-				});
+				let result;
+				if (shareCode) {
+					result = await loadSharedConfigParameters({
+						shareCode,
+						mapType: 'bifurcation-henon',
+						base,
+						fetchFn: fetchWithSignal
+					});
+				} else {
+					result = await loadSavedConfigParameters({
+						configId: configId!,
+						mapType: 'bifurcation-henon',
+						base,
+						fetchFn: fetchWithSignal
+					});
+				}
+
 				if (isUnmounted || signal.aborted) return;
 				if (lastAppliedConfigKey !== currentConfigKey) return;
 				if (!result.ok) {

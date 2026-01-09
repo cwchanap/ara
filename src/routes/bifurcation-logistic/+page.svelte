@@ -6,7 +6,11 @@
 	import ShareDialog from '$lib/components/ui/ShareDialog.svelte';
 	import SnapshotButton from '$lib/components/ui/SnapshotButton.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
-	import { loadSavedConfigParameters, parseConfigParam } from '$lib/saved-config-loader';
+	import {
+		loadSavedConfigParameters,
+		loadSharedConfigParameters,
+		parseConfigParam
+	} from '$lib/saved-config-loader';
 	import { createSaveHandler, createInitialSaveState } from '$lib/use-visualization-save';
 	import { createShareHandler, createInitialShareState } from '$lib/use-visualization-share';
 	import type { BifurcationLogisticParameters } from '$lib/types';
@@ -33,27 +37,49 @@
 	let stabilityWarnings = $state<string[]>([]);
 	let showStabilityWarning = $state(false);
 	let lastConfigParam: string | null = null;
-	let lastConfigId: string | null = null;
+	let lastAppliedConfigKey: string | null = null;
 
 	// Load config from URL on mount
 	$effect(() => {
 		const configId = $page.url.searchParams.get('configId');
-		if (configId) {
-			if (configId === lastConfigId) return;
-			lastConfigId = configId;
-			lastConfigParam = null;
+		const shareCode = $page.url.searchParams.get('share');
+		const configParam = $page.url.searchParams.get('config');
+
+		const configKey = shareCode
+			? `share:${shareCode}`
+			: configId
+				? `id:${configId}`
+				: configParam
+					? `param:${configParam}`
+					: null;
+
+		if (configKey === lastAppliedConfigKey) return;
+		lastAppliedConfigKey = configKey;
+
+		if (shareCode || configId) {
 			configErrors = [];
 			showConfigError = false;
 			stabilityWarnings = [];
 			showStabilityWarning = false;
 
 			void (async () => {
-				const result = await loadSavedConfigParameters({
-					configId,
-					mapType: 'bifurcation-logistic',
-					base,
-					fetchFn: fetch
-				});
+				let result;
+				if (shareCode) {
+					result = await loadSharedConfigParameters({
+						shareCode,
+						mapType: 'bifurcation-logistic',
+						base,
+						fetchFn: fetch
+					});
+				} else {
+					result = await loadSavedConfigParameters({
+						configId: configId!,
+						mapType: 'bifurcation-logistic',
+						base,
+						fetchFn: fetch
+					});
+				}
+
 				if (!result.ok) {
 					configErrors = result.errors;
 					showConfigError = true;
@@ -98,9 +124,7 @@
 			})();
 			return;
 		}
-		lastConfigId = null;
 
-		const configParam = $page.url.searchParams.get('config');
 		if (!configParam) {
 			lastConfigParam = null;
 			configErrors = [];

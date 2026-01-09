@@ -7,7 +7,11 @@
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
 	import ShareDialog from '$lib/components/ui/ShareDialog.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
-	import { loadSavedConfigParameters, parseConfigParam } from '$lib/saved-config-loader';
+	import {
+		loadSavedConfigParameters,
+		loadSharedConfigParameters,
+		parseConfigParam
+	} from '$lib/saved-config-loader';
 	import { createSaveHandler, createInitialSaveState } from '$lib/use-visualization-save';
 	import { createShareHandler, createInitialShareState } from '$lib/use-visualization-share';
 	import type { LorenzParameters } from '$lib/types';
@@ -68,7 +72,46 @@
 		showStabilityWarning = false;
 
 		const configId = $page.url.searchParams.get('configId');
-		if (configId) {
+		const shareCode = $page.url.searchParams.get('share');
+		if (shareCode) {
+			void (async () => {
+				try {
+					const result = await loadSharedConfigParameters({
+						shareCode,
+						mapType: 'lorenz',
+						base,
+						fetchFn: fetchWithSignal
+					});
+					if (signal.aborted) return;
+					if (!result.ok) {
+						configErrors = result.errors;
+						showConfigError = true;
+						return;
+					}
+
+					const typedParams = result.parameters;
+					if (typeof typedParams.sigma === 'number') sigma = typedParams.sigma;
+					if (typeof typedParams.rho === 'number') rho = typedParams.rho;
+					if (typeof typedParams.beta === 'number') beta = typedParams.beta;
+
+					const stability = checkParameterStability('lorenz', typedParams);
+					if (!stability.isStable) {
+						stabilityWarnings = stability.warnings;
+						showStabilityWarning = true;
+					}
+				} catch (err) {
+					if (
+						signal.aborted ||
+						(err instanceof DOMException && err.name === 'AbortError') ||
+						(err instanceof Error && err.name === 'AbortError')
+					) {
+						return;
+					}
+					configErrors = ['Failed to load shared configuration'];
+					showConfigError = true;
+				}
+			})();
+		} else if (configId) {
 			void (async () => {
 				try {
 					const result = await loadSavedConfigParameters({

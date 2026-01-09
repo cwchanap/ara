@@ -6,7 +6,7 @@
  */
 
 import { db, sharedConfigurations } from '$lib/server/db';
-import { eq, and, gte, asc } from 'drizzle-orm';
+import { eq, and, gte, asc, sql } from 'drizzle-orm';
 import {
 	SHARE_CODE_LENGTH,
 	SHARE_CODE_CHARSET,
@@ -104,6 +104,23 @@ export function calculateExpirationDate(days: number = 7): Date {
 	const expiration = new Date();
 	expiration.setDate(expiration.getDate() + days);
 	return expiration;
+}
+
+/**
+ * Increment the view count for a shareable link atomically.
+ *
+ * @param shareId - The UUID of the shared configuration
+ */
+export async function incrementViewCount(shareId: string): Promise<void> {
+	try {
+		await db
+			.update(sharedConfigurations)
+			.set({ viewCount: sql`${sharedConfigurations.viewCount} + 1` })
+			.where(eq(sharedConfigurations.id, shareId))
+			.execute();
+	} catch (err) {
+		console.error('Failed to increment view count:', err);
+	}
 }
 
 /**
