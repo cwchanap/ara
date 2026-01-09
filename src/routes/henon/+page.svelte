@@ -8,7 +8,11 @@
 	import ShareDialog from '$lib/components/ui/ShareDialog.svelte';
 	import SnapshotButton from '$lib/components/ui/SnapshotButton.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
-	import { loadSavedConfigParameters, parseConfigParam } from '$lib/saved-config-loader';
+	import {
+		loadSavedConfigParameters,
+		loadSharedConfigParameters,
+		parseConfigParam
+	} from '$lib/saved-config-loader';
 	import { createSaveHandler, createInitialSaveState } from '$lib/use-visualization-save';
 	import { createShareHandler, createInitialShareState } from '$lib/use-visualization-share';
 	import type { HenonParameters } from '$lib/types';
@@ -39,15 +43,28 @@
 		stabilityWarnings = [];
 		showStabilityWarning = false;
 
+		const shareCode = get(page).url.searchParams.get('share');
 		const configId = get(page).url.searchParams.get('configId');
-		if (configId) {
+
+		if (shareCode || configId) {
 			void (async () => {
-				const result = await loadSavedConfigParameters({
-					configId,
-					mapType: 'henon',
-					base,
-					fetchFn: fetch
-				});
+				let result;
+				if (shareCode) {
+					result = await loadSharedConfigParameters({
+						shareCode,
+						mapType: 'henon',
+						base,
+						fetchFn: fetch
+					});
+				} else {
+					result = await loadSavedConfigParameters({
+						configId: configId!,
+						mapType: 'henon',
+						base,
+						fetchFn: fetch
+					});
+				}
+
 				if (!result.ok) {
 					configErrors = result.errors;
 					showConfigError = true;

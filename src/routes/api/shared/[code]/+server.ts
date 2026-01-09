@@ -8,9 +8,13 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db, sharedConfigurations, profiles } from '$lib/server/db';
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { HTTP_STATUS } from '$lib/constants';
-import { isShareExpired, getDaysUntilExpiration } from '$lib/server/share-utils';
+import {
+	isShareExpired,
+	getDaysUntilExpiration,
+	incrementViewCount
+} from '$lib/server/share-utils';
 
 export const GET: RequestHandler = async ({ params }) => {
 	const { code } = params;
@@ -32,7 +36,7 @@ export const GET: RequestHandler = async ({ params }) => {
 			expiresAt: sharedConfigurations.expiresAt
 		})
 		.from(sharedConfigurations)
-		.innerJoin(profiles, eq(sharedConfigurations.userId, profiles.id))
+		.leftJoin(profiles, eq(sharedConfigurations.userId, profiles.id))
 		.where(eq(sharedConfigurations.shortCode, code))
 		.limit(1);
 
@@ -51,11 +55,8 @@ export const GET: RequestHandler = async ({ params }) => {
 		throw error(HTTP_STATUS.GONE, 'This shared configuration has expired');
 	}
 
-	// Increment view count (fire and forget)
-	db.update(sharedConfigurations)
-		.set({ viewCount: sql`${sharedConfigurations.viewCount} + 1` })
-		.where(eq(sharedConfigurations.id, share.id))
-		.catch((err) => console.error('Failed to increment view count:', err));
+	// Increment view count
+	await incrementViewCount(share.id);
 
 	const daysRemaining = getDaysUntilExpiration(share.expiresAt);
 

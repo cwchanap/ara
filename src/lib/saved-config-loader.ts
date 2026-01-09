@@ -69,7 +69,7 @@ export type LoadSavedConfigResult<T extends ChaosMapType> =
 	| {
 			ok: true;
 			parameters: ParametersFor<T>;
-			source: 'api' | 'sessionStorage';
+			source: 'api' | 'sessionStorage' | 'sharedApi';
 	  }
 	| {
 			ok: false;
@@ -250,4 +250,70 @@ export async function loadSavedConfigParameters<T extends ChaosMapType>(args: {
 		parameters: candidateParams as ParametersFor<T>,
 		source: candidateSource
 	};
+}
+
+/**
+ * Load shared configuration parameters from the API using a short code.
+ */
+export async function loadSharedConfigParameters<T extends ChaosMapType>(args: {
+	shareCode: string;
+	mapType: T;
+	base: string;
+	fetchFn: typeof fetch;
+}): Promise<LoadSavedConfigResult<T>> {
+	try {
+		const response = await args.fetchFn(
+			`${args.base}/api/shared/${encodeURIComponent(args.shareCode)}`
+		);
+		if (!response.ok) {
+			if (response.status === 410) {
+				return {
+					ok: false,
+					error: 'This shared configuration has expired',
+					errors: ['This shared configuration has expired']
+				};
+			}
+			return {
+				ok: false,
+				error: 'Failed to load shared configuration',
+				errors: ['Failed to load shared configuration']
+			};
+		}
+
+		const data = (await response.json().catch(() => null)) as {
+			mapType?: string;
+			parameters?: unknown;
+		} | null;
+
+		if (!data || data.mapType !== args.mapType || !data.parameters) {
+			return {
+				ok: false,
+				error: 'Invalid shared configuration data',
+				errors: ['Invalid shared configuration data']
+			};
+		}
+
+		const validation = validateParameters(args.mapType, data.parameters);
+		if (!validation.isValid) {
+			return {
+				ok: false,
+				error: 'Invalid parameters structure',
+				errors: validation.errors,
+				validationErrors: validation.errors
+			};
+		}
+
+		return {
+			ok: true,
+			parameters: data.parameters as ParametersFor<T>,
+			source: 'sharedApi'
+		};
+	} catch (e) {
+		console.error('Error loading shared config:', e);
+		return {
+			ok: false,
+			error: 'Failed to load shared configuration',
+			errors: ['Failed to load shared configuration']
+		};
+	}
 }

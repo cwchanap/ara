@@ -25,16 +25,11 @@
 		}
 	}
 
-	// Build the URL to the actual visualization with parameters
+	// Build the URL to the actual visualization
 	function getVisualizationUrl(): string {
-		try {
-			const configParam = encodeURIComponent(JSON.stringify(data.parameters));
-			const sharedByParam = encodeURIComponent(data.username);
-			return `${base}/${data.mapType}?config=${configParam}&shared=true&sharedBy=${sharedByParam}`;
-		} catch (err) {
-			console.error('Failed to build visualization URL:', err);
-			return `${base}/${data.mapType}?shared=true`;
-		}
+		const sharedByParam = encodeURIComponent(data.username);
+		// Use the share code instead of full parameters to avoid URL length limits
+		return `${base}/${data.mapType}?share=${data.shortCode}&shared=true&sharedBy=${sharedByParam}`;
 	}
 
 	// Format date for display
@@ -51,6 +46,11 @@
 			return 'UNKNOWN_DATE';
 		}
 	}
+
+	// Normalize viewCount for safe display
+	const viewCount = $derived(
+		typeof data.viewCount === 'number' && isFinite(data.viewCount) ? data.viewCount : 0
+	);
 </script>
 
 <svelte:head>
@@ -97,7 +97,7 @@
 				</div>
 				<div>
 					<p class="text-xs text-muted-foreground uppercase tracking-widest">Views</p>
-					<p class="text-foreground">{data.viewCount.toLocaleString()}</p>
+					<p class="text-foreground">{viewCount.toLocaleString()}</p>
 				</div>
 				<div class="col-span-2 md:col-span-1">
 					<p class="text-xs text-muted-foreground uppercase tracking-widest">Expires</p>

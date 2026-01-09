@@ -88,6 +88,15 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 				expiresAt: sharedConfigurations.expiresAt
 			});
 
+		// Check if insert was successful
+		if (!newShare) {
+			console.error('Failed to retrieve inserted share configuration');
+			throw error(
+				HTTP_STATUS.INTERNAL_SERVER_ERROR,
+				'Failed to create share link. Please try again.'
+			);
+		}
+
 		// Build the share URL
 		const shareUrl = `${url.origin}/s/${newShare.shortCode}`;
 

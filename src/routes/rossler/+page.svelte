@@ -7,7 +7,11 @@
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
 	import ShareDialog from '$lib/components/ui/ShareDialog.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
-	import { loadSavedConfigParameters, parseConfigParam } from '$lib/saved-config-loader';
+	import {
+		loadSavedConfigParameters,
+		loadSharedConfigParameters,
+		parseConfigParam
+	} from '$lib/saved-config-loader';
 	import { createSaveHandler, createInitialSaveState } from '$lib/use-visualization-save';
 	import { createShareHandler, createInitialShareState } from '$lib/use-visualization-share';
 	import type { RosslerParameters } from '$lib/types';
@@ -68,16 +72,28 @@
 		stabilityWarnings = [];
 		showStabilityWarning = false;
 
+		const shareCode = $page.url.searchParams.get('share');
 		const configId = $page.url.searchParams.get('configId');
-		if (configId) {
+		if (shareCode || configId) {
 			void (async () => {
 				try {
-					const result = await loadSavedConfigParameters({
-						configId,
-						mapType: 'rossler',
-						base,
-						fetchFn: fetchWithSignal
-					});
+					let result;
+					if (shareCode) {
+						result = await loadSharedConfigParameters({
+							shareCode,
+							mapType: 'rossler',
+							base,
+							fetchFn: fetchWithSignal
+						});
+					} else {
+						result = await loadSavedConfigParameters({
+							configId: configId!,
+							mapType: 'rossler',
+							base,
+							fetchFn: fetchWithSignal
+						});
+					}
+
 					if (signal.aborted) return;
 					if (!result.ok) {
 						if (signal.aborted) return;
