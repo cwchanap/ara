@@ -15,15 +15,27 @@ import {
 } from '$lib/constants';
 
 /**
- * Generate a cryptographically random short code.
+ * Generate a cryptographically random short code with uniform distribution.
+ * Uses rejection sampling to avoid modulo bias when charset length doesn't evenly divide 256.
  *
  * @returns 8-character alphanumeric string
  */
 export function generateShortCode(): string {
-	const randomValues = crypto.getRandomValues(new Uint8Array(SHARE_CODE_LENGTH));
 	let code = '';
+	const charsetLength = SHARE_CODE_CHARSET.length;
+	// Calculate max acceptable byte value to avoid modulo bias
+	// 256 % 62 = 10, so we discard bytes >= 248
+	const maxAcceptable = Math.floor(256 / charsetLength) * charsetLength;
+
 	for (let i = 0; i < SHARE_CODE_LENGTH; i++) {
-		code += SHARE_CODE_CHARSET[randomValues[i] % SHARE_CODE_CHARSET.length];
+		let randomByte: number;
+		// Rejection sampling: discard bytes that would cause bias
+		do {
+			const randomValues = crypto.getRandomValues(new Uint8Array(1));
+			randomByte = randomValues[0];
+		} while (randomByte >= maxAcceptable);
+
+		code += SHARE_CODE_CHARSET[randomByte % charsetLength];
 	}
 	return code;
 }
@@ -58,6 +70,9 @@ export async function generateUniqueShortCode(): Promise<string | null> {
  *
  * @param userId - The user's UUID
  * @returns Object with isLimited boolean and remaining shares count
+ *
+ * @deprecated Use atomicCheckAndIncrementRateLimit instead to avoid race conditions.
+ * This function is kept for backward compatibility but should not be used in new code.
  */
 export async function checkShareRateLimit(
 	userId: string
@@ -92,6 +107,58 @@ export async function checkShareRateLimit(
 		remaining,
 		resetAt
 	};
+}
+
+/**
+ * Atomically check and increment the share rate limit.
+ * This prevents race conditions where concurrent requests could bypass the limit.
+ *
+ * @param userId - The user's UUID
+ * @returns Object with allowed boolean, remaining shares count, and reset time
+ */
+export async function atomicCheckAndIncrementRateLimit(
+	userId: string
+): Promise<{ allowed: boolean; remaining: number; resetAt: Date }> {
+	const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+	// Use a transaction to check the limit atomically
+	return db.transaction(async (tx) => {
+		// Count existing shares in the last hour
+		const existingShares = await tx
+			.select({ createdAt: sharedConfigurations.createdAt })
+			.from(sharedConfigurations)
+			.where(
+				and(
+					eq(sharedConfigurations.userId, userId),
+					gte(sharedConfigurations.createdAt, oneHourAgo.toISOString())
+				)
+			);
+
+		const shareCount = existingShares.length;
+
+		// Check if user has exceeded the limit
+		if (shareCount >= SHARE_RATE_LIMIT_PER_HOUR) {
+			// Calculate reset time (1 hour after oldest share in window)
+			const oldestCreatedAt = new Date(existingShares[0].createdAt);
+			const resetAt = new Date(oldestCreatedAt.getTime() + 60 * 60 * 1000 + 1000); // +1s buffer
+			return {
+				allowed: false,
+				remaining: 0,
+				resetAt
+			};
+		}
+
+		// User is allowed to create a share
+		// The caller must proceed with the insert within the transaction
+		const remaining = SHARE_RATE_LIMIT_PER_HOUR - shareCount - 1;
+		const resetAt = new Date(Date.now() + 60 * 60 * 1000);
+
+		return {
+			allowed: true,
+			remaining,
+			resetAt
+		};
+	});
 }
 
 /**

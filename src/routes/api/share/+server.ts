@@ -14,7 +14,7 @@ import type { ChaosMapType, ChaosMapParameters } from '$lib/types';
 import { SHARE_EXPIRATION_DAYS, HTTP_STATUS } from '$lib/constants';
 import {
 	generateUniqueShortCode,
-	checkShareRateLimit,
+	atomicCheckAndIncrementRateLimit,
 	calculateExpirationDate
 } from '$lib/server/share-utils';
 
@@ -25,12 +25,12 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 		throw error(HTTP_STATUS.UNAUTHORIZED, 'Please log in to share configurations');
 	}
 
-	// Check rate limit
-	const rateLimit = await checkShareRateLimit(user.id);
-	if (rateLimit.isLimited) {
+	// Check rate limit atomically (prevents race conditions)
+	const rateLimit = await atomicCheckAndIncrementRateLimit(user.id);
+	if (!rateLimit.allowed) {
 		throw error(
 			HTTP_STATUS.TOO_MANY_REQUESTS,
-			`Rate limit exceeded. You can create ${rateLimit.remaining} more shares. Limit resets in about 1 hour.`
+			`Rate limit exceeded. Limit resets in about 1 hour.`
 		);
 	}
 
@@ -106,7 +106,7 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 				shortCode: newShare.shortCode,
 				shareUrl,
 				expiresAt: newShare.expiresAt,
-				remaining: rateLimit.remaining - 1
+				remaining: rateLimit.remaining
 			},
 			{ status: HTTP_STATUS.CREATED }
 		);
