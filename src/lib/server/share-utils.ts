@@ -13,6 +13,7 @@ import {
 	SHARE_RATE_LIMIT_PER_HOUR,
 	SHARE_CODE_MAX_RETRIES
 } from '$lib/constants';
+import type { ChaosMapType, ChaosMapParameters } from '$lib/types';
 
 /**
  * Generate a cryptographically random short code with uniform distribution.
@@ -66,12 +67,99 @@ export async function generateUniqueShortCode(): Promise<string | null> {
 }
 
 /**
+ * Atomically check rate limit and create a new share in a single transaction.
+ * This prevents race conditions where concurrent requests could bypass the limit.
+ *
+ * @param userId - The user's UUID
+ * @param mapType - The chaos map type
+ * @param parameters - The map parameters
+ * @param shortCode - The generated short code
+ * @param expiresAt - The expiration timestamp
+ * @returns Object with success boolean, share data if successful, remaining count, and reset time
+ */
+export async function createShareWithRateLimit(
+	userId: string,
+	mapType: ChaosMapType,
+	parameters: ChaosMapParameters,
+	shortCode: string,
+	expiresAt: string
+): Promise<{
+	success: boolean;
+	share?: {
+		id: string;
+		shortCode: string;
+		expiresAt: string;
+	};
+	remaining: number;
+	resetAt: Date;
+	error?: string;
+}> {
+	const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+	// Use a single transaction for atomic rate limit check and insert
+	return db.transaction(async (tx) => {
+		// Count existing shares in the last hour
+		const existingShares = await tx
+			.select({ createdAt: sharedConfigurations.createdAt })
+			.from(sharedConfigurations)
+			.where(
+				and(
+					eq(sharedConfigurations.userId, userId),
+					gte(sharedConfigurations.createdAt, oneHourAgo.toISOString())
+				)
+			);
+
+		const shareCount = existingShares.length;
+
+		// Check if user has exceeded the limit
+		if (shareCount >= SHARE_RATE_LIMIT_PER_HOUR) {
+			// Calculate reset time (1 hour after oldest share in window)
+			const oldestCreatedAt = new Date(existingShares[0].createdAt);
+			const resetAt = new Date(oldestCreatedAt.getTime() + 60 * 60 * 1000 + 1000); // +1s buffer
+			return {
+				success: false,
+				remaining: 0,
+				resetAt,
+				error: 'Rate limit exceeded. Limit resets in about 1 hour.'
+			};
+		}
+
+		// User is allowed to create a share - perform the insert within the same transaction
+		const [newShare] = await tx
+			.insert(sharedConfigurations)
+			.values({
+				shortCode,
+				userId,
+				mapType,
+				parameters,
+				expiresAt
+			})
+			.returning({
+				id: sharedConfigurations.id,
+				shortCode: sharedConfigurations.shortCode,
+				expiresAt: sharedConfigurations.expiresAt
+			});
+
+		// Calculate remaining shares and reset time
+		const remaining = SHARE_RATE_LIMIT_PER_HOUR - shareCount - 1;
+		const resetAt = new Date(Date.now() + 60 * 60 * 1000);
+
+		return {
+			success: true,
+			share: newShare,
+			remaining,
+			resetAt
+		};
+	});
+}
+
+/**
  * Check if a user has exceeded their share rate limit.
  *
  * @param userId - The user's UUID
  * @returns Object with isLimited boolean and remaining shares count
  *
- * @deprecated Use atomicCheckAndIncrementRateLimit instead to avoid race conditions.
+ * @deprecated Use createShareWithRateLimit instead to avoid race conditions.
  * This function is kept for backward compatibility but should not be used in new code.
  */
 export async function checkShareRateLimit(
@@ -107,58 +195,6 @@ export async function checkShareRateLimit(
 		remaining,
 		resetAt
 	};
-}
-
-/**
- * Atomically check and increment the share rate limit.
- * This prevents race conditions where concurrent requests could bypass the limit.
- *
- * @param userId - The user's UUID
- * @returns Object with allowed boolean, remaining shares count, and reset time
- */
-export async function atomicCheckAndIncrementRateLimit(
-	userId: string
-): Promise<{ allowed: boolean; remaining: number; resetAt: Date }> {
-	const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-
-	// Use a transaction to check the limit atomically
-	return db.transaction(async (tx) => {
-		// Count existing shares in the last hour
-		const existingShares = await tx
-			.select({ createdAt: sharedConfigurations.createdAt })
-			.from(sharedConfigurations)
-			.where(
-				and(
-					eq(sharedConfigurations.userId, userId),
-					gte(sharedConfigurations.createdAt, oneHourAgo.toISOString())
-				)
-			);
-
-		const shareCount = existingShares.length;
-
-		// Check if user has exceeded the limit
-		if (shareCount >= SHARE_RATE_LIMIT_PER_HOUR) {
-			// Calculate reset time (1 hour after oldest share in window)
-			const oldestCreatedAt = new Date(existingShares[0].createdAt);
-			const resetAt = new Date(oldestCreatedAt.getTime() + 60 * 60 * 1000 + 1000); // +1s buffer
-			return {
-				allowed: false,
-				remaining: 0,
-				resetAt
-			};
-		}
-
-		// User is allowed to create a share
-		// The caller must proceed with the insert within the transaction
-		const remaining = SHARE_RATE_LIMIT_PER_HOUR - shareCount - 1;
-		const resetAt = new Date(Date.now() + 60 * 60 * 1000);
-
-		return {
-			allowed: true,
-			remaining,
-			resetAt
-		};
-	});
 }
 
 /**
