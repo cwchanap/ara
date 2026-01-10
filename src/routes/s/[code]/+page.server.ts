@@ -62,8 +62,12 @@ export const load: PageServerLoad = async ({ params }) => {
 		throw error(HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Invalid configuration data');
 	}
 
-	// Increment view count
-	await incrementViewCount(share.id);
+	// Increment view count (best-effort, don't block page load on failure)
+	try {
+		await incrementViewCount(share.id);
+	} catch (err) {
+		console.error('Failed to increment view count:', err);
+	}
 
 	const daysRemaining = getDaysUntilExpiration(share.expiresAt);
 

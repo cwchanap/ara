@@ -7,6 +7,7 @@
 
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { base } from '$app/paths';
 import { db, sharedConfigurations } from '$lib/server/db';
 import { validateParameters } from '$lib/chaos-validation';
 import { VALID_MAP_TYPES } from '$lib/types';
@@ -97,8 +98,8 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 			);
 		}
 
-		// Build the share URL
-		const shareUrl = `${url.origin}/s/${newShare.shortCode}`;
+		// Build the share URL (include base path for non-root deployments)
+		const shareUrl = `${url.origin}${base}/s/${newShare.shortCode}`;
 
 		return json(
 			{

@@ -177,17 +177,14 @@ export function calculateExpirationDate(days: number = 7): Date {
  * Increment the view count for a shareable link atomically.
  *
  * @param shareId - The UUID of the shared configuration
+ * @throws Error if the database update fails - callers should handle errors appropriately
  */
 export async function incrementViewCount(shareId: string): Promise<void> {
-	try {
-		await db
-			.update(sharedConfigurations)
-			.set({ viewCount: sql`${sharedConfigurations.viewCount} + 1` })
-			.where(eq(sharedConfigurations.id, shareId))
-			.execute();
-	} catch (err) {
-		console.error('Failed to increment view count:', err);
-	}
+	await db
+		.update(sharedConfigurations)
+		.set({ viewCount: sql`${sharedConfigurations.viewCount} + 1` })
+		.where(eq(sharedConfigurations.id, shareId))
+		.execute();
 }
 
 /**
