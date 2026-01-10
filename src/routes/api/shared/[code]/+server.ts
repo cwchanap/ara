@@ -55,8 +55,23 @@ export const GET: RequestHandler = async ({ params }) => {
 		throw error(HTTP_STATUS.GONE, 'This shared configuration has expired');
 	}
 
-	// Increment view count
-	await incrementViewCount(share.id);
+	// Increment view count (best-effort, suppress errors to ensure availability)
+	let finalViewCount = share.viewCount + 1;
+	try {
+		await incrementViewCount(share.id);
+		// Fetch fresh count to ensure accuracy across concurrent requests
+		const [freshShare] = await db
+			.select({ viewCount: sharedConfigurations.viewCount })
+			.from(sharedConfigurations)
+			.where(eq(sharedConfigurations.id, share.id))
+			.limit(1);
+		if (freshShare) {
+			finalViewCount = freshShare.viewCount;
+		}
+	} catch (err) {
+		console.error('Failed to increment view count:', err);
+		// Fallback to optimistic increment (approximate)
+	}
 
 	const daysRemaining = getDaysUntilExpiration(share.expiresAt);
 
@@ -65,7 +80,7 @@ export const GET: RequestHandler = async ({ params }) => {
 		username: share.username ?? 'Anonymous',
 		mapType: share.mapType,
 		parameters: share.parameters,
-		viewCount: share.viewCount + 1, // Include the current view
+		viewCount: finalViewCount,
 		createdAt: share.createdAt,
 		expiresAt: share.expiresAt,
 		daysRemaining
