@@ -28,8 +28,9 @@
 	// Build the URL to the actual visualization
 	function getVisualizationUrl(): string {
 		const sharedByParam = encodeURIComponent(data.username);
+		const shortCodeParam = encodeURIComponent(data.shortCode);
 		// Use the share code instead of full parameters to avoid URL length limits
-		return `${base}/${data.mapType}?share=${data.shortCode}&shared=true&sharedBy=${sharedByParam}`;
+		return `${base}/${data.mapType}?share=${shortCodeParam}&shared=true&sharedBy=${sharedByParam}`;
 	}
 
 	// Format date for display
