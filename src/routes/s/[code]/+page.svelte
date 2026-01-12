@@ -13,7 +13,8 @@
 
 	// Get display name for the map type
 	const displayName =
-		CHAOS_MAP_DISPLAY_NAMES[data.mapType as ChaosMapType] ?? data.mapType.toUpperCase();
+		CHAOS_MAP_DISPLAY_NAMES[data.mapType as ChaosMapType] ??
+		(data.mapType ? data.mapType.toUpperCase() : 'UNKNOWN');
 
 	// Safe stringify helper
 	function safeStringify(obj: unknown): string {

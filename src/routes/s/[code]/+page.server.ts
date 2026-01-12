@@ -76,7 +76,7 @@ export const load: PageServerLoad = async ({ params }) => {
 		username: share.username ?? 'Anonymous',
 		mapType: share.mapType as ChaosMapType,
 		parameters: share.parameters as ChaosMapParameters,
-		viewCount: share.viewCount + 1,
+		viewCount: share.viewCount,
 		createdAt: share.createdAt,
 		expiresAt: share.expiresAt,
 		daysRemaining
