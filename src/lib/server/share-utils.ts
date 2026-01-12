@@ -98,7 +98,7 @@ export async function createShareWithRateLimit(
 
 	// Use a single transaction for atomic rate limit check and insert
 	return db.transaction(async (tx) => {
-		// Count existing shares in the last hour
+		// Count existing shares in the last hour (ordered to find oldest for reset calculation)
 		const existingShares = await tx
 			.select({ createdAt: sharedConfigurations.createdAt })
 			.from(sharedConfigurations)
@@ -107,7 +107,8 @@ export async function createShareWithRateLimit(
 					eq(sharedConfigurations.userId, userId),
 					gte(sharedConfigurations.createdAt, oneHourAgo.toISOString())
 				)
-			);
+			)
+			.orderBy(asc(sharedConfigurations.createdAt));
 
 		const shareCount = existingShares.length;
 

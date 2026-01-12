@@ -41,7 +41,7 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 	}
 
 	// Validate parameters
-	if (!parameters || typeof parameters !== 'object') {
+	if (!parameters || Array.isArray(parameters) || typeof parameters !== 'object') {
 		throw error(HTTP_STATUS.BAD_REQUEST, 'Parameters are required');
 	}
 
