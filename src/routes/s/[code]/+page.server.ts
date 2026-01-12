@@ -63,10 +63,21 @@ export const load: PageServerLoad = async ({ params }) => {
 	}
 
 	// Increment view count (best-effort, don't block page load on failure)
+	let finalViewCount = share.viewCount + 1;
 	try {
 		await incrementViewCount(share.id);
+		// Fetch fresh count to ensure accuracy across concurrent requests
+		const [freshShare] = await db
+			.select({ viewCount: sharedConfigurations.viewCount })
+			.from(sharedConfigurations)
+			.where(eq(sharedConfigurations.id, share.id))
+			.limit(1);
+		if (freshShare) {
+			finalViewCount = freshShare.viewCount;
+		}
 	} catch (err) {
 		console.error('Failed to increment view count:', err);
+		// Fallback to optimistic increment (approximate)
 	}
 
 	const daysRemaining = getDaysUntilExpiration(share.expiresAt);
@@ -76,7 +87,7 @@ export const load: PageServerLoad = async ({ params }) => {
 		username: share.username ?? 'Anonymous',
 		mapType: share.mapType as ChaosMapType,
 		parameters: share.parameters as ChaosMapParameters,
-		viewCount: share.viewCount,
+		viewCount: finalViewCount,
 		createdAt: share.createdAt,
 		expiresAt: share.expiresAt,
 		daysRemaining
