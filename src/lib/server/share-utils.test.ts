@@ -6,7 +6,12 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import { SHARE_CODE_LENGTH, SHARE_CODE_CHARSET, SHARE_RATE_LIMIT_PER_HOUR } from '$lib/constants';
+import {
+	SHARE_CODE_LENGTH,
+	SHARE_CODE_CHARSET,
+	SHARE_RATE_LIMIT_PER_HOUR,
+	SHARE_EXPIRATION_DAYS
+} from '$lib/constants';
 
 /**
  * Generate a cryptographically random short code with uniform distribution.
@@ -39,7 +44,7 @@ function generateShortCode(): string {
  *
  * This is a copy of the function from share-utils.ts for testing without database dependencies.
  */
-function calculateExpirationDate(days: number = 7): Date {
+function calculateExpirationDate(days: number = SHARE_EXPIRATION_DAYS): Date {
 	const expiration = new Date();
 	expiration.setDate(expiration.getDate() + days);
 	return expiration;
@@ -115,12 +120,12 @@ describe('generateShortCode', () => {
 });
 
 describe('calculateExpirationDate', () => {
-	test('returns a date 7 days in the future by default', () => {
+	test('returns a date SHARE_EXPIRATION_DAYS in the future by default', () => {
 		const now = new Date();
 		const expiration = calculateExpirationDate();
 
 		const expectedDate = new Date(now);
-		expectedDate.setDate(expectedDate.getDate() + 7);
+		expectedDate.setDate(expectedDate.getDate() + SHARE_EXPIRATION_DAYS);
 
 		expect(expiration.getDate()).toBe(expectedDate.getDate());
 		expect(expiration.getMonth()).toBe(expectedDate.getMonth());
@@ -139,12 +144,12 @@ describe('calculateExpirationDate', () => {
 
 	test('returns correct difference in days', () => {
 		const now = new Date();
-		const expiration = calculateExpirationDate(7);
+		const expiration = calculateExpirationDate(SHARE_EXPIRATION_DAYS);
 		const diffTime = Math.abs(expiration.getTime() - now.getTime());
 		const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-		// Should be approximately 7 days (accounting for some millisecond difference)
-		expect(diffDays).toBe(7);
+		// Should be approximately SHARE_EXPIRATION_DAYS (accounting for some millisecond difference)
+		expect(diffDays).toBe(SHARE_EXPIRATION_DAYS);
 	});
 });
 
