@@ -63,6 +63,8 @@ export const load: PageServerLoad = async ({ params }) => {
 	}
 
 	// Increment view count (best-effort, don't block page load on failure)
+	// Note: This is the only place where view count should be incremented to avoid double-counting.
+	// The API endpoint /api/shared/[code] does NOT increment the view count.
 	let finalViewCount = share.viewCount + 1;
 	try {
 		await incrementViewCount(share.id);

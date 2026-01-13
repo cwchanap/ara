@@ -11,7 +11,8 @@ import {
 	SHARE_CODE_LENGTH,
 	SHARE_CODE_CHARSET,
 	SHARE_RATE_LIMIT_PER_HOUR,
-	SHARE_CODE_MAX_RETRIES
+	SHARE_CODE_MAX_RETRIES,
+	SHARE_EXPIRATION_DAYS
 } from '$lib/constants';
 import type { ChaosMapType, ChaosMapParameters } from '$lib/types';
 
@@ -225,10 +226,10 @@ export async function checkShareRateLimit(
 /**
  * Calculate the expiration date for a new share.
  *
- * @param days - Number of days until expiration (default: 7)
+ * @param days - Number of days until expiration (default: SHARE_EXPIRATION_DAYS)
  * @returns Expiration date
  */
-export function calculateExpirationDate(days: number = 7): Date {
+export function calculateExpirationDate(days: number = SHARE_EXPIRATION_DAYS): Date {
 	const expiration = new Date();
 	expiration.setDate(expiration.getDate() + days);
 	return expiration;
