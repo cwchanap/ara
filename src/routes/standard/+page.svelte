@@ -31,6 +31,9 @@
 	let numQ = $state(10);
 	let iterations = $state(20000);
 	let isComputing = $state(false);
+	let lastAppliedConfigKey = $state<string | null>(null);
+	let configLoadAbortController: AbortController | null = null;
+	let isUnmounted = false;
 
 	// Save dialog state
 	const saveState = $state(createInitialSaveState());
@@ -239,56 +242,110 @@
 	}
 
 	onMount(() => {
-		// Load config from URL on mount
-		configErrors = [];
-		showConfigError = false;
-		stabilityWarnings = [];
-		showStabilityWarning = false;
-
-		const shareCode = $page.url.searchParams.get('share');
-		const configId = $page.url.searchParams.get('configId');
-
-		if (shareCode || configId) {
-			void (async () => {
-				let result;
-				if (shareCode) {
-					result = await loadSharedConfigParameters({
-						shareCode,
-						mapType: 'standard',
-						base,
-						fetchFn: fetch
-					});
-				} else {
-					result = await loadSavedConfigParameters({
-						configId: configId!,
-						mapType: 'standard',
-						base,
-						fetchFn: fetch
-					});
-				}
-
-				if (!result.ok) {
-					configErrors = result.errors;
-					showConfigError = true;
-					return;
-				}
-
-				const typedParams = result.parameters;
-				K = typedParams.K ?? K;
-				numP = typedParams.numP ?? numP;
-				numQ = typedParams.numQ ?? numQ;
-				iterations = typedParams.iterations ?? iterations;
-
-				const stability = checkParameterStability('standard', typedParams);
-				if (!stability.isStable) {
-					stabilityWarnings = stability.warnings;
-					showStabilityWarning = true;
-				}
-			})();
-		} else {
+		// Load config from URL reactively
+		$effect(() => {
+			const shareCode = $page.url.searchParams.get('share');
+			const configId = $page.url.searchParams.get('configId');
 			const configParam = $page.url.searchParams.get('config');
-			if (configParam) {
+			const configKey = shareCode
+				? `share:${shareCode}`
+				: configId
+					? `id:${configId}`
+					: configParam
+						? `param:${configParam}`
+						: null;
+			if (configKey === lastAppliedConfigKey) return;
+			lastAppliedConfigKey = configKey;
+
+			configLoadAbortController?.abort();
+			configLoadAbortController = null;
+
+			if (shareCode || configId) {
+				configErrors = [];
+				showConfigError = false;
+				stabilityWarnings = [];
+				showStabilityWarning = false;
+				const controller = new AbortController();
+				configLoadAbortController = controller;
+				const { signal } = controller;
+				const currentConfigKey = configKey;
+
+				void (async () => {
+					const fetchWithSignal: typeof fetch = Object.assign(
+						(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
+							fetch(input, { ...init, signal }),
+						{ preconnect: fetch.preconnect }
+					);
+
+					try {
+						let result: ReturnType<typeof loadSavedConfigParameters<'standard'>> extends Promise<
+							infer T
+						>
+							? T
+							: never | undefined;
+
+						if (shareCode) {
+							result = await loadSharedConfigParameters({
+								shareCode,
+								mapType: 'standard',
+								base,
+								fetchFn: fetchWithSignal
+							});
+						} else {
+							result = await loadSavedConfigParameters({
+								configId: configId!,
+								mapType: 'standard',
+								base,
+								fetchFn: fetchWithSignal
+							});
+						}
+
+						if (isUnmounted || signal.aborted) return;
+						if (lastAppliedConfigKey !== currentConfigKey) return;
+						if (!result) {
+							configErrors = ['Failed to load configuration'];
+							showConfigError = true;
+							return;
+						}
+						if (!result.ok) {
+							configErrors = result.errors;
+							showConfigError = true;
+							return;
+						}
+
+						const typedParams = result.parameters;
+						K = typedParams.K ?? K;
+						numP = typedParams.numP ?? numP;
+						numQ = typedParams.numQ ?? numQ;
+						iterations = typedParams.iterations ?? iterations;
+
+						const stability = checkParameterStability('standard', typedParams);
+						if (!stability.isStable) {
+							stabilityWarnings = stability.warnings;
+							showStabilityWarning = true;
+						}
+					} catch (e) {
+						// Check if this was an abort error (expected during cleanup)
+						if (e instanceof Error && e.name === 'AbortError') {
+							return; // Silently ignore abort errors
+						}
+						console.error('Failed to load configuration:', e);
+						if (isUnmounted || signal.aborted) return;
+						if (lastAppliedConfigKey !== currentConfigKey) return;
+						configErrors = [
+							'Failed to load configuration: ' + (e instanceof Error ? e.message : 'Unknown error')
+						];
+						showConfigError = true;
+						return;
+					}
+				})();
+			} else if (configParam) {
 				try {
+					configErrors = [];
+					showConfigError = false;
+					stabilityWarnings = [];
+					showStabilityWarning = false;
+
 					// Validate parameters structure before using
 					const parsed = parseConfigParam({ mapType: 'standard', configParam });
 					if (!parsed.ok) {
@@ -315,7 +372,7 @@
 					showConfigError = true;
 				}
 			}
-		}
+		});
 
 		if (typeof window !== 'undefined' && 'Worker' in window) {
 			try {
@@ -356,6 +413,10 @@
 			// Clear save/share handler timeouts to prevent state updates after unmount
 			cleanupSaveHandler();
 			cleanupShareHandler();
+			// Abort any pending config load requests
+			configLoadAbortController?.abort();
+			configLoadAbortController = null;
+			isUnmounted = true;
 		};
 	});
 

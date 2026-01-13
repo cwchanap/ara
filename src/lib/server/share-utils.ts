@@ -69,11 +69,12 @@ export async function generateUniqueShortCode(): Promise<string | null> {
 /**
  * Atomically check rate limit and create a new share in a single transaction.
  * This prevents race conditions where concurrent requests could bypass the limit.
+ * Also handles short code collision by retrying generation within the transaction.
  *
  * @param userId - The user's UUID
  * @param mapType - The chaos map type
  * @param parameters - The map parameters
- * @param shortCode - The generated short code
+ * @param shortCode - The generated short code (will be regenerated on collision)
  * @param expiresAt - The expiration timestamp
  * @returns Object with success boolean, share data if successful, remaining count, and reset time
  */
@@ -96,7 +97,7 @@ export async function createShareWithRateLimit(
 }> {
 	const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
 
-	// Use a single transaction for atomic rate limit check and insert
+	// Use a single transaction for atomic rate limit check and insert with retry on unique constraint
 	return db.transaction(async (tx) => {
 		// Count existing shares in the last hour (ordered to find oldest for reset calculation)
 		const existingShares = await tx
@@ -125,32 +126,55 @@ export async function createShareWithRateLimit(
 			};
 		}
 
-		// User is allowed to create a share - perform the insert within the same transaction
-		const [newShare] = await tx
-			.insert(sharedConfigurations)
-			.values({
-				shortCode,
-				userId,
-				mapType,
-				parameters,
-				expiresAt
-			})
-			.returning({
-				id: sharedConfigurations.id,
-				shortCode: sharedConfigurations.shortCode,
-				expiresAt: sharedConfigurations.expiresAt
-			});
+		// User is allowed to create a share - attempt insert with retry on unique constraint
+		// This eliminates the TOCTOU race condition by generating and inserting within the transaction
+		for (let attempt = 0; attempt < SHARE_CODE_MAX_RETRIES; attempt++) {
+			const codeToUse = attempt === 0 ? shortCode : generateShortCode();
 
-		// Calculate remaining shares and reset time
-		const remaining = SHARE_RATE_LIMIT_PER_HOUR - shareCount - 1;
-		const resetAt = new Date(Date.now() + 60 * 60 * 1000);
+			try {
+				const [newShare] = await tx
+					.insert(sharedConfigurations)
+					.values({
+						shortCode: codeToUse,
+						userId,
+						mapType,
+						parameters,
+						expiresAt
+					})
+					.returning({
+						id: sharedConfigurations.id,
+						shortCode: sharedConfigurations.shortCode,
+						expiresAt: sharedConfigurations.expiresAt
+					});
 
-		return {
-			success: true,
-			share: newShare,
-			remaining,
-			resetAt
-		};
+				// Calculate remaining shares and reset time
+				const remaining = SHARE_RATE_LIMIT_PER_HOUR - shareCount - 1;
+				const resetAt = new Date(Date.now() + 60 * 60 * 1000);
+
+				return {
+					success: true,
+					share: newShare,
+					remaining,
+					resetAt
+				};
+			} catch (error) {
+				// Check for unique constraint violation (PostgreSQL error code 23505)
+				// The error object structure depends on the driver, but typically contains 'code' property
+				const isUniqueViolation =
+					error && typeof error === 'object' && 'code' in error && error.code === '23505';
+
+				// If it's a unique violation and we haven't exhausted retries, continue to next iteration
+				if (isUniqueViolation && attempt < SHARE_CODE_MAX_RETRIES - 1) {
+					continue;
+				}
+
+				// If we exhausted all retries or it's a different error, fail
+				throw error;
+			}
+		}
+
+		// This should never be reached, but TypeScript needs it
+		throw new Error('Failed to generate unique short code after retries');
 	});
 }
 
