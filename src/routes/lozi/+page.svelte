@@ -27,6 +27,9 @@
 	let x0 = $state(0);
 	let y0 = $state(0);
 	let iterations = $state(2000);
+	let lastAppliedConfigKey = $state<string | null>(null);
+	let configLoadAbortController: AbortController | null = null;
+	let isUnmounted = false;
 
 	// Save dialog state
 	const saveState = $state(createInitialSaveState());
@@ -40,36 +43,69 @@
 	let stabilityWarnings = $state<string[]>([]);
 	let showStabilityWarning = $state(false);
 
-	// Load config from URL on mount
-	onMount(() => {
-		configErrors = [];
-		showConfigError = false;
-		stabilityWarnings = [];
-		showStabilityWarning = false;
-
-		const shareCode = get(page).url.searchParams.get('share');
+	// Load config from URL reactively
+	$effect(() => {
 		const configId = get(page).url.searchParams.get('configId');
+		const shareCode = get(page).url.searchParams.get('share');
+		const configParam = get(page).url.searchParams.get('config');
+		const configKey = shareCode
+			? `share:${shareCode}`
+			: configId
+				? `id:${configId}`
+				: configParam
+					? `param:${configParam}`
+					: null;
+		if (configKey === lastAppliedConfigKey) return;
+		lastAppliedConfigKey = configKey;
+
+		configLoadAbortController?.abort();
+		configLoadAbortController = null;
 
 		if (shareCode || configId) {
+			configErrors = [];
+			showConfigError = false;
+			stabilityWarnings = [];
+			showStabilityWarning = false;
+			const controller = new AbortController();
+			configLoadAbortController = controller;
+			const { signal } = controller;
+			const currentConfigKey = configKey;
+
 			void (async () => {
+				const fetchWithSignal: typeof fetch = Object.assign(
+					(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
+						fetch(input, { ...init, signal }),
+					{ preconnect: fetch.preconnect }
+				);
+
 				try {
-					let result;
+					let result: ReturnType<typeof loadSavedConfigParameters<'lozi'>> extends Promise<infer T>
+						? T
+						: never | undefined;
+
 					if (shareCode) {
 						result = await loadSharedConfigParameters({
 							shareCode,
 							mapType: 'lozi',
 							base,
-							fetchFn: fetch
+							fetchFn: fetchWithSignal
 						});
 					} else {
 						result = await loadSavedConfigParameters({
 							configId: configId!,
 							mapType: 'lozi',
 							base,
-							fetchFn: fetch
+							fetchFn: fetchWithSignal
 						});
 					}
 
+					if (isUnmounted || signal.aborted) return;
+					if (lastAppliedConfigKey !== currentConfigKey) return;
+					if (!result) {
+						configErrors = ['Failed to load configuration'];
+						showConfigError = true;
+						return;
+					}
 					if (!result.ok) {
 						configErrors = result.errors;
 						showConfigError = true;
@@ -88,21 +124,28 @@
 						stabilityWarnings = stability.warnings;
 						showStabilityWarning = true;
 					}
-				} catch (error) {
-					console.error('Failed to load configuration:', error);
+				} catch (e) {
+					// Check if this was an abort error (expected during cleanup)
+					if (e instanceof Error && e.name === 'AbortError') {
+						return; // Silently ignore abort errors
+					}
+					console.error('Failed to load configuration:', e);
+					if (isUnmounted || signal.aborted) return;
+					if (lastAppliedConfigKey !== currentConfigKey) return;
 					configErrors = [
-						'Failed to load configuration: ' +
-							(error instanceof Error ? error.message : 'Unknown error')
+						'Failed to load configuration: ' + (e instanceof Error ? e.message : 'Unknown error')
 					];
 					showConfigError = true;
+					return;
 				}
 			})();
-			return;
-		}
-
-		const configParam = get(page).url.searchParams.get('config');
-		if (configParam) {
+		} else if (configParam) {
 			try {
+				configErrors = [];
+				showConfigError = false;
+				stabilityWarnings = [];
+				showStabilityWarning = false;
+
 				// Validate parameters structure before using
 				const parsed = parseConfigParam({ mapType: 'lozi', configParam });
 				if (!parsed.ok) {
@@ -280,6 +323,10 @@
 			// Clear save/share handler timeouts to prevent state updates after unmount
 			cleanupSaveHandler();
 			cleanupShareHandler();
+			// Abort any pending config load requests
+			configLoadAbortController?.abort();
+			configLoadAbortController = null;
+			isUnmounted = true;
 		};
 	});
 

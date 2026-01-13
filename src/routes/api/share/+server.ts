@@ -13,7 +13,7 @@ import { VALID_MAP_TYPES } from '$lib/types';
 import type { ChaosMapType, ChaosMapParameters } from '$lib/types';
 import { SHARE_EXPIRATION_DAYS, HTTP_STATUS } from '$lib/constants';
 import {
-	generateUniqueShortCode,
+	generateShortCode,
 	createShareWithRateLimit,
 	calculateExpirationDate
 } from '$lib/server/share-utils';
@@ -50,14 +50,8 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 		throw error(HTTP_STATUS.BAD_REQUEST, `Invalid parameters: ${validation.errors.join(', ')}`);
 	}
 
-	// Generate unique short code
-	const shortCode = await generateUniqueShortCode();
-	if (!shortCode) {
-		throw error(
-			HTTP_STATUS.INTERNAL_SERVER_ERROR,
-			'Failed to generate share link. Please try again.'
-		);
-	}
+	// Generate short code (collisions will be handled by createShareWithRateLimit)
+	const shortCode = generateShortCode();
 
 	// Calculate expiration
 	const expiresAt = calculateExpirationDate(SHARE_EXPIRATION_DAYS).toISOString();
@@ -72,7 +66,10 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 	);
 
 	if (!result.success) {
-		throw error(HTTP_STATUS.TOO_MANY_REQUESTS, result.error);
+		throw error(
+			HTTP_STATUS.TOO_MANY_REQUESTS,
+			result.error ?? 'Too many requests. Please try again later.'
+		);
 	}
 
 	// Build the share URL (include base path for non-root deployments)
