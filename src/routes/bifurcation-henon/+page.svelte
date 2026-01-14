@@ -494,7 +494,7 @@
 <SaveConfigDialog
 	bind:open={saveState.showSaveDialog}
 	mapType="bifurcation-henon"
-	isAuthenticated={Boolean(data?.session)}
+	isAuthenticated={!!data?.session}
 	currentPath={$page.url.pathname}
 	onClose={() => (saveState.showSaveDialog = false)}
 	onSave={handleSave}
@@ -504,7 +504,7 @@
 <ShareDialog
 	bind:open={shareState.showShareDialog}
 	mapType="bifurcation-henon"
-	isAuthenticated={Boolean(data?.session)}
+	isAuthenticated={!!data?.session}
 	currentPath={$page.url.pathname}
 	onClose={() => (shareState.showShareDialog = false)}
 	onShare={handleShare}
