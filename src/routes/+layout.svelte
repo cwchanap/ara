@@ -11,7 +11,7 @@
 	let { children, data } = $props();
 
 	// Derive session state from layout data
-	let isAuthenticated = $derived(!!data.session);
+	let isAuthenticated = $derived(!!data?.session);
 
 	// Session expiry notification state
 	let showSessionExpiredNotification = $state(false);
@@ -43,7 +43,7 @@
 		isMounted = true;
 
 		// Initialize wasAuthenticated from initial data
-		wasAuthenticated = !!data.session;
+		wasAuthenticated = !!data?.session;
 
 		// Create Supabase client only in browser context
 		supabase = createClient();
