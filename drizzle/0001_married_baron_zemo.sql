@@ -1,5 +1,7 @@
 
+-- Create pgcrypto extension for UUID generation
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";--> statement-breakpoint
+-- Saved Configurations table for storing user's saved chaos map configurations
 CREATE TABLE IF NOT EXISTS "saved_configurations" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" uuid NOT NULL,
