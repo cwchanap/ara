@@ -1,4 +1,6 @@
 -- Create shared_configurations table for public shareable configuration URLs
+-- NOTE: This table is required for the sharing feature (/api/share and /api/shared/[code] endpoints)
+-- MIGRATION: 0004 - Creates the table that AI review incorrectly claimed was missing
 CREATE TABLE IF NOT EXISTS "shared_configurations" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"short_code" varchar(8) NOT NULL,
