@@ -39,6 +39,10 @@
 	let lastConfigParam: string | null = null;
 	let lastAppliedConfigKey: string | null = null;
 
+	// Config load cleanup
+	let isUnmounted = false;
+	let configLoadAbortController: AbortController | null = null;
+
 	// Load config from URL on mount
 	$effect(() => {
 		const configId = $page.url.searchParams.get('configId');
@@ -64,23 +68,38 @@
 			stabilityWarnings = [];
 			showStabilityWarning = false;
 
+			const controller = new AbortController();
+			configLoadAbortController = controller;
+			const { signal } = controller;
+			const currentConfigKey = configKey;
+
 			void (async () => {
+				const fetchWithSignal: typeof fetch = Object.assign(
+					(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
+						fetch(input, { ...init, signal }),
+					{ preconnect: fetch.preconnect }
+				);
+
 				let result;
 				if (shareCode) {
 					result = await loadSharedConfigParameters({
 						shareCode,
 						mapType: 'bifurcation-logistic',
 						base,
-						fetchFn: fetch
+						fetchFn: fetchWithSignal
 					});
 				} else {
 					result = await loadSavedConfigParameters({
 						configId: configId!,
 						mapType: 'bifurcation-logistic',
 						base,
-						fetchFn: fetch
+						fetchFn: fetchWithSignal
 					});
 				}
+
+				// Prevent state updates if component unmounted or request aborted
+				if (isUnmounted || signal.aborted) return;
+				if (lastAppliedConfigKey !== currentConfigKey) return;
 
 				if (!result.ok) {
 					configErrors = result.errors;
@@ -270,6 +289,11 @@
 	onMount(() => {
 		return () => {
 			// Clear save/share handler timeouts to prevent state updates after unmount
+			isUnmounted = true;
+			if (configLoadAbortController) {
+				configLoadAbortController.abort();
+				configLoadAbortController = null;
+			}
 			cleanupSaveHandler();
 			cleanupShareHandler();
 		};

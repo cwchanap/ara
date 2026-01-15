@@ -329,7 +329,9 @@
 			<SnapshotButton target={container} targetType="container" mapType="logistic" />
 			<button
 				onclick={() => (shareState.showShareDialog = true)}
-				class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
+				disabled={shareState.isSharing}
+				aria-disabled={shareState.isSharing}
+				class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
 			>
 				🔗 Share
 			</button>
