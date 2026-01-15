@@ -57,6 +57,8 @@
 		lastAppliedConfigKey = configKey;
 
 		if (shareCode || configId) {
+			// Reset lastConfigParam so inline config URLs will be re-applied after viewing share/configId
+			lastConfigParam = null;
 			configErrors = [];
 			showConfigError = false;
 			stabilityWarnings = [];
