@@ -47,6 +47,138 @@
 	let stabilityWarnings = $state<string[]>([]);
 	let showStabilityWarning = $state(false);
 
+	// Load config from URL reactively
+	$effect(() => {
+		const shareCode = $page.url.searchParams.get('share');
+		const configId = $page.url.searchParams.get('configId');
+		const configParam = $page.url.searchParams.get('config');
+		const configKey = shareCode
+			? `share:${shareCode}`
+			: configId
+				? `id:${configId}`
+				: configParam
+					? `param:${configParam}`
+					: null;
+		if (configKey === lastAppliedConfigKey) return;
+		lastAppliedConfigKey = configKey;
+
+		configLoadAbortController?.abort();
+		configLoadAbortController = null;
+
+		if (shareCode || configId) {
+			configErrors = [];
+			showConfigError = false;
+			stabilityWarnings = [];
+			showStabilityWarning = false;
+			const controller = new AbortController();
+			configLoadAbortController = controller;
+			const { signal } = controller;
+			const currentConfigKey = configKey;
+
+			void (async () => {
+				const fetchWithSignal: typeof fetch = Object.assign(
+					(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
+						fetch(input, { ...init, signal }),
+					{ preconnect: fetch.preconnect }
+				);
+
+				try {
+					let result: ReturnType<typeof loadSavedConfigParameters<'standard'>> extends Promise<
+						infer T
+					>
+						? T
+						: never | undefined;
+
+					if (shareCode) {
+						result = await loadSharedConfigParameters({
+							shareCode,
+							mapType: 'standard',
+							base,
+							fetchFn: fetchWithSignal
+						});
+					} else {
+						result = await loadSavedConfigParameters({
+							configId: configId!,
+							mapType: 'standard',
+							base,
+							fetchFn: fetchWithSignal
+						});
+					}
+
+					if (isUnmounted || signal.aborted) return;
+					if (lastAppliedConfigKey !== currentConfigKey) return;
+					if (!result) {
+						configErrors = ['Failed to load configuration'];
+						showConfigError = true;
+						return;
+					}
+					if (!result.ok) {
+						configErrors = result.errors;
+						showConfigError = true;
+						return;
+					}
+
+					const typedParams = result.parameters;
+					K = typedParams.K ?? K;
+					numP = typedParams.numP ?? numP;
+					numQ = typedParams.numQ ?? numQ;
+					iterations = typedParams.iterations ?? iterations;
+
+					const stability = checkParameterStability('standard', typedParams);
+					if (!stability.isStable) {
+						stabilityWarnings = stability.warnings;
+						showStabilityWarning = true;
+					}
+				} catch (e) {
+					// Check if this was an abort error (expected during cleanup)
+					if (e instanceof Error && e.name === 'AbortError') {
+						return; // Silently ignore abort errors
+					}
+					console.error('Failed to load configuration:', e);
+					if (isUnmounted || signal.aborted) return;
+					if (lastAppliedConfigKey !== currentConfigKey) return;
+					configErrors = [
+						'Failed to load configuration: ' + (e instanceof Error ? e.message : 'Unknown error')
+					];
+					showConfigError = true;
+					return;
+				}
+			})();
+		} else if (configParam) {
+			try {
+				configErrors = [];
+				showConfigError = false;
+				stabilityWarnings = [];
+				showStabilityWarning = false;
+
+				// Validate parameters structure before using
+				const parsed = parseConfigParam({ mapType: 'standard', configParam });
+				if (!parsed.ok) {
+					console.error(parsed.logMessage, parsed.logDetails);
+					configErrors = parsed.errors;
+					showConfigError = true;
+				} else {
+					// Now we can safely cast since validation passed
+					const typedParams = parsed.parameters;
+					K = typedParams.K ?? K;
+					numP = typedParams.numP ?? numP;
+					numQ = typedParams.numQ ?? numQ;
+					iterations = typedParams.iterations ?? iterations;
+
+					const stability = checkParameterStability('standard', typedParams);
+					if (!stability.isStable) {
+						stabilityWarnings = stability.warnings;
+						showStabilityWarning = true;
+					}
+				}
+			} catch (e) {
+				console.error('Invalid config parameter:', e);
+				configErrors = ['Failed to parse configuration parameters'];
+				showConfigError = true;
+			}
+		}
+	});
+
 	// Get current parameters for saving
 	function getParameters(): StandardParameters {
 		return { type: 'standard', K, numP, numQ, iterations };
@@ -242,138 +374,6 @@
 	}
 
 	onMount(() => {
-		// Load config from URL reactively
-		$effect(() => {
-			const shareCode = $page.url.searchParams.get('share');
-			const configId = $page.url.searchParams.get('configId');
-			const configParam = $page.url.searchParams.get('config');
-			const configKey = shareCode
-				? `share:${shareCode}`
-				: configId
-					? `id:${configId}`
-					: configParam
-						? `param:${configParam}`
-						: null;
-			if (configKey === lastAppliedConfigKey) return;
-			lastAppliedConfigKey = configKey;
-
-			configLoadAbortController?.abort();
-			configLoadAbortController = null;
-
-			if (shareCode || configId) {
-				configErrors = [];
-				showConfigError = false;
-				stabilityWarnings = [];
-				showStabilityWarning = false;
-				const controller = new AbortController();
-				configLoadAbortController = controller;
-				const { signal } = controller;
-				const currentConfigKey = configKey;
-
-				void (async () => {
-					const fetchWithSignal: typeof fetch = Object.assign(
-						(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
-							fetch(input, { ...init, signal }),
-						{ preconnect: fetch.preconnect }
-					);
-
-					try {
-						let result: ReturnType<typeof loadSavedConfigParameters<'standard'>> extends Promise<
-							infer T
-						>
-							? T
-							: never | undefined;
-
-						if (shareCode) {
-							result = await loadSharedConfigParameters({
-								shareCode,
-								mapType: 'standard',
-								base,
-								fetchFn: fetchWithSignal
-							});
-						} else {
-							result = await loadSavedConfigParameters({
-								configId: configId!,
-								mapType: 'standard',
-								base,
-								fetchFn: fetchWithSignal
-							});
-						}
-
-						if (isUnmounted || signal.aborted) return;
-						if (lastAppliedConfigKey !== currentConfigKey) return;
-						if (!result) {
-							configErrors = ['Failed to load configuration'];
-							showConfigError = true;
-							return;
-						}
-						if (!result.ok) {
-							configErrors = result.errors;
-							showConfigError = true;
-							return;
-						}
-
-						const typedParams = result.parameters;
-						K = typedParams.K ?? K;
-						numP = typedParams.numP ?? numP;
-						numQ = typedParams.numQ ?? numQ;
-						iterations = typedParams.iterations ?? iterations;
-
-						const stability = checkParameterStability('standard', typedParams);
-						if (!stability.isStable) {
-							stabilityWarnings = stability.warnings;
-							showStabilityWarning = true;
-						}
-					} catch (e) {
-						// Check if this was an abort error (expected during cleanup)
-						if (e instanceof Error && e.name === 'AbortError') {
-							return; // Silently ignore abort errors
-						}
-						console.error('Failed to load configuration:', e);
-						if (isUnmounted || signal.aborted) return;
-						if (lastAppliedConfigKey !== currentConfigKey) return;
-						configErrors = [
-							'Failed to load configuration: ' + (e instanceof Error ? e.message : 'Unknown error')
-						];
-						showConfigError = true;
-						return;
-					}
-				})();
-			} else if (configParam) {
-				try {
-					configErrors = [];
-					showConfigError = false;
-					stabilityWarnings = [];
-					showStabilityWarning = false;
-
-					// Validate parameters structure before using
-					const parsed = parseConfigParam({ mapType: 'standard', configParam });
-					if (!parsed.ok) {
-						console.error(parsed.logMessage, parsed.logDetails);
-						configErrors = parsed.errors;
-						showConfigError = true;
-					} else {
-						// Now we can safely cast since validation passed
-						const typedParams = parsed.parameters;
-						K = typedParams.K ?? K;
-						numP = typedParams.numP ?? numP;
-						numQ = typedParams.numQ ?? numQ;
-						iterations = typedParams.iterations ?? iterations;
-
-						const stability = checkParameterStability('standard', typedParams);
-						if (!stability.isStable) {
-							stabilityWarnings = stability.warnings;
-							showStabilityWarning = true;
-						}
-					}
-				} catch (e) {
-					console.error('Invalid config parameter:', e);
-					configErrors = ['Failed to parse configuration parameters'];
-					showConfigError = true;
-				}
-			}
-		});
-
 		if (typeof window !== 'undefined' && 'Worker' in window) {
 			try {
 				worker = new Worker(new URL('../../lib/workers/chaosMapsWorker.ts', import.meta.url), {
