@@ -180,50 +180,6 @@ export async function createShareWithRateLimit(
 }
 
 /**
- * Check if a user has exceeded their share rate limit.
- *
- * @param userId - The user's UUID
- * @returns Object with isLimited boolean and remaining shares count
- *
- * @deprecated Use createShareWithRateLimit instead to avoid race conditions.
- * This function is kept for backward compatibility but should not be used in new code.
- */
-export async function checkShareRateLimit(
-	userId: string
-): Promise<{ isLimited: boolean; remaining: number; resetAt: Date }> {
-	const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-
-	const shares = await db
-		.select({ createdAt: sharedConfigurations.createdAt })
-		.from(sharedConfigurations)
-		.where(
-			and(
-				eq(sharedConfigurations.userId, userId),
-				gte(sharedConfigurations.createdAt, oneHourAgo.toISOString())
-			)
-		)
-		.orderBy(asc(sharedConfigurations.createdAt));
-
-	const shareCount = shares.length;
-	const remaining = Math.max(0, SHARE_RATE_LIMIT_PER_HOUR - shareCount);
-
-	let resetAt: Date;
-	if (shareCount >= SHARE_RATE_LIMIT_PER_HOUR && shares[0]) {
-		// Reset happens 1 hour after the oldest share in the current window
-		const oldestCreatedAt = new Date(shares[0].createdAt);
-		resetAt = new Date(oldestCreatedAt.getTime() + 60 * 60 * 1000 + 1000); // +1s buffer
-	} else {
-		resetAt = new Date(Date.now() + 60 * 60 * 1000);
-	}
-
-	return {
-		isLimited: shareCount >= SHARE_RATE_LIMIT_PER_HOUR,
-		remaining,
-		resetAt
-	};
-}
-
-/**
  * Calculate the expiration date for a new share.
  *
  * @param days - Number of days until expiration (default: SHARE_EXPIRATION_DAYS)

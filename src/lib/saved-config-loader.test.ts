@@ -5,7 +5,11 @@
  */
 
 import { describe, expect, test, mock } from 'bun:test';
-import { parseConfigParam, loadSavedConfigParameters } from './saved-config-loader';
+import {
+	parseConfigParam,
+	loadSavedConfigParameters,
+	loadSharedConfigParameters
+} from './saved-config-loader';
 
 describe('parseConfigParam', () => {
 	describe('valid inputs', () => {
@@ -246,6 +250,10 @@ describe('loadSavedConfigParameters', () => {
 			});
 
 			expect(result.ok).toBe(false);
+			if (!result.ok) {
+				expect(result.error).toContain('Failed to load configuration parameters');
+				expect(result.errors[0]).toContain('Failed to load configuration parameters');
+			}
 		});
 
 		test('returns error when parameters fail validation', async () => {
@@ -357,5 +365,172 @@ describe('loadSavedConfigParameters', () => {
 				expect(result.ok).toBe(true);
 			}
 		);
+	});
+});
+
+describe('loadSharedConfigParameters', () => {
+	describe('API loading', () => {
+		test('loads parameters from shared API successfully', async () => {
+			const mockResponse = {
+				ok: true,
+				json: async () => ({
+					mapType: 'lorenz',
+					parameters: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 }
+				})
+			};
+
+			const mockFetch = createMockFetch(() => Promise.resolve(mockResponse as Response));
+
+			const result = await loadSharedConfigParameters({
+				shareCode: 'test-share-code',
+				mapType: 'lorenz',
+				base: '',
+				fetchFn: mockFetch
+			});
+
+			expect(result.ok).toBe(true);
+			if (result.ok) {
+				expect(result.parameters.sigma).toBe(10);
+				expect(result.source).toBe('sharedApi');
+			}
+		});
+
+		test('returns specific error for expired share (410)', async () => {
+			const mockResponse = {
+				ok: false,
+				status: 410
+			};
+
+			const mockFetch = createMockFetch(() => Promise.resolve(mockResponse as Response));
+
+			const result = await loadSharedConfigParameters({
+				shareCode: 'test-share-code',
+				mapType: 'lorenz',
+				base: '',
+				fetchFn: mockFetch
+			});
+
+			expect(result.ok).toBe(false);
+			if (!result.ok) {
+				expect(result.error).toBe('This shared configuration has expired');
+				expect(result.errors[0]).toBe('This shared configuration has expired');
+			}
+		});
+
+		test('returns error with status code for non-410 errors', async () => {
+			const mockResponse = {
+				ok: false,
+				status: 404
+			};
+
+			const mockFetch = createMockFetch(() => Promise.resolve(mockResponse as Response));
+
+			const result = await loadSharedConfigParameters({
+				shareCode: 'test-share-code',
+				mapType: 'lorenz',
+				base: '',
+				fetchFn: mockFetch
+			});
+
+			expect(result.ok).toBe(false);
+			if (!result.ok) {
+				expect(result.error).toContain('Failed to load shared configuration');
+				expect(result.error).toContain('404');
+				expect(result.errors[0]).toContain('Failed to load shared configuration');
+				expect(result.errors[0]).toContain('404');
+			}
+		});
+
+		test('returns error for invalid map type in response', async () => {
+			const mockResponse = {
+				ok: true,
+				json: async () => ({
+					mapType: 'henon', // Different from requested
+					parameters: { type: 'henon', a: 1.4, b: 0.3, iterations: 2000 }
+				})
+			};
+
+			const mockFetch = createMockFetch(() => Promise.resolve(mockResponse as Response));
+
+			const result = await loadSharedConfigParameters({
+				shareCode: 'test-share-code',
+				mapType: 'lorenz',
+				base: '',
+				fetchFn: mockFetch
+			});
+
+			expect(result.ok).toBe(false);
+			if (!result.ok) {
+				expect(result.error).toBe('Invalid shared configuration data');
+			}
+		});
+
+		test('returns error for missing or invalid data', async () => {
+			const mockResponse = {
+				ok: true,
+				json: async () => ({
+					mapType: 'lorenz'
+					// Missing parameters
+				})
+			};
+
+			const mockFetch = createMockFetch(() => Promise.resolve(mockResponse as Response));
+
+			const result = await loadSharedConfigParameters({
+				shareCode: 'test-share-code',
+				mapType: 'lorenz',
+				base: '',
+				fetchFn: mockFetch
+			});
+
+			expect(result.ok).toBe(false);
+			if (!result.ok) {
+				expect(result.error).toBe('Invalid shared configuration data');
+			}
+		});
+
+		test('returns error for invalid parameters', async () => {
+			const mockResponse = {
+				ok: true,
+				json: async () => ({
+					mapType: 'lorenz',
+					parameters: { type: 'lorenz', sigma: 'invalid' } // Invalid parameter type
+				})
+			};
+
+			const mockFetch = createMockFetch(() => Promise.resolve(mockResponse as Response));
+
+			const result = await loadSharedConfigParameters({
+				shareCode: 'test-share-code',
+				mapType: 'lorenz',
+				base: '',
+				fetchFn: mockFetch
+			});
+
+			expect(result.ok).toBe(false);
+			if (!result.ok) {
+				expect(result.error).toBe('Invalid parameters structure');
+				expect(result.validationErrors).toBeDefined();
+			}
+		});
+
+		test('handles fetch exceptions gracefully', async () => {
+			const mockFetch = createMockFetch(() => Promise.reject(new Error('Network error')));
+
+			const result = await loadSharedConfigParameters({
+				shareCode: 'test-share-code',
+				mapType: 'lorenz',
+				base: '',
+				fetchFn: mockFetch
+			});
+
+			expect(result.ok).toBe(false);
+			if (!result.ok) {
+				expect(result.error).toBe('Failed to load shared configuration (network error)');
+				expect(result.errors[0]).toBe(
+					'Failed to load shared configuration (network error)'
+				);
+			}
+		});
 	});
 });
