@@ -275,8 +275,8 @@ export async function loadSharedConfigParameters<T extends ChaosMapType>(args: {
 			}
 			return {
 				ok: false,
-				error: 'Failed to load shared configuration',
-				errors: ['Failed to load shared configuration']
+				error: `Failed to load shared configuration (${response.status})`,
+				errors: [`Failed to load shared configuration (${response.status})`]
 			};
 		}
 
@@ -312,8 +312,8 @@ export async function loadSharedConfigParameters<T extends ChaosMapType>(args: {
 		console.error('Error loading shared config:', e);
 		return {
 			ok: false,
-			error: 'Failed to load shared configuration',
-			errors: ['Failed to load shared configuration']
+			error: 'Failed to load shared configuration (network error)',
+			errors: ['Failed to load shared configuration (network error)']
 		};
 	}
 }

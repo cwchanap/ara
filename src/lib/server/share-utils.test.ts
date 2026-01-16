@@ -266,13 +266,6 @@ describe('database-dependent functions (integration)', () => {
 		 */
 	});
 
-	test.todo('checkShareRateLimit - returns correct limit status', async () => {
-		/*
-		 * Test setup requires DATABASE_URL environment variable.
-		 * This test verifies that rate limit checking works correctly.
-		 */
-	});
-
 	test.todo('generateUniqueShortCode - generates unique codes', async () => {
 		/*
 		 * Test setup requires DATABASE_URL environment variable.
