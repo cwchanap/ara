@@ -1,0 +1,125 @@
+<!--
+  LoziRenderer Component - D3.js visualization for Lozi map
+-->
+<script lang="ts">
+	import { onMount } from 'svelte';
+	import * as d3 from 'd3';
+	import { calculateLoziTuples } from '$lib/lozi';
+
+	interface Props {
+		a?: number;
+		b?: number;
+		x0?: number;
+		y0?: number;
+		iterations?: number;
+		height?: number;
+	}
+
+	let {
+		a = $bindable(1.7),
+		b = $bindable(0.5),
+		x0 = $bindable(0),
+		y0 = $bindable(0),
+		iterations = $bindable(5000),
+		height = 500
+	}: Props = $props();
+
+	let container: HTMLDivElement;
+
+	function render() {
+		if (!container) return;
+
+		d3.select(container).selectAll('*').remove();
+
+		const margin = { top: 20, right: 20, bottom: 50, left: 60 };
+		const width = container.clientWidth - margin.left - margin.right;
+		const chartHeight = height - margin.top - margin.bottom;
+
+		const svg = d3
+			.select(container)
+			.append('svg')
+			.attr('width', container.clientWidth)
+			.attr('height', height)
+			.append('g')
+			.attr('transform', `translate(${margin.left},${margin.top})`);
+
+		let points: [number, number][] = [];
+		try {
+			points = calculateLoziTuples({ a, b, x0, y0, iterations });
+		} catch {
+			console.error('Error calculating Lozi tuples');
+		}
+
+		const xExtentRaw = d3.extent(points, (d) => d[0]);
+		const yExtentRaw = d3.extent(points, (d) => d[1]);
+		const xExtent: [number, number] = [xExtentRaw[0] ?? -1, xExtentRaw[1] ?? 1];
+		const yExtent: [number, number] = [yExtentRaw[0] ?? -1, yExtentRaw[1] ?? 1];
+
+		const xScale = d3
+			.scaleLinear()
+			.domain([xExtent[0] - 0.1, xExtent[1] + 0.1])
+			.range([0, width]);
+		const yScale = d3
+			.scaleLinear()
+			.domain([yExtent[0] - 0.1, yExtent[1] + 0.1])
+			.range([chartHeight, 0]);
+
+		const xAxis = d3.axisBottom(xScale).tickSize(-chartHeight).tickPadding(10);
+		const yAxis = d3.axisLeft(yScale).tickSize(-width).tickPadding(10);
+
+		svg
+			.append('g')
+			.attr('transform', `translate(0,${chartHeight})`)
+			.call(xAxis)
+			.call((g) => {
+				g.select('.domain').remove();
+				g.selectAll('line').attr('stroke', '#00f3ff').attr('stroke-opacity', 0.1);
+				g.selectAll('text').attr('fill', '#00f3ff').attr('font-family', 'Rajdhani');
+			});
+
+		svg
+			.append('g')
+			.call(yAxis)
+			.call((g) => {
+				g.select('.domain').remove();
+				g.selectAll('line').attr('stroke', '#00f3ff').attr('stroke-opacity', 0.1);
+				g.selectAll('text').attr('fill', '#00f3ff').attr('font-family', 'Rajdhani');
+			});
+
+		svg
+			.selectAll('circle')
+			.data(points)
+			.enter()
+			.append('circle')
+			.attr('cx', (d) => xScale(d[0]))
+			.attr('cy', (d) => yScale(d[1]))
+			.attr('r', 1.5)
+			.attr('fill', (d, i) => d3.interpolate('#00f3ff', '#bc13fe')(i / points.length))
+			.attr('opacity', 0.7);
+	}
+
+	onMount(() => {
+		render();
+	});
+
+	$effect(() => {
+		void a;
+		void b;
+		void x0;
+		void y0;
+		void iterations;
+		if (container) render();
+	});
+</script>
+
+<div
+	bind:this={container}
+	class="bg-black/40 border border-primary/20 rounded-sm overflow-hidden shadow-[0_0_30px_rgba(0,0,0,0.5)] relative"
+	style="height: {height}px;"
+>
+	<div
+		class="absolute top-4 right-4 text-xs font-mono text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
+	>
+		LIVE_RENDER // D3.JS
+	</div>
+</div>
