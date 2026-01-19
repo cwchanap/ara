@@ -15,6 +15,7 @@
 	import { createSaveHandler, createInitialSaveState } from '$lib/use-visualization-save';
 	import { createShareHandler, createInitialShareState } from '$lib/use-visualization-share';
 	import type { LogisticParameters } from '$lib/types';
+	import { buildComparisonUrl, createComparisonStateFromCurrent } from '$lib/comparison-url-state';
 
 	let { data } = $props();
 
@@ -327,6 +328,16 @@
 		</div>
 		<div class="flex gap-3">
 			<SnapshotButton target={container} targetType="container" mapType="logistic" />
+			<a
+				href={buildComparisonUrl(
+					base,
+					'logistic',
+					createComparisonStateFromCurrent('logistic', getParameters())
+				)}
+				class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
+			>
+				⊞ Compare
+			</a>
 			<button
 				onclick={() => (shareState.showShareDialog = true)}
 				disabled={shareState.isSharing}
