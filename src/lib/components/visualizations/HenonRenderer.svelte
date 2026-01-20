@@ -1,11 +1,10 @@
 <!--
   HenonRenderer Component
 
-  Encapsulates the D3.js Hénon map visualization.
+  Encapsulates D3.js Hénon map visualization.
   Can be used standalone or in comparison mode.
 -->
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import * as d3 from 'd3';
 
 	interface Props {
@@ -58,6 +57,12 @@
 			.attr('transform', `translate(${margin.left},${margin.top})`);
 
 		const points = calculateHenon(a, b, iterations);
+
+		// Guard against empty points array
+		if (points.length === 0) {
+			d3.select(container).selectAll('*').remove();
+			return;
+		}
 
 		const xExtent = d3.extent(points, (d) => d[0]) as [number, number];
 		const yExtent = d3.extent(points, (d) => d[1]) as [number, number];
@@ -139,14 +144,11 @@
 			.attr('filter', 'drop-shadow(0 0 2px rgba(0, 243, 255, 0.5))');
 	}
 
-	onMount(() => {
-		render();
-	});
-
 	$effect(() => {
 		void a;
 		void b;
 		void iterations;
+		void height;
 		if (container) render();
 	});
 </script>

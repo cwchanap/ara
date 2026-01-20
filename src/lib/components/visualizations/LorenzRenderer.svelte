@@ -33,8 +33,8 @@
 	let recreate: () => void;
 
 	// For camera sync in compare mode
-	let controls: OrbitControls;
-	let camera: THREE.PerspectiveCamera;
+	let controls: OrbitControls | null = null;
+	let camera: THREE.PerspectiveCamera | null = null;
 
 	$effect(() => {
 		void sigma;
@@ -52,7 +52,7 @@
 
 			const otherState = compareSide === 'left' ? state.right : state.left;
 			if (otherState) {
-				applyCameraState(otherState, camera, controls);
+				applyCameraState(otherState, camera!, controls!);
 			}
 		});
 
@@ -85,7 +85,7 @@
 		// Camera sync for comparison mode
 		if (compareMode) {
 			controls.addEventListener('change', () => {
-				const cameraState = createCameraState(camera, controls);
+				const cameraState = createCameraState(camera!, controls!);
 				cameraSyncStore.updateFromSide(compareSide, cameraState);
 			});
 		}
@@ -204,14 +204,14 @@
 		function animate() {
 			if (!isAnimating) return;
 			requestAnimationFrame(animate);
-			controls.update();
-			renderer.render(scene, camera);
+			if (controls) controls.update();
+			if (camera) renderer.render(scene, camera);
 		}
 
 		animate();
 
 		const handleResize = () => {
-			if (!container) return;
+			if (!container || !camera) return;
 			camera.aspect = container.clientWidth / container.clientHeight;
 			camera.updateProjectionMatrix();
 			renderer.setSize(container.clientWidth, container.clientHeight);
@@ -229,7 +229,7 @@
 			window.removeEventListener('resize', handleResize);
 			isAnimating = false;
 
-			controls.dispose();
+			if (controls) controls.dispose();
 
 			scene.remove(gridHelper);
 			gridHelper.geometry.dispose();

@@ -63,6 +63,11 @@
 				noScroll: true
 			});
 		}, 300);
+
+		return () => {
+			if (debounceTimer) clearTimeout(debounceTimer);
+			debounceTimer = null;
+		};
 	});
 
 	function getLeftParams(): StandardParameters {

@@ -27,7 +27,7 @@
 		r: number,
 		iterations: number,
 		transientIterations: number
-	): number {
+	): number | null {
 		let x = 0.5;
 
 		for (let i = 0; i < transientIterations; i++) {
@@ -49,7 +49,7 @@
 			}
 		}
 
-		return validIterations > 0 ? sum / validIterations : -Infinity;
+		return validIterations > 0 ? sum / validIterations : null;
 	}
 
 	function render() {
@@ -58,8 +58,8 @@
 		d3.select(container).selectAll('*').remove();
 
 		const margin = { top: 20, right: 20, bottom: 50, left: 60 };
-		const width = container.clientWidth - margin.left - margin.right;
-		const chartHeight = height - margin.top - margin.bottom;
+		const width = Math.max(0, container.clientWidth - margin.left - margin.right);
+		const chartHeight = Math.max(0, height - margin.top - margin.bottom);
 
 		const svg = d3
 			.select(container)
@@ -79,18 +79,24 @@
 			actualRMax = Math.min(4, rMax + epsilon);
 		}
 
-		const data: { r: number; lyapunov: number }[] = [];
+		const data: { r: number; lyapunov: number | null }[] = [];
 		for (let i = 0; i < numPoints; i++) {
 			const r = actualRMin + (actualRMax - actualRMin) * (i / (numPoints - 1));
 			const lyapunov = calculateLyapunovExponent(r, iterations, transientIterations);
 			data.push({ r, lyapunov });
 		}
 
+		// Filter out null values for extent calculation
+		const validData = data.filter((d) => d.lyapunov !== null);
+		if (validData.length === 0) {
+			// All data is null, use fallback domain
+			return;
+		}
+
+		const yExtent = d3.extent(validData, (d) => d.lyapunov as number) as [number, number];
+
 		const xScale = d3.scaleLinear().domain([actualRMin, actualRMax]).range([0, width]);
-		const yScale = d3
-			.scaleLinear()
-			.domain(d3.extent(data, (d) => d.lyapunov) as [number, number])
-			.range([chartHeight, 0]);
+		const yScale = d3.scaleLinear().domain(yExtent).range([chartHeight, 0]);
 
 		const xAxis = d3.axisBottom(xScale).tickSize(-chartHeight).tickPadding(10);
 		const yAxis = d3.axisLeft(yScale).tickSize(-width).tickPadding(10);
@@ -126,16 +132,20 @@
 			.attr('stroke-dasharray', '5,5')
 			.attr('opacity', 0.5);
 
+		// Create line generator with defined accessor to handle null values
 		const line = d3
-			.line<{ r: number; lyapunov: number }>()
+			.line<{ r: number; lyapunov: number | null }>()
 			.x((d) => xScale(d.r))
-			.y((d) => yScale(d.lyapunov))
+			.y((d) => yScale(d.lyapunov ?? 0))
+			.defined((d) => d.lyapunov !== null)
 			.curve(d3.curveLinear);
 
 		// Draw segments colored by sign
 		for (let i = 0; i < data.length - 1; i++) {
 			const segment = data.slice(i, i + 2);
-			const color = segment[0].lyapunov < 0 ? '#00f3ff' : '#ff00ff';
+			// Skip segments where both points are null
+			if (segment.every((d) => d.lyapunov === null)) continue;
+			const color = (segment[0].lyapunov ?? 0) < 0 ? '#00f3ff' : '#ff00ff';
 			svg
 				.append('path')
 				.datum(segment)

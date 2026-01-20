@@ -2,7 +2,6 @@
   LogisticRenderer Component - D3.js visualization for Logistic map
 -->
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import * as d3 from 'd3';
 
 	interface Props {
@@ -102,14 +101,11 @@
 			.attr('opacity', 0.8);
 	}
 
-	onMount(() => {
-		render();
-	});
-
 	$effect(() => {
 		void r;
 		void x0;
 		void iterations;
+		void height;
 		if (container) render();
 	});
 </script>
