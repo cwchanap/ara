@@ -2,8 +2,6 @@
   BifurcationLogisticRenderer Component - Canvas visualization for Logistic Bifurcation diagram
 -->
 <script lang="ts">
-	import { onMount } from 'svelte';
-
 	interface Props {
 		rMin?: number;
 		rMax?: number;
@@ -37,7 +35,8 @@
 		ctx.fillStyle = 'rgba(255, 80, 0, 0.3)';
 
 		for (let i = 0; i < imgWidth; i++) {
-			const r = rMin + (rMax - rMin) * (i / (imgWidth - 1));
+			const denom = Math.max(1, imgWidth - 1);
+			const r = rMin + (rMax - rMin) * (i / denom);
 			let x = 0.5;
 
 			for (let j = 0; j < 100; j++) {
@@ -54,10 +53,6 @@
 		}
 		isRendering = false;
 	}
-
-	onMount(() => {
-		render();
-	});
 
 	$effect(() => {
 		void rMin;

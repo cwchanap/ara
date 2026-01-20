@@ -2,8 +2,6 @@
   BifurcationHenonRenderer Component - Canvas visualization for Henon Bifurcation diagram
 -->
 <script lang="ts">
-	import { onMount } from 'svelte';
-
 	interface Props {
 		aMin?: number;
 		aMax?: number;
@@ -63,10 +61,6 @@
 		}
 		isRendering = false;
 	}
-
-	onMount(() => {
-		render();
-	});
 
 	$effect(() => {
 		void aMin;

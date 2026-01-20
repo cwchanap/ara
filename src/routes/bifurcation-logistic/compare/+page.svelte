@@ -35,6 +35,28 @@
 			defaultParams.maxIterations
 	);
 
+	// Ensure rMin ≤ rMax for both sides
+	$effect(() => {
+		if (leftRMin > leftRMax) {
+			leftRMax = leftRMin;
+		}
+	});
+	$effect(() => {
+		if (leftRMax < leftRMin) {
+			leftRMin = leftRMax;
+		}
+	});
+	$effect(() => {
+		if (rightRMin > rightRMax) {
+			rightRMax = rightRMin;
+		}
+	});
+	$effect(() => {
+		if (rightRMax < rightRMin) {
+			rightRMin = rightRMax;
+		}
+	});
+
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	$effect(() => {
 		void leftRMin;
@@ -65,6 +87,11 @@
 				noScroll: true
 			});
 		}, 300);
+
+		return () => {
+			if (debounceTimer) clearTimeout(debounceTimer);
+			debounceTimer = null;
+		};
 	});
 
 	function getLeftParams(): BifurcationLogisticParameters {

@@ -81,6 +81,12 @@
 
 		const points = calculateChaos(a, b, x0, y0, iterations, MAX_POINTS);
 
+		// Guard against empty points array
+		if (points.length === 0) {
+			d3.select(container).selectAll('*').remove();
+			return;
+		}
+
 		const xExtent = d3.extent(points, (d) => d[0]) as [number, number];
 		const yExtent = d3.extent(points, (d) => d[1]) as [number, number];
 

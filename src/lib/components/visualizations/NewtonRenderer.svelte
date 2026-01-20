@@ -70,7 +70,14 @@
 					const z3Im = z2Re * zIm + z2Im * zRe;
 
 					const denom = 3 * (z2Re * z2Re + z2Im * z2Im);
-					if (denom < 1e-10) break;
+					if (denom < 1e-10) {
+						// Set fallback color before breaking
+						iter = maxIterations;
+						const idx = (py * width + px) * 4;
+						data[idx] = data[idx + 1] = data[idx + 2] = 0;
+						data[idx + 3] = 255;
+						break;
+					}
 
 					const fRe = z3Re - 1;
 					const fIm = z3Im;

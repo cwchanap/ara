@@ -129,7 +129,17 @@
 	}
 
 	onMount(() => {
-		render();
+		// Set up ResizeObserver to handle container size changes
+		const resizeObserver = new ResizeObserver(() => {
+			if (container) render();
+		});
+		if (container) {
+			resizeObserver.observe(container);
+		}
+
+		return () => {
+			resizeObserver.disconnect();
+		};
 	});
 
 	$effect(() => {
@@ -137,7 +147,7 @@
 		void numP;
 		void numQ;
 		void iterations;
-		if (container) render();
+		if (container && container.clientWidth > 0) render();
 	});
 </script>
 

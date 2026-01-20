@@ -39,6 +39,7 @@ function createCameraSyncStore() {
 	});
 
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+	let syncingResetTimer: ReturnType<typeof setTimeout> | null = null;
 
 	return {
 		subscribe,
@@ -52,7 +53,7 @@ function createCameraSyncStore() {
 
 		/**
 		 * Update camera state from one side with debouncing.
-		 * The other side should listen and apply the update.
+		 * The other side should listen and apply update.
 		 */
 		updateFromSide(side: 'left' | 'right', state: CameraState) {
 			const currentState = get({ subscribe });
@@ -65,7 +66,7 @@ function createCameraSyncStore() {
 				clearTimeout(debounceTimer);
 			}
 
-			// Debounce the update
+			// Debounce update
 			debounceTimer = setTimeout(() => {
 				update((s) => ({
 					...s,
@@ -74,35 +75,42 @@ function createCameraSyncStore() {
 					syncing: true
 				}));
 
-				// Reset syncing flag after a short delay to allow the other side to update
-				setTimeout(() => {
+				// Reset syncing flag after a short delay to allow other side to update
+				if (syncingResetTimer) {
+					clearTimeout(syncingResetTimer);
+				}
+				syncingResetTimer = setTimeout(() => {
 					update((s) => ({ ...s, syncing: false }));
 				}, 50);
 			}, DEBOUNCE_MS);
 		},
 
 		/**
-		 * Get the camera state to apply to a specific side.
-		 * Returns null if this side was the last to update (no need to apply).
+		 * Get camera state to apply to a specific side.
+		 * Returns null if this side was last to update (no need to apply).
 		 */
 		getStateForSide(side: 'left' | 'right'): CameraState | null {
 			const state = get({ subscribe });
 			if (!state.enabled) return null;
 
-			// If this side was the last to update, don't apply (prevents loops)
+			// If this side was last to update, don't apply (prevents loops)
 			if (state.lastUpdate === side) return null;
 
-			// Return the other side's state
+			// Return other side's state
 			return side === 'left' ? state.right : state.left;
 		},
 
 		/**
-		 * Reset the store (call when exiting comparison mode).
+		 * Reset store (call when exiting comparison mode).
 		 */
 		reset() {
 			if (debounceTimer) {
 				clearTimeout(debounceTimer);
 				debounceTimer = null;
+			}
+			if (syncingResetTimer) {
+				clearTimeout(syncingResetTimer);
+				syncingResetTimer = null;
 			}
 			set({
 				enabled: true,

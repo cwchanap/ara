@@ -67,6 +67,11 @@
 				noScroll: true
 			});
 		}, 300);
+
+		return () => {
+			if (debounceTimer) clearTimeout(debounceTimer);
+			debounceTimer = null;
+		};
 	});
 
 	function getLeftParams(): NewtonParameters {
@@ -135,11 +140,12 @@
 					</div>
 					<div class="space-y-1">
 						<div class="flex justify-between">
-							<label class="text-primary/80 text-xs uppercase font-bold">Max Iterations</label><span
-								class="font-mono text-accent text-sm">{leftMaxIterations}</span
-							>
+							<label for="left-max-iterations" class="text-primary/80 text-xs uppercase font-bold"
+								>Max Iterations</label
+							><span class="font-mono text-accent text-sm">{leftMaxIterations}</span>
 						</div>
 						<input
+							id="left-max-iterations"
 							type="range"
 							bind:value={leftMaxIterations}
 							min="10"
@@ -201,11 +207,12 @@
 					</div>
 					<div class="space-y-1">
 						<div class="flex justify-between">
-							<label class="text-primary/80 text-xs uppercase font-bold">Max Iterations</label><span
-								class="font-mono text-accent text-sm">{rightMaxIterations}</span
-							>
+							<label for="right-max-iterations" class="text-primary/80 text-xs uppercase font-bold"
+								>Max Iterations</label
+							><span class="font-mono text-accent text-sm">{rightMaxIterations}</span>
 						</div>
 						<input
+							id="right-max-iterations"
 							type="range"
 							bind:value={rightMaxIterations}
 							min="10"
