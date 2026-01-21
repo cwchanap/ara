@@ -314,6 +314,19 @@ describe('buildComparisonUrl', () => {
 		expect(url).toContain('right=');
 	});
 
+	test('trims trailing slashes from base path', () => {
+		const state: ComparisonURLState = {
+			compare: true,
+			left: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 },
+			right: { type: 'lorenz', sigma: 15, rho: 30, beta: 3 }
+		};
+
+		const url = buildComparisonUrl('/app/', 'lorenz', state);
+
+		expect(url).toContain('/app/lorenz/compare?');
+		expect(url).not.toContain('/app//lorenz');
+	});
+
 	test('builds correct URL with empty base path', () => {
 		const state: ComparisonURLState = {
 			compare: true,

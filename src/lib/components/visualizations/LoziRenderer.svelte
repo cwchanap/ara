@@ -2,7 +2,6 @@
   LoziRenderer Component - D3.js visualization for Lozi map
 -->
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import * as d3 from 'd3';
 	import { calculateLoziTuples } from '$lib/lozi';
 
@@ -46,8 +45,8 @@
 		let points: [number, number][] = [];
 		try {
 			points = calculateLoziTuples({ a, b, x0, y0, iterations });
-		} catch {
-			console.error('Error calculating Lozi tuples');
+		} catch (err) {
+			console.error('Error calculating Lozi tuples', err);
 		}
 
 		const xExtentRaw = d3.extent(points, (d) => d[0]);
@@ -98,16 +97,13 @@
 			.attr('opacity', 0.7);
 	}
 
-	onMount(() => {
-		render();
-	});
-
 	$effect(() => {
 		void a;
 		void b;
 		void x0;
 		void y0;
 		void iterations;
+		void height;
 		if (container) render();
 	});
 </script>

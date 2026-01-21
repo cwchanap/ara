@@ -107,7 +107,8 @@ export function buildComparisonUrl(
 	state: ComparisonURLState
 ): string {
 	const params = encodeComparisonState(state);
-	return `${base}/${mapType}/compare?${params.toString()}`;
+	const cleanedBase = base.replace(/\/+$/, '');
+	return `${cleanedBase}/${mapType}/compare?${params.toString()}`;
 }
 
 /**

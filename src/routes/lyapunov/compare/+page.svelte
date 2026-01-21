@@ -36,6 +36,7 @@
 	);
 
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+	let initialized = false;
 	$effect(() => {
 		void leftRMin;
 		void leftRMax;
@@ -45,6 +46,16 @@
 		void rightRMax;
 		void rightIterations;
 		void rightTransientIterations;
+		if (leftRMin > leftRMax) {
+			leftRMax = leftRMin;
+		}
+		if (rightRMin > rightRMax) {
+			rightRMax = rightRMin;
+		}
+		if (!initialized) {
+			initialized = true;
+			return;
+		}
 		if (debounceTimer) clearTimeout(debounceTimer);
 		debounceTimer = setTimeout(() => {
 			const state = {
@@ -136,7 +147,7 @@
 							id="left-rmax"
 							type="range"
 							bind:value={leftRMax}
-							min="0"
+							min={leftRMin}
 							max="4"
 							step="0.01"
 							class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
@@ -226,7 +237,7 @@
 							id="right-rmax"
 							type="range"
 							bind:value={rightRMax}
-							min="0"
+							min={rightRMin}
 							max="4"
 							step="0.01"
 							class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
