@@ -33,14 +33,17 @@
 	): [number, number][] {
 		const points: [number, number][] = [];
 
+		const TWO_PI = 2 * Math.PI;
+		const normalizeAngle = (value: number) => ((value % TWO_PI) + TWO_PI) % TWO_PI;
+
 		outer: for (let i = 1; i <= numP; i++) {
 			for (let j = 1; j <= numQ; j++) {
-				let p = (i / numP) % (2 * Math.PI);
-				let q = (j / numQ) % (2 * Math.PI);
+				let p = normalizeAngle(i / numP);
+				let q = normalizeAngle(j / numQ);
 
 				for (let k = 0; k < iterations; k++) {
-					const pNew = (p + K * Math.sin(q)) % (2 * Math.PI);
-					const qNew = (q + pNew) % (2 * Math.PI);
+					const pNew = normalizeAngle(p + K * Math.sin(q));
+					const qNew = normalizeAngle(q + pNew);
 					points.push([qNew, pNew]);
 					p = pNew;
 					q = qNew;
@@ -57,8 +60,8 @@
 		d3.select(container).selectAll('*').remove();
 
 		const margin = { top: 20, right: 20, bottom: 50, left: 60 };
-		const width = container.clientWidth - margin.left - margin.right;
-		const chartHeight = height - margin.top - margin.bottom;
+		const width = Math.max(0, container.clientWidth - margin.left - margin.right);
+		const chartHeight = Math.max(0, height - margin.top - margin.bottom);
 
 		const canvasSelection = d3
 			.select(container)

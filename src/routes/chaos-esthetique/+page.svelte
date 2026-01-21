@@ -250,8 +250,10 @@
 			.append('g')
 			.attr('transform', `translate(${margin.left},${margin.top})`);
 
-		const xExtent = d3.extent(points, (d) => d[0]) as [number, number];
-		const yExtent = d3.extent(points, (d) => d[1]) as [number, number];
+		const xExtentRaw = d3.extent(points, (d) => d[0]);
+		const yExtentRaw = d3.extent(points, (d) => d[1]);
+		const xExtent: [number, number] = [xExtentRaw[0] ?? -1, xExtentRaw[1] ?? 1];
+		const yExtent: [number, number] = [yExtentRaw[0] ?? -1, yExtentRaw[1] ?? 1];
 
 		const xScale = d3
 			.scaleLinear()

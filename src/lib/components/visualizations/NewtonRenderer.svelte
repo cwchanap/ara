@@ -129,7 +129,12 @@
 		void yMin;
 		void yMax;
 		void maxIterations;
-		if (canvas) render();
+		void height;
+		if (canvas && container) {
+			canvas.width = container.clientWidth;
+			canvas.height = height;
+			render();
+		}
 	});
 </script>
 

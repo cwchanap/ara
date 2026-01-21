@@ -36,8 +36,9 @@
 		ctx.clearRect(0, 0, imgWidth, imgHeight);
 		ctx.fillStyle = 'rgba(188, 19, 254, 0.4)';
 
+		const widthDenominator = Math.max(imgWidth - 1, 1);
 		for (let i = 0; i < imgWidth; i++) {
-			const a = aMin + (aMax - aMin) * (i / (imgWidth - 1));
+			const a = aMin + (aMax - aMin) * (i / widthDenominator);
 			let x = 0;
 			let y = 0;
 
