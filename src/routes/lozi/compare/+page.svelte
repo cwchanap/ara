@@ -89,6 +89,22 @@
 			iterations: rightIterations
 		};
 	}
+
+	function handleLeftParamsChange(params: LoziParameters) {
+		leftA = params.a;
+		leftB = params.b;
+		leftX0 = params.x0;
+		leftY0 = params.y0;
+		leftIterations = params.iterations;
+	}
+
+	function handleRightParamsChange(params: LoziParameters) {
+		rightA = params.a;
+		rightB = params.b;
+		rightX0 = params.x0;
+		rightY0 = params.y0;
+		rightIterations = params.iterations;
+	}
 </script>
 
 <ComparisonLayout
@@ -96,6 +112,8 @@
 	leftParams={getLeftParams()}
 	rightParams={getRightParams()}
 	showCameraSync={false}
+	onLeftParamsChange={(params) => handleLeftParamsChange(params as LoziParameters)}
+	onRightParamsChange={(params) => handleRightParamsChange(params as LoziParameters)}
 >
 	{#snippet leftPanel()}
 		<div class="space-y-4">

@@ -3,6 +3,8 @@ import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/sv
 import { createRawSnippet } from 'svelte';
 import ComparisonLayout from './ComparisonLayout.svelte';
 import { cameraSyncStore } from '$lib/stores/camera-sync';
+import { encodeComparisonState } from '$lib/comparison-url-state';
+import { goto } from '$app/navigation';
 
 vi.mock('$app/navigation', () => ({
 	goto: vi.fn()
@@ -65,5 +67,40 @@ describe('ComparisonLayout', () => {
 			)
 		);
 		expect(screen.getByText('🔓')).toHaveAttribute('aria-hidden', 'true');
+	});
+
+	it('swaps parameters and updates the URL', async () => {
+		const onLeftParamsChange = vi.fn();
+		const onRightParamsChange = vi.fn();
+		render(ComparisonLayout, {
+			props: {
+				mapType: 'lorenz',
+				leftParams: defaultLeftParams,
+				rightParams: defaultRightParams,
+				showCameraSync: true,
+				leftPanel,
+				rightPanel,
+				onLeftParamsChange,
+				onRightParamsChange
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: /swap/i }));
+
+		expect(onLeftParamsChange).toHaveBeenCalledWith(defaultRightParams);
+		expect(onRightParamsChange).toHaveBeenCalledWith(defaultLeftParams);
+
+		const swappedState = {
+			compare: true as const,
+			left: defaultRightParams,
+			right: defaultLeftParams
+		};
+		expect(goto).toHaveBeenCalledWith(
+			`/lorenz/compare?${encodeComparisonState(swappedState).toString()}`,
+			{
+				replaceState: true,
+				noScroll: true
+			}
+		);
 	});
 });

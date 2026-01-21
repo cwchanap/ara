@@ -88,6 +88,20 @@
 			iterations: rightIterations
 		};
 	}
+
+	function handleLeftParamsChange(params: StandardParameters) {
+		leftK = params.K;
+		leftNumP = params.numP;
+		leftNumQ = params.numQ;
+		leftIterations = params.iterations;
+	}
+
+	function handleRightParamsChange(params: StandardParameters) {
+		rightK = params.K;
+		rightNumP = params.numP;
+		rightNumQ = params.numQ;
+		rightIterations = params.iterations;
+	}
 </script>
 
 <ComparisonLayout
@@ -95,6 +109,8 @@
 	leftParams={getLeftParams()}
 	rightParams={getRightParams()}
 	showCameraSync={false}
+	onLeftParamsChange={(params) => handleLeftParamsChange(params as StandardParameters)}
+	onRightParamsChange={(params) => handleRightParamsChange(params as StandardParameters)}
 >
 	{#snippet leftPanel()}
 		<div class="space-y-4">

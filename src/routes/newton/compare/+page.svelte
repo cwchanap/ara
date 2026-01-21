@@ -94,6 +94,22 @@
 			maxIterations: rightMaxIterations
 		};
 	}
+
+	function handleLeftParamsChange(params: NewtonParameters) {
+		leftXMin = params.xMin;
+		leftXMax = params.xMax;
+		leftYMin = params.yMin;
+		leftYMax = params.yMax;
+		leftMaxIterations = params.maxIterations;
+	}
+
+	function handleRightParamsChange(params: NewtonParameters) {
+		rightXMin = params.xMin;
+		rightXMax = params.xMax;
+		rightYMin = params.yMin;
+		rightYMax = params.yMax;
+		rightMaxIterations = params.maxIterations;
+	}
 </script>
 
 <ComparisonLayout
@@ -101,6 +117,8 @@
 	leftParams={getLeftParams()}
 	rightParams={getRightParams()}
 	showCameraSync={false}
+	onLeftParamsChange={(params) => handleLeftParamsChange(params as NewtonParameters)}
+	onRightParamsChange={(params) => handleRightParamsChange(params as NewtonParameters)}
 >
 	{#snippet leftPanel()}
 		<div class="space-y-4">

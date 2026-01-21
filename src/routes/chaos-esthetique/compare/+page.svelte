@@ -96,6 +96,22 @@
 			iterations: rightIterations
 		};
 	}
+
+	function handleLeftParamsChange(params: ChaosEsthetiqueParameters) {
+		leftA = params.a;
+		leftB = params.b;
+		leftX0 = params.x0;
+		leftY0 = params.y0;
+		leftIterations = params.iterations;
+	}
+
+	function handleRightParamsChange(params: ChaosEsthetiqueParameters) {
+		rightA = params.a;
+		rightB = params.b;
+		rightX0 = params.x0;
+		rightY0 = params.y0;
+		rightIterations = params.iterations;
+	}
 </script>
 
 <ComparisonLayout
@@ -103,6 +119,8 @@
 	leftParams={getLeftParams()}
 	rightParams={getRightParams()}
 	showCameraSync={false}
+	onLeftParamsChange={(params) => handleLeftParamsChange(params as ChaosEsthetiqueParameters)}
+	onRightParamsChange={(params) => handleRightParamsChange(params as ChaosEsthetiqueParameters)}
 >
 	{#snippet leftPanel()}
 		<div class="space-y-4">

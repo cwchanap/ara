@@ -60,6 +60,18 @@
 	function getRightParams(): LogisticParameters {
 		return { type: 'logistic', r: rightR, x0: rightX0, iterations: rightIterations };
 	}
+
+	function handleLeftParamsChange(params: LogisticParameters) {
+		leftR = params.r;
+		leftX0 = params.x0;
+		leftIterations = params.iterations;
+	}
+
+	function handleRightParamsChange(params: LogisticParameters) {
+		rightR = params.r;
+		rightX0 = params.x0;
+		rightIterations = params.iterations;
+	}
 </script>
 
 <ComparisonLayout
@@ -67,6 +79,8 @@
 	leftParams={getLeftParams()}
 	rightParams={getRightParams()}
 	showCameraSync={false}
+	onLeftParamsChange={(params) => handleLeftParamsChange(params as LogisticParameters)}
+	onRightParamsChange={(params) => handleRightParamsChange(params as LogisticParameters)}
 >
 	{#snippet leftPanel()}
 		<div class="space-y-4">

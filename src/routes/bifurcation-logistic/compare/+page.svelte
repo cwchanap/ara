@@ -110,6 +110,18 @@
 			maxIterations: rightMaxIterations
 		};
 	}
+
+	function handleLeftParamsChange(params: BifurcationLogisticParameters) {
+		leftRMin = params.rMin;
+		leftRMax = params.rMax;
+		leftMaxIterations = params.maxIterations;
+	}
+
+	function handleRightParamsChange(params: BifurcationLogisticParameters) {
+		rightRMin = params.rMin;
+		rightRMax = params.rMax;
+		rightMaxIterations = params.maxIterations;
+	}
 </script>
 
 <ComparisonLayout
@@ -117,6 +129,8 @@
 	leftParams={getLeftParams()}
 	rightParams={getRightParams()}
 	showCameraSync={false}
+	onLeftParamsChange={(params) => handleLeftParamsChange(params as BifurcationLogisticParameters)}
+	onRightParamsChange={(params) => handleRightParamsChange(params as BifurcationLogisticParameters)}
 >
 	{#snippet leftPanel()}
 		<div class="space-y-4">
