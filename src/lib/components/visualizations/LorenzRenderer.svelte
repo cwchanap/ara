@@ -35,6 +35,7 @@
 	// For camera sync in compare mode
 	let controls: OrbitControls | null = null;
 	let camera: THREE.PerspectiveCamera | null = null;
+	let cameraChangeHandler: (() => void) | null = null;
 
 	$effect(() => {
 		void sigma;
@@ -84,10 +85,11 @@
 
 		// Camera sync for comparison mode
 		if (compareMode) {
-			controls.addEventListener('change', () => {
+			cameraChangeHandler = () => {
 				const cameraState = createCameraState(camera!, controls!);
 				cameraSyncStore.updateFromSide(compareSide, cameraState);
-			});
+			};
+			controls.addEventListener('change', cameraChangeHandler);
 		}
 
 		function calculateLorenz(
@@ -229,6 +231,9 @@
 			window.removeEventListener('resize', handleResize);
 			isAnimating = false;
 
+			if (controls && cameraChangeHandler) {
+				controls.removeEventListener('change', cameraChangeHandler);
+			}
 			if (controls) controls.dispose();
 
 			scene.remove(gridHelper);

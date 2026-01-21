@@ -121,16 +121,19 @@
 			});
 
 		// Zero line (chaos threshold)
-		svg
-			.append('line')
-			.attr('x1', 0)
-			.attr('x2', width)
-			.attr('y1', yScale(0))
-			.attr('y2', yScale(0))
-			.attr('stroke', '#ff00ff')
-			.attr('stroke-width', 1.5)
-			.attr('stroke-dasharray', '5,5')
-			.attr('opacity', 0.5);
+		const zeroY = yScale(0);
+		if (Number.isFinite(zeroY) && zeroY >= 0 && zeroY <= chartHeight) {
+			svg
+				.append('line')
+				.attr('x1', 0)
+				.attr('x2', width)
+				.attr('y1', zeroY)
+				.attr('y2', zeroY)
+				.attr('stroke', '#ff00ff')
+				.attr('stroke-width', 1.5)
+				.attr('stroke-dasharray', '5,5')
+				.attr('opacity', 0.5);
+		}
 
 		// Create line generator with defined accessor to handle null values
 		const line = d3

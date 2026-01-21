@@ -101,11 +101,19 @@
 			{#if showCameraSync}
 				<button
 					onclick={toggleCameraSync}
+					aria-pressed={cameraSyncEnabled}
+					aria-label={cameraSyncEnabled ? 'Camera sync enabled' : 'Camera sync disabled'}
 					class="px-4 py-2 {cameraSyncEnabled
 						? 'bg-accent/20 text-accent border-accent/30'
 						: 'bg-primary/10 text-primary border-primary/30'} border rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
 				>
-					{cameraSyncEnabled ? '🔗 Sync On' : '🔓 Sync Off'}
+					{#if cameraSyncEnabled}
+						<span aria-hidden="true">🔗</span>
+						<span class="ml-2">Sync On</span>
+					{:else}
+						<span aria-hidden="true">🔓</span>
+						<span class="ml-2">Sync Off</span>
+					{/if}
 				</button>
 			{/if}
 			<button

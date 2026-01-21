@@ -1,9 +1,9 @@
 import { defineConfig } from 'vitest/config';
-import { svelte } from '@sveltejs/vite-plugin-svelte';
+import { sveltekit } from '@sveltejs/kit/vite';
 import { resolve } from 'path';
 
 export default defineConfig({
-	plugins: [svelte()],
+	plugins: [sveltekit()],
 	test: {
 		// Only include vitest component tests (use .vitest.ts extension to avoid bun:test conflicts)
 		include: ['src/lib/components/**/*.vitest.ts'],
