@@ -93,6 +93,20 @@
 			maxIterations: rightMaxIterations
 		};
 	}
+
+	function handleLeftParamsChange(params: BifurcationHenonParameters) {
+		leftAMin = params.aMin;
+		leftAMax = params.aMax;
+		leftB = params.b;
+		leftMaxIterations = params.maxIterations;
+	}
+
+	function handleRightParamsChange(params: BifurcationHenonParameters) {
+		rightAMin = params.aMin;
+		rightAMax = params.aMax;
+		rightB = params.b;
+		rightMaxIterations = params.maxIterations;
+	}
 </script>
 
 <ComparisonLayout
@@ -100,6 +114,8 @@
 	leftParams={getLeftParams()}
 	rightParams={getRightParams()}
 	showCameraSync={false}
+	onLeftParamsChange={(params) => handleLeftParamsChange(params as BifurcationHenonParameters)}
+	onRightParamsChange={(params) => handleRightParamsChange(params as BifurcationHenonParameters)}
 >
 	{#snippet leftPanel()}
 		<div class="space-y-4">

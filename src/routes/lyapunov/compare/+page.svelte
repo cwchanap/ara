@@ -105,6 +105,20 @@
 			transientIterations: rightTransientIterations
 		};
 	}
+
+	function handleLeftParamsChange(params: LyapunovParameters) {
+		leftRMin = params.rMin;
+		leftRMax = params.rMax;
+		leftIterations = params.iterations;
+		leftTransientIterations = params.transientIterations;
+	}
+
+	function handleRightParamsChange(params: LyapunovParameters) {
+		rightRMin = params.rMin;
+		rightRMax = params.rMax;
+		rightIterations = params.iterations;
+		rightTransientIterations = params.transientIterations;
+	}
 </script>
 
 <ComparisonLayout
@@ -112,6 +126,8 @@
 	leftParams={getLeftParams()}
 	rightParams={getRightParams()}
 	showCameraSync={false}
+	onLeftParamsChange={(params) => handleLeftParamsChange(params as LyapunovParameters)}
+	onRightParamsChange={(params) => handleRightParamsChange(params as LyapunovParameters)}
 >
 	{#snippet leftPanel()}
 		<div class="space-y-4">
