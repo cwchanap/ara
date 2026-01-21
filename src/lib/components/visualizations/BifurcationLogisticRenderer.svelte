@@ -58,6 +58,7 @@
 		void rMin;
 		void rMax;
 		void maxIterations;
+		void height;
 		if (canvas) render();
 	});
 </script>

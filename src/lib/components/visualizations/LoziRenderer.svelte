@@ -31,8 +31,8 @@
 		d3.select(container).selectAll('*').remove();
 
 		const margin = { top: 20, right: 20, bottom: 50, left: 60 };
-		const width = container.clientWidth - margin.left - margin.right;
-		const chartHeight = height - margin.top - margin.bottom;
+		const width = Math.max(0, container.clientWidth - margin.left - margin.right);
+		const chartHeight = Math.max(0, height - margin.top - margin.bottom);
 
 		const svg = d3
 			.select(container)

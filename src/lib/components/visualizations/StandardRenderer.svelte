@@ -150,6 +150,7 @@
 		void numP;
 		void numQ;
 		void iterations;
+		void height;
 		if (container && container.clientWidth > 0) render();
 	});
 </script>

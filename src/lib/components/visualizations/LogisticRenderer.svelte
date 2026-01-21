@@ -33,8 +33,6 @@
 	function render() {
 		if (!container) return;
 
-		d3.select(container).selectAll('*').remove();
-
 		const margin = { top: 20, right: 20, bottom: 50, left: 60 };
 		const containerWidth = container.clientWidth;
 		if (containerWidth <= 0) {
@@ -46,13 +44,18 @@
 		const width = containerWidth - margin.left - margin.right;
 		const chartHeight = height - margin.top - margin.bottom;
 
-		const svg = d3
+		const svgRoot = d3
 			.select(container)
-			.append('svg')
+			.selectAll<SVGSVGElement, unknown>('svg.logistic-svg')
+			.data([null])
+			.join('svg')
+			.classed('logistic-svg', true)
 			.attr('width', container.clientWidth)
-			.attr('height', height)
-			.append('g')
-			.attr('transform', `translate(${margin.left},${margin.top})`);
+			.attr('height', height);
+
+		svgRoot.selectAll('*').remove();
+
+		const svg = svgRoot.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
 		const points = calculateLogistic(r, x0, iterations);
 
