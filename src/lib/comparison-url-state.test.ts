@@ -81,7 +81,7 @@ describe('getDefaultParameters', () => {
 		expect(params.K).toBe(0.97);
 		expect(params.numP).toBe(20);
 		expect(params.numQ).toBe(20);
-		expect(params.iterations).toBe(100);
+		expect(params.iterations).toBe(20000);
 	});
 
 	test('returns correct default parameters for bifurcation-logistic', () => {

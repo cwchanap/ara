@@ -33,7 +33,7 @@ export function getDefaultParameters(mapType: ChaosMapType): ChaosMapParameters 
 		case 'newton':
 			return { type: 'newton', xMin: -2, xMax: 2, yMin: -2, yMax: 2, maxIterations: 50 };
 		case 'standard':
-			return { type: 'standard', K: 0.97, numP: 20, numQ: 20, iterations: 100 };
+			return { type: 'standard', K: 0.97, numP: 20, numQ: 20, iterations: 20000 };
 		case 'bifurcation-logistic':
 			return { type: 'bifurcation-logistic', rMin: 2.5, rMax: 4.0, maxIterations: 1000 };
 		case 'bifurcation-henon':
