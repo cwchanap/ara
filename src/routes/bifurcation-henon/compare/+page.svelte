@@ -14,6 +14,9 @@
 
 	const initialState = decodeComparisonState($page.url, 'bifurcation-henon');
 	const defaultParams = getDefaultParameters('bifurcation-henon') as BifurcationHenonParameters;
+	const aMinLimit = 0.5;
+	const aMaxLimit = 1.5;
+	const aStep = 0.01;
 
 	let leftAMin = $state(
 		(initialState?.left as BifurcationHenonParameters)?.aMin ?? defaultParams.aMin
@@ -33,6 +36,49 @@
 		(initialState?.right as BifurcationHenonParameters)?.maxIterations ??
 			defaultParams.maxIterations
 	);
+
+	let leftALastMin = leftAMin;
+	let leftALastMax = leftAMax;
+	let rightALastMin = rightAMin;
+	let rightALastMax = rightAMax;
+	$effect(() => {
+		const previousMin = leftALastMin;
+		const previousMax = leftALastMax;
+		void leftAMin;
+		void leftAMax;
+		if (leftAMin < aMinLimit) leftAMin = aMinLimit;
+		if (leftAMax > aMaxLimit) leftAMax = aMaxLimit;
+		if (leftAMin >= leftAMax) {
+			const minChanged = leftAMin !== previousMin;
+			const maxChanged = leftAMax !== previousMax;
+			if (minChanged && !maxChanged) {
+				leftAMax = Math.min(aMaxLimit, leftAMin + aStep);
+			} else {
+				leftAMin = Math.max(aMinLimit, leftAMax - aStep);
+			}
+		}
+		leftALastMin = leftAMin;
+		leftALastMax = leftAMax;
+	});
+	$effect(() => {
+		const previousMin = rightALastMin;
+		const previousMax = rightALastMax;
+		void rightAMin;
+		void rightAMax;
+		if (rightAMin < aMinLimit) rightAMin = aMinLimit;
+		if (rightAMax > aMaxLimit) rightAMax = aMaxLimit;
+		if (rightAMin >= rightAMax) {
+			const minChanged = rightAMin !== previousMin;
+			const maxChanged = rightAMax !== previousMax;
+			if (minChanged && !maxChanged) {
+				rightAMax = Math.min(aMaxLimit, rightAMin + aStep);
+			} else {
+				rightAMin = Math.max(aMinLimit, rightAMax - aStep);
+			}
+		}
+		rightALastMin = rightAMin;
+		rightALastMax = rightAMax;
+	});
 
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	$effect(() => {
@@ -133,9 +179,9 @@
 							id="left-amin"
 							type="range"
 							bind:value={leftAMin}
-							min="0.5"
-							max="1.5"
-							step="0.01"
+							min={aMinLimit}
+							max={Math.max(aMinLimit, leftAMax - aStep)}
+							step={aStep}
 							class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
 						/>
 					</div>
@@ -151,9 +197,9 @@
 							id="left-amax"
 							type="range"
 							bind:value={leftAMax}
-							min="0.5"
-							max="1.5"
-							step="0.01"
+							min={Math.min(aMaxLimit, leftAMin + aStep)}
+							max={aMaxLimit}
+							step={aStep}
 							class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
 						/>
 					</div>
@@ -224,9 +270,9 @@
 							id="right-amin"
 							type="range"
 							bind:value={rightAMin}
-							min="0.5"
-							max="1.5"
-							step="0.01"
+							min={aMinLimit}
+							max={Math.max(aMinLimit, rightAMax - aStep)}
+							step={aStep}
 							class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
 						/>
 					</div>
@@ -242,9 +288,9 @@
 							id="right-amax"
 							type="range"
 							bind:value={rightAMax}
-							min="0.5"
-							max="1.5"
-							step="0.01"
+							min={Math.min(aMaxLimit, rightAMin + aStep)}
+							max={aMaxLimit}
+							step={aStep}
 							class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
 						/>
 					</div>

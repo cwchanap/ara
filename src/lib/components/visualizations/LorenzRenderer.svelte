@@ -8,6 +8,9 @@
 	import { onMount } from 'svelte';
 	import * as THREE from 'three';
 	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+	import { Line2 } from 'three/examples/jsm/lines/Line2.js';
+	import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
+	import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 	import { cameraSyncStore, createCameraState, applyCameraState } from '$lib/stores/camera-sync';
 
 	interface Props {
@@ -121,30 +124,36 @@
 
 		function createLorenzLine() {
 			const points = calculateLorenz(0.1, 0, 0, 15000, 0.005);
-			const geometry = new THREE.BufferGeometry().setFromPoints(points);
+			const geometry = new LineGeometry();
 
-			const colors = new Float32Array(points.length * 3);
+			const positions: number[] = [];
+			const colors: number[] = [];
 			const color1 = new THREE.Color(0x00f3ff);
 			const color2 = new THREE.Color(0xbc13fe);
 
 			for (let i = 0; i < points.length; i++) {
+				const point = points[i];
+				positions.push(point.x, point.y, point.z);
 				const t = i / points.length;
 				const color = new THREE.Color().copy(color1).lerp(color2, t);
-				colors[i * 3] = color.r;
-				colors[i * 3 + 1] = color.g;
-				colors[i * 3 + 2] = color.b;
+				colors.push(color.r, color.g, color.b);
 			}
-			geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
-			const material = new THREE.LineBasicMaterial({
+			geometry.setPositions(positions);
+			geometry.setColors(colors);
+
+			const material = new LineMaterial({
 				vertexColors: true,
 				linewidth: 2,
 				blending: THREE.AdditiveBlending,
 				transparent: true,
 				opacity: 0.8
 			});
+			material.resolution.set(container.clientWidth, container.clientHeight);
 
-			return new THREE.Line(geometry, material);
+			const line = new Line2(geometry, material);
+			line.computeLineDistances();
+			return line;
 		}
 
 		const disposeMaterial = (material: THREE.Material) => {
@@ -185,12 +194,27 @@
 			material.dispose();
 		};
 
-		const disposeLine = (line: THREE.Line) => {
+		const disposeLine = (line: Line2) => {
 			line.geometry.dispose();
 			if (Array.isArray(line.material)) {
 				line.material.forEach(disposeMaterial);
 			} else {
 				disposeMaterial(line.material);
+			}
+		};
+
+		const updateLineMaterialResolution = (line: Line2) => {
+			const { material } = line;
+			if (Array.isArray(material)) {
+				material.forEach((mat) => {
+					if (mat instanceof LineMaterial) {
+						mat.resolution.set(container.clientWidth, container.clientHeight);
+					}
+				});
+				return;
+			}
+			if (material instanceof LineMaterial) {
+				material.resolution.set(container.clientWidth, container.clientHeight);
 			}
 		};
 
@@ -217,6 +241,7 @@
 			camera.aspect = container.clientWidth / container.clientHeight;
 			camera.updateProjectionMatrix();
 			renderer.setSize(container.clientWidth, container.clientHeight);
+			updateLineMaterialResolution(lorenzLine);
 		};
 		window.addEventListener('resize', handleResize);
 

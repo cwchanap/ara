@@ -89,7 +89,15 @@
 		// Filter out null values for extent calculation
 		const validData = data.filter((d) => d.lyapunov !== null);
 		if (validData.length === 0) {
-			// All data is null, use fallback domain
+			svg
+				.append('text')
+				.attr('x', width / 2)
+				.attr('y', chartHeight / 2)
+				.attr('text-anchor', 'middle')
+				.attr('fill', '#00f3ff')
+				.attr('font-family', 'Rajdhani')
+				.attr('font-size', 14)
+				.text('No valid Lyapunov values');
 			return;
 		}
 

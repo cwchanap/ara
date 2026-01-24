@@ -25,6 +25,9 @@
 	let isRendering = false;
 	let canvasWidth = $state(0);
 	let canvasHeight = $state(0);
+	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+	let pendingRender = false;
+	let renderFrame: number | null = null;
 
 	const updateCanvasSize = () => {
 		if (!container) return;
@@ -54,46 +57,85 @@
 			return;
 		}
 
+		const localAMin = aMin;
+		const localAMax = aMax;
+		const localB = b;
+		const localMaxIterations = maxIterations;
+
 		ctx.clearRect(0, 0, imgWidth, imgHeight);
 		ctx.fillStyle = 'rgba(188, 19, 254, 0.4)';
 
 		const widthDenominator = Math.max(imgWidth - 1, 1);
-		for (let i = 0; i < imgWidth; i++) {
-			const a = aMin + (aMax - aMin) * (i / widthDenominator);
-			let x = 0;
-			let y = 0;
+		const columnsPerChunk = Math.max(1, Math.floor(imgWidth / 20));
+		let column = 0;
 
-			for (let j = 0; j < 100; j++) {
-				const xNew = y + 1 - a * x * x;
-				const yNew = b * x;
-				x = xNew;
-				y = yNew;
-			}
+		const drawChunk = () => {
+			if (!isRendering) return;
+			const end = Math.min(column + columnsPerChunk, imgWidth);
+			for (let i = column; i < end; i++) {
+				const a = localAMin + (localAMax - localAMin) * (i / widthDenominator);
+				let x = 0;
+				let y = 0;
 
-			for (let j = 0; j < maxIterations; j++) {
-				const xNew = y + 1 - a * x * x;
-				const yNew = b * x;
-				const plotY = Math.floor(-xNew * (imgHeight / 3) + imgHeight / 2);
-				if (plotY >= 0 && plotY < imgHeight) {
-					ctx.fillRect(i, plotY, 1, 1);
+				for (let j = 0; j < 100; j++) {
+					const xNew = y + 1 - a * x * x;
+					const yNew = localB * x;
+					x = xNew;
+					y = yNew;
 				}
-				x = xNew;
-				y = yNew;
+
+				for (let j = 0; j < localMaxIterations; j++) {
+					const xNew = y + 1 - a * x * x;
+					const yNew = localB * x;
+					const plotY = Math.floor(-xNew * (imgHeight / 3) + imgHeight / 2);
+					if (plotY >= 0 && plotY < imgHeight) {
+						ctx.fillRect(i, plotY, 1, 1);
+					}
+					x = xNew;
+					y = yNew;
+				}
 			}
-		}
-		isRendering = false;
+
+			column = end;
+			if (column < imgWidth) {
+				renderFrame = requestAnimationFrame(drawChunk);
+				return;
+			}
+
+			isRendering = false;
+			if (pendingRender) {
+				pendingRender = false;
+				scheduleRender();
+			}
+		};
+
+		drawChunk();
+	}
+
+	function scheduleRender() {
+		if (debounceTimer) clearTimeout(debounceTimer);
+		debounceTimer = setTimeout(() => {
+			debounceTimer = null;
+			if (isRendering) {
+				pendingRender = true;
+				return;
+			}
+			render();
+		}, 100);
 	}
 
 	onMount(() => {
 		updateCanvasSize();
 		const resizeObserver = new ResizeObserver(() => {
 			updateCanvasSize();
-			render();
+			scheduleRender();
 		});
 		if (container) {
 			resizeObserver.observe(container);
 		}
 		return () => {
+			if (debounceTimer) clearTimeout(debounceTimer);
+			if (renderFrame !== null) cancelAnimationFrame(renderFrame);
 			resizeObserver.disconnect();
 		};
 	});
@@ -105,7 +147,7 @@
 		void maxIterations;
 		void height;
 		updateCanvasSize();
-		if (canvas) render();
+		if (canvas) scheduleRender();
 	});
 </script>
 

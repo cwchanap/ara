@@ -23,35 +23,35 @@
 		if (!canvas || isRendering) return;
 		isRendering = true;
 
-		const imgWidth = canvas.width;
-		const imgHeight = canvas.height;
-		const ctx = canvas.getContext('2d');
-		if (!ctx) {
-			isRendering = false;
-			return;
-		}
+		try {
+			const imgWidth = canvas.width;
+			const imgHeight = canvas.height;
+			const ctx = canvas.getContext('2d');
+			if (!ctx) return;
 
-		ctx.clearRect(0, 0, imgWidth, imgHeight);
-		ctx.fillStyle = 'rgba(255, 80, 0, 0.3)';
+			ctx.clearRect(0, 0, imgWidth, imgHeight);
+			ctx.fillStyle = 'rgba(255, 80, 0, 0.3)';
 
-		for (let i = 0; i < imgWidth; i++) {
-			const denom = Math.max(1, imgWidth - 1);
-			const r = rMin + (rMax - rMin) * (i / denom);
-			let x = 0.5;
+			for (let i = 0; i < imgWidth; i++) {
+				const denom = Math.max(1, imgWidth - 1);
+				const r = rMin + (rMax - rMin) * (i / denom);
+				let x = 0.5;
 
-			for (let j = 0; j < 100; j++) {
-				x = r * x * (1 - x);
-			}
+				for (let j = 0; j < 100; j++) {
+					x = r * x * (1 - x);
+				}
 
-			for (let j = 0; j < maxIterations; j++) {
-				x = r * x * (1 - x);
-				const y = Math.floor(x * imgHeight);
-				if (y >= 0 && y < imgHeight) {
-					ctx.fillRect(i, imgHeight - y - 1, 1, 1);
+				for (let j = 0; j < maxIterations; j++) {
+					x = r * x * (1 - x);
+					const y = Math.floor(x * imgHeight);
+					if (y >= 0 && y < imgHeight) {
+						ctx.fillRect(i, imgHeight - y - 1, 1, 1);
+					}
 				}
 			}
+		} finally {
+			isRendering = false;
 		}
-		isRendering = false;
 	}
 
 	$effect(() => {
