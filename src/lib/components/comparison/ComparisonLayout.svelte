@@ -43,9 +43,15 @@
 
 	// Subscribe to camera sync store
 	$effect(() => {
-		return cameraSyncStore.subscribe((state) => {
+		const unsubscribe = cameraSyncStore.subscribe((state) => {
 			cameraSyncEnabled = state.enabled;
 		});
+
+		// Cleanup: reset camera sync store on unmount to prevent stale state
+		return () => {
+			unsubscribe();
+			cameraSyncStore.reset();
+		};
 	});
 
 	function handleSwap() {
