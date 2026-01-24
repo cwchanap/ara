@@ -37,23 +37,17 @@
 
 	// Ensure rMin ≤ rMax for both sides
 	$effect(() => {
+		void leftRMin;
+		void leftRMax;
 		if (leftRMin > leftRMax) {
 			leftRMax = leftRMin;
 		}
 	});
 	$effect(() => {
-		if (leftRMax < leftRMin) {
-			leftRMin = leftRMax;
-		}
-	});
-	$effect(() => {
+		void rightRMin;
+		void rightRMax;
 		if (rightRMin > rightRMax) {
 			rightRMax = rightRMin;
-		}
-	});
-	$effect(() => {
-		if (rightRMax < rightRMin) {
-			rightRMin = rightRMax;
 		}
 	});
 
