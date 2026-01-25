@@ -2,7 +2,6 @@
   LyapunovRenderer Component - D3.js visualization for Lyapunov exponents
 -->
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import * as d3 from 'd3';
 
 	interface Props {
@@ -154,9 +153,11 @@
 		// Draw segments colored by sign
 		for (let i = 0; i < data.length - 1; i++) {
 			const segment = data.slice(i, i + 2);
+			// Use the first non-null lyapunov value
+			const lyap = segment[0].lyapunov ?? segment[1].lyapunov;
 			// Skip segments where both points are null
-			if (segment.every((d) => d.lyapunov === null)) continue;
-			const color = (segment[0].lyapunov ?? 0) < 0 ? '#00f3ff' : '#ff00ff';
+			if (lyap === null) continue;
+			const color = lyap < 0 ? '#00f3ff' : '#ff00ff';
 			svg
 				.append('path')
 				.datum(segment)
@@ -166,10 +167,6 @@
 				.attr('d', line);
 		}
 	}
-
-	onMount(() => {
-		render();
-	});
 
 	$effect(() => {
 		void rMin;

@@ -46,12 +46,6 @@
 		void rightRMax;
 		void rightIterations;
 		void rightTransientIterations;
-		if (leftRMin > leftRMax) {
-			leftRMax = leftRMin;
-		}
-		if (rightRMin > rightRMax) {
-			rightRMax = rightRMin;
-		}
 		if (!initialized) {
 			initialized = true;
 			return;
