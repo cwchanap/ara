@@ -33,8 +33,8 @@
 	let isAnimating = $state(true);
 	let recreate: () => void;
 
-	let controls: OrbitControls;
-	let camera: THREE.PerspectiveCamera;
+	let controls = $state<OrbitControls | null>(null);
+	let camera = $state<THREE.PerspectiveCamera | null>(null);
 
 	$effect(() => {
 		void a;
@@ -63,13 +63,14 @@
 		const scene = new THREE.Scene();
 		scene.background = null;
 
-		camera = new THREE.PerspectiveCamera(
+		const localCamera = new THREE.PerspectiveCamera(
 			75,
 			container.clientWidth / container.clientHeight,
 			0.1,
 			1000
 		);
-		camera.position.set(30, 30, 30);
+		localCamera.position.set(30, 30, 30);
+		camera = localCamera;
 
 		const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 		renderer.setSize(container.clientWidth, container.clientHeight);
@@ -77,15 +78,16 @@
 		// eslint-disable-next-line svelte/no-dom-manipulating
 		container.appendChild(renderer.domElement);
 
-		controls = new OrbitControls(camera, renderer.domElement);
-		controls.enableDamping = true;
-		controls.autoRotate = !compareMode;
-		controls.autoRotateSpeed = 0.5;
+		const localControls = new OrbitControls(localCamera, renderer.domElement);
+		localControls.enableDamping = true;
+		localControls.autoRotate = !compareMode;
+		localControls.autoRotateSpeed = 0.5;
+		controls = localControls;
 
 		// Camera sync for comparison mode
 		if (compareMode) {
-			controls.addEventListener('change', () => {
-				const cameraState = createCameraState(camera, controls);
+			localControls.addEventListener('change', () => {
+				const cameraState = createCameraState(localCamera, localControls);
 				cameraSyncStore.updateFromSide(compareSide, cameraState);
 			});
 		}
@@ -179,16 +181,16 @@
 		function animate() {
 			if (!isAnimating) return;
 			requestAnimationFrame(animate);
-			controls.update();
-			renderer.render(scene, camera);
+			localControls.update();
+			renderer.render(scene, localCamera);
 		}
 
 		animate();
 
 		const handleResize = () => {
 			if (!container) return;
-			camera.aspect = container.clientWidth / container.clientHeight;
-			camera.updateProjectionMatrix();
+			localCamera.aspect = container.clientWidth / container.clientHeight;
+			localCamera.updateProjectionMatrix();
 			renderer.setSize(container.clientWidth, container.clientHeight);
 		};
 		window.addEventListener('resize', handleResize);
@@ -204,7 +206,7 @@
 			window.removeEventListener('resize', handleResize);
 			isAnimating = false;
 
-			controls.dispose();
+			localControls.dispose();
 
 			scene.remove(gridHelper);
 			gridHelper.geometry.dispose();

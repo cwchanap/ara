@@ -103,6 +103,7 @@
 			}
 
 			isRendering = false;
+			renderFrame = null;
 			if (pendingRender) {
 				pendingRender = false;
 				scheduleRender();

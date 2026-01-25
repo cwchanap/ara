@@ -193,6 +193,23 @@ describe('decodeComparisonState', () => {
 		expect((result!.left as LorenzParameters).sigma).toBe(10);
 	});
 
+	test('prefers mapType over decoded type field', () => {
+		const leftPayload = base64Encode(
+			JSON.stringify({ type: 'logistic', sigma: 10, rho: 28, beta: 2.667 })
+		);
+		const rightPayload = base64Encode(
+			JSON.stringify({ type: 'logistic', sigma: 12, rho: 30, beta: 3 })
+		);
+		const url = new URL(
+			`https://example.com/lorenz/compare?compare=true&left=${leftPayload}&right=${rightPayload}`
+		);
+		const result = decodeComparisonState(url, 'lorenz');
+
+		expect(result).not.toBeNull();
+		expect(result!.left.type).toBe('lorenz');
+		expect(result!.right.type).toBe('lorenz');
+	});
+
 	test('decodes valid comparison state for logistic map', () => {
 		const state: ComparisonURLState = {
 			compare: true,

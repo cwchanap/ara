@@ -23,10 +23,10 @@
 		(initialState?.left as ChaosEsthetiqueParameters)?.iterations ?? defaultParams.iterations
 	);
 
-	let rightA = $state((initialState?.right as ChaosEsthetiqueParameters)?.a ?? 0.9);
-	let rightB = $state((initialState?.right as ChaosEsthetiqueParameters)?.b ?? 0.9999);
-	let rightX0 = $state((initialState?.right as ChaosEsthetiqueParameters)?.x0 ?? 18);
-	let rightY0 = $state((initialState?.right as ChaosEsthetiqueParameters)?.y0 ?? 0);
+	let rightA = $state((initialState?.right as ChaosEsthetiqueParameters)?.a ?? defaultParams.a);
+	let rightB = $state((initialState?.right as ChaosEsthetiqueParameters)?.b ?? defaultParams.b);
+	let rightX0 = $state((initialState?.right as ChaosEsthetiqueParameters)?.x0 ?? defaultParams.x0);
+	let rightY0 = $state((initialState?.right as ChaosEsthetiqueParameters)?.y0 ?? defaultParams.y0);
 	let rightIterations = $state(
 		(initialState?.right as ChaosEsthetiqueParameters)?.iterations ?? defaultParams.iterations
 	);

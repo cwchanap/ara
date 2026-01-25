@@ -24,6 +24,7 @@
 
 	let container: HTMLDivElement;
 	const MAX_POINTS = 15000;
+	const SHADOW_POINT_THRESHOLD = 5000;
 
 	function f(x: number, a: number): number {
 		return a * x + (2 * (1 - a) * x * x) / (1 + x * x);
@@ -128,8 +129,9 @@
 
 		ctx.clearRect(0, 0, width, chartHeight);
 		ctx.globalAlpha = 0.6;
-		ctx.shadowBlur = 4;
-		ctx.shadowColor = 'rgba(255, 0, 255, 0.5)';
+		const useShadow = points.length <= SHADOW_POINT_THRESHOLD;
+		ctx.shadowBlur = useShadow ? 4 : 0;
+		ctx.shadowColor = useShadow ? 'rgba(255, 0, 255, 0.5)' : 'transparent';
 
 		for (let i = 0; i < points.length; i++) {
 			const [xVal, yVal] = points[i];

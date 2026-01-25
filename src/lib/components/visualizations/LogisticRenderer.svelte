@@ -2,6 +2,7 @@
   LogisticRenderer Component - D3.js visualization for Logistic map
 -->
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import * as d3 from 'd3';
 
 	interface Props {
@@ -19,6 +20,7 @@
 	}: Props = $props();
 
 	let container: HTMLDivElement;
+	let resizeObserver: ResizeObserver | null = null;
 
 	function calculateLogistic(r: number, x0: number, iterations: number): [number, number][] {
 		const points: [number, number][] = [];
@@ -36,10 +38,23 @@
 		const margin = { top: 20, right: 20, bottom: 50, left: 60 };
 		const containerWidth = container.clientWidth;
 		if (containerWidth <= 0) {
-			requestAnimationFrame(() => {
-				if (container) render();
-			});
+			if (!resizeObserver && container) {
+				resizeObserver = new ResizeObserver(() => {
+					if (!container) return;
+					const nextWidth = container.clientWidth;
+					if (nextWidth > 0) {
+						resizeObserver?.disconnect();
+						resizeObserver = null;
+						render();
+					}
+				});
+				resizeObserver.observe(container);
+			}
 			return;
+		}
+		if (resizeObserver) {
+			resizeObserver.disconnect();
+			resizeObserver = null;
 		}
 		const width = containerWidth - margin.left - margin.right;
 		const chartHeight = height - margin.top - margin.bottom;
@@ -117,6 +132,13 @@
 		void iterations;
 		void height;
 		if (container) render();
+	});
+
+	onMount(() => {
+		return () => {
+			resizeObserver?.disconnect();
+			resizeObserver = null;
+		};
 	});
 </script>
 

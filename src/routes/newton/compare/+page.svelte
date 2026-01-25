@@ -156,6 +156,38 @@
 							/>
 						</div>
 					</div>
+					<div class="grid grid-cols-2 gap-3">
+						<div class="space-y-1">
+							<label
+								for="left-ymin"
+								class="text-primary/80 text-xs uppercase tracking-widest font-bold">Y Min</label
+							>
+							<input
+								id="left-ymin"
+								type="range"
+								bind:value={leftYMin}
+								min="-5"
+								max="0"
+								step="0.1"
+								class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
+							/>
+						</div>
+						<div class="space-y-1">
+							<label
+								for="left-ymax"
+								class="text-primary/80 text-xs uppercase tracking-widest font-bold">Y Max</label
+							>
+							<input
+								id="left-ymax"
+								type="range"
+								bind:value={leftYMax}
+								min="0"
+								max="5"
+								step="0.1"
+								class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
+							/>
+						</div>
+					</div>
 					<div class="space-y-1">
 						<div class="flex justify-between">
 							<label for="left-max-iterations" class="text-primary/80 text-xs uppercase font-bold"
@@ -216,6 +248,38 @@
 								id="right-xmax"
 								type="range"
 								bind:value={rightXMax}
+								min="0"
+								max="5"
+								step="0.1"
+								class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
+							/>
+						</div>
+					</div>
+					<div class="grid grid-cols-2 gap-3">
+						<div class="space-y-1">
+							<label
+								for="right-ymin"
+								class="text-primary/80 text-xs uppercase tracking-widest font-bold">Y Min</label
+							>
+							<input
+								id="right-ymin"
+								type="range"
+								bind:value={rightYMin}
+								min="-5"
+								max="0"
+								step="0.1"
+								class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
+							/>
+						</div>
+						<div class="space-y-1">
+							<label
+								for="right-ymax"
+								class="text-primary/80 text-xs uppercase tracking-widest font-bold">Y Max</label
+							>
+							<input
+								id="right-ymax"
+								type="range"
+								bind:value={rightYMax}
 								min="0"
 								max="5"
 								step="0.1"
