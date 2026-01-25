@@ -29,8 +29,9 @@
 			const ctx = canvas.getContext('2d');
 			if (!ctx) return;
 
-			ctx.clearRect(0, 0, imgWidth, imgHeight);
-			ctx.fillStyle = 'rgba(255, 80, 0, 0.3)';
+			// Create ImageData buffer for efficient pixel manipulation
+			const imageData = ctx.createImageData(imgWidth, imgHeight);
+			const data = imageData.data;
 
 			for (let i = 0; i < imgWidth; i++) {
 				const denom = Math.max(1, imgWidth - 1);
@@ -45,10 +46,19 @@
 					x = r * x * (1 - x);
 					const y = Math.floor(x * imgHeight);
 					if (y >= 0 && y < imgHeight) {
-						ctx.fillRect(i, imgHeight - y - 1, 1, 1);
+						const row = imgHeight - y - 1;
+						const pixelIndex = (row * imgWidth + i) * 4;
+						// Set RGBA (orange with 0.3 opacity = ~77 alpha)
+						data[pixelIndex] = 255; // R
+						data[pixelIndex + 1] = 80; // G
+						data[pixelIndex + 2] = 0; // B
+						data[pixelIndex + 3] = 77; // A (0.3 * 255 ≈ 77)
 					}
 				}
 			}
+
+			// Draw the entire buffer at once
+			ctx.putImageData(imageData, 0, 0);
 		} finally {
 			isRendering = false;
 		}

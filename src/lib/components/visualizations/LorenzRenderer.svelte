@@ -34,6 +34,7 @@
 	let container: HTMLDivElement;
 	let isAnimating = $state(true);
 	let recreate: () => void;
+	let animationFrameId: number | null = null;
 
 	// For camera sync in compare mode
 	let controls: OrbitControls | null = null;
@@ -55,8 +56,8 @@
 			if (!state.enabled || state.lastUpdate === compareSide) return;
 
 			const otherState = compareSide === 'left' ? state.right : state.left;
-			if (otherState) {
-				applyCameraState(otherState, camera!, controls!);
+			if (otherState && camera && controls) {
+				applyCameraState(otherState, camera, controls);
 			}
 		});
 
@@ -229,7 +230,7 @@
 
 		function animate() {
 			if (!isAnimating) return;
-			requestAnimationFrame(animate);
+			animationFrameId = requestAnimationFrame(animate);
 			if (controls) controls.update();
 			if (camera) renderer.render(scene, camera);
 		}
@@ -255,6 +256,12 @@
 		return () => {
 			window.removeEventListener('resize', handleResize);
 			isAnimating = false;
+
+			// Cancel any pending animation frame
+			if (animationFrameId !== null) {
+				cancelAnimationFrame(animationFrameId);
+				animationFrameId = null;
+			}
 
 			if (controls && cameraChangeHandler) {
 				controls.removeEventListener('change', cameraChangeHandler);
