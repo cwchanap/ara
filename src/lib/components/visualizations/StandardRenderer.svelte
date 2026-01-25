@@ -38,8 +38,8 @@
 
 		outer: for (let i = 1; i <= numP; i++) {
 			for (let j = 1; j <= numQ; j++) {
-				let p = normalizeAngle(i / numP);
-				let q = normalizeAngle(j / numQ);
+				let p = normalizeAngle(((i - 1) / numP) * TWO_PI);
+				let q = normalizeAngle(((j - 1) / numQ) * TWO_PI);
 
 				for (let k = 0; k < iterations; k++) {
 					const pNew = normalizeAngle(p + K * Math.sin(q));

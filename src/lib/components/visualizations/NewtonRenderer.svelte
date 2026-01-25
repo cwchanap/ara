@@ -119,7 +119,6 @@
 		if (container) {
 			canvas.width = container.clientWidth;
 			canvas.height = height;
-			render();
 		}
 	});
 

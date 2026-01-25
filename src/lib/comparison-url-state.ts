@@ -112,7 +112,7 @@ function decodeParams<T extends ChaosMapType>(
 	try {
 		const decoded = JSON.parse(base64Decode(encoded));
 		// Add back the type field
-		const params = { type: mapType, ...decoded };
+		const params = { ...decoded, type: mapType };
 
 		// Validate the parameters
 		const validation = validateParameters(mapType, params);
