@@ -52,13 +52,54 @@ export function getDefaultParameters(mapType: ChaosMapType): ChaosMapParameters 
 }
 
 /**
+ * SSR-safe base64 encoding with UTF-8 support.
+ * Uses btoa in browser with unicode escaping, Buffer in Node.js.
+ */
+export function base64Encode(str: string): string {
+	if (typeof btoa !== 'undefined') {
+		// Handle unicode by converting to UTF-8 bytes first
+		const uriEncoded = encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) =>
+			String.fromCharCode(parseInt(p1, 16))
+		);
+		return btoa(uriEncoded);
+	}
+	// Node.js / SSR environment
+	if (typeof Buffer !== 'undefined') {
+		return Buffer.from(str, 'utf8').toString('base64');
+	}
+	throw new Error('No base64 encoding method available in current environment');
+}
+
+/**
+ * SSR-safe base64 decoding with UTF-8 support.
+ * Uses atob in browser with unicode unescaping, Buffer in Node.js.
+ */
+export function base64Decode(str: string): string {
+	if (typeof atob !== 'undefined') {
+		// Decode base64, then handle unicode conversion
+		const decoded = atob(str);
+		return decodeURIComponent(
+			decoded
+				.split('')
+				.map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+				.join('')
+		);
+	}
+	// Node.js / SSR environment
+	if (typeof Buffer !== 'undefined') {
+		return Buffer.from(str, 'base64').toString('utf8');
+	}
+	throw new Error('No base64 decoding method available in current environment');
+}
+
+/**
  * Encode parameters to base64 for URL.
  * Strips the 'type' field to save URL space since it's redundant with the route.
  */
 function encodeParams(params: ChaosMapParameters): string {
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	const { type, ...rest } = params;
-	return btoa(JSON.stringify(rest));
+	return base64Encode(JSON.stringify(rest));
 }
 
 /**
@@ -69,7 +110,7 @@ function decodeParams<T extends ChaosMapType>(
 	mapType: T
 ): ChaosMapParameters | null {
 	try {
-		const decoded = JSON.parse(atob(encoded));
+		const decoded = JSON.parse(base64Decode(encoded));
 		// Add back the type field
 		const params = { type: mapType, ...decoded };
 

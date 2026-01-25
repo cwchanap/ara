@@ -11,7 +11,9 @@ import {
 	decodeComparisonState,
 	swapParameters,
 	createComparisonStateFromCurrent,
-	buildComparisonUrl
+	buildComparisonUrl,
+	base64Encode,
+	base64Decode
 } from './comparison-url-state';
 import type { ComparisonURLState } from './comparison-url-state';
 import type {
@@ -354,6 +356,36 @@ describe('buildComparisonUrl', () => {
 		expect(decoded).not.toBeNull();
 		expect((decoded!.left as LogisticParameters).r).toBe(3.5);
 		expect((decoded!.right as LogisticParameters).r).toBe(3.9);
+	});
+});
+
+describe('SSR-safe base64 helpers', () => {
+	test('base64Encode and base64Decode handle basic strings', () => {
+		const input = '{"K":0.97,"numP":20,"numQ":20,"iterations":20000}';
+		const encoded = base64Encode(input);
+		const decoded = base64Decode(encoded);
+		expect(decoded).toBe(input);
+	});
+
+	test('base64Encode and base64Decode handle unicode strings', () => {
+		const input = '{"a":"b","c":"d é 🚀"}';
+		const encoded = base64Encode(input);
+		const decoded = base64Decode(encoded);
+		expect(decoded).toBe(input);
+	});
+
+	test('base64Encode and base64Decode are symmetric', () => {
+		const inputs = [
+			'{}',
+			'{"a":1}',
+			'{"sigma":10,"rho":28,"beta":2.6666666666666665}',
+			'{"K":0.971635,"numP":10,"numQ":10,"iterations":20000}'
+		];
+		for (const input of inputs) {
+			const encoded = base64Encode(input);
+			const decoded = base64Decode(encoded);
+			expect(decoded).toBe(input);
+		}
 	});
 });
 
