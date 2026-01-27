@@ -45,14 +45,18 @@
 
 	// Camera sync effect for comparison mode
 	$effect(() => {
-		if (!compareMode || !controls || !camera) return;
+		if (!compareMode) return;
+
+		const localControls = controls;
+		const localCamera = camera;
+		if (!localControls || !localCamera) return;
 
 		const unsubscribe = cameraSyncStore.subscribe((state) => {
 			if (!state.enabled || state.lastUpdate === compareSide) return;
 
 			const otherState = compareSide === 'left' ? state.right : state.left;
 			if (otherState) {
-				applyCameraState(otherState, camera, controls);
+				applyCameraState(otherState, localCamera, localControls);
 			}
 		});
 

@@ -2,6 +2,7 @@
   ChaosEsthetiqueRenderer Component - D3.js visualization for Chaos Esthetique
 -->
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import * as d3 from 'd3';
 
 	interface Props {
@@ -25,6 +26,15 @@
 	let container: HTMLDivElement;
 	const MAX_POINTS = 15000;
 	const SHADOW_POINT_THRESHOLD = 5000;
+	const DEBOUNCE_MS = 250;
+	let renderTimeout: ReturnType<typeof setTimeout> | null = null;
+	let worker: Worker | null = null;
+	let workerAvailable = false;
+	let workerRequestId = 0;
+	let latestWorkerRequestId = 0;
+	let isComputing = false;
+	let latestPoints: [number, number][] | null = null;
+	let isUnmounted = false;
 
 	function f(x: number, a: number): number {
 		return a * x + (2 * (1 - a) * x * x) / (1 + x * x);
@@ -53,7 +63,7 @@
 		return points;
 	}
 
-	function render() {
+	function render(points: [number, number][]) {
 		if (!container) return;
 
 		d3.select(container).selectAll('*').remove();
@@ -78,8 +88,6 @@
 			.attr('height', height)
 			.append('g')
 			.attr('transform', `translate(${margin.left},${margin.top})`);
-
-		const points = calculateChaos(a, b, x0, y0, iterations, MAX_POINTS);
 
 		// Guard against empty points array
 		if (points.length === 0) {
@@ -148,14 +156,94 @@
 		ctx.shadowBlur = 0;
 	}
 
+	function requestPoints() {
+		const payload = {
+			type: 'chaos' as const,
+			id: ++workerRequestId,
+			a,
+			b,
+			x0,
+			y0,
+			iterations,
+			maxPoints: MAX_POINTS
+		};
+
+		if (worker && workerAvailable) {
+			latestWorkerRequestId = payload.id;
+			isComputing = true;
+			worker.postMessage(payload);
+		} else {
+			isComputing = true;
+			const points = calculateChaos(a, b, x0, y0, iterations, MAX_POINTS);
+			latestPoints = points;
+			render(points);
+			isComputing = false;
+		}
+	}
+
+	function scheduleRender() {
+		if (!container || isComputing) return;
+		if (renderTimeout !== null) {
+			clearTimeout(renderTimeout);
+		}
+		renderTimeout = setTimeout(() => {
+			renderTimeout = null;
+			requestPoints();
+		}, DEBOUNCE_MS);
+	}
+
+	onMount(() => {
+		if (typeof window !== 'undefined' && 'Worker' in window) {
+			try {
+				worker = new Worker(new URL('../../workers/chaosMapsWorker.ts', import.meta.url), {
+					type: 'module'
+				});
+				workerAvailable = true;
+				worker.onmessage = (event: MessageEvent) => {
+					const data = event.data as {
+						type: string;
+						id: number;
+						points: [number, number][];
+					};
+					if (isUnmounted || !data || data.type !== 'chaosResult') return;
+					if (data.id !== latestWorkerRequestId) return;
+					isComputing = false;
+					latestPoints = data.points;
+					render(data.points);
+				};
+			} catch {
+				worker = null;
+				workerAvailable = false;
+			}
+		}
+
+		scheduleRender();
+
+		return () => {
+			isUnmounted = true;
+			if (worker) {
+				worker.terminate();
+				worker = null;
+			}
+			if (renderTimeout !== null) {
+				clearTimeout(renderTimeout);
+				renderTimeout = null;
+			}
+		};
+	});
+
 	$effect(() => {
 		void a;
 		void b;
 		void x0;
 		void y0;
 		void iterations;
+		scheduleRender();
+	});
+
+	$effect(() => {
 		void height;
-		if (container) render();
+		if (container && latestPoints) render(latestPoints);
 	});
 </script>
 
