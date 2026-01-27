@@ -30,6 +30,7 @@
 	let workerRequestId = 0;
 	let latestWorkerRequestId = 0;
 	let isComputing = false;
+	let hasPendingRender = false;
 	let latestPoints: [number, number][] | null = null;
 	let isUnmounted = false;
 
@@ -159,11 +160,19 @@
 			latestPoints = points;
 			render(points);
 			isComputing = false;
+			if (hasPendingRender) {
+				hasPendingRender = false;
+				scheduleRender();
+			}
 		}
 	}
 
 	function scheduleRender() {
-		if (!container || isComputing) return;
+		if (!container) return;
+		if (isComputing) {
+			hasPendingRender = true;
+			return;
+		}
 		if (renderTimeout !== null) {
 			clearTimeout(renderTimeout);
 		}
@@ -204,6 +213,10 @@
 					isComputing = false;
 					latestPoints = data.points;
 					render(data.points);
+					if (hasPendingRender) {
+						hasPendingRender = false;
+						scheduleRender();
+					}
 				};
 			} catch {
 				worker = null;
