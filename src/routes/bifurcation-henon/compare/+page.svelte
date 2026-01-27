@@ -37,13 +37,13 @@
 			defaultParams.maxIterations
 	);
 
-	let leftALastMin = leftAMin;
-	let leftALastMax = leftAMax;
-	let rightALastMin = rightAMin;
-	let rightALastMax = rightAMax;
+	let leftALastMin = $state<number | null>(null);
+	let leftALastMax = $state<number | null>(null);
+	let rightALastMin = $state<number | null>(null);
+	let rightALastMax = $state<number | null>(null);
 	$effect(() => {
-		const previousMin = leftALastMin;
-		const previousMax = leftALastMax;
+		const previousMin = leftALastMin ?? leftAMin;
+		const previousMax = leftALastMax ?? leftAMax;
 		void leftAMin;
 		void leftAMax;
 		if (leftAMin < aMinLimit) leftAMin = aMinLimit;
@@ -61,8 +61,8 @@
 		leftALastMax = leftAMax;
 	});
 	$effect(() => {
-		const previousMin = rightALastMin;
-		const previousMax = rightALastMax;
+		const previousMin = rightALastMin ?? rightAMin;
+		const previousMax = rightALastMax ?? rightAMax;
 		void rightAMin;
 		void rightAMax;
 		if (rightAMin < aMinLimit) rightAMin = aMinLimit;

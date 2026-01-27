@@ -23,6 +23,15 @@
 
 	let container: HTMLDivElement;
 	const MAX_POINTS = 20000;
+	const DEBOUNCE_MS = 150;
+	let renderTimeout: ReturnType<typeof setTimeout> | null = null;
+	let worker: Worker | null = null;
+	let workerAvailable = false;
+	let workerRequestId = 0;
+	let latestWorkerRequestId = 0;
+	let isComputing = false;
+	let latestPoints: [number, number][] | null = null;
+	let isUnmounted = false;
 
 	function standardMap(
 		numP: number,
@@ -54,7 +63,7 @@
 		return points;
 	}
 
-	function render() {
+	function render(points: [number, number][]) {
 		if (!container) return;
 
 		d3.select(container).selectAll('*').remove();
@@ -79,8 +88,6 @@
 			.attr('height', height)
 			.append('g')
 			.attr('transform', `translate(${margin.left},${margin.top})`);
-
-		const points = standardMap(numP, numQ, iterations, K, MAX_POINTS);
 
 		const xScale = d3
 			.scaleLinear()
@@ -131,17 +138,92 @@
 		ctx.globalAlpha = 1;
 	}
 
+	function requestPoints() {
+		const payload = {
+			type: 'standard' as const,
+			id: ++workerRequestId,
+			numP,
+			numQ,
+			iterations,
+			K,
+			maxPoints: MAX_POINTS
+		};
+
+		if (worker && workerAvailable) {
+			latestWorkerRequestId = payload.id;
+			isComputing = true;
+			worker.postMessage(payload);
+		} else {
+			isComputing = true;
+			const points = standardMap(numP, numQ, iterations, K, MAX_POINTS);
+			latestPoints = points;
+			render(points);
+			isComputing = false;
+		}
+	}
+
+	function scheduleRender() {
+		if (!container || isComputing) return;
+		if (renderTimeout !== null) {
+			clearTimeout(renderTimeout);
+		}
+		renderTimeout = setTimeout(() => {
+			renderTimeout = null;
+			requestPoints();
+		}, DEBOUNCE_MS);
+	}
+
 	onMount(() => {
 		// Set up ResizeObserver to handle container size changes
 		const resizeObserver = new ResizeObserver(() => {
-			if (container) render();
+			if (!container) return;
+			if (latestPoints) {
+				render(latestPoints);
+			} else {
+				scheduleRender();
+			}
 		});
 		if (container) {
 			resizeObserver.observe(container);
 		}
 
+		if (typeof window !== 'undefined' && 'Worker' in window) {
+			try {
+				worker = new Worker(new URL('../../workers/chaosMapsWorker.ts', import.meta.url), {
+					type: 'module'
+				});
+				workerAvailable = true;
+				worker.onmessage = (event: MessageEvent) => {
+					const data = event.data as {
+						type: string;
+						id: number;
+						points: [number, number][];
+					};
+					if (isUnmounted || !data || data.type !== 'standardResult') return;
+					if (data.id !== latestWorkerRequestId) return;
+					isComputing = false;
+					latestPoints = data.points;
+					render(data.points);
+				};
+			} catch {
+				worker = null;
+				workerAvailable = false;
+			}
+		}
+
+		scheduleRender();
+
 		return () => {
+			isUnmounted = true;
 			resizeObserver.disconnect();
+			if (worker) {
+				worker.terminate();
+				worker = null;
+			}
+			if (renderTimeout !== null) {
+				clearTimeout(renderTimeout);
+				renderTimeout = null;
+			}
 		};
 	});
 
@@ -150,8 +232,12 @@
 		void numP;
 		void numQ;
 		void iterations;
+		scheduleRender();
+	});
+
+	$effect(() => {
 		void height;
-		if (container && container.clientWidth > 0) render();
+		if (container && container.clientWidth > 0 && latestPoints) render(latestPoints);
 	});
 </script>
 
