@@ -224,7 +224,21 @@
 						scheduleRender();
 					}
 				};
-			} catch {
+				worker.onerror = (event: ErrorEvent) => {
+					console.error('Chaos esthetique worker error:', event.message);
+					isComputing = false;
+					workerAvailable = false;
+					worker?.terminate();
+					worker = null;
+					// Fallback to main thread computation
+					if (container && !isUnmounted) {
+						const points = calculateChaos(a, b, x0, y0, iterations, MAX_POINTS);
+						latestPoints = points;
+						render(points);
+					}
+				};
+			} catch (error) {
+				console.error('Failed to initialize chaos esthetique web worker:', error);
 				worker = null;
 				workerAvailable = false;
 			}

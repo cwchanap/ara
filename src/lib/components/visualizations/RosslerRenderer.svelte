@@ -32,6 +32,8 @@
 	let container: HTMLDivElement;
 	let isAnimating = $state(true);
 	let recreate: () => void;
+	let animationFrameId: number | null = null;
+	let cameraChangeHandler: (() => void) | null = null;
 
 	let controls = $state<OrbitControls | null>(null);
 	let camera = $state<THREE.PerspectiveCamera | null>(null);
@@ -90,10 +92,11 @@
 
 		// Camera sync for comparison mode
 		if (compareMode) {
-			localControls.addEventListener('change', () => {
+			cameraChangeHandler = () => {
 				const cameraState = createCameraState(localCamera, localControls);
 				cameraSyncStore.updateFromSide(compareSide, cameraState);
-			});
+			};
+			localControls.addEventListener('change', cameraChangeHandler);
 		}
 
 		function createRosslerLine() {
@@ -184,7 +187,7 @@
 
 		function animate() {
 			if (!isAnimating) return;
-			requestAnimationFrame(animate);
+			animationFrameId = requestAnimationFrame(animate);
 			localControls.update();
 			renderer.render(scene, localCamera);
 		}
@@ -209,6 +212,16 @@
 		return () => {
 			window.removeEventListener('resize', handleResize);
 			isAnimating = false;
+
+			if (animationFrameId !== null) {
+				cancelAnimationFrame(animationFrameId);
+				animationFrameId = null;
+			}
+
+			if (cameraChangeHandler) {
+				localControls.removeEventListener('change', cameraChangeHandler);
+				cameraChangeHandler = null;
+			}
 
 			localControls.dispose();
 

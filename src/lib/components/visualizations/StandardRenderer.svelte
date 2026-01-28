@@ -218,7 +218,21 @@
 						scheduleRender();
 					}
 				};
-			} catch {
+				worker.onerror = (event: ErrorEvent) => {
+					console.error('Standard map worker error:', event.message);
+					isComputing = false;
+					workerAvailable = false;
+					worker?.terminate();
+					worker = null;
+					// Fallback to main thread computation
+					if (container && !isUnmounted) {
+						const points = standardMap(numP, numQ, iterations, K, MAX_POINTS);
+						latestPoints = points;
+						render(points);
+					}
+				};
+			} catch (error) {
+				console.error('Failed to initialize standard map web worker:', error);
 				worker = null;
 				workerAvailable = false;
 			}

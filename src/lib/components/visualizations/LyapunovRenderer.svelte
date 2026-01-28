@@ -173,6 +173,7 @@
 		void rMax;
 		void iterations;
 		void transientIterations;
+		void height;
 		if (container) render();
 	});
 </script>
