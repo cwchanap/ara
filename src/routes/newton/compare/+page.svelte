@@ -23,11 +23,13 @@
 		(initialState?.left as NewtonParameters)?.maxIterations ?? defaultParams.maxIterations
 	);
 
-	let rightXMin = $state((initialState?.right as NewtonParameters)?.xMin ?? -1);
-	let rightXMax = $state((initialState?.right as NewtonParameters)?.xMax ?? 1);
-	let rightYMin = $state((initialState?.right as NewtonParameters)?.yMin ?? -1);
-	let rightYMax = $state((initialState?.right as NewtonParameters)?.yMax ?? 1);
-	let rightMaxIterations = $state((initialState?.right as NewtonParameters)?.maxIterations ?? 100);
+	let rightXMin = $state((initialState?.right as NewtonParameters)?.xMin ?? defaultParams.xMin);
+	let rightXMax = $state((initialState?.right as NewtonParameters)?.xMax ?? defaultParams.xMax);
+	let rightYMin = $state((initialState?.right as NewtonParameters)?.yMin ?? defaultParams.yMin);
+	let rightYMax = $state((initialState?.right as NewtonParameters)?.yMax ?? defaultParams.yMax);
+	let rightMaxIterations = $state(
+		(initialState?.right as NewtonParameters)?.maxIterations ?? defaultParams.maxIterations
+	);
 
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	$effect(() => {
