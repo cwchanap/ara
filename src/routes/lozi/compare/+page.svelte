@@ -23,10 +23,10 @@
 		(initialState?.left as LoziParameters)?.iterations ?? defaultParams.iterations
 	);
 
-	let rightA = $state((initialState?.right as LoziParameters)?.a ?? 1.5);
-	let rightB = $state((initialState?.right as LoziParameters)?.b ?? 0.3);
-	let rightX0 = $state((initialState?.right as LoziParameters)?.x0 ?? 0);
-	let rightY0 = $state((initialState?.right as LoziParameters)?.y0 ?? 0);
+	let rightA = $state((initialState?.right as LoziParameters)?.a ?? defaultParams.a);
+	let rightB = $state((initialState?.right as LoziParameters)?.b ?? defaultParams.b);
+	let rightX0 = $state((initialState?.right as LoziParameters)?.x0 ?? defaultParams.x0);
+	let rightY0 = $state((initialState?.right as LoziParameters)?.y0 ?? defaultParams.y0);
 	let rightIterations = $state(
 		(initialState?.right as LoziParameters)?.iterations ?? defaultParams.iterations
 	);

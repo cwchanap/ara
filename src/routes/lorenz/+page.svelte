@@ -425,12 +425,21 @@
 			</p>
 		</div>
 		<div class="flex gap-3">
-			<a
-				href={comparisonUrl}
-				class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
-			>
-				⊞ Compare
-			</a>
+			{#if comparisonUrl}
+				<a
+					href={comparisonUrl}
+					class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
+				>
+					⊞ Compare
+				</a>
+			{:else}
+				<span
+					class="px-6 py-2 bg-primary/10 text-primary border border-primary/30 rounded-sm uppercase tracking-widest text-sm font-bold opacity-50 cursor-not-allowed"
+					aria-disabled="true"
+				>
+					⊞ Compare
+				</span>
+			{/if}
 			<button
 				onclick={() => (shareState.showShareDialog = true)}
 				class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
