@@ -37,8 +37,8 @@
 	let animationFrameId: number | null = null;
 
 	// For camera sync in compare mode
-	let controls: OrbitControls | null = null;
-	let camera: THREE.PerspectiveCamera | null = null;
+	let controls = $state<OrbitControls | null>(null);
+	let camera = $state<THREE.PerspectiveCamera | null>(null);
 	let cameraChangeHandler: (() => void) | null = null;
 
 	$effect(() => {

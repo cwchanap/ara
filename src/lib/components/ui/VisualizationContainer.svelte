@@ -27,7 +27,7 @@
 			.replace(/[^A-Z0-9]+/g, '_')
 			.replace(/^_+|_+$/g, '');
 
-	$: normalizedRenderEngine = normalizeRenderEngine(renderEngine);
+	const normalizedRenderEngine = $derived(normalizeRenderEngine(renderEngine));
 </script>
 
 <div

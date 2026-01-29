@@ -66,6 +66,7 @@
 		K: number,
 		maxPoints: number
 	): [number, number][] {
+		if (numP <= 0 || numQ <= 0 || iterations <= 0 || maxPoints <= 0) return [];
 		const points: [number, number][] = [];
 
 		const TWO_PI = 2 * Math.PI;
@@ -151,7 +152,7 @@
 		if (!canvas || !ctx) return;
 
 		ctx.clearRect(0, 0, width, chartHeight);
-		ctx.fillStyle = '#00ffcc';
+		ctx.fillStyle = '#00f3ff';
 		ctx.globalAlpha = 0.4;
 
 		for (const [qVal, pVal] of points) {

@@ -162,11 +162,15 @@
 
 <div
 	bind:this={container}
-	class="bg-black/40 border border-primary/20 rounded-sm overflow-hidden shadow-[0_0_30px_rgba(0,0,0,0.5)] relative"
+	class="bg-black/40 border border-primary/30 rounded-sm overflow-hidden relative backdrop-blur-md ring-1 ring-primary/30 shadow-[0_0_25px_rgba(0,243,255,0.25),0_0_45px_rgba(255,0,255,0.15)]"
 	style="height: {height}px;"
 >
+	<div class="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-primary"></div>
+	<div class="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-primary"></div>
+	<div class="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-primary"></div>
+	<div class="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-primary"></div>
 	<div
-		class="absolute top-4 right-4 text-xs font-['Rajdhani'] text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
+		class="absolute top-4 right-4 text-xs font-['Rajdhani'] text-primary/80 border border-primary/40 bg-black/60 backdrop-blur-sm px-2 py-1 pointer-events-none select-none shadow-[0_0_12px_rgba(0,243,255,0.35)]"
 	>
 		LIVE_RENDER // D3_JS
 	</div>
