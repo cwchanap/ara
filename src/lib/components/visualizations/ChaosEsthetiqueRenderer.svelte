@@ -4,6 +4,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import * as d3 from 'd3';
+	import { checkParameterStability } from '$lib/chaos-validation';
 
 	interface Props {
 		a?: number;
@@ -57,6 +58,7 @@
 		for (let i = 0; i < steps; i++) {
 			const xNew = y + f(x, a);
 			const yNew = -b * x + f(xNew, a);
+			if (!Number.isFinite(xNew) || !Number.isFinite(yNew)) break;
 			points.push([xNew, yNew]);
 			x = xNew;
 			y = yNew;
@@ -158,6 +160,16 @@
 	}
 
 	function requestPoints() {
+		const params = { type: 'chaos-esthetique' as const, a, b, x0, y0, iterations };
+		const stability = checkParameterStability('chaos-esthetique', params);
+		const numericValues = [a, b, x0, y0, iterations];
+		if (!numericValues.every(Number.isFinite) || iterations <= 0 || !stability.isStable) {
+			latestPoints = [];
+			isComputing = false;
+			render([]);
+			return;
+		}
+
 		const payload = {
 			type: 'chaos' as const,
 			id: ++workerRequestId,

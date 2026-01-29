@@ -443,6 +443,22 @@ describe('checkParameterStability for standard', () => {
 	});
 });
 
+describe('checkParameterStability for chaos-esthetique', () => {
+	test('returns warnings when values are outside stable range', () => {
+		const params = {
+			type: 'chaos-esthetique' as const,
+			a: 3,
+			b: -1,
+			x0: 100,
+			y0: -100,
+			iterations: 10000
+		};
+		const result = checkParameterStability('chaos-esthetique', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.length).toBeGreaterThan(0);
+	});
+});
+
 describe('isValidMapType for lozi', () => {
 	test('returns true for lozi', () => {
 		expect(isValidMapType('lozi')).toBe(true);

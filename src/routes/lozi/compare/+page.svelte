@@ -10,26 +10,50 @@
 		getDefaultParameters,
 		encodeComparisonState
 	} from '$lib/comparison-url-state';
+	import { getStableRanges } from '$lib/chaos-validation';
 	import type { LoziParameters } from '$lib/types';
 
 	const initialState = decodeComparisonState($page.url, 'lozi');
 	const defaultParams = getDefaultParameters('lozi') as LoziParameters;
+	const loziRanges = getStableRanges('lozi');
 
-	let leftA = $state((initialState?.left as LoziParameters)?.a ?? defaultParams.a);
-	let leftB = $state((initialState?.left as LoziParameters)?.b ?? defaultParams.b);
-	let leftX0 = $state((initialState?.left as LoziParameters)?.x0 ?? defaultParams.x0);
-	let leftY0 = $state((initialState?.left as LoziParameters)?.y0 ?? defaultParams.y0);
-	let leftIterations = $state(
-		(initialState?.left as LoziParameters)?.iterations ?? defaultParams.iterations
-	);
+	const clampValue = (value: number, min: number, max: number, fallback: number) => {
+		if (!Number.isFinite(value)) return fallback;
+		return Math.min(max, Math.max(min, value));
+	};
 
-	let rightA = $state((initialState?.right as LoziParameters)?.a ?? defaultParams.a);
-	let rightB = $state((initialState?.right as LoziParameters)?.b ?? defaultParams.b);
-	let rightX0 = $state((initialState?.right as LoziParameters)?.x0 ?? defaultParams.x0);
-	let rightY0 = $state((initialState?.right as LoziParameters)?.y0 ?? defaultParams.y0);
-	let rightIterations = $state(
-		(initialState?.right as LoziParameters)?.iterations ?? defaultParams.iterations
-	);
+	const clampLoziParams = (params?: LoziParameters | null): LoziParameters => {
+		const source = params ?? defaultParams;
+		if (!loziRanges) return source;
+		return {
+			type: 'lozi',
+			a: clampValue(source.a, loziRanges.a.min, loziRanges.a.max, defaultParams.a),
+			b: clampValue(source.b, loziRanges.b.min, loziRanges.b.max, defaultParams.b),
+			x0: clampValue(source.x0, loziRanges.x0.min, loziRanges.x0.max, defaultParams.x0),
+			y0: clampValue(source.y0, loziRanges.y0.min, loziRanges.y0.max, defaultParams.y0),
+			iterations: clampValue(
+				source.iterations,
+				loziRanges.iterations.min,
+				loziRanges.iterations.max,
+				defaultParams.iterations
+			)
+		};
+	};
+
+	const leftInitial = clampLoziParams(initialState?.left as LoziParameters | null);
+	const rightInitial = clampLoziParams(initialState?.right as LoziParameters | null);
+
+	let leftA = $state(leftInitial.a);
+	let leftB = $state(leftInitial.b);
+	let leftX0 = $state(leftInitial.x0);
+	let leftY0 = $state(leftInitial.y0);
+	let leftIterations = $state(leftInitial.iterations);
+
+	let rightA = $state(rightInitial.a);
+	let rightB = $state(rightInitial.b);
+	let rightX0 = $state(rightInitial.x0);
+	let rightY0 = $state(rightInitial.y0);
+	let rightIterations = $state(rightInitial.iterations);
 
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	$effect(() => {
