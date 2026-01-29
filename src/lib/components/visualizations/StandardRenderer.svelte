@@ -34,6 +34,31 @@
 	let latestPoints: [number, number][] | null = null;
 	let isUnmounted = false;
 
+	function handleWorkerFailure(reason?: unknown) {
+		if (reason) {
+			console.error('Standard map worker failure:', reason);
+		}
+		workerAvailable = false;
+		if (worker) {
+			worker.terminate();
+		}
+		worker = null;
+		isComputing = false;
+		if (isUnmounted) return;
+		if (hasPendingRender) {
+			hasPendingRender = false;
+			scheduleRender();
+			return;
+		}
+		if (latestPoints) {
+			render(latestPoints);
+			return;
+		}
+		const points = standardMap(numP, numQ, iterations, K, MAX_POINTS);
+		latestPoints = points;
+		render(points);
+	}
+
 	function standardMap(
 		numP: number,
 		numQ: number,
@@ -219,22 +244,13 @@
 					}
 				};
 				worker.onerror = (event: ErrorEvent) => {
-					console.error('Standard map worker error:', event.message);
-					isComputing = false;
-					workerAvailable = false;
-					worker?.terminate();
-					worker = null;
-					// Fallback to main thread computation
-					if (container && !isUnmounted) {
-						const points = standardMap(numP, numQ, iterations, K, MAX_POINTS);
-						latestPoints = points;
-						render(points);
-					}
+					handleWorkerFailure(event.message ?? event);
+				};
+				worker.onmessageerror = (event: MessageEvent) => {
+					handleWorkerFailure(event);
 				};
 			} catch (error) {
-				console.error('Failed to initialize standard map web worker:', error);
-				worker = null;
-				workerAvailable = false;
+				handleWorkerFailure(error);
 			}
 		}
 
@@ -274,8 +290,8 @@
 	style="height: {height}px;"
 >
 	<div
-		class="absolute top-4 right-4 text-xs font-mono text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
+		class="absolute top-4 right-4 text-xs font-['Rajdhani'] text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
 	>
-		LIVE_RENDER // D3.JS
+		LIVE_RENDER // D3_JS
 	</div>
 </div>

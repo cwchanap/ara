@@ -10,6 +10,7 @@
 		getDefaultParameters,
 		encodeComparisonState
 	} from '$lib/comparison-url-state';
+	import { getStableRanges } from '$lib/chaos-validation';
 	import type { NewtonParameters } from '$lib/types';
 
 	const initialState = decodeComparisonState($page.url, 'newton');
@@ -31,6 +32,27 @@
 		(initialState?.right as NewtonParameters)?.maxIterations ?? defaultParams.maxIterations
 	);
 
+	const newtonRanges = getStableRanges('newton');
+
+	function validateParameters(params: NewtonParameters): boolean {
+		const { xMin, xMax, yMin, yMax, maxIterations } = params;
+		if (![xMin, xMax, yMin, yMax, maxIterations].every(Number.isFinite)) return false;
+		if (xMin >= xMax || yMin >= yMax) return false;
+		if (!newtonRanges) return true;
+		return (
+			xMin >= newtonRanges.xMin.min &&
+			xMin <= newtonRanges.xMin.max &&
+			xMax >= newtonRanges.xMax.min &&
+			xMax <= newtonRanges.xMax.max &&
+			yMin >= newtonRanges.yMin.min &&
+			yMin <= newtonRanges.yMin.max &&
+			yMax >= newtonRanges.yMax.min &&
+			yMax <= newtonRanges.yMax.max &&
+			maxIterations >= newtonRanges.maxIterations.min &&
+			maxIterations <= newtonRanges.maxIterations.max
+		);
+	}
+
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	$effect(() => {
 		void leftXMin;
@@ -45,24 +67,27 @@
 		void rightMaxIterations;
 		if (debounceTimer) clearTimeout(debounceTimer);
 		debounceTimer = setTimeout(() => {
+			const leftParams: NewtonParameters = {
+				type: 'newton',
+				xMin: leftXMin,
+				xMax: leftXMax,
+				yMin: leftYMin,
+				yMax: leftYMax,
+				maxIterations: leftMaxIterations
+			};
+			const rightParams: NewtonParameters = {
+				type: 'newton',
+				xMin: rightXMin,
+				xMax: rightXMax,
+				yMin: rightYMin,
+				yMax: rightYMax,
+				maxIterations: rightMaxIterations
+			};
+			if (!validateParameters(leftParams) || !validateParameters(rightParams)) return;
 			const state = {
 				compare: true as const,
-				left: {
-					type: 'newton' as const,
-					xMin: leftXMin,
-					xMax: leftXMax,
-					yMin: leftYMin,
-					yMax: leftYMax,
-					maxIterations: leftMaxIterations
-				},
-				right: {
-					type: 'newton' as const,
-					xMin: rightXMin,
-					xMax: rightXMax,
-					yMin: rightYMin,
-					yMax: rightYMax,
-					maxIterations: rightMaxIterations
-				}
+				left: leftParams,
+				right: rightParams
 			};
 			goto(`${base}/newton/compare?${encodeComparisonState(state).toString()}`, {
 				replaceState: true,

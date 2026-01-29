@@ -412,6 +412,37 @@ describe('checkParameterStability for lozi', () => {
 	});
 });
 
+describe('checkParameterStability for newton', () => {
+	test('returns warnings when xMin is not less than xMax', () => {
+		const params = {
+			type: 'newton' as const,
+			xMin: 2,
+			xMax: 2,
+			yMin: -2,
+			yMax: 2,
+			maxIterations: 50
+		};
+		const result = checkParameterStability('newton', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('xMin must be less than xMax'))).toBe(true);
+	});
+});
+
+describe('checkParameterStability for standard', () => {
+	test('returns warnings when K is outside stable range', () => {
+		const params = {
+			type: 'standard' as const,
+			K: 20,
+			numP: 10,
+			numQ: 10,
+			iterations: 20000
+		};
+		const result = checkParameterStability('standard', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('K'))).toBe(true);
+	});
+});
+
 describe('isValidMapType for lozi', () => {
 	test('returns true for lozi', () => {
 		expect(isValidMapType('lozi')).toBe(true);

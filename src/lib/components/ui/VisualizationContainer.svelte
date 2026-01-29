@@ -20,6 +20,14 @@
 		containerRef = $bindable(),
 		children
 	}: Props = $props();
+
+	const normalizeRenderEngine = (value: string) =>
+		value
+			.toUpperCase()
+			.replace(/[^A-Z0-9]+/g, '_')
+			.replace(/^_+|_+$/g, '');
+
+	$: normalizedRenderEngine = normalizeRenderEngine(renderEngine);
 </script>
 
 <div
@@ -28,9 +36,9 @@
 	style="height: {height}px;"
 >
 	<div
-		class="absolute top-4 right-4 text-xs font-mono text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
+		class="absolute top-4 right-4 text-xs font-['Rajdhani'] text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
 	>
-		LIVE_RENDER // {renderEngine}
+		LIVE_RENDER // {normalizedRenderEngine}
 	</div>
 	{#if children}
 		{@render children()}

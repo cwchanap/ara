@@ -680,11 +680,11 @@
 		class="bg-black/40 border border-primary/20 rounded-sm overflow-hidden shadow-[0_0_30px_rgba(0,0,0,0.5)] relative h-[600px]"
 	>
 		<div
-			class={`absolute top-4 right-4 text-xs font-mono px-2 py-1 pointer-events-none select-none bg-black/60 backdrop-blur-sm border ${
+			class={`absolute top-4 right-4 text-xs font-['Rajdhani'] px-2 py-1 pointer-events-none select-none bg-black/60 backdrop-blur-sm border ${
 				isComputing ? 'text-accent border-accent' : 'text-primary/60 border-primary/40'
 			}`}
 		>
-			LIVE_RENDER // D3.JS
+			LIVE_RENDER // D3_JS
 			<span class="ml-2 text-[0.65rem] tracking-widest uppercase">
 				COMPUTE: {isComputing ? 'BUSY' : 'IDLE'}
 			</span>

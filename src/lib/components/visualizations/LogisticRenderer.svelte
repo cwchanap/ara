@@ -56,8 +56,8 @@
 			resizeObserver.disconnect();
 			resizeObserver = null;
 		}
-		const width = containerWidth - margin.left - margin.right;
-		const chartHeight = height - margin.top - margin.bottom;
+		const width = Math.max(0, containerWidth - margin.left - margin.right);
+		const chartHeight = Math.max(0, height - margin.top - margin.bottom);
 
 		const svgRoot = d3
 			.select(container)
@@ -148,8 +148,8 @@
 	style="height: {height}px;"
 >
 	<div
-		class="absolute top-4 right-4 text-xs font-mono text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
+		class="absolute top-4 right-4 text-xs font-['Rajdhani'] text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
 	>
-		LIVE_RENDER // D3.JS
+		LIVE_RENDER // D3_JS
 	</div>
 </div>
