@@ -13,7 +13,7 @@
 	--card-foreground: oklch(0.2 0.02 200);
 	--popover: oklch(1 0 0);
 	--popover-foreground: oklch(0.2 0.02 200);
-	--primary: oklch(0.6 0.18 200); /* Cyan-ish */
+	--primary: #00f3ff; /* Neon cyan */
 	--primary-foreground: oklch(0.98 0 0);
 	--secondary: oklch(0.95 0.02 200);
 	--secondary-foreground: oklch(0.2 0.02 200);
@@ -50,7 +50,7 @@
 	--popover-foreground: oklch(0.9 0.02 200);
 
 	/* Neon Cyan */
-	--primary: oklch(0.7 0.15 200);
+	--primary: #00f3ff;
 	--primary-foreground: oklch(0.1 0.02 240);
 
 	/* Deep Tech Blue */

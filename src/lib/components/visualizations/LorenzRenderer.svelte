@@ -246,6 +246,15 @@
 		};
 		window.addEventListener('resize', handleResize);
 
+		const resizeObserver = new ResizeObserver(() => {
+			if (!container) return;
+			handleResize();
+		});
+		if (container) {
+			resizeObserver.observe(container);
+			handleResize();
+		}
+
 		recreate = () => {
 			scene.remove(lorenzLine);
 			disposeLine(lorenzLine);
@@ -255,6 +264,7 @@
 
 		return () => {
 			window.removeEventListener('resize', handleResize);
+			resizeObserver.disconnect();
 			isAnimating = false;
 
 			// Cancel any pending animation frame
@@ -295,8 +305,8 @@
 	style="height: {height}px;"
 >
 	<div
-		class="absolute top-4 right-4 text-xs font-mono text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
+		class="absolute top-4 right-4 text-xs font-['Rajdhani'] text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
 	>
-		LIVE_RENDER // THREE.JS
+		LIVE_RENDER // THREE_JS
 	</div>
 </div>

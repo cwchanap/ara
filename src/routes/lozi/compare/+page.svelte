@@ -155,6 +155,44 @@
 							class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
 						/>
 					</div>
+					<div class="grid grid-cols-2 gap-3">
+						<div class="space-y-1">
+							<div class="flex justify-between items-end">
+								<label
+									for="left-x0"
+									class="text-primary/80 text-xs uppercase tracking-widest font-bold">x0</label
+								>
+								<span class="font-mono text-accent text-sm">{leftX0.toFixed(2)}</span>
+							</div>
+							<input
+								id="left-x0"
+								type="range"
+								bind:value={leftX0}
+								min="-2"
+								max="2"
+								step="0.01"
+								class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
+							/>
+						</div>
+						<div class="space-y-1">
+							<div class="flex justify-between items-end">
+								<label
+									for="left-y0"
+									class="text-primary/80 text-xs uppercase tracking-widest font-bold">y0</label
+								>
+								<span class="font-mono text-accent text-sm">{leftY0.toFixed(2)}</span>
+							</div>
+							<input
+								id="left-y0"
+								type="range"
+								bind:value={leftY0}
+								min="-2"
+								max="2"
+								step="0.01"
+								class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
+							/>
+						</div>
+					</div>
 					<div class="space-y-1">
 						<div class="flex justify-between items-end">
 							<label
@@ -228,6 +266,44 @@
 							step="0.01"
 							class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
 						/>
+					</div>
+					<div class="grid grid-cols-2 gap-3">
+						<div class="space-y-1">
+							<div class="flex justify-between items-end">
+								<label
+									for="right-x0"
+									class="text-primary/80 text-xs uppercase tracking-widest font-bold">x0</label
+								>
+								<span class="font-mono text-accent text-sm">{rightX0.toFixed(2)}</span>
+							</div>
+							<input
+								id="right-x0"
+								type="range"
+								bind:value={rightX0}
+								min="-2"
+								max="2"
+								step="0.01"
+								class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
+							/>
+						</div>
+						<div class="space-y-1">
+							<div class="flex justify-between items-end">
+								<label
+									for="right-y0"
+									class="text-primary/80 text-xs uppercase tracking-widest font-bold">y0</label
+								>
+								<span class="font-mono text-accent text-sm">{rightY0.toFixed(2)}</span>
+							</div>
+							<input
+								id="right-y0"
+								type="range"
+								bind:value={rightY0}
+								min="-2"
+								max="2"
+								step="0.01"
+								class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
+							/>
+						</div>
 					</div>
 					<div class="space-y-1">
 						<div class="flex justify-between items-end">

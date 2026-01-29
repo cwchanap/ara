@@ -79,7 +79,7 @@
 >
 	<canvas bind:this={canvas} width={800} height={height - 32} class="w-full h-full block"></canvas>
 	<div
-		class="absolute top-4 right-4 text-xs font-mono text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
+		class="absolute top-4 right-4 text-xs font-['Rajdhani'] text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
 	>
 		LIVE_RENDER // CANVAS_2D
 	</div>

@@ -115,8 +115,8 @@
 			const geometry = new THREE.BufferGeometry().setFromPoints(vertices);
 
 			const colors = new Float32Array(points.length * 3);
-			const color1 = new THREE.Color(0x3b82f6); // Blue
-			const color2 = new THREE.Color(0x8b5cf6); // Purple
+			const color1 = new THREE.Color(0x00f3ff); // Neon cyan
+			const color2 = new THREE.Color(0xff00ff); // Magenta
 
 			for (let i = 0; i < points.length; i++) {
 				const t = i / points.length;
@@ -179,7 +179,7 @@
 		let rosslerLine = createRosslerLine();
 		scene.add(rosslerLine);
 
-		const gridHelper = new THREE.GridHelper(100, 20, 0x3b82f6, 0x2d1b69);
+		const gridHelper = new THREE.GridHelper(100, 20, 0x00f3ff, 0xff00ff);
 		gridHelper.position.y = -20;
 		(gridHelper.material as THREE.Material).transparent = true;
 		(gridHelper.material as THREE.Material).opacity = 0.2;
@@ -248,12 +248,16 @@
 
 <div
 	bind:this={container}
-	class="bg-black/40 border border-primary/20 rounded-sm overflow-hidden shadow-[0_0_30px_rgba(0,0,0,0.5)] relative"
+	class="bg-black/40 border border-primary/20 rounded-sm overflow-hidden shadow-[0_0_30px_rgba(0,0,0,0.5)] relative backdrop-blur-md"
 	style="height: {height}px;"
 >
+	<div class="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-primary"></div>
+	<div class="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-primary"></div>
+	<div class="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-primary"></div>
+	<div class="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-primary"></div>
 	<div
-		class="absolute top-4 right-4 text-xs font-mono text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
+		class="absolute top-4 right-4 text-xs font-['Orbitron'] text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
 	>
-		LIVE_RENDER // THREE.JS
+		ROSSLER_RENDERER
 	</div>
 </div>

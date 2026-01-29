@@ -10,24 +10,59 @@
 		getDefaultParameters,
 		encodeComparisonState
 	} from '$lib/comparison-url-state';
+	import { getStableRanges, validateParameters } from '$lib/chaos-validation';
 	import type { StandardParameters } from '$lib/types';
 
 	const initialState = decodeComparisonState($page.url, 'standard');
 	const defaultParams = getDefaultParameters('standard') as StandardParameters;
+	const standardRanges = getStableRanges('standard');
 
-	let leftK = $state((initialState?.left as StandardParameters)?.K ?? defaultParams.K);
-	let leftNumP = $state((initialState?.left as StandardParameters)?.numP ?? defaultParams.numP);
-	let leftNumQ = $state((initialState?.left as StandardParameters)?.numQ ?? defaultParams.numQ);
-	let leftIterations = $state(
-		(initialState?.left as StandardParameters)?.iterations ?? defaultParams.iterations
+	const clampValue = (value: number, key: keyof StandardParameters, fallback: number) => {
+		if (!Number.isFinite(value)) return fallback;
+		const range = standardRanges?.[key as keyof typeof standardRanges];
+		if (!range) return value;
+		return Math.min(range.max, Math.max(range.min, value));
+	};
+
+	const clampInt = (value: number, key: keyof StandardParameters, fallback: number) => {
+		const clamped = clampValue(value, key, fallback);
+		const rounded = Math.round(clamped);
+		return clampValue(rounded, key, fallback);
+	};
+
+	const normalizeStandardParams = (
+		params: StandardParameters,
+		fallback: StandardParameters
+	): StandardParameters => {
+		const validation = validateParameters('standard', params);
+		if (!validation.isValid) return fallback;
+		return {
+			type: 'standard',
+			K: clampValue(params.K, 'K', fallback.K),
+			numP: clampInt(params.numP, 'numP', fallback.numP),
+			numQ: clampInt(params.numQ, 'numQ', fallback.numQ),
+			iterations: clampInt(params.iterations, 'iterations', fallback.iterations)
+		};
+	};
+
+	const leftInitial = normalizeStandardParams(
+		(initialState?.left as StandardParameters) ?? defaultParams,
+		defaultParams
+	);
+	const rightInitial = normalizeStandardParams(
+		(initialState?.right as StandardParameters) ?? defaultParams,
+		defaultParams
 	);
 
-	let rightK = $state((initialState?.right as StandardParameters)?.K ?? 1.5);
-	let rightNumP = $state((initialState?.right as StandardParameters)?.numP ?? defaultParams.numP);
-	let rightNumQ = $state((initialState?.right as StandardParameters)?.numQ ?? defaultParams.numQ);
-	let rightIterations = $state(
-		(initialState?.right as StandardParameters)?.iterations ?? defaultParams.iterations
-	);
+	let leftK = $state(leftInitial.K);
+	let leftNumP = $state(leftInitial.numP);
+	let leftNumQ = $state(leftInitial.numQ);
+	let leftIterations = $state(leftInitial.iterations);
+
+	let rightK = $state(rightInitial.K);
+	let rightNumP = $state(rightInitial.numP);
+	let rightNumQ = $state(rightInitial.numQ);
+	let rightIterations = $state(rightInitial.iterations);
 
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	$effect(() => {
@@ -41,22 +76,24 @@
 		void rightIterations;
 		if (debounceTimer) clearTimeout(debounceTimer);
 		debounceTimer = setTimeout(() => {
-			const state = {
-				compare: true as const,
-				left: {
-					type: 'standard' as const,
-					K: leftK,
-					numP: leftNumP,
-					numQ: leftNumQ,
-					iterations: leftIterations
-				},
-				right: {
-					type: 'standard' as const,
+			const leftParams = normalizeStandardParams(
+				{ type: 'standard', K: leftK, numP: leftNumP, numQ: leftNumQ, iterations: leftIterations },
+				defaultParams
+			);
+			const rightParams = normalizeStandardParams(
+				{
+					type: 'standard',
 					K: rightK,
 					numP: rightNumP,
 					numQ: rightNumQ,
 					iterations: rightIterations
-				}
+				},
+				defaultParams
+			);
+			const state = {
+				compare: true as const,
+				left: leftParams,
+				right: rightParams
 			};
 			goto(`${base}/standard/compare?${encodeComparisonState(state).toString()}`, {
 				replaceState: true,
