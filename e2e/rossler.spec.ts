@@ -50,7 +50,7 @@ test.describe('Rössler Attractor Page', () => {
 		await page.goto('/rossler');
 
 		// Check for the Three.js visualization label
-		await expect(page.getByText(/LIVE_RENDER.*THREE\.JS/i)).toBeVisible();
+		await expect(page.getByText(/LIVE_RENDER.*THREE[._]JS/i)).toBeVisible();
 	});
 
 	test('Rössler page has Save button', async ({ page }) => {

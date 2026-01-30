@@ -14,11 +14,9 @@ async function setRangeValue(
 test.describe('Comparison Mode - URL State', () => {
 	test('URL includes compare and encoded parameters', async ({ page }) => {
 		await page.goto('/lorenz/compare');
-		await page.waitForTimeout(500);
-		const url = page.url();
-		expect(url).toContain('compare=true');
-		expect(url).toContain('left=');
-		expect(url).toContain('right=');
+		await expect(page).toHaveURL(/compare=true/);
+		await expect(page).toHaveURL(/left=/);
+		await expect(page).toHaveURL(/right=/);
 	});
 
 	test('changing parameters updates URL', async ({ page }) => {

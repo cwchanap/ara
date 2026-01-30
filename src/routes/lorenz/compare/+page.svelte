@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
@@ -55,6 +56,20 @@
 			if (debounceTimer) clearTimeout(debounceTimer);
 			debounceTimer = null;
 		};
+	});
+
+	onMount(() => {
+		const params = encodeComparisonState({
+			compare: true as const,
+			left: { type: 'lorenz' as const, sigma: leftSigma, rho: leftRho, beta: leftBeta },
+			right: { type: 'lorenz' as const, sigma: rightSigma, rho: rightRho, beta: rightBeta }
+		});
+		if ($page.url.searchParams.get('compare') !== 'true') {
+			goto(`${base}/lorenz/compare?${params.toString()}`, {
+				replaceState: true,
+				noScroll: true
+			});
+		}
 	});
 
 	function getLeftParams(): LorenzParameters {
