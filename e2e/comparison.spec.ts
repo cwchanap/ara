@@ -13,14 +13,14 @@ async function setRangeValue(
 
 test.describe('Comparison Mode - URL State', () => {
 	test('URL includes compare and encoded parameters', async ({ page }) => {
-		await page.goto('/lorenz/compare');
+		await page.goto('lorenz/compare');
 		await expect(page).toHaveURL(/compare=true/);
 		await expect(page).toHaveURL(/left=/);
 		await expect(page).toHaveURL(/right=/);
 	});
 
 	test('changing parameters updates URL', async ({ page }) => {
-		await page.goto('/henon/compare');
+		await page.goto('henon/compare');
 		await page.waitForTimeout(500);
 		const initialUrl = page.url();
 
@@ -33,7 +33,7 @@ test.describe('Comparison Mode - URL State', () => {
 	});
 
 	test('URL state persists on page refresh', async ({ page }) => {
-		await page.goto('/henon/compare');
+		await page.goto('henon/compare');
 		await page.waitForTimeout(300);
 
 		const leftA = page.locator('#left-a');
@@ -50,7 +50,7 @@ test.describe('Comparison Mode - URL State', () => {
 
 test.describe('Comparison Mode - Swap Functionality', () => {
 	test('swap button exchanges left and right parameters', async ({ page }) => {
-		await page.goto('/henon/compare');
+		await page.goto('henon/compare');
 		await page.waitForTimeout(300);
 
 		const leftA = page.locator('#left-a');
@@ -73,11 +73,11 @@ test.describe('Comparison Mode - Swap Functionality', () => {
 
 test.describe('Comparison Mode - Cross-Map Integration', () => {
 	test('different map types load comparison mode', async ({ page }) => {
-		await page.goto('/standard/compare');
+		await page.goto('standard/compare');
 		await expect(page.getByText('LEFT_PARAMETERS')).toBeVisible();
 		await expect(page.getByText('RIGHT_PARAMETERS')).toBeVisible();
 
-		await page.goto('/chaos-esthetique/compare');
+		await page.goto('chaos-esthetique/compare');
 		await expect(page.getByText('LEFT_PARAMETERS')).toBeVisible();
 		await expect(page.getByText('RIGHT_PARAMETERS')).toBeVisible();
 	});
