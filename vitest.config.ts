@@ -10,6 +10,11 @@ export default defineConfig({
 		globals: true,
 		environment: 'jsdom',
 		setupFiles: ['./vitest.setup.ts'],
+		coverage: {
+			include: ['src/**/*.{ts,svelte}'],
+			exclude: ['src/**/*.test.ts', 'src/**/*.vitest.ts'],
+			extension: ['.ts', '.svelte']
+		},
 		alias: {
 			$lib: resolve('./src/lib')
 		}
