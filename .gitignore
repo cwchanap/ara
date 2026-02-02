@@ -31,4 +31,7 @@ vite.config.ts.timestamp-*
 # Coverage
 /coverage/
 
+# Worktrees
+.worktrees/
+
 specs/
