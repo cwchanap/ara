@@ -168,3 +168,19 @@ export const SHARE_EXPIRATION_DAYS = 7;
  * Maximum retry attempts for generating unique short codes.
  */
 export const SHARE_CODE_MAX_RETRIES = 5;
+
+// ============================================================================
+// Timing Constants
+// ============================================================================
+
+/**
+ * General debounce delay for parameter inputs (milliseconds).
+ * Used for text inputs and other non-slider controls.
+ */
+export const DEBOUNCE_MS = 300;
+
+/**
+ * Debounce delay for camera synchronization in comparison views (milliseconds).
+ * Lower value for smoother real-time sync between multiple visualizations.
+ */
+export const CAMERA_SYNC_DEBOUNCE_MS = 120;
