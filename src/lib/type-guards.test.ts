@@ -2,6 +2,7 @@ import { describe, test, expect } from 'bun:test';
 import {
 	isLorenzParameters,
 	isHenonParameters,
+	isRosslerParameters,
 	isLogisticParameters,
 	isLoziParameters,
 	isNewtonParameters,
@@ -31,6 +32,9 @@ describe('Type Guards', () => {
 
 		expect(isLorenzParameters(lorenzParams)).toBe(true);
 		expect(isLorenzParameters(henonParams)).toBe(false);
+		expect(isLorenzParameters(null as unknown as ChaosMapParameters)).toBe(false);
+		expect(isLorenzParameters(undefined as unknown as ChaosMapParameters)).toBe(false);
+		expect(isLorenzParameters({} as ChaosMapParameters)).toBe(false);
 	});
 
 	test('isHenonParameters correctly identifies Henon parameters', () => {
@@ -49,6 +53,9 @@ describe('Type Guards', () => {
 
 		expect(isHenonParameters(henonParams)).toBe(true);
 		expect(isHenonParameters(lorenzParams)).toBe(false);
+		expect(isHenonParameters(null as unknown as ChaosMapParameters)).toBe(false);
+		expect(isHenonParameters(undefined as unknown as ChaosMapParameters)).toBe(false);
+		expect(isHenonParameters({} as ChaosMapParameters)).toBe(false);
 	});
 
 	test('isParametersOfType works with generic type', () => {
@@ -58,9 +65,19 @@ describe('Type Guards', () => {
 			rho: 28,
 			beta: 2.667
 		};
+		const rosslerParams: ChaosMapParameters = {
+			type: 'rossler',
+			a: 0.2,
+			b: 0.2,
+			c: 5.7
+		};
 
 		expect(isParametersOfType(lorenzParams, 'lorenz')).toBe(true);
 		expect(isParametersOfType(lorenzParams, 'henon')).toBe(false);
+		expect(isParametersOfType(rosslerParams, 'rossler')).toBe(true);
+		expect(isParametersOfType(rosslerParams, 'lorenz')).toBe(false);
+		expect(isParametersOfType(null as unknown as ChaosMapParameters, 'lorenz')).toBe(false);
+		expect(isParametersOfType(undefined as unknown as ChaosMapParameters, 'henon')).toBe(false);
 	});
 
 	test('all type guards return false for mismatched types', () => {
@@ -71,6 +88,7 @@ describe('Type Guards', () => {
 			c: 5.7
 		};
 
+		expect(isRosslerParameters(rosslerParams)).toBe(true);
 		expect(isLorenzParameters(rosslerParams)).toBe(false);
 		expect(isHenonParameters(rosslerParams)).toBe(false);
 		expect(isLogisticParameters(rosslerParams)).toBe(false);
