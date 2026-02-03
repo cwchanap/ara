@@ -1,39 +1,4 @@
-type StandardRequest = {
-	type: 'standard';
-	id: number;
-	numP: number;
-	numQ: number;
-	iterations: number;
-	K: number;
-	maxPoints: number;
-};
-
-type ChaosRequest = {
-	type: 'chaos';
-	id: number;
-	a: number;
-	b: number;
-	x0: number;
-	y0: number;
-	iterations: number;
-	maxPoints: number;
-};
-
-type WorkerRequest = StandardRequest | ChaosRequest;
-
-type StandardResponse = {
-	type: 'standardResult';
-	id: number;
-	points: [number, number][];
-};
-
-type ChaosResponse = {
-	type: 'chaosResult';
-	id: number;
-	points: [number, number][];
-};
-
-type WorkerResponse = StandardResponse | ChaosResponse;
+import type { ChaosMapsWorkerRequest, ChaosMapsWorkerResponse } from './types';
 
 function standardMap(
 	numP: number,
@@ -101,13 +66,13 @@ function calculateChaos(
 // Worker self typing is provided by TypeScript's webworker lib
 // The global 'self' is already typed as WorkerGlobalScope
 
-self.onmessage = (event: MessageEvent<WorkerRequest>) => {
+self.onmessage = (event: MessageEvent<ChaosMapsWorkerRequest>) => {
 	const data = event.data;
 	if (!data) return;
 
 	if (data.type === 'standard') {
 		const points = standardMap(data.numP, data.numQ, data.iterations, data.K, data.maxPoints);
-		const response: WorkerResponse = {
+		const response: ChaosMapsWorkerResponse = {
 			type: 'standardResult',
 			id: data.id,
 			points
@@ -122,7 +87,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
 			data.iterations,
 			data.maxPoints
 		);
-		const response: WorkerResponse = {
+		const response: ChaosMapsWorkerResponse = {
 			type: 'chaosResult',
 			id: data.id,
 			points
