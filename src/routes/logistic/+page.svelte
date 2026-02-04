@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import * as d3 from 'd3';
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
 	import ShareDialog from '$lib/components/ui/ShareDialog.svelte';
-	import SnapshotButton from '$lib/components/ui/SnapshotButton.svelte';
+	import VisualizationAlerts from '$lib/components/ui/VisualizationAlerts.svelte';
+	import LogisticRenderer from '$lib/components/visualizations/LogisticRenderer.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
 	import {
 		loadSavedConfigParameters,
@@ -16,140 +16,42 @@
 	import { createShareHandler, createInitialShareState } from '$lib/use-visualization-share';
 	import type { LogisticParameters } from '$lib/types';
 	import { buildComparisonUrl, createComparisonStateFromCurrent } from '$lib/comparison-url-state';
+	import { VIZ_CONTAINER_HEIGHT } from '$lib/constants';
 
 	let { data } = $props();
 
-	let container: HTMLDivElement | undefined = $state();
 	let r = $state(3.9);
 	let x0 = $state(0.5);
 	let iterations = $state(100);
-	let lastAppliedConfigKey = $state<string | null>(null);
-	let configLoadAbortController: AbortController | null = null;
-	let isUnmounted = false;
 
 	// Save dialog state
 	const saveState = $state(createInitialSaveState());
-	let isSaving = $state(false);
 
 	// Share dialog state
 	const shareState = $state(createInitialShareState());
 
-	// Stability warning state
+	// Config loading state
 	let configErrors = $state<string[]>([]);
 	let showConfigError = $state(false);
 	let stabilityWarnings = $state<string[]>([]);
 	let showStabilityWarning = $state(false);
 
-	// Load config from URL on mount
-	$effect(() => {
-		const configId = $page.url.searchParams.get('configId');
-		const shareCode = $page.url.searchParams.get('share');
-		const configParam = $page.url.searchParams.get('config');
-		const configKey = shareCode
-			? `share:${shareCode}`
-			: configId
-				? `id:${configId}`
-				: configParam
-					? `param:${configParam}`
-					: null;
-		if (configKey === lastAppliedConfigKey) return;
-		lastAppliedConfigKey = configKey;
-
-		configLoadAbortController?.abort();
-		configLoadAbortController = null;
-
-		if (shareCode || configId) {
-			configErrors = [];
-			showConfigError = false;
-			stabilityWarnings = [];
-			showStabilityWarning = false;
-			const controller = new AbortController();
-			configLoadAbortController = controller;
-			const { signal } = controller;
-			const currentConfigKey = configKey;
-
-			void (async () => {
-				const fetchWithSignal: typeof fetch = Object.assign(
-					(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
-						fetch(input, { ...init, signal }),
-					{ preconnect: fetch.preconnect }
-				);
-
-				let result;
-				if (shareCode) {
-					result = await loadSharedConfigParameters({
-						shareCode,
-						mapType: 'logistic',
-						base,
-						fetchFn: fetchWithSignal
-					});
-				} else {
-					result = await loadSavedConfigParameters({
-						configId: configId!,
-						mapType: 'logistic',
-						base,
-						fetchFn: fetchWithSignal
-					});
-				}
-
-				if (isUnmounted || signal.aborted) return;
-				if (lastAppliedConfigKey !== currentConfigKey) return;
-				if (!result.ok) {
-					configErrors = result.errors;
-					showConfigError = true;
-					return;
-				}
-
-				const typedParams = result.parameters;
-				r = typedParams.r ?? r;
-				x0 = typedParams.x0 ?? x0;
-				iterations = typedParams.iterations ?? iterations;
-
-				const stability = checkParameterStability('logistic', typedParams);
-				if (!stability.isStable) {
-					stabilityWarnings = stability.warnings;
-					showStabilityWarning = true;
-				}
-			})();
-		} else if (configParam) {
-			try {
-				configErrors = [];
-				showConfigError = false;
-				stabilityWarnings = [];
-				showStabilityWarning = false;
-
-				// Validate parameters structure before using
-				const parsed = parseConfigParam({ mapType: 'logistic', configParam });
-				if (!parsed.ok) {
-					console.error(parsed.logMessage, parsed.logDetails);
-					configErrors = parsed.errors;
-					showConfigError = true;
-					return;
-				}
-
-				// Now we can safely cast since validation passed
-				const typedParams = parsed.parameters;
-				r = typedParams.r ?? r;
-				x0 = typedParams.x0 ?? x0;
-				iterations = typedParams.iterations ?? iterations;
-
-				const stability = checkParameterStability('logistic', typedParams);
-				if (!stability.isStable) {
-					stabilityWarnings = stability.warnings;
-					showStabilityWarning = true;
-				}
-			} catch (e) {
-				console.error('Invalid config parameter:', e);
-				configErrors = ['Failed to parse configuration parameters'];
-				showConfigError = true;
-			}
-		}
-	});
-
 	// Get current parameters for saving
 	function getParameters(): LogisticParameters {
 		return { type: 'logistic', r, x0, iterations };
 	}
+
+	let comparisonUrl = $state('');
+	$effect(() => {
+		void r;
+		void x0;
+		void iterations;
+		comparisonUrl = buildComparisonUrl(
+			base,
+			'logistic',
+			createComparisonStateFromCurrent('logistic', getParameters())
+		);
+	});
 
 	// Create save handler with cleanup
 	const { save: handleSave, cleanup: cleanupSaveHandler } = createSaveHandler(
@@ -165,152 +67,144 @@
 		getParameters
 	);
 
-	function calculateLogistic(r: number, x0: number, iterations: number) {
-		const points: { n: number; x: number }[] = [];
-		let x = x0;
+	// Load config from URL on mount
+	onMount(() => {
+		const controller = new AbortController();
+		const { signal } = controller;
+		const fetchWithSignal: typeof fetch = Object.assign(
+			(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
+				fetch(input, { ...init, signal }),
+			{ preconnect: fetch.preconnect }
+		);
 
-		for (let n = 0; n < iterations; n++) {
-			points.push({ n, x });
-			x = r * x * (1 - x);
+		configErrors = [];
+		showConfigError = false;
+		stabilityWarnings = [];
+		showStabilityWarning = false;
+
+		const configId = $page.url.searchParams.get('configId');
+		const shareCode = $page.url.searchParams.get('share');
+		if (shareCode) {
+			void (async () => {
+				try {
+					const result = await loadSharedConfigParameters({
+						shareCode,
+						mapType: 'logistic',
+						base,
+						fetchFn: fetchWithSignal
+					});
+					if (signal.aborted) return;
+					if (!result.ok) {
+						configErrors = result.errors;
+						showConfigError = true;
+						return;
+					}
+
+					const typedParams = result.parameters;
+					if (typeof typedParams.r === 'number') r = typedParams.r;
+					if (typeof typedParams.x0 === 'number') x0 = typedParams.x0;
+					if (typeof typedParams.iterations === 'number') iterations = typedParams.iterations;
+
+					const stability = checkParameterStability('logistic', typedParams);
+					if (!stability.isStable) {
+						stabilityWarnings = stability.warnings;
+						showStabilityWarning = true;
+					}
+				} catch (err) {
+					if (
+						signal.aborted ||
+						(err instanceof DOMException && err.name === 'AbortError') ||
+						(err instanceof Error && err.name === 'AbortError')
+					) {
+						return;
+					}
+					configErrors = ['Failed to load shared configuration'];
+					showConfigError = true;
+				}
+			})();
+		} else if (configId) {
+			void (async () => {
+				try {
+					const result = await loadSavedConfigParameters({
+						configId,
+						mapType: 'logistic',
+						base,
+						fetchFn: fetchWithSignal
+					});
+					if (signal.aborted) return;
+					if (!result.ok) {
+						if (signal.aborted) return;
+						configErrors = result.errors;
+						showConfigError = true;
+						return;
+					}
+
+					const typedParams = result.parameters;
+					if (signal.aborted) return;
+					if (typeof typedParams.r === 'number') r = typedParams.r;
+					if (typeof typedParams.x0 === 'number') x0 = typedParams.x0;
+					if (typeof typedParams.iterations === 'number') iterations = typedParams.iterations;
+
+					const stability = checkParameterStability('logistic', typedParams);
+					if (signal.aborted) return;
+					if (!stability.isStable) {
+						stabilityWarnings = stability.warnings;
+						showStabilityWarning = true;
+					}
+				} catch (err) {
+					if (
+						signal.aborted ||
+						(err instanceof DOMException && err.name === 'AbortError') ||
+						(err instanceof Error && err.name === 'AbortError')
+					) {
+						return;
+					}
+					configErrors = ['Failed to load configuration parameters'];
+					showConfigError = true;
+				}
+			})();
+		} else {
+			const configParam = $page.url.searchParams.get('config');
+			if (configParam) {
+				try {
+					// Validate parameters structure before using
+					const parsed = parseConfigParam({ mapType: 'logistic', configParam });
+					if (!parsed.ok) {
+						console.error(parsed.logMessage, parsed.logDetails);
+						if (signal.aborted) return;
+						configErrors = parsed.errors;
+						showConfigError = true;
+					} else {
+						// Now we can safely cast since validation passed
+						const typedParams = parsed.parameters;
+						if (signal.aborted) return;
+						if (typeof typedParams.r === 'number') r = typedParams.r;
+						if (typeof typedParams.x0 === 'number') x0 = typedParams.x0;
+						if (typeof typedParams.iterations === 'number') iterations = typedParams.iterations;
+
+						// Check stability
+						const stability = checkParameterStability('logistic', typedParams);
+						if (signal.aborted) return;
+						if (!stability.isStable) {
+							stabilityWarnings = stability.warnings;
+							showStabilityWarning = true;
+						}
+					}
+				} catch (e) {
+					console.error('Invalid config parameter:', e);
+					if (signal.aborted) return;
+					configErrors = ['Failed to parse configuration parameters'];
+					showConfigError = true;
+				}
+			}
 		}
 
-		return points;
-	}
-
-	function render() {
-		if (!container) return;
-
-		d3.select(container).selectAll('*').remove();
-
-		const margin = { top: 20, right: 20, bottom: 50, left: 60 };
-		const width = container.clientWidth - margin.left - margin.right;
-		const height = 500 - margin.top - margin.bottom;
-
-		const svg = d3
-			.select(container)
-			.append('svg')
-			.attr('width', container.clientWidth)
-			.attr('height', 500)
-			.append('g')
-			.attr('transform', `translate(${margin.left},${margin.top})`);
-
-		const data = calculateLogistic(r, x0, iterations);
-
-		const xScale = d3.scaleLinear().domain([0, iterations]).range([0, width]);
-		const yScale = d3.scaleLinear().domain([0, 1]).range([height, 0]);
-
-		// Add axes
-		const xAxis = d3.axisBottom(xScale).tickSize(-height).tickPadding(10);
-		const yAxis = d3.axisLeft(yScale).tickSize(-width).tickPadding(10);
-
-		svg
-			.append('g')
-			.attr('class', 'grid-lines')
-			.attr('transform', `translate(0,${height})`)
-			.call(xAxis)
-			.call((g) => {
-				g.select('.domain').remove();
-				g.selectAll('line').attr('stroke', '#00f3ff').attr('stroke-opacity', 0.1);
-				g.selectAll('text')
-					.attr('fill', '#00f3ff')
-					.attr('font-family', 'Rajdhani')
-					.attr('font-size', '12px');
-			});
-
-		svg
-			.append('g')
-			.attr('class', 'grid-lines')
-			.call(yAxis)
-			.call((g) => {
-				g.select('.domain').remove();
-				g.selectAll('line').attr('stroke', '#00f3ff').attr('stroke-opacity', 0.1);
-				g.selectAll('text')
-					.attr('fill', '#00f3ff')
-					.attr('font-family', 'Rajdhani')
-					.attr('font-size', '12px');
-			});
-
-		// Add axis labels
-		svg
-			.append('text')
-			.attr('x', width / 2)
-			.attr('y', height + 40)
-			.attr('fill', '#00f3ff')
-			.attr('text-anchor', 'middle')
-			.attr('font-family', 'Orbitron')
-			.attr('font-size', '14px')
-			.text('ITERATION (n)');
-
-		svg
-			.append('text')
-			.attr('transform', 'rotate(-90)')
-			.attr('x', -height / 2)
-			.attr('y', -40)
-			.attr('fill', '#00f3ff')
-			.attr('text-anchor', 'middle')
-			.attr('font-family', 'Orbitron')
-			.attr('font-size', '14px')
-			.text('VALUE x(n)');
-
-		// Create line
-		const line = d3
-			.line<{ n: number; x: number }>()
-			.x((d) => xScale(d.n))
-			.y((d) => yScale(d.x))
-			.curve(d3.curveMonotoneX); // Smooth it slightly
-
-		// Glow effect definition
-		const defs = svg.append('defs');
-		const filter = defs.append('filter').attr('id', 'glow');
-		filter.append('feGaussianBlur').attr('stdDeviation', '2.5').attr('result', 'coloredBlur');
-		const feMerge = filter.append('feMerge');
-		feMerge.append('feMergeNode').attr('in', 'coloredBlur');
-		feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
-
-		// Draw line
-		svg
-			.append('path')
-			.datum(data)
-			.attr('fill', 'none')
-			.attr('stroke', '#39ff14') // Neon Green
-			.attr('stroke-width', 2)
-			.attr('d', line)
-			.attr('filter', 'url(#glow)');
-
-		// Add points
-		svg
-			.selectAll('circle')
-			.data(data)
-			.enter()
-			.append('circle')
-			.attr('cx', (d) => xScale(d.n))
-			.attr('cy', (d) => yScale(d.x))
-			.attr('r', 3)
-			.attr('fill', '#ff00ff') // Neon Magenta dots
-			.attr('stroke', '#fff')
-			.attr('stroke-width', 1);
-	}
-
-	onMount(() => {
-		render();
-
 		return () => {
-			isUnmounted = true;
-			if (configLoadAbortController) {
-				configLoadAbortController.abort();
-				configLoadAbortController = null;
-			}
+			controller.abort();
 			// Clear save/share handler timeouts to prevent state updates after unmount
 			cleanupSaveHandler();
 			cleanupShareHandler();
 		};
-	});
-
-	$effect(() => {
-		void r;
-		void x0;
-		void iterations;
-		if (container) render();
 	});
 </script>
 
@@ -327,29 +221,30 @@
 			</p>
 		</div>
 		<div class="flex gap-3">
-			<SnapshotButton target={container} targetType="container" mapType="logistic" />
-			<a
-				href={buildComparisonUrl(
-					base,
-					'logistic',
-					createComparisonStateFromCurrent('logistic', getParameters())
-				)}
-				class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
-			>
-				⊞ Compare
-			</a>
+			{#if comparisonUrl}
+				<a
+					href={comparisonUrl}
+					class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
+				>
+					⊞ Compare
+				</a>
+			{:else}
+				<span
+					class="px-6 py-2 bg-primary/10 text-primary border border-primary/30 rounded-sm uppercase tracking-widest text-sm font-bold opacity-50 cursor-not-allowed"
+					aria-disabled="true"
+				>
+					⊞ Compare
+				</span>
+			{/if}
 			<button
 				onclick={() => (shareState.showShareDialog = true)}
-				disabled={shareState.isSharing}
-				aria-disabled={shareState.isSharing}
-				class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+				class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
 			>
 				🔗 Share
 			</button>
 			<button
 				onclick={() => (saveState.showSaveDialog = true)}
-				disabled={isSaving}
-				class="px-6 py-2 bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(168,85,247,0.2)] uppercase tracking-widest text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+				class="px-6 py-2 bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(168,85,247,0.2)] uppercase tracking-widest text-sm font-bold"
 			>
 				💾 Save
 			</button>
@@ -362,82 +257,18 @@
 		</div>
 	</div>
 
-	<!-- Save Success Toast -->
-	{#if saveState.saveSuccess}
-		<div
-			class="fixed top-20 right-4 z-50 px-6 py-4 bg-green-500/10 border border-green-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
-		>
-			<div class="flex items-center gap-3">
-				<span class="text-green-400">✓</span>
-				<span class="text-green-200">Configuration saved successfully!</span>
-			</div>
-		</div>
-	{/if}
-
-	<!-- Save Error Toast -->
-	{#if saveState.saveError}
-		<div
-			class="fixed top-32 right-4 z-50 px-6 py-4 bg-red-500/10 border border-red-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
-		>
-			<div class="flex items-center gap-3">
-				<span class="text-red-400">✗</span>
-				<span class="text-red-200">{saveState.saveError}</span>
-			</div>
-		</div>
-	{/if}
-
-	{#if showConfigError && configErrors.length > 0}
-		<div class="bg-red-500/10 border border-red-500/30 rounded-sm p-4 relative">
-			<div class="flex items-start gap-3">
-				<span class="text-red-400 text-xl">✕</span>
-				<div class="flex-1">
-					<h3 class="font-['Orbitron'] text-red-400 font-semibold mb-1">INVALID_CONFIGURATION</h3>
-					<p class="text-red-200/80 text-sm mb-2">
-						The loaded configuration could not be applied due to validation errors:
-					</p>
-					<ul class="text-xs text-red-200/60 list-disc list-inside space-y-1">
-						{#each configErrors as err, i (i)}
-							<li>{err}</li>
-						{/each}
-					</ul>
-				</div>
-				<button
-					onclick={() => (showConfigError = false)}
-					class="text-red-400/60 hover:text-red-400"
-				>
-					✕
-				</button>
-			</div>
-		</div>
-	{/if}
-
-	<!-- Stability Warning -->
-	{#if showStabilityWarning && stabilityWarnings.length > 0}
-		<div class="bg-amber-500/10 border border-amber-500/30 rounded-sm p-4 relative">
-			<div class="flex items-start gap-3">
-				<span class="text-amber-400 text-xl">⚠️</span>
-				<div class="flex-1">
-					<h3 class="font-['Orbitron'] text-amber-400 font-semibold mb-1">
-						UNSTABLE_PARAMETERS_DETECTED
-					</h3>
-					<p class="text-amber-200/80 text-sm mb-2">
-						The loaded configuration contains parameters outside recommended stable ranges:
-					</p>
-					<ul class="text-xs text-amber-200/60 list-disc list-inside space-y-1">
-						{#each stabilityWarnings as warning, i (i)}
-							<li>{warning}</li>
-						{/each}
-					</ul>
-				</div>
-				<button
-					onclick={() => (showStabilityWarning = false)}
-					class="text-amber-400/60 hover:text-amber-400"
-				>
-					✕
-				</button>
-			</div>
-		</div>
-	{/if}
+	<!-- Alerts: Save success/error, config errors, stability warnings -->
+	<VisualizationAlerts
+		saveSuccess={saveState.saveSuccess}
+		saveError={saveState.saveError}
+		{configErrors}
+		{showConfigError}
+		onDismissConfigError={() => (showConfigError = false)}
+		{stabilityWarnings}
+		{showStabilityWarning}
+		onDismissStabilityWarning={() => (showStabilityWarning = false)}
+		onDismissSaveError={() => (saveState.saveError = null)}
+	/>
 
 	<div
 		class="bg-card/30 backdrop-blur-md border border-primary/20 rounded-sm p-6 space-y-6 relative overflow-hidden group"
@@ -519,17 +350,10 @@
 		</div>
 	</div>
 
-	<div
-		bind:this={container}
-		class="bg-black/40 border border-primary/20 rounded-sm overflow-hidden shadow-[0_0_30px_rgba(0,0,0,0.5)] relative"
-	>
-		<div
-			class="absolute top-4 right-4 text-xs font-['Rajdhani'] text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
-		>
-			LIVE_RENDER // D3_JS
-		</div>
-	</div>
+	<!-- Visualization Container -->
+	<LogisticRenderer bind:r bind:x0 bind:iterations height={VIZ_CONTAINER_HEIGHT} />
 
+	<!-- Info Panel -->
 	<div class="bg-card/30 backdrop-blur-md border border-primary/20 rounded-sm p-6 relative">
 		<div
 			class="absolute top-0 left-0 w-1 h-full bg-linear-to-b from-primary to-transparent opacity-50"
