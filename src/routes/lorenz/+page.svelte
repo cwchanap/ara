@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import * as THREE from 'three';
-	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
 	import ShareDialog from '$lib/components/ui/ShareDialog.svelte';
+	import VisualizationAlerts from '$lib/components/ui/VisualizationAlerts.svelte';
+	import LorenzRenderer from '$lib/components/visualizations/LorenzRenderer.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
 	import {
 		loadSavedConfigParameters,
@@ -16,15 +16,13 @@
 	import { createShareHandler, createInitialShareState } from '$lib/use-visualization-share';
 	import type { LorenzParameters } from '$lib/types';
 	import { buildComparisonUrl, createComparisonStateFromCurrent } from '$lib/comparison-url-state';
+	import { VIZ_CONTAINER_HEIGHT } from '$lib/constants';
 
 	let { data } = $props();
 
-	let container: HTMLDivElement;
 	let sigma = $state(10);
 	let rho = $state(28);
 	let beta = $state(8.0 / 3);
-	let isAnimating = $state(true);
-	let recreate: () => void;
 
 	// Save dialog state
 	const saveState = $state(createInitialSaveState());
@@ -203,211 +201,9 @@
 
 		return () => {
 			controller.abort();
-		};
-	});
-
-	$effect(() => {
-		// Track dependencies
-		void sigma;
-		void rho;
-		void beta;
-		if (recreate) recreate();
-	});
-
-	onMount(() => {
-		// Scene setup
-		const scene = new THREE.Scene();
-		// Transparent background to let CSS background show through, or very dark
-		scene.background = null;
-
-		const camera = new THREE.PerspectiveCamera(
-			75,
-			container.clientWidth / container.clientHeight,
-			0.1,
-			1000
-		);
-		camera.position.set(40, 40, 40);
-
-		const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-		renderer.setSize(container.clientWidth, container.clientHeight);
-		renderer.setPixelRatio(window.devicePixelRatio);
-		// eslint-disable-next-line svelte/no-dom-manipulating
-		container.appendChild(renderer.domElement);
-
-		const controls = new OrbitControls(camera, renderer.domElement);
-		controls.enableDamping = true;
-		controls.autoRotate = true;
-		controls.autoRotateSpeed = 0.5;
-
-		// Calculate Lorenz attractor points
-		function calculateLorenz(
-			x0: number,
-			y0: number,
-			z0: number,
-			steps: number,
-			dt: number
-		): THREE.Vector3[] {
-			const points: THREE.Vector3[] = [];
-			let x = x0;
-			let y = y0;
-			let z = z0;
-
-			for (let i = 0; i < steps; i++) {
-				const dx = sigma * (y - x);
-				const dy = x * (rho - z) - y;
-				const dz = x * y - beta * z;
-
-				x += dx * dt;
-				y += dy * dt;
-				z += dz * dt;
-
-				points.push(new THREE.Vector3(x, y, z));
-			}
-
-			return points;
-		}
-
-		// Create line geometry
-		function createLorenzLine() {
-			const points = calculateLorenz(0.1, 0, 0, 15000, 0.005);
-			const geometry = new THREE.BufferGeometry().setFromPoints(points);
-
-			// Create gradient colors (Neon Cyan to Magenta)
-			const colors = new Float32Array(points.length * 3);
-			const color1 = new THREE.Color(0x00f3ff); // Cyan
-			const color2 = new THREE.Color(0xbc13fe); // Magenta
-
-			for (let i = 0; i < points.length; i++) {
-				const t = i / points.length;
-				const color = new THREE.Color().copy(color1).lerp(color2, t);
-				colors[i * 3] = color.r;
-				colors[i * 3 + 1] = color.g;
-				colors[i * 3 + 2] = color.b;
-			}
-			geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-			const material = new THREE.LineBasicMaterial({
-				vertexColors: true,
-				linewidth: 2,
-				blending: THREE.AdditiveBlending,
-				transparent: true,
-				opacity: 0.8
-			});
-
-			return new THREE.Line(geometry, material);
-		}
-
-		const disposeMaterial = (material: THREE.Material) => {
-			const mat = material as unknown as Record<string, unknown>;
-			const textureKeys = [
-				'map',
-				'alphaMap',
-				'aoMap',
-				'bumpMap',
-				'displacementMap',
-				'emissiveMap',
-				'envMap',
-				'lightMap',
-				'metalnessMap',
-				'normalMap',
-				'roughnessMap',
-				'specularMap',
-				'gradientMap',
-				'clearcoatMap',
-				'clearcoatNormalMap',
-				'clearcoatRoughnessMap',
-				'sheenColorMap',
-				'sheenRoughnessMap',
-				'transmissionMap',
-				'thicknessMap',
-				'iridescenceMap',
-				'iridescenceThicknessMap'
-			];
-
-			for (const key of textureKeys) {
-				const texture = mat[key];
-				if (texture && typeof (texture as { dispose?: unknown }).dispose === 'function') {
-					(texture as { dispose: () => void }).dispose();
-					mat[key] = null;
-				}
-			}
-
-			material.dispose();
-		};
-
-		const disposeLine = (line: THREE.Line) => {
-			line.geometry.dispose();
-			if (Array.isArray(line.material)) {
-				line.material.forEach(disposeMaterial);
-			} else {
-				disposeMaterial(line.material);
-			}
-		};
-
-		let lorenzLine = createLorenzLine();
-		scene.add(lorenzLine);
-
-		// Add faint grid helper for reference
-		const gridHelper = new THREE.GridHelper(100, 20, 0x00f3ff, 0x2d1b69);
-		gridHelper.position.y = -30;
-		(gridHelper.material as THREE.Material).transparent = true;
-		(gridHelper.material as THREE.Material).opacity = 0.2;
-		scene.add(gridHelper);
-
-		// Animation loop
-		function animate() {
-			if (!isAnimating) return;
-			requestAnimationFrame(animate);
-			controls.update();
-			renderer.render(scene, camera);
-		}
-
-		animate();
-
-		// Handle window resize
-		const handleResize = () => {
-			if (!container) return;
-			camera.aspect = container.clientWidth / container.clientHeight;
-			camera.updateProjectionMatrix();
-			renderer.setSize(container.clientWidth, container.clientHeight);
-		};
-		window.addEventListener('resize', handleResize);
-
-		// Recreate visualization on parameter change
-		recreate = () => {
-			scene.remove(lorenzLine);
-			disposeLine(lorenzLine);
-			lorenzLine = createLorenzLine();
-			scene.add(lorenzLine);
-		};
-
-		return () => {
-			window.removeEventListener('resize', handleResize);
-			isAnimating = false;
-
-			controls.dispose();
-
-			scene.remove(gridHelper);
-			gridHelper.geometry.dispose();
-			if (Array.isArray(gridHelper.material)) {
-				gridHelper.material.forEach(disposeMaterial);
-			} else {
-				disposeMaterial(gridHelper.material);
-			}
-
-			scene.remove(lorenzLine);
-			disposeLine(lorenzLine);
-
-			renderer.dispose();
-
 			// Clear save/share handler timeouts to prevent state updates after unmount
 			cleanupSaveHandler();
 			cleanupShareHandler();
-
-			if (container && renderer.domElement.parentNode === container) {
-				// eslint-disable-next-line svelte/no-dom-manipulating
-				container.removeChild(renderer.domElement);
-			}
 		};
 	});
 </script>
@@ -461,89 +257,18 @@
 		</div>
 	</div>
 
-	<!-- Save Success Toast -->
-	{#if saveState.saveSuccess}
-		<div
-			class="fixed top-20 right-4 z-50 px-6 py-4 bg-green-500/10 border border-green-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
-		>
-			<div class="flex items-center gap-3">
-				<span class="text-green-400">✓</span>
-				<span class="text-green-200">Configuration saved successfully!</span>
-			</div>
-		</div>
-	{/if}
-
-	<!-- Save Error Toast -->
-	{#if saveState.saveError}
-		<div
-			class="fixed top-20 right-4 z-50 px-6 py-4 bg-red-500/10 border border-red-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
-		>
-			<div class="flex items-center gap-3">
-				<span class="text-red-400">✕</span>
-				<span class="text-red-200">{saveState.saveError}</span>
-				<button
-					onclick={() => (saveState.saveError = null)}
-					class="text-red-400/60 hover:text-red-400 ml-2"
-				>
-					✕
-				</button>
-			</div>
-		</div>
-	{/if}
-
-	<!-- Invalid Configuration -->
-	{#if showConfigError && configErrors.length > 0}
-		<div class="bg-red-500/10 border border-red-500/30 rounded-sm p-4 relative">
-			<div class="flex items-start gap-3">
-				<span class="text-red-400 text-xl">✕</span>
-				<div class="flex-1">
-					<h3 class="font-['Orbitron'] text-red-400 font-semibold mb-1">INVALID_CONFIGURATION</h3>
-					<p class="text-red-200/80 text-sm mb-2">
-						The loaded configuration could not be applied due to validation errors:
-					</p>
-					<ul class="text-xs text-red-200/60 list-disc list-inside space-y-1">
-						{#each configErrors as err, i (i)}
-							<li>{err}</li>
-						{/each}
-					</ul>
-				</div>
-				<button
-					onclick={() => (showConfigError = false)}
-					class="text-red-400/60 hover:text-red-400"
-				>
-					✕
-				</button>
-			</div>
-		</div>
-	{/if}
-
-	<!-- Stability Warning -->
-	{#if showStabilityWarning && stabilityWarnings.length > 0}
-		<div class="bg-amber-500/10 border border-amber-500/30 rounded-sm p-4 relative">
-			<div class="flex items-start gap-3">
-				<span class="text-amber-400 text-xl">⚠️</span>
-				<div class="flex-1">
-					<h3 class="font-['Orbitron'] text-amber-400 font-semibold mb-1">
-						UNSTABLE_PARAMETERS_DETECTED
-					</h3>
-					<p class="text-amber-200/80 text-sm mb-2">
-						The loaded configuration contains parameters outside recommended stable ranges:
-					</p>
-					<ul class="text-xs text-amber-200/60 list-disc list-inside space-y-1">
-						{#each stabilityWarnings as warning, i (i)}
-							<li>{warning}</li>
-						{/each}
-					</ul>
-				</div>
-				<button
-					onclick={() => (showStabilityWarning = false)}
-					class="text-amber-400/60 hover:text-amber-400"
-				>
-					✕
-				</button>
-			</div>
-		</div>
-	{/if}
+	<!-- Alerts: Save success/error, config errors, stability warnings -->
+	<VisualizationAlerts
+		saveSuccess={saveState.saveSuccess}
+		saveError={saveState.saveError}
+		{configErrors}
+		{showConfigError}
+		onDismissConfigError={() => (showConfigError = false)}
+		{stabilityWarnings}
+		{showStabilityWarning}
+		onDismissStabilityWarning={() => (showStabilityWarning = false)}
+		onDismissSaveError={() => (saveState.saveError = null)}
+	/>
 
 	<!-- Control Panel -->
 	<div
@@ -626,17 +351,7 @@
 	</div>
 
 	<!-- Visualization Container -->
-	<div
-		bind:this={container}
-		class="bg-black/40 border border-primary/20 rounded-sm overflow-hidden shadow-[0_0_30px_rgba(0,0,0,0.5)] relative"
-		style="height: 600px;"
-	>
-		<div
-			class="absolute top-4 right-4 text-xs font-['Rajdhani'] text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
-		>
-			LIVE_RENDER // THREE_JS
-		</div>
-	</div>
+	<LorenzRenderer bind:sigma bind:rho bind:beta height={VIZ_CONTAINER_HEIGHT} />
 
 	<!-- Info Panel -->
 	<div class="bg-card/30 backdrop-blur-md border border-primary/20 rounded-sm p-6 relative">
