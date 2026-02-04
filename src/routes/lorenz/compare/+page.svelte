@@ -11,51 +11,57 @@
 		getDefaultParameters,
 		encodeComparisonState
 	} from '$lib/comparison-url-state';
+	import { isLorenzParameters } from '$lib/type-guards';
+	import { useDebouncedEffect } from '$lib/use-debounced-effect';
+	import { DEBOUNCE_MS } from '$lib/constants';
 	import type { LorenzParameters } from '$lib/types';
 
 	// Decode state from URL
 	const initialState = decodeComparisonState($page.url, 'lorenz');
 	const defaultParams = getDefaultParameters('lorenz') as LorenzParameters;
 
+	// Extract params with type guards
+	const leftParams = initialState?.left;
+	const rightParams = initialState?.right;
+
 	// Left panel parameters
-	let leftSigma = $state((initialState?.left as LorenzParameters)?.sigma ?? defaultParams.sigma);
-	let leftRho = $state((initialState?.left as LorenzParameters)?.rho ?? defaultParams.rho);
-	let leftBeta = $state((initialState?.left as LorenzParameters)?.beta ?? defaultParams.beta);
+	let leftSigma = $state(
+		leftParams && isLorenzParameters(leftParams) ? leftParams.sigma : defaultParams.sigma
+	);
+	let leftRho = $state(
+		leftParams && isLorenzParameters(leftParams) ? leftParams.rho : defaultParams.rho
+	);
+	let leftBeta = $state(
+		leftParams && isLorenzParameters(leftParams) ? leftParams.beta : defaultParams.beta
+	);
 
 	// Right panel parameters
-	let rightSigma = $state((initialState?.right as LorenzParameters)?.sigma ?? 15);
-	let rightRho = $state((initialState?.right as LorenzParameters)?.rho ?? 25);
-	let rightBeta = $state((initialState?.right as LorenzParameters)?.beta ?? 3);
+	let rightSigma = $state(rightParams && isLorenzParameters(rightParams) ? rightParams.sigma : 15);
+	let rightRho = $state(rightParams && isLorenzParameters(rightParams) ? rightParams.rho : 25);
+	let rightBeta = $state(rightParams && isLorenzParameters(rightParams) ? rightParams.beta : 3);
 
-	// Sync URL when parameters change
-	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+	// Sync URL when parameters change using debounced effect
+	const urlUpdater = useDebouncedEffect(() => {
+		const state = {
+			compare: true as const,
+			left: { type: 'lorenz' as const, sigma: leftSigma, rho: leftRho, beta: leftBeta },
+			right: { type: 'lorenz' as const, sigma: rightSigma, rho: rightRho, beta: rightBeta }
+		};
+		goto(`${base}/lorenz/compare?${encodeComparisonState(state)}`, {
+			replaceState: true,
+			noScroll: true
+		});
+	}, DEBOUNCE_MS);
+
 	$effect(() => {
-		// Track all parameters
 		void leftSigma;
 		void leftRho;
 		void leftBeta;
 		void rightSigma;
 		void rightRho;
 		void rightBeta;
-
-		if (debounceTimer) clearTimeout(debounceTimer);
-		debounceTimer = setTimeout(() => {
-			const state = {
-				compare: true as const,
-				left: { type: 'lorenz' as const, sigma: leftSigma, rho: leftRho, beta: leftBeta },
-				right: { type: 'lorenz' as const, sigma: rightSigma, rho: rightRho, beta: rightBeta }
-			};
-			const params = encodeComparisonState(state);
-			goto(`${base}/lorenz/compare?${params.toString()}`, {
-				replaceState: true,
-				noScroll: true
-			});
-		}, 300);
-
-		return () => {
-			if (debounceTimer) clearTimeout(debounceTimer);
-			debounceTimer = null;
-		};
+		urlUpdater.trigger();
+		return () => urlUpdater.cleanup();
 	});
 
 	onMount(() => {
