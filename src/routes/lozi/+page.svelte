@@ -1,19 +1,20 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { get } from 'svelte/store';
-	import * as d3 from 'd3';
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
 	import ShareDialog from '$lib/components/ui/ShareDialog.svelte';
 	import SnapshotButton from '$lib/components/ui/SnapshotButton.svelte';
+	import VisualizationAlerts from '$lib/components/ui/VisualizationAlerts.svelte';
+	import LoziRenderer from '$lib/components/visualizations/LoziRenderer.svelte';
+	import { VIZ_CONTAINER_HEIGHT } from '$lib/constants';
 	import { checkParameterStability } from '$lib/chaos-validation';
 	import {
 		loadSavedConfigParameters,
 		loadSharedConfigParameters,
 		parseConfigParam
 	} from '$lib/saved-config-loader';
-	import { calculateLoziTuples } from '$lib/lozi';
 	import { createSaveHandler, createInitialSaveState } from '$lib/use-visualization-save';
 	import { createShareHandler, createInitialShareState } from '$lib/use-visualization-share';
 	import type { LoziParameters } from '$lib/types';
@@ -21,8 +22,7 @@
 
 	let { data } = $props();
 
-	let container: HTMLDivElement | undefined = $state();
-	let plotContainer: HTMLDivElement | undefined = $state();
+	let rendererContainer: HTMLDivElement | undefined = $state();
 	let a = $state(0.5);
 	let b = $state(0.3);
 	let x0 = $state(0);
@@ -196,130 +196,7 @@
 		getParameters
 	);
 
-	function render() {
-		if (!container || !plotContainer) return;
-
-		// Clear previous content
-		d3.select(plotContainer).selectAll('*').remove();
-
-		const margin = { top: 20, right: 20, bottom: 50, left: 60 };
-		const width = plotContainer.clientWidth - margin.left - margin.right;
-		const height = 600 - margin.top - margin.bottom;
-
-		const svg = d3
-			.select(plotContainer)
-			.append('svg')
-			.attr('width', plotContainer.clientWidth)
-			.attr('height', 600)
-			.append('g')
-			.attr('transform', `translate(${margin.left},${margin.top})`);
-
-		let points: [number, number][] = [];
-
-		try {
-			points = calculateLoziTuples({ a, b, x0, y0, iterations });
-		} catch (error) {
-			console.error('Error calculating Lozi tuples:', error);
-		}
-
-		// Use safe defaults if points is empty or calculation failed
-		const xExtentRaw = d3.extent(points, (d) => d[0]);
-		const yExtentRaw = d3.extent(points, (d) => d[1]);
-
-		// Defensively handle undefined extents with safe defaults
-		const xExtent: [number, number] = [
-			xExtentRaw[0] !== undefined ? xExtentRaw[0] : -1,
-			xExtentRaw[1] !== undefined ? xExtentRaw[1] : 1
-		];
-		const yExtent: [number, number] = [
-			yExtentRaw[0] !== undefined ? yExtentRaw[0] : -1,
-			yExtentRaw[1] !== undefined ? yExtentRaw[1] : 1
-		];
-
-		const xScale = d3
-			.scaleLinear()
-			.domain([xExtent[0] - 0.1, xExtent[1] + 0.1])
-			.range([0, width]);
-
-		const yScale = d3
-			.scaleLinear()
-			.domain([yExtent[0] - 0.1, yExtent[1] + 0.1])
-			.range([height, 0]);
-
-		// Add axes
-		const xAxis = d3.axisBottom(xScale).tickSize(-height).tickPadding(10);
-		const yAxis = d3.axisLeft(yScale).tickSize(-width).tickPadding(10);
-
-		svg
-			.append('g')
-			.attr('class', 'grid-lines')
-			.attr('transform', `translate(0,${height})`)
-			.call(xAxis)
-			.call((g) => {
-				g.select('.domain').remove();
-				g.selectAll('line').attr('stroke', '#00f3ff').attr('stroke-opacity', 0.1);
-				g.selectAll('text')
-					.attr('fill', '#00f3ff')
-					.attr('font-family', 'Rajdhani')
-					.attr('font-size', '12px');
-			});
-
-		svg
-			.append('g')
-			.attr('class', 'grid-lines')
-			.call(yAxis)
-			.call((g) => {
-				g.select('.domain').remove();
-				g.selectAll('line').attr('stroke', '#00f3ff').attr('stroke-opacity', 0.1);
-				g.selectAll('text')
-					.attr('fill', '#00f3ff')
-					.attr('font-family', 'Rajdhani')
-					.attr('font-size', '12px');
-			});
-
-		// Add axis labels
-		svg
-			.append('text')
-			.attr('x', width / 2)
-			.attr('y', height + 40)
-			.attr('fill', '#00f3ff')
-			.attr('text-anchor', 'middle')
-			.attr('font-family', 'Orbitron')
-			.attr('font-size', '14px')
-			.text('X_AXIS');
-
-		svg
-			.append('text')
-			.attr('transform', 'rotate(-90)')
-			.attr('x', -height / 2)
-			.attr('y', -40)
-			.attr('fill', '#00f3ff')
-			.attr('text-anchor', 'middle')
-			.attr('font-family', 'Orbitron')
-			.attr('font-size', '14px')
-			.text('Y_AXIS');
-
-		// Plot points
-		svg
-			.selectAll('circle')
-			.data(points)
-			.enter()
-			.append('circle')
-			.attr('cx', (d) => xScale(d[0]))
-			.attr('cy', (d) => yScale(d[1]))
-			.attr('r', 2)
-			.attr('fill', (d, i) => {
-				// Cyan to Magenta gradient based on iteration
-				const t = i / points.length;
-				return d3.interpolate('#00f3ff', '#bc13fe')(t);
-			})
-			.attr('opacity', 0.8)
-			.attr('filter', 'drop-shadow(0 0 2px rgba(0, 243, 255, 0.5))');
-	}
-
 	onMount(() => {
-		render();
-
 		return () => {
 			// Clear save/share handler timeouts to prevent state updates after unmount
 			cleanupSaveHandler();
@@ -329,15 +206,6 @@
 			configLoadAbortController = null;
 			isUnmounted = true;
 		};
-	});
-
-	$effect(() => {
-		void a;
-		void b;
-		void x0;
-		void y0;
-		void iterations;
-		if (container) render();
 	});
 </script>
 
@@ -354,7 +222,7 @@
 			</p>
 		</div>
 		<div class="flex gap-3">
-			<SnapshotButton target={container} targetType="container" mapType="lozi" />
+			<SnapshotButton target={rendererContainer} targetType="container" mapType="lozi" />
 			<a
 				href={buildComparisonUrl(
 					base,
@@ -386,82 +254,16 @@
 		</div>
 	</div>
 
-	<!-- Save Success Toast -->
-	{#if saveState.saveSuccess}
-		<div
-			class="fixed top-20 right-4 z-50 px-6 py-4 bg-green-500/10 border border-green-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
-		>
-			<div class="flex items-center gap-3">
-				<span class="text-green-400">✓</span>
-				<span class="text-green-200">Configuration saved successfully!</span>
-			</div>
-		</div>
-	{/if}
-
-	<!-- Save Error Toast -->
-	{#if saveState.saveError}
-		<div
-			class="fixed top-20 right-4 z-50 px-6 py-4 bg-red-500/10 border border-red-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
-		>
-			<div class="flex items-center gap-3">
-				<span class="text-red-400">✗</span>
-				<span class="text-red-200">{saveState.saveError}</span>
-			</div>
-		</div>
-	{/if}
-
-	{#if showConfigError && configErrors.length > 0}
-		<div class="bg-red-500/10 border border-red-500/30 rounded-sm p-4 relative">
-			<div class="flex items-start gap-3">
-				<span class="text-red-400 text-xl">✕</span>
-				<div class="flex-1">
-					<h3 class="font-['Orbitron'] text-red-400 font-semibold mb-1">INVALID_CONFIGURATION</h3>
-					<p class="text-red-200/80 text-sm mb-2">
-						The loaded configuration could not be applied due to validation errors:
-					</p>
-					<ul class="text-xs text-red-200/60 list-disc list-inside space-y-1">
-						{#each configErrors as err, i (i)}
-							<li>{err}</li>
-						{/each}
-					</ul>
-				</div>
-				<button
-					onclick={() => (showConfigError = false)}
-					class="text-red-400/60 hover:text-red-400"
-				>
-					✕
-				</button>
-			</div>
-		</div>
-	{/if}
-
-	<!-- Stability Warning -->
-	{#if showStabilityWarning && stabilityWarnings.length > 0}
-		<div class="bg-amber-500/10 border border-amber-500/30 rounded-sm p-4 relative">
-			<div class="flex items-start gap-3">
-				<span class="text-amber-400 text-xl">⚠️</span>
-				<div class="flex-1">
-					<h3 class="font-['Orbitron'] text-amber-400 font-semibold mb-1">
-						UNSTABLE_PARAMETERS_DETECTED
-					</h3>
-					<p class="text-amber-200/80 text-sm mb-2">
-						The loaded configuration contains parameters outside recommended stable ranges:
-					</p>
-					<ul class="text-xs text-amber-200/60 list-disc list-inside space-y-1">
-						{#each stabilityWarnings as warning, i (i)}
-							<li>{warning}</li>
-						{/each}
-					</ul>
-				</div>
-				<button
-					onclick={() => (showStabilityWarning = false)}
-					class="text-amber-400/60 hover:text-amber-400"
-				>
-					✕
-				</button>
-			</div>
-		</div>
-	{/if}
+	<VisualizationAlerts
+		saveSuccess={saveState.saveSuccess}
+		saveError={saveState.saveError}
+		{configErrors}
+		{showConfigError}
+		onDismissConfigError={() => (showConfigError = false)}
+		{stabilityWarnings}
+		{showStabilityWarning}
+		onDismissStabilityWarning={() => (showStabilityWarning = false)}
+	/>
 
 	<div
 		class="bg-card/30 backdrop-blur-md border border-primary/20 rounded-sm p-6 space-y-6 relative overflow-hidden group"
@@ -581,18 +383,15 @@
 		</div>
 	</div>
 
-	<div
-		bind:this={container}
-		class="bg-black/40 border border-primary/20 rounded-sm overflow-hidden shadow-[0_0_30px_rgba(0,0,0,0.5)] relative"
-		style="height: 600px;"
-	>
-		<div bind:this={plotContainer} class="h-full w-full"></div>
-		<div
-			class="absolute top-4 right-4 text-xs font-['Rajdhani'] text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
-		>
-			LIVE_RENDER // D3_JS
-		</div>
-	</div>
+	<LoziRenderer
+		bind:containerElement={rendererContainer}
+		bind:a
+		bind:b
+		bind:x0
+		bind:y0
+		bind:iterations
+		height={VIZ_CONTAINER_HEIGHT}
+	/>
 
 	<div class="bg-card/30 backdrop-blur-md border border-primary/20 rounded-sm p-6 relative">
 		<div

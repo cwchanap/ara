@@ -12,6 +12,7 @@
 		y0?: number;
 		iterations?: number;
 		height?: number;
+		containerElement?: HTMLDivElement;
 	}
 
 	let {
@@ -20,10 +21,16 @@
 		x0 = $bindable(0),
 		y0 = $bindable(0),
 		iterations = $bindable(5000),
-		height = 500
+		height = 500,
+		containerElement = $bindable()
 	}: Props = $props();
 
 	let container: HTMLDivElement;
+
+	// Sync internal container ref to bindable prop
+	$effect(() => {
+		containerElement = container;
+	});
 
 	function render() {
 		if (!container) return;
