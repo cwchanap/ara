@@ -1,12 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { get } from 'svelte/store';
-	import * as d3 from 'd3';
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
 	import ShareDialog from '$lib/components/ui/ShareDialog.svelte';
-	import SnapshotButton from '$lib/components/ui/SnapshotButton.svelte';
+	import VisualizationAlerts from '$lib/components/ui/VisualizationAlerts.svelte';
+	import HenonRenderer from '$lib/components/visualizations/HenonRenderer.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
 	import {
 		loadSavedConfigParameters,
@@ -17,16 +16,13 @@
 	import { createShareHandler, createInitialShareState } from '$lib/use-visualization-share';
 	import type { HenonParameters } from '$lib/types';
 	import { buildComparisonUrl, createComparisonStateFromCurrent } from '$lib/comparison-url-state';
+	import { VIZ_CONTAINER_HEIGHT } from '$lib/constants';
 
 	let { data } = $props();
 
-	let container: HTMLDivElement | undefined = $state();
 	let a = $state(1.4);
 	let b = $state(0.3);
 	let iterations = $state(2000);
-	let lastAppliedConfigKey = $state<string | null>(null);
-	let configLoadAbortController: AbortController | null = null;
-	let isUnmounted = false;
 
 	// Save dialog state
 	const saveState = $state(createInitialSaveState());
@@ -34,137 +30,28 @@
 	// Share dialog state
 	const shareState = $state(createInitialShareState());
 
-	// Stability warning state
+	// Config loading state
 	let configErrors = $state<string[]>([]);
 	let showConfigError = $state(false);
 	let stabilityWarnings = $state<string[]>([]);
 	let showStabilityWarning = $state(false);
 
-	// Load config from URL reactively
-	$effect(() => {
-		const configId = get(page).url.searchParams.get('configId');
-		const shareCode = get(page).url.searchParams.get('share');
-		const configParam = get(page).url.searchParams.get('config');
-		const configKey = shareCode
-			? `share:${shareCode}`
-			: configId
-				? `id:${configId}`
-				: configParam
-					? `param:${configParam}`
-					: null;
-		if (configKey === lastAppliedConfigKey) return;
-		lastAppliedConfigKey = configKey;
-
-		configLoadAbortController?.abort();
-		configLoadAbortController = null;
-
-		if (shareCode || configId) {
-			configErrors = [];
-			showConfigError = false;
-			stabilityWarnings = [];
-			showStabilityWarning = false;
-			const controller = new AbortController();
-			configLoadAbortController = controller;
-			const { signal } = controller;
-			const currentConfigKey = configKey;
-
-			void (async () => {
-				const fetchWithSignal: typeof fetch = Object.assign(
-					(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
-						fetch(input, { ...init, signal }),
-					{ preconnect: fetch.preconnect }
-				);
-
-				let result;
-				try {
-					if (shareCode) {
-						result = await loadSharedConfigParameters({
-							shareCode,
-							mapType: 'henon',
-							base,
-							fetchFn: fetchWithSignal
-						});
-					} else {
-						result = await loadSavedConfigParameters({
-							configId: configId!,
-							mapType: 'henon',
-							base,
-							fetchFn: fetchWithSignal
-						});
-					}
-				} catch (e) {
-					// Check if this was an abort error (expected during cleanup)
-					if (e instanceof Error && e.name === 'AbortError') {
-						return; // Silently ignore abort errors
-					}
-					console.error('Failed to load configuration:', e);
-					if (isUnmounted || signal.aborted) return;
-					if (lastAppliedConfigKey !== currentConfigKey) return;
-					configErrors = [
-						'Failed to load configuration: ' + (e instanceof Error ? e.message : 'Unknown error')
-					];
-					showConfigError = true;
-					return;
-				}
-
-				if (isUnmounted || signal.aborted) return;
-				if (lastAppliedConfigKey !== currentConfigKey) return;
-				if (!result.ok) {
-					configErrors = result.errors;
-					showConfigError = true;
-					return;
-				}
-
-				const typedParams = result.parameters;
-				a = typedParams.a ?? a;
-				b = typedParams.b ?? b;
-				iterations = typedParams.iterations ?? iterations;
-
-				const stability = checkParameterStability('henon', typedParams);
-				if (!stability.isStable) {
-					stabilityWarnings = stability.warnings;
-					showStabilityWarning = true;
-				}
-			})();
-		} else if (configParam) {
-			try {
-				configErrors = [];
-				showConfigError = false;
-				stabilityWarnings = [];
-				showStabilityWarning = false;
-
-				// Validate parameters structure before using
-				const parsed = parseConfigParam({ mapType: 'henon', configParam });
-				if (!parsed.ok) {
-					console.error(parsed.logMessage, parsed.logDetails);
-					configErrors = parsed.errors;
-					showConfigError = true;
-					return;
-				}
-
-				// Now we can safely cast since validation passed
-				const typedParams = parsed.parameters;
-				a = typedParams.a ?? a;
-				b = typedParams.b ?? b;
-				iterations = typedParams.iterations ?? iterations;
-
-				const stability = checkParameterStability('henon', typedParams);
-				if (!stability.isStable) {
-					stabilityWarnings = stability.warnings;
-					showStabilityWarning = true;
-				}
-			} catch (e) {
-				console.error('Invalid config parameter:', e);
-				configErrors = ['Failed to parse configuration parameters'];
-				showConfigError = true;
-			}
-		}
-	});
-
 	// Get current parameters for saving
 	function getParameters(): HenonParameters {
 		return { type: 'henon', a, b, iterations };
 	}
+
+	let comparisonUrl = $state('');
+	$effect(() => {
+		void a;
+		void b;
+		void iterations;
+		comparisonUrl = buildComparisonUrl(
+			base,
+			'henon',
+			createComparisonStateFromCurrent('henon', getParameters())
+		);
+	});
 
 	// Create save handler with cleanup
 	const { save: handleSave, cleanup: cleanupSaveHandler } = createSaveHandler(
@@ -180,147 +67,144 @@
 		getParameters
 	);
 
-	function calculateHenon(a: number, b: number, iterations: number) {
-		const points: [number, number][] = [];
-		let x = 0;
-		let y = 0;
+	// Load config from URL on mount
+	onMount(() => {
+		const controller = new AbortController();
+		const { signal } = controller;
+		const fetchWithSignal: typeof fetch = Object.assign(
+			(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
+				fetch(input, { ...init, signal }),
+			{ preconnect: fetch.preconnect }
+		);
 
-		for (let i = 0; i < iterations; i++) {
-			const xNew = y + 1 - a * x * x;
-			const yNew = b * x;
-			points.push([xNew, yNew]);
-			x = xNew;
-			y = yNew;
+		configErrors = [];
+		showConfigError = false;
+		stabilityWarnings = [];
+		showStabilityWarning = false;
+
+		const configId = $page.url.searchParams.get('configId');
+		const shareCode = $page.url.searchParams.get('share');
+		if (shareCode) {
+			void (async () => {
+				try {
+					const result = await loadSharedConfigParameters({
+						shareCode,
+						mapType: 'henon',
+						base,
+						fetchFn: fetchWithSignal
+					});
+					if (signal.aborted) return;
+					if (!result.ok) {
+						configErrors = result.errors;
+						showConfigError = true;
+						return;
+					}
+
+					const typedParams = result.parameters;
+					if (typeof typedParams.a === 'number') a = typedParams.a;
+					if (typeof typedParams.b === 'number') b = typedParams.b;
+					if (typeof typedParams.iterations === 'number') iterations = typedParams.iterations;
+
+					const stability = checkParameterStability('henon', typedParams);
+					if (!stability.isStable) {
+						stabilityWarnings = stability.warnings;
+						showStabilityWarning = true;
+					}
+				} catch (err) {
+					if (
+						signal.aborted ||
+						(err instanceof DOMException && err.name === 'AbortError') ||
+						(err instanceof Error && err.name === 'AbortError')
+					) {
+						return;
+					}
+					configErrors = ['Failed to load shared configuration'];
+					showConfigError = true;
+				}
+			})();
+		} else if (configId) {
+			void (async () => {
+				try {
+					const result = await loadSavedConfigParameters({
+						configId,
+						mapType: 'henon',
+						base,
+						fetchFn: fetchWithSignal
+					});
+					if (signal.aborted) return;
+					if (!result.ok) {
+						if (signal.aborted) return;
+						configErrors = result.errors;
+						showConfigError = true;
+						return;
+					}
+
+					const typedParams = result.parameters;
+					if (signal.aborted) return;
+					if (typeof typedParams.a === 'number') a = typedParams.a;
+					if (typeof typedParams.b === 'number') b = typedParams.b;
+					if (typeof typedParams.iterations === 'number') iterations = typedParams.iterations;
+
+					const stability = checkParameterStability('henon', typedParams);
+					if (signal.aborted) return;
+					if (!stability.isStable) {
+						stabilityWarnings = stability.warnings;
+						showStabilityWarning = true;
+					}
+				} catch (err) {
+					if (
+						signal.aborted ||
+						(err instanceof DOMException && err.name === 'AbortError') ||
+						(err instanceof Error && err.name === 'AbortError')
+					) {
+						return;
+					}
+					configErrors = ['Failed to load configuration parameters'];
+					showConfigError = true;
+				}
+			})();
+		} else {
+			const configParam = $page.url.searchParams.get('config');
+			if (configParam) {
+				try {
+					// Validate parameters structure before using
+					const parsed = parseConfigParam({ mapType: 'henon', configParam });
+					if (!parsed.ok) {
+						console.error(parsed.logMessage, parsed.logDetails);
+						if (signal.aborted) return;
+						configErrors = parsed.errors;
+						showConfigError = true;
+					} else {
+						// Now we can safely cast since validation passed
+						const typedParams = parsed.parameters;
+						if (signal.aborted) return;
+						if (typeof typedParams.a === 'number') a = typedParams.a;
+						if (typeof typedParams.b === 'number') b = typedParams.b;
+						if (typeof typedParams.iterations === 'number') iterations = typedParams.iterations;
+
+						// Check stability
+						const stability = checkParameterStability('henon', typedParams);
+						if (signal.aborted) return;
+						if (!stability.isStable) {
+							stabilityWarnings = stability.warnings;
+							showStabilityWarning = true;
+						}
+					}
+				} catch (e) {
+					console.error('Invalid config parameter:', e);
+					if (signal.aborted) return;
+					configErrors = ['Failed to parse configuration parameters'];
+					showConfigError = true;
+				}
+			}
 		}
 
-		return points;
-	}
-
-	function render() {
-		if (!container) return;
-
-		// Clear previous content
-		d3.select(container).selectAll('*').remove();
-
-		const margin = { top: 20, right: 20, bottom: 50, left: 60 };
-		const width = container.clientWidth - margin.left - margin.right;
-		const height = 600 - margin.top - margin.bottom;
-
-		const svg = d3
-			.select(container)
-			.append('svg')
-			.attr('width', container.clientWidth)
-			.attr('height', 600)
-			.append('g')
-			.attr('transform', `translate(${margin.left},${margin.top})`);
-
-		const points = calculateHenon(a, b, iterations);
-
-		const xExtentRaw = d3.extent(points, (d) => d[0]);
-		const yExtentRaw = d3.extent(points, (d) => d[1]);
-		const xExtent: [number, number] = [xExtentRaw[0] ?? -1, xExtentRaw[1] ?? 1];
-		const yExtent: [number, number] = [yExtentRaw[0] ?? -1, yExtentRaw[1] ?? 1];
-
-		const xScale = d3
-			.scaleLinear()
-			.domain([xExtent[0] - 0.1, xExtent[1] + 0.1])
-			.range([0, width]);
-
-		const yScale = d3
-			.scaleLinear()
-			.domain([yExtent[0] - 0.1, yExtent[1] + 0.1])
-			.range([height, 0]);
-
-		// Add axes
-		const xAxis = d3.axisBottom(xScale).tickSize(-height).tickPadding(10);
-		const yAxis = d3.axisLeft(yScale).tickSize(-width).tickPadding(10);
-
-		svg
-			.append('g')
-			.attr('class', 'grid-lines')
-			.attr('transform', `translate(0,${height})`)
-			.call(xAxis)
-			.call((g) => {
-				g.select('.domain').remove();
-				g.selectAll('line').attr('stroke', '#00f3ff').attr('stroke-opacity', 0.1);
-				g.selectAll('text')
-					.attr('fill', '#00f3ff')
-					.attr('font-family', 'Rajdhani')
-					.attr('font-size', '12px');
-			});
-
-		svg
-			.append('g')
-			.attr('class', 'grid-lines')
-			.call(yAxis)
-			.call((g) => {
-				g.select('.domain').remove();
-				g.selectAll('line').attr('stroke', '#00f3ff').attr('stroke-opacity', 0.1);
-				g.selectAll('text')
-					.attr('fill', '#00f3ff')
-					.attr('font-family', 'Rajdhani')
-					.attr('font-size', '12px');
-			});
-
-		// Add axis labels
-		svg
-			.append('text')
-			.attr('x', width / 2)
-			.attr('y', height + 40)
-			.attr('fill', '#00f3ff')
-			.attr('text-anchor', 'middle')
-			.attr('font-family', 'Orbitron')
-			.attr('font-size', '14px')
-			.text('X_AXIS');
-
-		svg
-			.append('text')
-			.attr('transform', 'rotate(-90)')
-			.attr('x', -height / 2)
-			.attr('y', -40)
-			.attr('fill', '#00f3ff')
-			.attr('text-anchor', 'middle')
-			.attr('font-family', 'Orbitron')
-			.attr('font-size', '14px')
-			.text('Y_AXIS');
-
-		// Plot points
-		svg
-			.selectAll('circle')
-			.data(points)
-			.enter()
-			.append('circle')
-			.attr('cx', (d) => xScale(d[0]))
-			.attr('cy', (d) => yScale(d[1]))
-			.attr('r', 2)
-			.attr('fill', (d, i) => {
-				// Cyan to Magenta gradient based on iteration
-				const t = i / points.length;
-				return d3.interpolate('#00f3ff', '#bc13fe')(t);
-			})
-			.attr('opacity', 0.8)
-			.attr('filter', 'drop-shadow(0 0 2px rgba(0, 243, 255, 0.5))');
-	}
-
-	onMount(() => {
-		render();
-
 		return () => {
+			controller.abort();
 			// Clear save/share handler timeouts to prevent state updates after unmount
 			cleanupSaveHandler();
 			cleanupShareHandler();
-			// Abort any pending config load requests
-			configLoadAbortController?.abort();
-			configLoadAbortController = null;
-			isUnmounted = true;
 		};
-	});
-
-	$effect(() => {
-		void a;
-		void b;
-		void iterations;
-		if (container) render();
 	});
 </script>
 
@@ -337,17 +221,21 @@
 			</p>
 		</div>
 		<div class="flex gap-3">
-			<SnapshotButton target={container} targetType="container" mapType="henon" />
-			<a
-				href={buildComparisonUrl(
-					base,
-					'henon',
-					createComparisonStateFromCurrent('henon', getParameters())
-				)}
-				class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
-			>
-				⊞ Compare
-			</a>
+			{#if comparisonUrl}
+				<a
+					href={comparisonUrl}
+					class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
+				>
+					⊞ Compare
+				</a>
+			{:else}
+				<span
+					class="px-6 py-2 bg-primary/10 text-primary border border-primary/30 rounded-sm uppercase tracking-widest text-sm font-bold opacity-50 cursor-not-allowed"
+					aria-disabled="true"
+				>
+					⊞ Compare
+				</span>
+			{/if}
 			<button
 				onclick={() => (shareState.showShareDialog = true)}
 				class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
@@ -369,82 +257,18 @@
 		</div>
 	</div>
 
-	<!-- Save Success Toast -->
-	{#if saveState.saveSuccess}
-		<div
-			class="fixed top-20 right-4 z-50 px-6 py-4 bg-green-500/10 border border-green-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
-		>
-			<div class="flex items-center gap-3">
-				<span class="text-green-400">✓</span>
-				<span class="text-green-200">Configuration saved successfully!</span>
-			</div>
-		</div>
-	{/if}
-
-	<!-- Save Error Toast -->
-	{#if saveState.saveError}
-		<div
-			class="fixed top-20 right-4 z-50 px-6 py-4 bg-red-500/10 border border-red-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
-		>
-			<div class="flex items-center gap-3">
-				<span class="text-red-400">✗</span>
-				<span class="text-red-200">{saveState.saveError}</span>
-			</div>
-		</div>
-	{/if}
-
-	{#if showConfigError && configErrors.length > 0}
-		<div class="bg-red-500/10 border border-red-500/30 rounded-sm p-4 relative">
-			<div class="flex items-start gap-3">
-				<span class="text-red-400 text-xl">✕</span>
-				<div class="flex-1">
-					<h3 class="font-['Orbitron'] text-red-400 font-semibold mb-1">INVALID_CONFIGURATION</h3>
-					<p class="text-red-200/80 text-sm mb-2">
-						The loaded configuration could not be applied due to validation errors:
-					</p>
-					<ul class="text-xs text-red-200/60 list-disc list-inside space-y-1">
-						{#each configErrors as err, i (i)}
-							<li>{err}</li>
-						{/each}
-					</ul>
-				</div>
-				<button
-					onclick={() => (showConfigError = false)}
-					class="text-red-400/60 hover:text-red-400"
-				>
-					✕
-				</button>
-			</div>
-		</div>
-	{/if}
-
-	<!-- Stability Warning -->
-	{#if showStabilityWarning && stabilityWarnings.length > 0}
-		<div class="bg-amber-500/10 border border-amber-500/30 rounded-sm p-4 relative">
-			<div class="flex items-start gap-3">
-				<span class="text-amber-400 text-xl">⚠️</span>
-				<div class="flex-1">
-					<h3 class="font-['Orbitron'] text-amber-400 font-semibold mb-1">
-						UNSTABLE_PARAMETERS_DETECTED
-					</h3>
-					<p class="text-amber-200/80 text-sm mb-2">
-						The loaded configuration contains parameters outside recommended stable ranges:
-					</p>
-					<ul class="text-xs text-amber-200/60 list-disc list-inside space-y-1">
-						{#each stabilityWarnings as warning, i (i)}
-							<li>{warning}</li>
-						{/each}
-					</ul>
-				</div>
-				<button
-					onclick={() => (showStabilityWarning = false)}
-					class="text-amber-400/60 hover:text-amber-400"
-				>
-					✕
-				</button>
-			</div>
-		</div>
-	{/if}
+	<!-- Alerts: Save success/error, config errors, stability warnings -->
+	<VisualizationAlerts
+		saveSuccess={saveState.saveSuccess}
+		saveError={saveState.saveError}
+		{configErrors}
+		{showConfigError}
+		onDismissConfigError={() => (showConfigError = false)}
+		{stabilityWarnings}
+		{showStabilityWarning}
+		onDismissStabilityWarning={() => (showStabilityWarning = false)}
+		onDismissSaveError={() => (saveState.saveError = null)}
+	/>
 
 	<div
 		class="bg-card/30 backdrop-blur-md border border-primary/20 rounded-sm p-6 space-y-6 relative overflow-hidden group"
@@ -527,18 +351,10 @@
 		</div>
 	</div>
 
-	<div
-		bind:this={container}
-		class="bg-black/40 border border-primary/20 rounded-sm overflow-hidden shadow-[0_0_30px_rgba(0,0,0,0.5)] relative"
-		style="height: 600px;"
-	>
-		<div
-			class="absolute top-4 right-4 text-xs font-['Rajdhani'] text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
-		>
-			LIVE_RENDER // D3_JS
-		</div>
-	</div>
+	<!-- Visualization Container -->
+	<HenonRenderer bind:a bind:b bind:iterations height={VIZ_CONTAINER_HEIGHT} />
 
+	<!-- Info Panel -->
 	<div class="bg-card/30 backdrop-blur-md border border-primary/20 rounded-sm p-6 relative">
 		<div
 			class="absolute top-0 left-0 w-1 h-full bg-linear-to-b from-primary to-transparent opacity-50"
