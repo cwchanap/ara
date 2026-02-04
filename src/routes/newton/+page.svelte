@@ -4,7 +4,8 @@
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
 	import ShareDialog from '$lib/components/ui/ShareDialog.svelte';
-	import SnapshotButton from '$lib/components/ui/SnapshotButton.svelte';
+	import VisualizationAlerts from '$lib/components/ui/VisualizationAlerts.svelte';
+	import NewtonRenderer from '$lib/components/visualizations/NewtonRenderer.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
 	import {
 		loadSavedConfigParameters,
@@ -14,161 +15,27 @@
 	import { createSaveHandler, createInitialSaveState } from '$lib/use-visualization-save';
 	import { createShareHandler, createInitialShareState } from '$lib/use-visualization-share';
 	import type { NewtonParameters } from '$lib/types';
+	import { VIZ_CONTAINER_HEIGHT } from '$lib/constants';
 
 	let { data } = $props();
 
-	let canvas: HTMLCanvasElement | undefined = $state();
-	let imgWidth = 600;
-	let imgHeight = 600;
 	let xMin = $state(-0.01);
 	let xMax = $state(0.01);
 	let yMin = $state(-0.01);
 	let yMax = $state(0.01);
 	let maxIterations = $state(50);
-	let epsilon = 5e-19;
-	let isRendering = false;
 
 	// Save dialog state
 	const saveState = $state(createInitialSaveState());
-	let isDestroyed = false;
 
 	// Share dialog state
 	const shareState = $state(createInitialShareState());
 
-	// Stability warning state
+	// Config loading state
 	let configErrors = $state<string[]>([]);
 	let showConfigError = $state(false);
 	let stabilityWarnings = $state<string[]>([]);
 	let showStabilityWarning = $state(false);
-	let configLoadAbortController: AbortController | null = null;
-	let lastAppliedConfigKey = $state<string | null>(null);
-
-	// Load config from URL on mount
-	$effect(() => {
-		const configId = $page.url.searchParams.get('configId');
-		const shareCode = $page.url.searchParams.get('share');
-		const configParam = $page.url.searchParams.get('config');
-		const configKey = shareCode
-			? `share:${shareCode}`
-			: configId
-				? `id:${configId}`
-				: configParam
-					? `param:${configParam}`
-					: null;
-		if (configKey === lastAppliedConfigKey) return;
-		lastAppliedConfigKey = configKey;
-
-		configLoadAbortController?.abort();
-		configLoadAbortController = null;
-
-		if (shareCode || configId) {
-			configErrors = [];
-			showConfigError = false;
-			stabilityWarnings = [];
-			showStabilityWarning = false;
-			const controller = new AbortController();
-			configLoadAbortController = controller;
-			const { signal } = controller;
-			const currentConfigKey = configKey;
-
-			void (async () => {
-				const fetchWithSignal: typeof fetch = Object.assign(
-					(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
-						fetch(input, { ...init, signal }),
-					{ preconnect: fetch.preconnect }
-				);
-
-				try {
-					let result;
-					if (shareCode) {
-						result = await loadSharedConfigParameters({
-							shareCode,
-							mapType: 'newton',
-							base,
-							fetchFn: fetchWithSignal
-						});
-					} else {
-						result = await loadSavedConfigParameters({
-							configId: configId!,
-							mapType: 'newton',
-							base,
-							fetchFn: fetchWithSignal
-						});
-					}
-
-					if (signal.aborted || isDestroyed) return;
-					if (lastAppliedConfigKey !== currentConfigKey) return;
-					if (!result.ok) {
-						configErrors = result.errors;
-						showConfigError = true;
-						return;
-					}
-
-					const typedParams = result.parameters;
-					xMin = typedParams.xMin ?? xMin;
-					xMax = typedParams.xMax ?? xMax;
-					yMin = typedParams.yMin ?? yMin;
-					yMax = typedParams.yMax ?? yMax;
-					maxIterations = typedParams.maxIterations ?? maxIterations;
-
-					const stability = checkParameterStability('newton', typedParams);
-					if (!stability.isStable) {
-						stabilityWarnings = stability.warnings;
-						showStabilityWarning = true;
-					}
-				} catch (err) {
-					if (
-						isDestroyed ||
-						signal.aborted ||
-						(err instanceof DOMException && err.name === 'AbortError') ||
-						(err instanceof Error && err.name === 'AbortError')
-					) {
-						return;
-					}
-					configErrors = ['Failed to load configuration parameters'];
-					showConfigError = true;
-				} finally {
-					if (configLoadAbortController === controller) {
-						configLoadAbortController = null;
-					}
-				}
-			})();
-		} else if (configParam) {
-			try {
-				configErrors = [];
-				showConfigError = false;
-				stabilityWarnings = [];
-				showStabilityWarning = false;
-
-				// Validate parameters structure before using
-				const parsed = parseConfigParam({ mapType: 'newton', configParam });
-				if (!parsed.ok) {
-					console.error(parsed.logMessage, parsed.logDetails);
-					configErrors = parsed.errors;
-					showConfigError = true;
-					return;
-				}
-
-				// Now we can safely cast since validation passed
-				const typedParams = parsed.parameters;
-				xMin = typedParams.xMin ?? xMin;
-				xMax = typedParams.xMax ?? xMax;
-				yMin = typedParams.yMin ?? yMin;
-				yMax = typedParams.yMax ?? yMax;
-				maxIterations = typedParams.maxIterations ?? maxIterations;
-
-				const stability = checkParameterStability('newton', typedParams);
-				if (!stability.isStable) {
-					stabilityWarnings = stability.warnings;
-					showStabilityWarning = true;
-				}
-			} catch (e) {
-				console.error('Invalid config parameter:', e);
-				configErrors = ['Failed to parse configuration parameters'];
-				showConfigError = true;
-			}
-		}
-	});
 
 	// Get current parameters for saving
 	function getParameters(): NewtonParameters {
@@ -189,117 +56,153 @@
 		getParameters
 	);
 
-	function render() {
-		if (!canvas || isRendering) return;
-		isRendering = true;
+	// Load config from URL on mount
+	onMount(() => {
+		const controller = new AbortController();
+		const { signal } = controller;
+		const fetchWithSignal: typeof fetch = Object.assign(
+			(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
+				fetch(input, { ...init, signal }),
+			{ preconnect: fetch.preconnect }
+		);
 
-		const ctx = canvas.getContext('2d');
-		if (!ctx) return;
+		configErrors = [];
+		showConfigError = false;
+		stabilityWarnings = [];
+		showStabilityWarning = false;
 
-		// Clear canvas
-		ctx.clearRect(0, 0, imgWidth, imgHeight);
+		const configId = $page.url.searchParams.get('configId');
+		const shareCode = $page.url.searchParams.get('share');
+		if (shareCode) {
+			void (async () => {
+				try {
+					const result = await loadSharedConfigParameters({
+						shareCode,
+						mapType: 'newton',
+						base,
+						fetchFn: fetchWithSignal
+					});
+					if (signal.aborted) return;
+					if (!result.ok) {
+						configErrors = result.errors;
+						showConfigError = true;
+						return;
+					}
 
-		// Draw Newton fractal
-		const imageData = ctx.createImageData(imgWidth, imgHeight);
-		const data = imageData.data;
+					const typedParams = result.parameters;
+					if (typeof typedParams.xMin === 'number') xMin = typedParams.xMin;
+					if (typeof typedParams.xMax === 'number') xMax = typedParams.xMax;
+					if (typeof typedParams.yMin === 'number') yMin = typedParams.yMin;
+					if (typeof typedParams.yMax === 'number') yMax = typedParams.yMax;
+					if (typeof typedParams.maxIterations === 'number')
+						maxIterations = typedParams.maxIterations;
 
-		for (let y = 0; y < imgHeight; y++) {
-			const zy = (y * (yMax - yMin)) / (imgHeight - 1) + yMin;
-
-			for (let x = 0; x < imgWidth; x++) {
-				const zx = (x * (xMax - xMin)) / (imgWidth - 1) + xMin;
-
-				let real = zx;
-				let imag = zy;
-
-				let iterations = 0;
-				for (let i = 0; i < maxIterations; i++) {
-					// Newton iteration for z^3 - 1 = 0
-					// z_new = z - (z^3 - 1) / (3*z^2)
-
-					const r2 = real * real + imag * imag;
-					if (r2 === 0) break;
-
-					// z^2
-					const z2_real = real * real - imag * imag;
-					const z2_imag = 2 * real * imag;
-
-					// z^3
-					const z3_real = real * z2_real - imag * z2_imag;
-					const z3_imag = real * z2_imag + imag * z2_real;
-
-					// z^3 - 1
-					const numerator_real = z3_real - 1;
-					const numerator_imag = z3_imag;
-
-					// 3*z^2
-					const denominator_real = 3 * z2_real;
-					const denominator_imag = 3 * z2_imag;
-
-					// Division
-					const denom = denominator_real * denominator_real + denominator_imag * denominator_imag;
-					if (denom === 0) break;
-
-					const div_real =
-						(numerator_real * denominator_real + numerator_imag * denominator_imag) / denom;
-					const div_imag =
-						(numerator_imag * denominator_real - numerator_real * denominator_imag) / denom;
-
-					// z_new = z - result
-					const newReal = real - div_real;
-					const newImag = imag - div_imag;
-
-					const diff = Math.sqrt((newReal - real) ** 2 + (newImag - imag) ** 2);
-
-					real = newReal;
-					imag = newImag;
-					iterations = i;
-
-					if (diff < epsilon) break;
+					const stability = checkParameterStability('newton', typedParams);
+					if (!stability.isStable) {
+						stabilityWarnings = stability.warnings;
+						showStabilityWarning = true;
+					}
+				} catch (err) {
+					if (
+						signal.aborted ||
+						(err instanceof DOMException && err.name === 'AbortError') ||
+						(err instanceof Error && err.name === 'AbortError')
+					) {
+						return;
+					}
+					configErrors = ['Failed to load shared configuration'];
+					showConfigError = true;
 				}
+			})();
+		} else if (configId) {
+			void (async () => {
+				try {
+					const result = await loadSavedConfigParameters({
+						configId,
+						mapType: 'newton',
+						base,
+						fetchFn: fetchWithSignal
+					});
+					if (signal.aborted) return;
+					if (!result.ok) {
+						if (signal.aborted) return;
+						configErrors = result.errors;
+						showConfigError = true;
+						return;
+					}
 
-				// Color based on which root we converged to
-				const idx = (y * imgWidth + x) * 4;
+					const typedParams = result.parameters;
+					if (signal.aborted) return;
+					if (typeof typedParams.xMin === 'number') xMin = typedParams.xMin;
+					if (typeof typedParams.xMax === 'number') xMax = typedParams.xMax;
+					if (typeof typedParams.yMin === 'number') yMin = typedParams.yMin;
+					if (typeof typedParams.yMax === 'number') yMax = typedParams.yMax;
+					if (typeof typedParams.maxIterations === 'number')
+						maxIterations = typedParams.maxIterations;
 
-				if (real + 0.5 < epsilon) {
-					// Converged to specific root - show White/Cyan
-					data[idx] = 200;
-					data[idx + 1] = 255;
-					data[idx + 2] = 255;
-					data[idx + 3] = 255;
-				} else {
-					// Color based on iterations - Neon Gold/Amber gradient
-					const intensity = Math.floor((iterations / maxIterations) * 255);
-					// Gold: 255, 215, 0 -> Gradient
-					data[idx] = intensity * 2; // Red
-					data[idx + 1] = intensity * 1.5; // Green
-					data[idx + 2] = intensity * 0.2; // Blue
-					data[idx + 3] = 255;
+					const stability = checkParameterStability('newton', typedParams);
+					if (signal.aborted) return;
+					if (!stability.isStable) {
+						stabilityWarnings = stability.warnings;
+						showStabilityWarning = true;
+					}
+				} catch (err) {
+					if (
+						signal.aborted ||
+						(err instanceof DOMException && err.name === 'AbortError') ||
+						(err instanceof Error && err.name === 'AbortError')
+					) {
+						return;
+					}
+					configErrors = ['Failed to load configuration parameters'];
+					showConfigError = true;
+				}
+			})();
+		} else {
+			const configParam = $page.url.searchParams.get('config');
+			if (configParam) {
+				try {
+					// Validate parameters structure before using
+					const parsed = parseConfigParam({ mapType: 'newton', configParam });
+					if (!parsed.ok) {
+						console.error(parsed.logMessage, parsed.logDetails);
+						if (signal.aborted) return;
+						configErrors = parsed.errors;
+						showConfigError = true;
+					} else {
+						// Now we can safely cast since validation passed
+						const typedParams = parsed.parameters;
+						if (signal.aborted) return;
+						if (typeof typedParams.xMin === 'number') xMin = typedParams.xMin;
+						if (typeof typedParams.xMax === 'number') xMax = typedParams.xMax;
+						if (typeof typedParams.yMin === 'number') yMin = typedParams.yMin;
+						if (typeof typedParams.yMax === 'number') yMax = typedParams.yMax;
+						if (typeof typedParams.maxIterations === 'number')
+							maxIterations = typedParams.maxIterations;
+
+						// Check stability
+						const stability = checkParameterStability('newton', typedParams);
+						if (signal.aborted) return;
+						if (!stability.isStable) {
+							stabilityWarnings = stability.warnings;
+							showStabilityWarning = true;
+						}
+					}
+				} catch (e) {
+					console.error('Invalid config parameter:', e);
+					if (signal.aborted) return;
+					configErrors = ['Failed to parse configuration parameters'];
+					showConfigError = true;
 				}
 			}
 		}
 
-		ctx.putImageData(imageData, 0, 0);
-		isRendering = false;
-	}
-
-	onMount(() => {
-		render();
 		return () => {
-			isDestroyed = true;
-			configLoadAbortController?.abort();
+			controller.abort();
+			// Clear save/share handler timeouts to prevent state updates after unmount
 			cleanupSaveHandler();
 			cleanupShareHandler();
 		};
-	});
-
-	$effect(() => {
-		void xMin;
-		void xMax;
-		void yMin;
-		void yMax;
-		void maxIterations;
-		if (canvas) render();
 	});
 </script>
 
@@ -316,7 +219,6 @@
 			</p>
 		</div>
 		<div class="flex gap-3">
-			<SnapshotButton target={canvas} targetType="canvas" mapType="newton" />
 			<button
 				onclick={() => (shareState.showShareDialog = true)}
 				class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
@@ -338,89 +240,18 @@
 		</div>
 	</div>
 
-	<!-- Save Success Toast -->
-	{#if saveState.saveSuccess}
-		<div
-			class="fixed top-20 right-4 z-50 px-6 py-4 bg-green-500/10 border border-green-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
-		>
-			<div class="flex items-center gap-3">
-				<span class="text-green-400">✓</span>
-				<span class="text-green-200">Configuration saved successfully!</span>
-			</div>
-		</div>
-	{/if}
-
-	<!-- Save Error Toast -->
-	{#if saveState.saveError}
-		<div
-			class="fixed top-20 right-4 z-50 px-6 py-4 bg-red-500/10 border border-red-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
-		>
-			<div class="flex items-center gap-3">
-				<span class="text-red-400">✕</span>
-				<span class="text-red-200">{saveState.saveError}</span>
-				<button
-					onclick={() => (saveState.saveError = null)}
-					class="ml-2 text-red-400/60 hover:text-red-400 transition-colors"
-					aria-label="Close error message"
-				>
-					×
-				</button>
-			</div>
-		</div>
-	{/if}
-
-	{#if showConfigError && configErrors.length > 0}
-		<div class="bg-red-500/10 border border-red-500/30 rounded-sm p-4 relative">
-			<div class="flex items-start gap-3">
-				<span class="text-red-400 text-xl">✕</span>
-				<div class="flex-1">
-					<h3 class="font-['Orbitron'] text-red-400 font-semibold mb-1">INVALID_CONFIGURATION</h3>
-					<p class="text-red-200/80 text-sm mb-2">
-						The loaded configuration could not be applied due to validation errors:
-					</p>
-					<ul class="text-xs text-red-200/60 list-disc list-inside space-y-1">
-						{#each configErrors as err, i (i)}
-							<li>{err}</li>
-						{/each}
-					</ul>
-				</div>
-				<button
-					onclick={() => (showConfigError = false)}
-					class="text-red-400/60 hover:text-red-400"
-				>
-					✕
-				</button>
-			</div>
-		</div>
-	{/if}
-
-	<!-- Stability Warning -->
-	{#if showStabilityWarning && stabilityWarnings.length > 0}
-		<div class="bg-amber-500/10 border border-amber-500/30 rounded-sm p-4 relative">
-			<div class="flex items-start gap-3">
-				<span class="text-amber-400 text-xl">⚠️</span>
-				<div class="flex-1">
-					<h3 class="font-['Orbitron'] text-amber-400 font-semibold mb-1">
-						UNSTABLE_PARAMETERS_DETECTED
-					</h3>
-					<p class="text-amber-200/80 text-sm mb-2">
-						The loaded configuration contains parameters outside recommended stable ranges:
-					</p>
-					<ul class="text-xs text-amber-200/60 list-disc list-inside space-y-1">
-						{#each stabilityWarnings as warning, i (i)}
-							<li>{warning}</li>
-						{/each}
-					</ul>
-				</div>
-				<button
-					onclick={() => (showStabilityWarning = false)}
-					class="text-amber-400/60 hover:text-amber-400"
-				>
-					✕
-				</button>
-			</div>
-		</div>
-	{/if}
+	<!-- Alerts: Save success/error, config errors, stability warnings -->
+	<VisualizationAlerts
+		saveSuccess={saveState.saveSuccess}
+		saveError={saveState.saveError}
+		{configErrors}
+		{showConfigError}
+		onDismissConfigError={() => (showConfigError = false)}
+		{stabilityWarnings}
+		{showStabilityWarning}
+		onDismissStabilityWarning={() => (showStabilityWarning = false)}
+		onDismissSaveError={() => (saveState.saveError = null)}
+	/>
 
 	<div
 		class="bg-card/30 backdrop-blur-md border border-primary/20 rounded-sm p-6 space-y-6 relative overflow-hidden group"
@@ -528,18 +359,17 @@
 		</div>
 	</div>
 
-	<div
-		class="bg-black/40 border border-primary/20 rounded-sm overflow-hidden shadow-[0_0_30px_rgba(0,0,0,0.5)] relative p-4 flex justify-center"
-	>
-		<canvas bind:this={canvas} width={imgWidth} height={imgHeight} class="max-w-full h-auto"
-		></canvas>
-		<div
-			class="absolute top-4 right-4 text-xs font-['Rajdhani'] text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
-		>
-			LIVE_RENDER // CANVAS_2D
-		</div>
-	</div>
+	<!-- Visualization Container -->
+	<NewtonRenderer
+		bind:xMin
+		bind:xMax
+		bind:yMin
+		bind:yMax
+		bind:maxIterations
+		height={VIZ_CONTAINER_HEIGHT}
+	/>
 
+	<!-- Info Panel -->
 	<div class="bg-card/30 backdrop-blur-md border border-primary/20 rounded-sm p-6 relative">
 		<div
 			class="absolute top-0 left-0 w-1 h-full bg-linear-to-b from-primary to-transparent opacity-50"
