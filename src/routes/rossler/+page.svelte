@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import * as THREE from 'three';
-	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
 	import ShareDialog from '$lib/components/ui/ShareDialog.svelte';
+	import VisualizationAlerts from '$lib/components/ui/VisualizationAlerts.svelte';
+	import RosslerRenderer from '$lib/components/visualizations/RosslerRenderer.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
 	import {
 		loadSavedConfigParameters,
@@ -15,17 +15,14 @@
 	import { createSaveHandler, createInitialSaveState } from '$lib/use-visualization-save';
 	import { createShareHandler, createInitialShareState } from '$lib/use-visualization-share';
 	import type { RosslerParameters } from '$lib/types';
-	import { calculateRossler } from '$lib/rossler';
 	import { buildComparisonUrl, createComparisonStateFromCurrent } from '$lib/comparison-url-state';
+	import { VIZ_CONTAINER_HEIGHT } from '$lib/constants';
 
 	let { data } = $props();
 
-	let container: HTMLDivElement;
 	let a = $state(0.2);
 	let b = $state(0.2);
 	let c = $state(5.7);
-	let isAnimating = $state(true);
-	let recreate: () => void;
 
 	// Save dialog state
 	const saveState = $state(createInitialSaveState());
@@ -57,6 +54,18 @@
 		shareState,
 		getParameters
 	);
+
+	let comparisonUrl = $state('');
+	$effect(() => {
+		void a;
+		void b;
+		void c;
+		comparisonUrl = buildComparisonUrl(
+			base,
+			'rossler',
+			createComparisonStateFromCurrent('rossler', getParameters())
+		);
+	});
 
 	// Load config from URL on mount
 	onMount(() => {
@@ -165,199 +174,9 @@
 
 		return () => {
 			controller.abort();
-		};
-	});
-
-	$effect(() => {
-		// Track dependencies
-		void a;
-		void b;
-		void c;
-		if (recreate) recreate();
-	});
-
-	onMount(() => {
-		// Scene setup
-		const scene = new THREE.Scene();
-		// Transparent background to let CSS background show through, or very dark
-		scene.background = null;
-
-		const camera = new THREE.PerspectiveCamera(
-			75,
-			container.clientWidth / container.clientHeight,
-			0.1,
-			1000
-		);
-		camera.position.set(30, 30, 30);
-
-		const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-		renderer.setSize(container.clientWidth, container.clientHeight);
-		renderer.setPixelRatio(window.devicePixelRatio);
-		// eslint-disable-next-line svelte/no-dom-manipulating
-		container.appendChild(renderer.domElement);
-
-		const controls = new OrbitControls(camera, renderer.domElement);
-		controls.enableDamping = true;
-		controls.autoRotate = true;
-		controls.autoRotateSpeed = 0.5;
-
-		// Create line geometry
-		function createRosslerLine() {
-			const points = calculateRossler({
-				x0: 0.1,
-				y0: 0,
-				z0: 0,
-				steps: 15000,
-				dt: 0.01,
-				a,
-				b,
-				c
-			}).map((p) => new THREE.Vector3(p.x, p.y, p.z));
-			const geometry = new THREE.BufferGeometry().setFromPoints(points);
-
-			// Create gradient colors (Blue to Purple)
-			const colors = new Float32Array(points.length * 3);
-			const color1 = new THREE.Color(0x3b82f6); // Blue
-			const color2 = new THREE.Color(0x8b5cf6); // Purple
-
-			for (let i = 0; i < points.length; i++) {
-				const t = i / points.length;
-				const color = new THREE.Color().copy(color1).lerp(color2, t);
-				colors[i * 3] = color.r;
-				colors[i * 3 + 1] = color.g;
-				colors[i * 3 + 2] = color.b;
-			}
-			geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-			const material = new THREE.LineBasicMaterial({
-				vertexColors: true,
-				blending: THREE.AdditiveBlending,
-				transparent: true,
-				opacity: 0.8
-			});
-
-			return new THREE.Line(geometry, material);
-		}
-
-		const disposeMaterial = (material: THREE.Material) => {
-			const mat = material as unknown as Record<string, unknown>;
-			const textureKeys = [
-				'map',
-				'alphaMap',
-				'aoMap',
-				'bumpMap',
-				'displacementMap',
-				'emissiveMap',
-				'envMap',
-				'lightMap',
-				'metalnessMap',
-				'normalMap',
-				'roughnessMap',
-				'specularMap',
-				'gradientMap',
-				'clearcoatMap',
-				'clearcoatNormalMap',
-				'clearcoatRoughnessMap',
-				'sheenColorMap',
-				'sheenRoughnessMap',
-				'transmissionMap',
-				'thicknessMap',
-				'iridescenceMap',
-				'iridescenceThicknessMap'
-			];
-
-			for (const key of textureKeys) {
-				const texture = mat[key];
-				if (texture && typeof (texture as { dispose?: unknown }).dispose === 'function') {
-					(texture as { dispose: () => void }).dispose();
-					mat[key] = null;
-				}
-			}
-
-			material.dispose();
-		};
-
-		const disposeLine = (line: THREE.Line) => {
-			line.geometry.dispose();
-			if (Array.isArray(line.material)) {
-				line.material.forEach(disposeMaterial);
-			} else {
-				disposeMaterial(line.material);
-			}
-		};
-
-		const initialRosslerLine = createRosslerLine();
-		let rosslerLine: THREE.Line | null = initialRosslerLine;
-		scene.add(initialRosslerLine);
-
-		// Add faint grid helper for reference
-		const gridHelper = new THREE.GridHelper(100, 20, 0x3b82f6, 0x2d1b69);
-		gridHelper.position.y = -20;
-		(gridHelper.material as THREE.Material).transparent = true;
-		(gridHelper.material as THREE.Material).opacity = 0.2;
-		scene.add(gridHelper);
-
-		// Animation loop
-		function animate() {
-			if (!isAnimating) return;
-			requestAnimationFrame(animate);
-			controls.update();
-			renderer.render(scene, camera);
-		}
-
-		animate();
-
-		// Handle window resize
-		const handleResize = () => {
-			if (!container) return;
-			camera.aspect = container.clientWidth / container.clientHeight;
-			camera.updateProjectionMatrix();
-			renderer.setSize(container.clientWidth, container.clientHeight);
-		};
-		window.addEventListener('resize', handleResize);
-
-		// Recreate visualization on parameter change
-		recreate = () => {
-			if (rosslerLine) {
-				disposeLine(rosslerLine);
-				scene.remove(rosslerLine);
-				rosslerLine = null;
-			}
-
-			rosslerLine = createRosslerLine();
-			scene.add(rosslerLine);
-		};
-
-		return () => {
-			window.removeEventListener('resize', handleResize);
-			isAnimating = false;
-
-			controls.dispose();
-
-			scene.remove(gridHelper);
-			gridHelper.geometry.dispose();
-			if (Array.isArray(gridHelper.material)) {
-				gridHelper.material.forEach(disposeMaterial);
-			} else {
-				disposeMaterial(gridHelper.material);
-			}
-
-			if (rosslerLine) {
-				scene.remove(rosslerLine);
-				disposeLine(rosslerLine);
-				rosslerLine = null;
-			}
-
-			renderer.dispose();
-
 			// Clear save/share handler timeouts to prevent state updates after unmount
 			cleanupSaveHandler();
 			cleanupShareHandler();
-
-			if (container && renderer.domElement.parentNode === container) {
-				// eslint-disable-next-line svelte/no-dom-manipulating
-				container.removeChild(renderer.domElement);
-			}
 		};
 	});
 </script>
@@ -375,16 +194,21 @@
 			</p>
 		</div>
 		<div class="flex gap-3">
-			<a
-				href={buildComparisonUrl(
-					base,
-					'rossler',
-					createComparisonStateFromCurrent('rossler', getParameters())
-				)}
-				class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
-			>
-				⊞ Compare
-			</a>
+			{#if comparisonUrl}
+				<a
+					href={comparisonUrl}
+					class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
+				>
+					⊞ Compare
+				</a>
+			{:else}
+				<span
+					class="px-6 py-2 bg-primary/10 text-primary border border-primary/30 rounded-sm uppercase tracking-widest text-sm font-bold opacity-50 cursor-not-allowed"
+					aria-disabled="true"
+				>
+					⊞ Compare
+				</span>
+			{/if}
 			<button
 				onclick={() => (shareState.showShareDialog = true)}
 				class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
@@ -406,91 +230,18 @@
 		</div>
 	</div>
 
-	{#if saveState.saveSuccess || saveState.saveError}
-		<div class="fixed top-20 right-4 z-50 flex flex-col gap-3">
-			{#if saveState.saveSuccess}
-				<div
-					class="px-6 py-4 bg-green-500/10 border border-green-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
-				>
-					<div class="flex items-center gap-3">
-						<span class="text-green-400">✓</span>
-						<span class="text-green-200">Configuration saved successfully!</span>
-					</div>
-				</div>
-			{/if}
-
-			{#if saveState.saveError}
-				<div
-					class="px-6 py-4 bg-red-500/10 border border-red-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
-				>
-					<div class="flex items-center gap-3">
-						<span class="text-red-400">✕</span>
-						<span class="text-red-200">{saveState.saveError}</span>
-						<button
-							onclick={() => (saveState.saveError = null)}
-							class="text-red-400/60 hover:text-red-400 ml-2"
-						>
-							✕
-						</button>
-					</div>
-				</div>
-			{/if}
-		</div>
-	{/if}
-
-	<!-- Invalid Configuration -->
-	{#if showConfigError && configErrors.length > 0}
-		<div class="bg-red-500/10 border border-red-500/30 rounded-sm p-4 relative">
-			<div class="flex items-start gap-3">
-				<span class="text-red-400 text-xl">✕</span>
-				<div class="flex-1">
-					<h3 class="font-['Orbitron'] text-red-400 font-semibold mb-1">INVALID_CONFIGURATION</h3>
-					<p class="text-red-200/80 text-sm mb-2">
-						The loaded configuration could not be applied due to validation errors:
-					</p>
-					<ul class="text-xs text-red-200/60 list-disc list-inside space-y-1">
-						{#each configErrors as err, i (i)}
-							<li>{err}</li>
-						{/each}
-					</ul>
-				</div>
-				<button
-					onclick={() => (showConfigError = false)}
-					class="text-red-400/60 hover:text-red-400"
-				>
-					✕
-				</button>
-			</div>
-		</div>
-	{/if}
-
-	<!-- Stability Warning -->
-	{#if showStabilityWarning && stabilityWarnings.length > 0}
-		<div class="bg-amber-500/10 border border-amber-500/30 rounded-sm p-4 relative">
-			<div class="flex items-start gap-3">
-				<span class="text-amber-400 text-xl">⚠️</span>
-				<div class="flex-1">
-					<h3 class="font-['Orbitron'] text-amber-400 font-semibold mb-1">
-						UNSTABLE_PARAMETERS_DETECTED
-					</h3>
-					<p class="text-amber-200/80 text-sm mb-2">
-						The loaded configuration contains parameters outside recommended stable ranges:
-					</p>
-					<ul class="text-xs text-amber-200/60 list-disc list-inside space-y-1">
-						{#each stabilityWarnings as warning, i (i)}
-							<li>{warning}</li>
-						{/each}
-					</ul>
-				</div>
-				<button
-					onclick={() => (showStabilityWarning = false)}
-					class="text-amber-400/60 hover:text-amber-400"
-				>
-					✕
-				</button>
-			</div>
-		</div>
-	{/if}
+	<!-- Alerts: Save success/error, config errors, stability warnings -->
+	<VisualizationAlerts
+		saveSuccess={saveState.saveSuccess}
+		saveError={saveState.saveError}
+		{configErrors}
+		{showConfigError}
+		onDismissConfigError={() => (showConfigError = false)}
+		{stabilityWarnings}
+		{showStabilityWarning}
+		onDismissStabilityWarning={() => (showStabilityWarning = false)}
+		onDismissSaveError={() => (saveState.saveError = null)}
+	/>
 
 	<!-- Control Panel -->
 	<div
@@ -573,17 +324,7 @@
 	</div>
 
 	<!-- Visualization Container -->
-	<div
-		bind:this={container}
-		class="bg-black/40 border border-primary/20 rounded-sm overflow-hidden shadow-[0_0_30px_rgba(0,0,0,0.5)] relative"
-		style="height: 600px;"
-	>
-		<div
-			class="absolute top-4 right-4 text-xs font-['Rajdhani'] text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
-		>
-			LIVE_RENDER // THREE_JS
-		</div>
-	</div>
+	<RosslerRenderer bind:a bind:b bind:c height={VIZ_CONTAINER_HEIGHT} />
 
 	<!-- Info Panel -->
 	<div class="bg-card/30 backdrop-blur-md border border-primary/20 rounded-sm p-6 relative">
