@@ -11,6 +11,7 @@
 		numQ?: number;
 		iterations?: number;
 		height?: number;
+		containerElement?: HTMLDivElement;
 	}
 
 	let {
@@ -18,10 +19,16 @@
 		numP = $bindable(10),
 		numQ = $bindable(10),
 		iterations = $bindable(20000),
-		height = 500
+		height = 500,
+		containerElement = $bindable()
 	}: Props = $props();
 
 	let container: HTMLDivElement;
+
+	// Sync internal container ref to bindable prop
+	$effect(() => {
+		containerElement = container;
+	});
 	const MAX_POINTS = 20000;
 	const DEBOUNCE_MS = 150;
 	let renderTimeout: ReturnType<typeof setTimeout> | null = null;
