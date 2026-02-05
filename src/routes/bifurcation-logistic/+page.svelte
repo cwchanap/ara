@@ -4,7 +4,8 @@
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
 	import ShareDialog from '$lib/components/ui/ShareDialog.svelte';
-	import SnapshotButton from '$lib/components/ui/SnapshotButton.svelte';
+	import VisualizationAlerts from '$lib/components/ui/VisualizationAlerts.svelte';
+	import BifurcationLogisticRenderer from '$lib/components/visualizations/BifurcationLogisticRenderer.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
 	import {
 		loadSavedConfigParameters,
@@ -14,16 +15,13 @@
 	import { createSaveHandler, createInitialSaveState } from '$lib/use-visualization-save';
 	import { createShareHandler, createInitialShareState } from '$lib/use-visualization-share';
 	import type { BifurcationLogisticParameters } from '$lib/types';
+	import { VIZ_CONTAINER_HEIGHT } from '$lib/constants';
 
 	let { data } = $props();
 
-	let canvas: HTMLCanvasElement | undefined = $state();
-	let imgWidth = 1000;
-	let imgHeight = 500;
 	let rMin = $state(3.5); // Zoomed in slightly for better initial view
 	let rMax = $state(4.0);
 	let maxIterations = $state(1000);
-	let isRendering = false;
 
 	// Save dialog state
 	const saveState = $state(createInitialSaveState());
@@ -31,200 +29,11 @@
 	// Share dialog state
 	const shareState = $state(createInitialShareState());
 
-	// Stability warning state
+	// Config loading state
 	let configErrors = $state<string[]>([]);
 	let showConfigError = $state(false);
 	let stabilityWarnings = $state<string[]>([]);
 	let showStabilityWarning = $state(false);
-	let lastConfigParam: string | null = null;
-	let lastAppliedConfigKey: string | null = null;
-
-	// Config load cleanup
-	let isUnmounted = false;
-	let configLoadAbortController: AbortController | null = null;
-
-	// Load config from URL on mount
-	$effect(() => {
-		const configId = $page.url.searchParams.get('configId');
-		const shareCode = $page.url.searchParams.get('share');
-		const configParam = $page.url.searchParams.get('config');
-
-		const configKey = shareCode
-			? `share:${shareCode}`
-			: configId
-				? `id:${configId}`
-				: configParam
-					? `param:${configParam}`
-					: null;
-
-		if (configKey === lastAppliedConfigKey) return;
-		lastAppliedConfigKey = configKey;
-
-		if (shareCode || configId) {
-			// Reset lastConfigParam so inline config URLs will be re-applied after viewing share/configId
-			lastConfigParam = null;
-			configErrors = [];
-			showConfigError = false;
-			stabilityWarnings = [];
-			showStabilityWarning = false;
-
-			const controller = new AbortController();
-			configLoadAbortController = controller;
-			const { signal } = controller;
-			const currentConfigKey = configKey;
-
-			void (async () => {
-				const fetchWithSignal: typeof fetch = Object.assign(
-					(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
-						fetch(input, { ...init, signal }),
-					{ preconnect: fetch.preconnect }
-				);
-
-				let result;
-				if (shareCode) {
-					result = await loadSharedConfigParameters({
-						shareCode,
-						mapType: 'bifurcation-logistic',
-						base,
-						fetchFn: fetchWithSignal
-					});
-				} else {
-					result = await loadSavedConfigParameters({
-						configId: configId!,
-						mapType: 'bifurcation-logistic',
-						base,
-						fetchFn: fetchWithSignal
-					});
-				}
-
-				// Prevent state updates if component unmounted or request aborted
-				if (isUnmounted || signal.aborted) return;
-				if (lastAppliedConfigKey !== currentConfigKey) return;
-
-				if (!result.ok) {
-					configErrors = result.errors;
-					showConfigError = true;
-					return;
-				}
-
-				const typedParams = result.parameters;
-				const newRMin = typedParams.rMin;
-				const newRMax = typedParams.rMax;
-				const newMaxIterations = typedParams.maxIterations;
-
-				let nextRMin = 3.5;
-				let nextRMax = 4.0;
-				let nextMaxIterations = 1000;
-
-				nextRMin = Math.max(2.5, Math.min(4.0, newRMin));
-				nextRMax = Math.max(2.5, Math.min(4.0, newRMax));
-
-				if (nextRMin > nextRMax) {
-					const temp = nextRMin;
-					nextRMin = nextRMax;
-					nextRMax = temp;
-				}
-
-				nextMaxIterations = Math.max(100, Math.min(2000, newMaxIterations));
-
-				const stability = checkParameterStability('bifurcation-logistic', {
-					type: 'bifurcation-logistic',
-					rMin: nextRMin,
-					rMax: nextRMax,
-					maxIterations: nextMaxIterations
-				});
-
-				rMin = nextRMin;
-				rMax = nextRMax;
-				maxIterations = nextMaxIterations;
-
-				if (!stability.isStable) {
-					stabilityWarnings = stability.warnings;
-					showStabilityWarning = true;
-				}
-			})();
-			return;
-		}
-
-		if (!configParam) {
-			lastConfigParam = null;
-			configErrors = [];
-			showConfigError = false;
-			stabilityWarnings = [];
-			showStabilityWarning = false;
-			return;
-		}
-		if (configParam === lastConfigParam) return;
-		lastConfigParam = configParam;
-
-		try {
-			configErrors = [];
-			showConfigError = false;
-			stabilityWarnings = [];
-			showStabilityWarning = false;
-
-			// Validate parameters structure before using
-			const parsed = parseConfigParam({ mapType: 'bifurcation-logistic', configParam });
-			if (!parsed.ok) {
-				console.error(parsed.logMessage, parsed.logDetails);
-				configErrors = parsed.errors;
-				showConfigError = true;
-				return;
-			}
-
-			// Now we can safely cast since validation passed
-			const typedParams = parsed.parameters;
-
-			// NOTE: Redundant type coercion using Number() after validation.
-			// The validateParameters function already checks that all parameter values are numbers (line 126 in chaos-validation.ts).
-			// This extra coercion is unnecessary and creates a false sense of uncertainty about type safety.
-			// After validation passes, the values are guaranteed to be numbers, so direct assignment is sufficient.
-			// The clamping logic is good for UX, but the Number() coercion is superfluous.
-			const newRMin = typedParams.rMin;
-			const newRMax = typedParams.rMax;
-			const newMaxIterations = typedParams.maxIterations;
-
-			let nextRMin = 3.5;
-			let nextRMax = 4.0;
-			let nextMaxIterations = 1000;
-
-			// Validate and clamp rMin (2.5 - 4.0)
-			nextRMin = Math.max(2.5, Math.min(4.0, newRMin));
-
-			// Validate and clamp rMax (2.5 - 4.0)
-			nextRMax = Math.max(2.5, Math.min(4.0, newRMax));
-
-			// Enforce rMin <= rMax
-			if (nextRMin > nextRMax) {
-				// Swap values to maintain rMin <= rMax
-				const temp = nextRMin;
-				nextRMin = nextRMax;
-				nextRMax = temp;
-			}
-
-			// Validate and clamp maxIterations (100 - 2000)
-			nextMaxIterations = Math.max(100, Math.min(2000, newMaxIterations));
-
-			const stability = checkParameterStability('bifurcation-logistic', {
-				type: 'bifurcation-logistic',
-				rMin: nextRMin,
-				rMax: nextRMax,
-				maxIterations: nextMaxIterations
-			});
-
-			rMin = nextRMin;
-			rMax = nextRMax;
-			maxIterations = nextMaxIterations;
-			if (!stability.isStable) {
-				stabilityWarnings = stability.warnings;
-				showStabilityWarning = true;
-			}
-		} catch (e) {
-			console.error('Invalid config parameter:', e);
-			configErrors = ['Failed to parse configuration parameters'];
-			showConfigError = true;
-		}
-	});
 
 	// Get current parameters for saving
 	function getParameters(): BifurcationLogisticParameters {
@@ -245,65 +54,147 @@
 		getParameters
 	);
 
-	function render() {
-		if (!canvas || isRendering) return;
-		isRendering = true;
+	// Load config from URL on mount
+	onMount(() => {
+		const controller = new AbortController();
+		const { signal } = controller;
+		const fetchWithSignal: typeof fetch = Object.assign(
+			(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
+				fetch(input, { ...init, signal }),
+			{ preconnect: fetch.preconnect }
+		);
 
-		const ctx = canvas.getContext('2d');
-		if (!ctx) return;
+		configErrors = [];
+		showConfigError = false;
+		stabilityWarnings = [];
+		showStabilityWarning = false;
 
-		// Clear canvas
-		ctx.clearRect(0, 0, imgWidth, imgHeight);
+		const configId = $page.url.searchParams.get('configId');
+		const shareCode = $page.url.searchParams.get('share');
+		if (shareCode) {
+			void (async () => {
+				try {
+					const result = await loadSharedConfigParameters({
+						shareCode,
+						mapType: 'bifurcation-logistic',
+						base,
+						fetchFn: fetchWithSignal
+					});
+					if (signal.aborted) return;
+					if (!result.ok) {
+						configErrors = result.errors;
+						showConfigError = true;
+						return;
+					}
 
-		// Draw bifurcation diagram
-		// Use Neon Orange/Red with some transparency for density effect
-		ctx.fillStyle = 'rgba(255, 80, 0, 0.3)';
+					const typedParams = result.parameters;
+					if (typeof typedParams.rMin === 'number') rMin = typedParams.rMin;
+					if (typeof typedParams.rMax === 'number') rMax = typedParams.rMax;
+					if (typeof typedParams.maxIterations === 'number')
+						maxIterations = typedParams.maxIterations;
 
-		for (let i = 0; i < imgWidth; i++) {
-			const r = rMin + (rMax - rMin) * (i / (imgWidth - 1));
-			let x = 0.5;
+					const stability = checkParameterStability('bifurcation-logistic', typedParams);
+					if (!stability.isStable) {
+						stabilityWarnings = stability.warnings;
+						showStabilityWarning = true;
+					}
+				} catch (err) {
+					if (
+						signal.aborted ||
+						(err instanceof DOMException && err.name === 'AbortError') ||
+						(err instanceof Error && err.name === 'AbortError')
+					) {
+						return;
+					}
+					configErrors = ['Failed to load shared configuration'];
+					showConfigError = true;
+				}
+			})();
+		} else if (configId) {
+			void (async () => {
+				try {
+					const result = await loadSavedConfigParameters({
+						configId,
+						mapType: 'bifurcation-logistic',
+						base,
+						fetchFn: fetchWithSignal
+					});
+					if (signal.aborted) return;
+					if (!result.ok) {
+						if (signal.aborted) return;
+						configErrors = result.errors;
+						showConfigError = true;
+						return;
+					}
 
-			// Pre-warm to settle into attractor
-			for (let j = 0; j < 100; j++) {
-				x = r * x * (1 - x);
-			}
+					const typedParams = result.parameters;
+					if (signal.aborted) return;
+					if (typeof typedParams.rMin === 'number') rMin = typedParams.rMin;
+					if (typeof typedParams.rMax === 'number') rMax = typedParams.rMax;
+					if (typeof typedParams.maxIterations === 'number')
+						maxIterations = typedParams.maxIterations;
 
-			for (let j = 0; j < maxIterations; j++) {
-				x = r * x * (1 - x);
+					const stability = checkParameterStability('bifurcation-logistic', typedParams);
+					if (signal.aborted) return;
+					if (!stability.isStable) {
+						stabilityWarnings = stability.warnings;
+						showStabilityWarning = true;
+					}
+				} catch (err) {
+					if (
+						signal.aborted ||
+						(err instanceof DOMException && err.name === 'AbortError') ||
+						(err instanceof Error && err.name === 'AbortError')
+					) {
+						return;
+					}
+					configErrors = ['Failed to load configuration parameters'];
+					showConfigError = true;
+				}
+			})();
+		} else {
+			const configParam = $page.url.searchParams.get('config');
+			if (configParam) {
+				try {
+					// Validate parameters structure before using
+					const parsed = parseConfigParam({ mapType: 'bifurcation-logistic', configParam });
+					if (!parsed.ok) {
+						console.error(parsed.logMessage, parsed.logDetails);
+						if (signal.aborted) return;
+						configErrors = parsed.errors;
+						showConfigError = true;
+					} else {
+						// Now we can safely cast since validation passed
+						const typedParams = parsed.parameters;
+						if (signal.aborted) return;
+						if (typeof typedParams.rMin === 'number') rMin = typedParams.rMin;
+						if (typeof typedParams.rMax === 'number') rMax = typedParams.rMax;
+						if (typeof typedParams.maxIterations === 'number')
+							maxIterations = typedParams.maxIterations;
 
-				// Plot
-				const y = Math.floor(x * imgHeight);
-				if (y >= 0 && y < imgHeight) {
-					ctx.fillRect(i, imgHeight - y - 1, 1, 1);
+						// Check stability
+						const stability = checkParameterStability('bifurcation-logistic', typedParams);
+						if (signal.aborted) return;
+						if (!stability.isStable) {
+							stabilityWarnings = stability.warnings;
+							showStabilityWarning = true;
+						}
+					}
+				} catch (e) {
+					console.error('Invalid config parameter:', e);
+					if (signal.aborted) return;
+					configErrors = ['Failed to parse configuration parameters'];
+					showConfigError = true;
 				}
 			}
 		}
 
-		isRendering = false;
-	}
-
-	onMount(() => {
-		render();
-	});
-
-	onMount(() => {
 		return () => {
+			controller.abort();
 			// Clear save/share handler timeouts to prevent state updates after unmount
-			isUnmounted = true;
-			if (configLoadAbortController) {
-				configLoadAbortController.abort();
-				configLoadAbortController = null;
-			}
 			cleanupSaveHandler();
 			cleanupShareHandler();
 		};
-	});
-
-	$effect(() => {
-		void rMin;
-		void rMax;
-		void maxIterations;
-		if (canvas) render();
 	});
 </script>
 
@@ -320,7 +211,6 @@
 			</p>
 		</div>
 		<div class="flex gap-3">
-			<SnapshotButton target={canvas} targetType="canvas" mapType="bifurcation-logistic" />
 			<button
 				onclick={() => (shareState.showShareDialog = true)}
 				class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
@@ -342,82 +232,18 @@
 		</div>
 	</div>
 
-	<!-- Save Success Toast -->
-	{#if saveState.saveSuccess}
-		<div
-			class="fixed top-20 right-4 z-50 px-6 py-4 bg-green-500/10 border border-green-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
-		>
-			<div class="flex items-center gap-3">
-				<span class="text-green-400">✓</span>
-				<span class="text-green-200">Configuration saved successfully!</span>
-			</div>
-		</div>
-	{/if}
-
-	<!-- Save Error Toast -->
-	{#if saveState.saveError}
-		<div
-			class="fixed top-20 right-4 z-50 px-6 py-4 bg-red-500/10 border border-red-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
-		>
-			<div class="flex items-center gap-3">
-				<span class="text-red-400">✗</span>
-				<span class="text-red-200">{saveState.saveError}</span>
-			</div>
-		</div>
-	{/if}
-
-	{#if showConfigError && configErrors.length > 0}
-		<div class="bg-red-500/10 border border-red-500/30 rounded-sm p-4 relative">
-			<div class="flex items-start gap-3">
-				<span class="text-red-400 text-xl">✕</span>
-				<div class="flex-1">
-					<h3 class="font-['Orbitron'] text-red-400 font-semibold mb-1">INVALID_CONFIGURATION</h3>
-					<p class="text-red-200/80 text-sm mb-2">
-						The loaded configuration could not be applied due to validation errors:
-					</p>
-					<ul class="text-xs text-red-200/60 list-disc list-inside space-y-1">
-						{#each configErrors as err, i (i)}
-							<li>{err}</li>
-						{/each}
-					</ul>
-				</div>
-				<button
-					onclick={() => (showConfigError = false)}
-					class="text-red-400/60 hover:text-red-400"
-				>
-					✕
-				</button>
-			</div>
-		</div>
-	{/if}
-
-	<!-- Stability Warning -->
-	{#if showStabilityWarning && stabilityWarnings.length > 0}
-		<div class="bg-amber-500/10 border border-amber-500/30 rounded-sm p-4 relative">
-			<div class="flex items-start gap-3">
-				<span class="text-amber-400 text-xl">⚠️</span>
-				<div class="flex-1">
-					<h3 class="font-['Orbitron'] text-amber-400 font-semibold mb-1">
-						UNSTABLE_PARAMETERS_DETECTED
-					</h3>
-					<p class="text-amber-200/80 text-sm mb-2">
-						The loaded configuration contains parameters outside recommended stable ranges:
-					</p>
-					<ul class="text-xs text-amber-200/60 list-disc list-inside space-y-1">
-						{#each stabilityWarnings as warning, i (i)}
-							<li>{warning}</li>
-						{/each}
-					</ul>
-				</div>
-				<button
-					onclick={() => (showStabilityWarning = false)}
-					class="text-amber-400/60 hover:text-amber-400"
-				>
-					✕
-				</button>
-			</div>
-		</div>
-	{/if}
+	<!-- Alerts: Save success/error, config errors, stability warnings -->
+	<VisualizationAlerts
+		saveSuccess={saveState.saveSuccess}
+		saveError={saveState.saveError}
+		{configErrors}
+		{showConfigError}
+		onDismissConfigError={() => (showConfigError = false)}
+		{stabilityWarnings}
+		{showStabilityWarning}
+		onDismissStabilityWarning={() => (showStabilityWarning = false)}
+		onDismissSaveError={() => (saveState.saveError = null)}
+	/>
 
 	<div
 		class="bg-card/30 backdrop-blur-md border border-primary/20 rounded-sm p-6 space-y-6 relative overflow-hidden group"
@@ -499,17 +325,13 @@
 		</div>
 	</div>
 
-	<div
-		class="bg-black/40 border border-primary/20 rounded-sm overflow-hidden shadow-[0_0_30px_rgba(0,0,0,0.5)] relative p-4"
-	>
-		<canvas bind:this={canvas} width={imgWidth} height={imgHeight} class="w-full h-auto block"
-		></canvas>
-		<div
-			class="absolute top-4 right-4 text-xs font-['Rajdhani'] text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
-		>
-			LIVE_RENDER // CANVAS_2D
-		</div>
-	</div>
+	<!-- Visualization Container -->
+	<BifurcationLogisticRenderer
+		bind:rMin
+		bind:rMax
+		bind:maxIterations
+		height={VIZ_CONTAINER_HEIGHT}
+	/>
 
 	<div class="bg-card/30 backdrop-blur-md border border-primary/20 rounded-sm p-6 relative">
 		<div
