@@ -12,7 +12,7 @@
  * - Returns reactive errors/warnings for UI display
  */
 
-import { get, type Readable } from 'svelte/store';
+import { type Readable } from 'svelte/store';
 import type { Page } from '@sveltejs/kit';
 import type { ChaosMapType, ChaosMapParameters } from '$lib/types';
 import {
@@ -84,145 +84,162 @@ export function useConfigLoader<T extends ChaosMapType>(
 	$effect(() => {
 		const { page, mapType, base, onParametersLoaded } = options;
 
-		// Extract URL parameters
-		const configId = get(page).url.searchParams.get('configId');
-		const shareCode = get(page).url.searchParams.get('share');
-		const configParam = get(page).url.searchParams.get('config');
+		// Subscribe to page store for reactivity
+		const unsubscribe = page.subscribe(($page) => {
+			// Extract URL parameters
+			const configId = $page.url.searchParams.get('configId');
+			const shareCode = $page.url.searchParams.get('share');
+			const configParam = $page.url.searchParams.get('config');
 
-		// Generate a unique key for this config source
-		const configKey = shareCode
-			? `share:${shareCode}`
-			: configId
-				? `id:${configId}`
-				: configParam
-					? `param:${configParam}`
-					: null;
+			// Generate a unique key for this config source
+			const configKey = shareCode
+				? `share:${shareCode}`
+				: configId
+					? `id:${configId}`
+					: configParam
+						? `param:${configParam}`
+						: null;
 
-		// Skip if we've already loaded this config
-		if (configKey === lastAppliedConfigKey) return;
-		lastAppliedConfigKey = configKey;
+			// Skip if we've already loaded this config
+			if (configKey === lastAppliedConfigKey) return;
+			lastAppliedConfigKey = configKey;
 
-		// Abort any pending config load
-		configLoadAbortController?.abort();
-		configLoadAbortController = null;
+			// Abort any pending config load
+			configLoadAbortController?.abort();
+			configLoadAbortController = null;
 
-		// Handle shared or saved configurations (require API calls)
-		if (shareCode || configId) {
-			// Reset state
-			state.errors = [];
-			state.showError = false;
-			state.warnings = [];
-			state.showWarning = false;
-			state.isLoading = true;
-
-			const controller = new AbortController();
-			configLoadAbortController = controller;
-			const { signal } = controller;
-			const currentConfigKey = configKey;
-
-			void (async () => {
-				// Create fetch function with abort signal
-				const fetchWithSignal: typeof fetch = Object.assign(
-					(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
-						fetch(input, { ...init, signal }),
-					{ preconnect: fetch.preconnect }
-				);
-
-				let result;
-				try {
-					if (shareCode) {
-						result = await loadSharedConfigParameters({
-							shareCode,
-							mapType,
-							base,
-							fetchFn: fetchWithSignal
-						});
-					} else {
-						result = await loadSavedConfigParameters({
-							configId: configId!,
-							mapType,
-							base,
-							fetchFn: fetchWithSignal
-						});
-					}
-				} catch (e) {
-					// Check if this was an abort error (expected during cleanup)
-					if (e instanceof Error && e.name === 'AbortError') {
-						return; // Silently ignore abort errors
-					}
-					console.error('Failed to load configuration:', e);
-					if (signal.aborted) return;
-					if (lastAppliedConfigKey !== currentConfigKey) return;
-					state.errors = [
-						'Failed to load configuration: ' +
-							(e instanceof Error ? e.message : 'Unknown error')
-					];
-					state.showError = true;
-					state.isLoading = false;
-					return;
-				}
-
-				// Check if we should still apply this result
-				if (signal.aborted) return;
-				if (lastAppliedConfigKey !== currentConfigKey) return;
-
-				state.isLoading = false;
-
-				if (!result.ok) {
-					state.errors = result.errors;
-					state.showError = true;
-					return;
-				}
-
-				// Apply parameters to visualization
-				const typedParams = result.parameters;
-				onParametersLoaded(typedParams);
-
-				// Check stability
-				const stability = checkParameterStability(mapType, typedParams);
-				if (!stability.isStable) {
-					state.warnings = stability.warnings;
-					state.showWarning = true;
-				}
-			})();
-		}
-		// Handle direct config parameter (synchronous)
-		else if (configParam) {
-			try {
+			// Handle shared or saved configurations (require API calls)
+			if (shareCode || configId) {
+				// Reset state
 				state.errors = [];
 				state.showError = false;
 				state.warnings = [];
 				state.showWarning = false;
-				state.isLoading = false;
+				state.isLoading = true;
 
-				// Validate parameters structure before using
-				const parsed = parseConfigParam({ mapType, configParam });
-				if (!parsed.ok) {
-					console.error(parsed.logMessage, parsed.logDetails);
-					state.errors = parsed.errors;
+				const controller = new AbortController();
+				configLoadAbortController = controller;
+				const { signal } = controller;
+				const currentConfigKey = configKey;
+
+				void (async () => {
+					// Create fetch function with abort signal
+					const baseFetch = (
+						input: Parameters<typeof fetch>[0],
+						init?: Parameters<typeof fetch>[1]
+					) => fetch(input, { ...init, signal });
+					const preconnectProp =
+						typeof fetch.preconnect !== 'undefined'
+							? { preconnect: fetch.preconnect }
+							: {};
+					const fetchWithSignal = Object.assign(
+						baseFetch,
+						preconnectProp
+					) as typeof fetch;
+
+					let result;
+					try {
+						if (shareCode) {
+							result = await loadSharedConfigParameters({
+								shareCode,
+								mapType,
+								base,
+								fetchFn: fetchWithSignal
+							});
+						} else {
+							result = await loadSavedConfigParameters({
+								configId: configId!,
+								mapType,
+								base,
+								fetchFn: fetchWithSignal
+							});
+						}
+					} catch (e) {
+						// Check if this was an abort error (expected during cleanup)
+						if (e instanceof Error && e.name === 'AbortError') {
+							return; // Silently ignore abort errors
+						}
+						console.error('Failed to load configuration:', e);
+						if (signal.aborted) return;
+						if (lastAppliedConfigKey !== currentConfigKey) return;
+						state.errors = [
+							'Failed to load configuration: ' +
+								(e instanceof Error ? e.message : 'Unknown error')
+						];
+						state.showError = true;
+						state.isLoading = false;
+						return;
+					}
+
+					// Check if we should still apply this result
+					if (signal.aborted) return;
+					if (lastAppliedConfigKey !== currentConfigKey) return;
+
+					state.isLoading = false;
+
+					if (!result.ok) {
+						state.errors = result.errors;
+						state.showError = true;
+						return;
+					}
+
+					// Apply parameters to visualization
+					const typedParams = result.parameters;
+					onParametersLoaded(typedParams);
+
+					// Check stability
+					const stability = checkParameterStability(mapType, typedParams);
+					if (!stability.isStable) {
+						state.warnings = stability.warnings;
+						state.showWarning = true;
+					}
+				})();
+			}
+			// Handle direct config parameter (synchronous)
+			else if (configParam) {
+				try {
+					state.errors = [];
+					state.showError = false;
+					state.warnings = [];
+					state.showWarning = false;
+					state.isLoading = false;
+
+					// Validate parameters structure before using
+					const parsed = parseConfigParam({ mapType, configParam });
+					if (!parsed.ok) {
+						console.error(parsed.logMessage, parsed.logDetails);
+						state.errors = parsed.errors;
+						state.showError = true;
+						return;
+					}
+
+					// Apply parameters to visualization
+					const typedParams = parsed.parameters;
+					onParametersLoaded(typedParams);
+
+					// Check stability
+					const stability = checkParameterStability(mapType, typedParams);
+					if (!stability.isStable) {
+						state.warnings = stability.warnings;
+						state.showWarning = true;
+					}
+				} catch (e) {
+					console.error('Invalid config parameter:', e);
+					state.errors = ['Failed to parse configuration parameters'];
 					state.showError = true;
-					return;
+					state.isLoading = false;
 				}
-
-				// Apply parameters to visualization
-				const typedParams = parsed.parameters;
-				onParametersLoaded(typedParams);
-
-				// Check stability
-				const stability = checkParameterStability(mapType, typedParams);
-				if (!stability.isStable) {
-					state.warnings = stability.warnings;
-					state.showWarning = true;
-				}
-			} catch (e) {
-				console.error('Invalid config parameter:', e);
-				state.errors = ['Failed to parse configuration parameters'];
-				state.showError = true;
+			} else {
+				// No config to load
 				state.isLoading = false;
 			}
-		} else {
-			// No config to load
-			state.isLoading = false;
-		}
+		});
+
+		// Return cleanup to unsubscribe when effect re-runs or component unmounts
+		return () => {
+			configLoadAbortController?.abort();
+			configLoadAbortController = null;
+			unsubscribe();
+		};
 	});
 }
