@@ -19,7 +19,11 @@
 			"Bash(grep:*)",
 			"Bash(gh pr diff:*)",
 			"Bash(gh pr view:*)",
-			"Bash(bun run test:unit:*)"
+			"Bash(bun run test:unit:*)",
+			"Bash(bun build:*)",
+			"Bash(bunx tsc:*)",
+			"Bash(bun run lint:*)",
+			"Bash(bunx prettier:*)"
 		]
 	}
 }
