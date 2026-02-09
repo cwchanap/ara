@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
@@ -67,7 +67,10 @@
 		void rightRho;
 		void rightBeta;
 		urlUpdater.trigger();
-		return () => urlUpdater.cleanup();
+	});
+
+	onDestroy(() => {
+		urlUpdater.cleanup();
 	});
 
 	onMount(() => {

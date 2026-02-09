@@ -92,7 +92,7 @@
 
 <!-- Config Error Alert -->
 {#if showConfigError && configErrors.length > 0}
-	<div class="bg-red-500/10 border border-red-500/30 rounded-sm p-4 relative">
+	<div class="bg-red-500/10 border border-red-500/30 rounded-sm p-4 relative" role="alert">
 		<div class="flex items-start gap-3">
 			<span class="text-red-400 text-xl">✕</span>
 			<div class="flex-1">
@@ -120,7 +120,7 @@
 
 <!-- Stability Warning Alert -->
 {#if showStabilityWarning && stabilityWarnings.length > 0}
-	<div class="bg-amber-500/10 border border-amber-500/30 rounded-sm p-4 relative">
+	<div class="bg-amber-500/10 border border-amber-500/30 rounded-sm p-4 relative" role="alert">
 		<div class="flex items-start gap-3">
 			<span class="text-amber-400 text-xl">⚠️</span>
 			<div class="flex-1">
