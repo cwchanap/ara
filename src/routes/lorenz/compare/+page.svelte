@@ -59,6 +59,7 @@
 		});
 	}, DEBOUNCE_MS);
 
+	let initialized = $state(false);
 	$effect(() => {
 		void leftSigma;
 		void leftRho;
@@ -66,6 +67,11 @@
 		void rightSigma;
 		void rightRho;
 		void rightBeta;
+		// Skip first run to avoid conflict with onMount
+		if (!initialized) {
+			initialized = true;
+			return;
+		}
 		urlUpdater.trigger();
 	});
 

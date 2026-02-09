@@ -71,11 +71,11 @@
 	onMount(() => {
 		const controller = new AbortController();
 		const { signal } = controller;
-		const fetchWithSignal: typeof fetch = Object.assign(
-			(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
-				fetch(input, { ...init, signal }),
-			{ preconnect: fetch.preconnect }
-		);
+		const baseFetch = (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
+			fetch(input, { ...init, signal });
+		const preconnectProp =
+			typeof fetch.preconnect !== 'undefined' ? { preconnect: fetch.preconnect } : {};
+		const fetchWithSignal = Object.assign(baseFetch, preconnectProp) as typeof fetch;
 
 		configErrors = [];
 		showConfigError = false;
@@ -228,14 +228,6 @@
 				>
 					⊞ Compare
 				</a>
-			{:else}
-				<span
-					class="px-6 py-2 bg-primary/10 text-primary border border-primary/30 rounded-sm uppercase tracking-widest text-sm font-bold opacity-50 cursor-not-allowed"
-					aria-disabled="true"
-					role="link"
-				>
-					⊞ Compare
-				</span>
 			{/if}
 			<button
 				onclick={() => (shareState.showShareDialog = true)}
