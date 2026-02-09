@@ -36,9 +36,15 @@
 	);
 
 	// Right panel parameters
-	let rightSigma = $state(rightParams && isLorenzParameters(rightParams) ? rightParams.sigma : 15);
-	let rightRho = $state(rightParams && isLorenzParameters(rightParams) ? rightParams.rho : 25);
-	let rightBeta = $state(rightParams && isLorenzParameters(rightParams) ? rightParams.beta : 3);
+	let rightSigma = $state(
+		rightParams && isLorenzParameters(rightParams) ? rightParams.sigma : defaultParams.sigma
+	);
+	let rightRho = $state(
+		rightParams && isLorenzParameters(rightParams) ? rightParams.rho : defaultParams.rho
+	);
+	let rightBeta = $state(
+		rightParams && isLorenzParameters(rightParams) ? rightParams.beta : defaultParams.beta
+	);
 
 	// Sync URL when parameters change using debounced effect
 	const urlUpdater = useDebouncedEffect(() => {
