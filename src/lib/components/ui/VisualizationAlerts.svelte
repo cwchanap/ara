@@ -69,7 +69,7 @@
 {/if}
 
 <!-- Save Error Toast -->
-{#if saveError}
+{#if saveError && !saveSuccess}
 	<div
 		class="fixed top-20 right-4 z-50 px-6 py-4 bg-red-500/10 border border-red-500/30 rounded-lg backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-right-5"
 		role="alert"
