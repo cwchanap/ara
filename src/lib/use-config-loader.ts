@@ -230,7 +230,11 @@ export function useConfigLoader<T extends ChaosMapType>(
 					state.isLoading = false;
 				}
 			} else {
-				// No config to load
+				// No config to load - clear any stale errors/warnings
+				state.errors = [];
+				state.showError = false;
+				state.warnings = [];
+				state.showWarning = false;
 				state.isLoading = false;
 			}
 		});
