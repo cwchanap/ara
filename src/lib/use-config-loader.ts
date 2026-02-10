@@ -196,10 +196,15 @@ export function useConfigLoader<T extends ChaosMapType>(
 					}
 
 					// Check stability (only if onParametersLoaded succeeded)
-					const stability = checkParameterStability(mapType, typedParams);
-					if (!stability.isStable) {
-						state.warnings = stability.warnings;
-						state.showWarning = true;
+					try {
+						const stability = checkParameterStability(mapType, typedParams);
+						if (!stability.isStable) {
+							state.warnings = stability.warnings;
+							state.showWarning = true;
+						}
+					} catch (e) {
+						// Log stability check errors but don't block parameter application
+						console.error('Stability check failed:', e);
 					}
 				})();
 			}
@@ -240,10 +245,10 @@ export function useConfigLoader<T extends ChaosMapType>(
 						state.showWarning = true;
 					}
 				} catch (e) {
-					console.error('Invalid config parameter:', e);
-					state.errors = ['Failed to parse configuration parameters'];
+					console.error('Configuration error:', e);
+					const errorMessage = e instanceof Error ? e.message : 'Unknown error';
+					state.errors = [`Configuration error: ${errorMessage}`];
 					state.showError = true;
-					state.isLoading = false;
 				}
 			} else {
 				// No config to load - clear any stale errors/warnings
