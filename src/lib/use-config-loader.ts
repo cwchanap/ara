@@ -223,7 +223,15 @@ export function useConfigLoader<T extends ChaosMapType>(
 
 					// Apply parameters to visualization
 					const typedParams = parsed.parameters;
-					onParametersLoaded(typedParams);
+					try {
+						onParametersLoaded(typedParams);
+					} catch (err) {
+						// Prevent caller exceptions from leaving UI in inconsistent state
+						const errorMessage = err instanceof Error ? err.message : String(err);
+						state.errors = [`Failed to apply parameters: ${errorMessage}`];
+						state.showError = true;
+						return;
+					}
 
 					// Check stability
 					const stability = checkParameterStability(mapType, typedParams);

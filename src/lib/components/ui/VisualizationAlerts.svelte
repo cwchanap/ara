@@ -20,6 +20,8 @@
   />
 -->
 <script lang="ts">
+	import { createEventDispatcher, onDestroy } from 'svelte';
+
 	interface Props {
 		/** Whether to show the save success toast */
 		saveSuccess?: boolean;
@@ -52,6 +54,42 @@
 		onDismissStabilityWarning = () => {},
 		onDismissSaveError = () => {}
 	}: Props = $props();
+
+	const dispatch = createEventDispatcher<{ dismiss: void }>();
+
+	let dismissTimeout: ReturnType<typeof setTimeout> | null = null;
+
+	$effect(() => {
+		if (saveSuccess) {
+			// Clear any existing timeout
+			if (dismissTimeout) {
+				clearTimeout(dismissTimeout);
+			}
+			// Start new timeout to auto-dismiss after 3000ms
+			dismissTimeout = setTimeout(() => {
+				dispatch('dismiss');
+			}, 3000);
+		} else {
+			// Clear timeout if saveSuccess flips back to false
+			if (dismissTimeout) {
+				clearTimeout(dismissTimeout);
+				dismissTimeout = null;
+			}
+		}
+
+		// Cleanup function
+		return () => {
+			if (dismissTimeout) {
+				clearTimeout(dismissTimeout);
+			}
+		};
+	});
+
+	onDestroy(() => {
+		if (dismissTimeout) {
+			clearTimeout(dismissTimeout);
+		}
+	});
 </script>
 
 <!-- Save Success Toast -->
