@@ -9,19 +9,17 @@
 	let { children, mapType }: Props = $props();
 
 	// Handle errors from child components
-	function handleError(error: unknown, reset: () => void) {
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	function handleError(error: unknown, _reset: () => void) {
 		// Store error for fallback UI
 		errorState = error instanceof Error ? error : new Error(String(error));
-		resetFn = reset;
 	}
 
 	let errorState = $state<Error | null>(null);
-	let resetFn: (() => void) | null = null;
 
 	function handleRetry() {
-		if (resetFn) {
-			resetFn();
-		}
+		// Simply clear errorState to re-mount the <svelte:boundary>
+		// Calling resetFn on an unmounted boundary is a no-op
 		errorState = null;
 	}
 </script>

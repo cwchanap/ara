@@ -137,7 +137,6 @@
 					});
 					if (signal.aborted) return;
 					if (!result.ok) {
-						if (signal.aborted) return;
 						configErrors = result.errors;
 						showConfigError = true;
 						return;
