@@ -51,32 +51,32 @@
 		getParameters
 	);
 
-	// Use shared config loader hook
-	useConfigLoader(
-		{
-			page,
-			mapType: 'bifurcation-logistic',
-			base,
-			onParametersLoaded: (typedParams) => {
-				if (typeof typedParams.rMin === 'number') rMin = typedParams.rMin;
-				if (typeof typedParams.rMax === 'number') rMax = typedParams.rMax;
-				if (typeof typedParams.maxIterations === 'number')
-					maxIterations = typedParams.maxIterations;
-				const stability = checkParameterStability('bifurcation-logistic', typedParams);
-				if (!stability.isStable) {
-					configState.warnings = stability.warnings;
-					configState.showWarning = true;
-				}
-			}
-		},
-		configState
-	);
-
-	// Cleanup save/share handlers on unmount
+	// Use shared config loader hook with proper cleanup
 	$effect(() => {
+		const { cleanup: cleanupConfigLoader } = useConfigLoader(
+			{
+				page,
+				mapType: 'bifurcation-logistic',
+				base,
+				onParametersLoaded: (typedParams) => {
+					if (typeof typedParams.rMin === 'number') rMin = typedParams.rMin;
+					if (typeof typedParams.rMax === 'number') rMax = typedParams.rMax;
+					if (typeof typedParams.maxIterations === 'number')
+						maxIterations = typedParams.maxIterations;
+					const stability = checkParameterStability('bifurcation-logistic', typedParams);
+					if (!stability.isStable) {
+						configState.warnings = stability.warnings;
+						configState.showWarning = true;
+					}
+				}
+			},
+			configState
+		);
+
 		return () => {
 			cleanupSaveHandler();
 			cleanupShareHandler();
+			cleanupConfigLoader();
 		};
 	});
 </script>

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { get } from 'svelte/store';
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
@@ -46,9 +45,9 @@
 
 	// Load config from URL reactively
 	$effect(() => {
-		const configId = get(page).url.searchParams.get('configId');
-		const shareCode = get(page).url.searchParams.get('share');
-		const configParam = get(page).url.searchParams.get('config');
+		const configId = $page.url.searchParams.get('configId');
+		const shareCode = $page.url.searchParams.get('share');
+		const configParam = $page.url.searchParams.get('config');
 		const configKey = shareCode
 			? `share:${shareCode}`
 			: configId
