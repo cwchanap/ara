@@ -87,11 +87,12 @@ export function createSaveHandler(
 		}
 		abortController = new AbortController();
 
-		// Clear any existing timeout and errors
+		// Clear any existing timeout and previous save states
 		if (timeoutId) {
 			clearTimeout(timeoutId);
 			timeoutId = null;
 		}
+		state.saveSuccess = false;
 		state.saveError = null;
 		state.isSaving = true;
 
