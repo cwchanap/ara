@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { get } from 'svelte/store';
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
@@ -35,6 +36,9 @@
 	let showConfigError = $state(false);
 	let stabilityWarnings = $state<string[]>([]);
 	let showStabilityWarning = $state(false);
+	let lastAppliedConfigKey = $state<string | null>(null);
+	let configLoadAbortController: AbortController | null = null;
+	let isUnmounted = false;
 
 	// Get current parameters for saving
 	function getParameters(): LogisticParameters {
@@ -67,142 +71,141 @@
 		getParameters
 	);
 
-	// Load config from URL on mount
-	onMount(() => {
-		const controller = new AbortController();
-		const { signal } = controller;
-		const baseFetch = (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
-			fetch(input, { ...init, signal });
-		const preconnectProp =
-			typeof fetch.preconnect !== 'undefined' ? { preconnect: fetch.preconnect } : {};
-		const fetchWithSignal = Object.assign(baseFetch, preconnectProp) as typeof fetch;
+	// Reactive config loading from URL
+	$effect(() => {
+		const configId = get(page).url.searchParams.get('configId');
+		const shareCode = get(page).url.searchParams.get('share');
+		const configParam = get(page).url.searchParams.get('config');
+		const configKey = shareCode
+			? `share:${shareCode}`
+			: configId
+				? `id:${configId}`
+				: configParam
+					? `param:${configParam}`
+					: null;
+		if (configKey === lastAppliedConfigKey) return;
+		lastAppliedConfigKey = configKey;
 
-		configErrors = [];
-		showConfigError = false;
-		stabilityWarnings = [];
-		showStabilityWarning = false;
+		configLoadAbortController?.abort();
+		configLoadAbortController = null;
 
-		const configId = $page.url.searchParams.get('configId');
-		const shareCode = $page.url.searchParams.get('share');
-		if (shareCode) {
+		if (shareCode || configId) {
+			configErrors = [];
+			showConfigError = false;
+			stabilityWarnings = [];
+			showStabilityWarning = false;
+			const controller = new AbortController();
+			configLoadAbortController = controller;
+			const { signal } = controller;
+			const currentConfigKey = configKey;
+
+			const baseFetch = (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
+				fetch(input, { ...init, signal });
+			const preconnectProp =
+				typeof fetch.preconnect !== 'undefined' ? { preconnect: fetch.preconnect } : {};
+			const fetchWithSignal = Object.assign(baseFetch, preconnectProp) as typeof fetch;
+
 			void (async () => {
 				try {
-					const result = await loadSharedConfigParameters({
-						shareCode,
-						mapType: 'logistic',
-						base,
-						fetchFn: fetchWithSignal
-					});
-					if (signal.aborted) return;
-					if (!result.ok) {
-						configErrors = result.errors;
-						showConfigError = true;
-						return;
-					}
+					let result: ReturnType<typeof loadSavedConfigParameters<'logistic'>> extends Promise<
+						infer T
+					>
+						? T
+						: never | undefined;
 
-					const typedParams = result.parameters;
-					if (typeof typedParams.r === 'number') r = typedParams.r;
-					if (typeof typedParams.x0 === 'number') x0 = typedParams.x0;
-					if (typeof typedParams.iterations === 'number') iterations = typedParams.iterations;
-
-					const stability = checkParameterStability('logistic', typedParams);
-					if (!stability.isStable) {
-						stabilityWarnings = stability.warnings;
-						showStabilityWarning = true;
-					}
-				} catch (err) {
-					if (
-						signal.aborted ||
-						(err instanceof DOMException && err.name === 'AbortError') ||
-						(err instanceof Error && err.name === 'AbortError')
-					) {
-						return;
-					}
-					configErrors = ['Failed to load shared configuration'];
-					showConfigError = true;
-				}
-			})();
-		} else if (configId) {
-			void (async () => {
-				try {
-					const result = await loadSavedConfigParameters({
-						configId,
-						mapType: 'logistic',
-						base,
-						fetchFn: fetchWithSignal
-					});
-					if (signal.aborted) return;
-					if (!result.ok) {
-						configErrors = result.errors;
-						showConfigError = true;
-						return;
-					}
-
-					const typedParams = result.parameters;
-					if (signal.aborted) return;
-					if (typeof typedParams.r === 'number') r = typedParams.r;
-					if (typeof typedParams.x0 === 'number') x0 = typedParams.x0;
-					if (typeof typedParams.iterations === 'number') iterations = typedParams.iterations;
-
-					const stability = checkParameterStability('logistic', typedParams);
-					if (signal.aborted) return;
-					if (!stability.isStable) {
-						stabilityWarnings = stability.warnings;
-						showStabilityWarning = true;
-					}
-				} catch (err) {
-					if (
-						signal.aborted ||
-						(err instanceof DOMException && err.name === 'AbortError') ||
-						(err instanceof Error && err.name === 'AbortError')
-					) {
-						return;
-					}
-					configErrors = ['Failed to load configuration parameters'];
-					showConfigError = true;
-				}
-			})();
-		} else {
-			const configParam = $page.url.searchParams.get('config');
-			if (configParam) {
-				try {
-					// Validate parameters structure before using
-					const parsed = parseConfigParam({ mapType: 'logistic', configParam });
-					if (!parsed.ok) {
-						console.error(parsed.logMessage, parsed.logDetails);
-						if (signal.aborted) return;
-						configErrors = parsed.errors;
-						showConfigError = true;
+					if (shareCode) {
+						result = await loadSharedConfigParameters({
+							shareCode,
+							mapType: 'logistic',
+							base,
+							fetchFn: fetchWithSignal
+						});
 					} else {
-						// Now we can safely cast since validation passed
-						const typedParams = parsed.parameters;
-						if (signal.aborted) return;
-						if (typeof typedParams.r === 'number') r = typedParams.r;
-						if (typeof typedParams.x0 === 'number') x0 = typedParams.x0;
-						if (typeof typedParams.iterations === 'number') iterations = typedParams.iterations;
+						result = await loadSavedConfigParameters({
+							configId: configId!,
+							mapType: 'logistic',
+							base,
+							fetchFn: fetchWithSignal
+						});
+					}
 
-						// Check stability
-						const stability = checkParameterStability('logistic', typedParams);
-						if (signal.aborted) return;
-						if (!stability.isStable) {
-							stabilityWarnings = stability.warnings;
-							showStabilityWarning = true;
-						}
+					if (isUnmounted || signal.aborted) return;
+					if (lastAppliedConfigKey !== currentConfigKey) return;
+					if (!result) {
+						configErrors = ['Failed to load configuration'];
+						showConfigError = true;
+						return;
+					}
+					if (!result.ok) {
+						configErrors = result.errors;
+						showConfigError = true;
+						return;
+					}
+
+					const typedParams = result.parameters;
+					r = typedParams.r ?? r;
+					x0 = typedParams.x0 ?? x0;
+					iterations = typedParams.iterations ?? iterations;
+
+					const stability = checkParameterStability('logistic', typedParams);
+					if (!stability.isStable) {
+						stabilityWarnings = stability.warnings;
+						showStabilityWarning = true;
 					}
 				} catch (e) {
-					console.error('Invalid config parameter:', e);
-					if (signal.aborted) return;
-					configErrors = ['Failed to parse configuration parameters'];
+					if (e instanceof Error && e.name === 'AbortError') {
+						return;
+					}
+					console.error('Failed to load configuration:', e);
+					if (isUnmounted || signal.aborted) return;
+					if (lastAppliedConfigKey !== currentConfigKey) return;
+					configErrors = [
+						'Failed to load configuration: ' + (e instanceof Error ? e.message : 'Unknown error')
+					];
 					showConfigError = true;
 				}
+			})();
+		} else if (configParam) {
+			try {
+				configErrors = [];
+				showConfigError = false;
+				stabilityWarnings = [];
+				showStabilityWarning = false;
+
+				const parsed = parseConfigParam({ mapType: 'logistic', configParam });
+				if (!parsed.ok) {
+					console.error(parsed.logMessage, parsed.logDetails);
+					configErrors = parsed.errors;
+					showConfigError = true;
+					return;
+				}
+
+				const typedParams = parsed.parameters;
+				r = typedParams.r ?? r;
+				x0 = typedParams.x0 ?? x0;
+				iterations = typedParams.iterations ?? iterations;
+
+				const stability = checkParameterStability('logistic', typedParams);
+				if (!stability.isStable) {
+					stabilityWarnings = stability.warnings;
+					showStabilityWarning = true;
+				}
+			} catch (e) {
+				console.error('Invalid config parameter:', e);
+				configErrors = ['Failed to parse configuration parameters'];
+				showConfigError = true;
 			}
 		}
+	});
 
+	// Cleanup on unmount
+	onMount(() => {
 		return () => {
-			controller.abort();
-			// Clear save/share handler timeouts to prevent state updates after unmount
 			cleanupSaveHandler();
 			cleanupShareHandler();
+			configLoadAbortController?.abort();
+			configLoadAbortController = null;
+			isUnmounted = true;
 		};
 	});
 </script>
@@ -248,7 +251,7 @@
 				💾 Save
 			</button>
 			<a
-				href="{base}/"
+				href={base + '/'}
 				class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
 			>
 				← Return
