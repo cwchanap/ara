@@ -148,10 +148,10 @@
 		saveError={saveState.saveError}
 		{configErrors}
 		{showConfigError}
-		onDismissConfigError={() => (showConfigError = false)}
+		onDismissConfigError={() => (configState.showError = false)}
 		{stabilityWarnings}
 		{showStabilityWarning}
-		onDismissStabilityWarning={() => (showStabilityWarning = false)}
+		onDismissStabilityWarning={() => (configState.showWarning = false)}
 		onDismissSaveError={() => (saveState.saveError = null)}
 		onDismissSaveSuccess={() => (saveState.saveSuccess = false)}
 	/>
