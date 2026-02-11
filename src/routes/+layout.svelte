@@ -140,7 +140,7 @@
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 			<div class="flex items-center justify-between h-16">
 				<a
-					href="{base}/"
+					href={base + '/'}
 					class="font-['Orbitron'] text-2xl font-bold bg-linear-to-r from-primary via-cyan-400 to-accent bg-clip-text text-transparent tracking-wider"
 				>
 					CHAOS_THEORY
@@ -148,7 +148,7 @@
 				<div class="flex gap-6 items-center">
 					<div class="h-4 w-px bg-primary/20 hidden sm:block"></div>
 					<a
-						href="{base}/"
+						href={base + '/'}
 						class="text-sm uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors font-medium"
 					>
 						Home

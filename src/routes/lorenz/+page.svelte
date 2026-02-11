@@ -249,7 +249,7 @@
 				💾 Save
 			</button>
 			<a
-				href="{base}/"
+				href={base + '/'}
 				class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
 			>
 				← Return
