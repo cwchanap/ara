@@ -98,7 +98,7 @@
 	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-12">
 		{#each visualizations as viz (viz.url)}
 			<a
-				href="{base}{viz.url}"
+				href={base + viz.url}
 				class="group relative bg-card/40 backdrop-blur-sm border border-primary/20 rounded-sm p-6 transition-all duration-300 hover:border-primary/60 hover:shadow-[0_0_20px_rgba(0,243,255,0.15)] hover:-translate-y-1 overflow-hidden"
 			>
 				<!-- Tech corners -->
