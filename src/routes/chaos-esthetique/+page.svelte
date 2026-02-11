@@ -124,14 +124,12 @@
 					});
 					if (signal.aborted) return;
 					if (!result.ok) {
-						if (signal.aborted) return;
 						configErrors = result.errors;
 						showConfigError = true;
 						return;
 					}
 
 					const typedParams = result.parameters;
-					if (signal.aborted) return;
 					if (typeof typedParams.a === 'number') a = typedParams.a;
 					if (typeof typedParams.b === 'number') b = typedParams.b;
 					if (typeof typedParams.x0 === 'number') x0 = typedParams.x0;

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
@@ -7,11 +6,7 @@
 	import VisualizationAlerts from '$lib/components/ui/VisualizationAlerts.svelte';
 	import BifurcationLogisticRenderer from '$lib/components/visualizations/BifurcationLogisticRenderer.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
-	import {
-		loadSavedConfigParameters,
-		loadSharedConfigParameters,
-		parseConfigParam
-	} from '$lib/saved-config-loader';
+	import { useConfigLoader, createInitialConfigLoaderState } from '$lib/use-config-loader';
 	import { createSaveHandler, createInitialSaveState } from '$lib/use-visualization-save';
 	import { createShareHandler, createInitialShareState } from '$lib/use-visualization-share';
 	import type { BifurcationLogisticParameters } from '$lib/types';
@@ -30,10 +25,12 @@
 	const shareState = $state(createInitialShareState());
 
 	// Config loading state
-	let configErrors = $state<string[]>([]);
-	let showConfigError = $state(false);
-	let stabilityWarnings = $state<string[]>([]);
-	let showStabilityWarning = $state(false);
+	const configState = $state(createInitialConfigLoaderState());
+	// Reactive derived values for compatibility with existing template
+	let configErrors = $derived(configState.errors);
+	let showConfigError = $derived(configState.showError);
+	let stabilityWarnings = $derived(configState.warnings);
+	let showStabilityWarning = $derived(configState.showWarning);
 
 	// Get current parameters for saving
 	function getParameters(): BifurcationLogisticParameters {
@@ -54,143 +51,30 @@
 		getParameters
 	);
 
-	// Load config from URL on mount
-	onMount(() => {
-		const controller = new AbortController();
-		const { signal } = controller;
-		const baseFetch = (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
-			fetch(input, { ...init, signal });
-		const preconnectProp =
-			typeof fetch.preconnect !== 'undefined' ? { preconnect: fetch.preconnect } : {};
-		const fetchWithSignal = Object.assign(baseFetch, preconnectProp) as typeof fetch;
-
-		configErrors = [];
-		showConfigError = false;
-		stabilityWarnings = [];
-		showStabilityWarning = false;
-
-		const configId = $page.url.searchParams.get('configId');
-		const shareCode = $page.url.searchParams.get('share');
-		if (shareCode) {
-			void (async () => {
-				try {
-					const result = await loadSharedConfigParameters({
-						shareCode,
-						mapType: 'bifurcation-logistic',
-						base,
-						fetchFn: fetchWithSignal
-					});
-					if (signal.aborted) return;
-					if (!result.ok) {
-						configErrors = result.errors;
-						showConfigError = true;
-						return;
-					}
-
-					const typedParams = result.parameters;
-					if (typeof typedParams.rMin === 'number') rMin = typedParams.rMin;
-					if (typeof typedParams.rMax === 'number') rMax = typedParams.rMax;
-					if (typeof typedParams.maxIterations === 'number')
-						maxIterations = typedParams.maxIterations;
-
-					const stability = checkParameterStability('bifurcation-logistic', typedParams);
-					if (!stability.isStable) {
-						stabilityWarnings = stability.warnings;
-						showStabilityWarning = true;
-					}
-				} catch (err) {
-					if (
-						signal.aborted ||
-						(err instanceof DOMException && err.name === 'AbortError') ||
-						(err instanceof Error && err.name === 'AbortError')
-					) {
-						return;
-					}
-					configErrors = ['Failed to load shared configuration'];
-					showConfigError = true;
-				}
-			})();
-		} else if (configId) {
-			void (async () => {
-				try {
-					const result = await loadSavedConfigParameters({
-						configId,
-						mapType: 'bifurcation-logistic',
-						base,
-						fetchFn: fetchWithSignal
-					});
-					if (signal.aborted) return;
-					if (!result.ok) {
-						configErrors = result.errors;
-						showConfigError = true;
-						return;
-					}
-
-					const typedParams = result.parameters;
-					if (signal.aborted) return;
-					if (typeof typedParams.rMin === 'number') rMin = typedParams.rMin;
-					if (typeof typedParams.rMax === 'number') rMax = typedParams.rMax;
-					if (typeof typedParams.maxIterations === 'number')
-						maxIterations = typedParams.maxIterations;
-
-					const stability = checkParameterStability('bifurcation-logistic', typedParams);
-					if (signal.aborted) return;
-					if (!stability.isStable) {
-						stabilityWarnings = stability.warnings;
-						showStabilityWarning = true;
-					}
-				} catch (err) {
-					if (
-						signal.aborted ||
-						(err instanceof DOMException && err.name === 'AbortError') ||
-						(err instanceof Error && err.name === 'AbortError')
-					) {
-						return;
-					}
-					configErrors = ['Failed to load configuration parameters'];
-					showConfigError = true;
-				}
-			})();
-		} else {
-			const configParam = $page.url.searchParams.get('config');
-			if (configParam) {
-				try {
-					// Validate parameters structure before using
-					const parsed = parseConfigParam({ mapType: 'bifurcation-logistic', configParam });
-					if (!parsed.ok) {
-						console.error(parsed.logMessage, parsed.logDetails);
-						if (signal.aborted) return;
-						configErrors = parsed.errors;
-						showConfigError = true;
-					} else {
-						// Now we can safely cast since validation passed
-						const typedParams = parsed.parameters;
-						if (signal.aborted) return;
-						if (typeof typedParams.rMin === 'number') rMin = typedParams.rMin;
-						if (typeof typedParams.rMax === 'number') rMax = typedParams.rMax;
-						if (typeof typedParams.maxIterations === 'number')
-							maxIterations = typedParams.maxIterations;
-
-						// Check stability
-						const stability = checkParameterStability('bifurcation-logistic', typedParams);
-						if (signal.aborted) return;
-						if (!stability.isStable) {
-							stabilityWarnings = stability.warnings;
-							showStabilityWarning = true;
-						}
-					}
-				} catch (e) {
-					console.error('Invalid config parameter:', e);
-					if (signal.aborted) return;
-					configErrors = ['Failed to parse configuration parameters'];
-					showConfigError = true;
+	// Use shared config loader hook
+	useConfigLoader(
+		{
+			page,
+			mapType: 'bifurcation-logistic',
+			base,
+			onParametersLoaded: (typedParams) => {
+				if (typeof typedParams.rMin === 'number') rMin = typedParams.rMin;
+				if (typeof typedParams.rMax === 'number') rMax = typedParams.rMax;
+				if (typeof typedParams.maxIterations === 'number')
+					maxIterations = typedParams.maxIterations;
+				const stability = checkParameterStability('bifurcation-logistic', typedParams);
+				if (!stability.isStable) {
+					configState.warnings = stability.warnings;
+					configState.showWarning = true;
 				}
 			}
-		}
+		},
+		configState
+	);
 
+	// Cleanup save/share handlers on unmount
+	$effect(() => {
 		return () => {
-			controller.abort();
-			// Clear save/share handler timeouts to prevent state updates after unmount
 			cleanupSaveHandler();
 			cleanupShareHandler();
 		};

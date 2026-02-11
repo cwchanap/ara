@@ -138,14 +138,12 @@
 					});
 					if (signal.aborted) return;
 					if (!result.ok) {
-						if (signal.aborted) return;
 						configErrors = result.errors;
 						showConfigError = true;
 						return;
 					}
 
 					const typedParams = result.parameters;
-					if (signal.aborted) return;
 					if (typeof typedParams.K === 'number') K = typedParams.K;
 					if (typeof typedParams.numP === 'number') numP = typedParams.numP;
 					if (typeof typedParams.numQ === 'number') numQ = typedParams.numQ;

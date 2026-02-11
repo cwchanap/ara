@@ -125,14 +125,12 @@
 					});
 					if (signal.aborted) return;
 					if (!result.ok) {
-						if (signal.aborted) return;
 						configErrors = result.errors;
 						showConfigError = true;
 						return;
 					}
 
 					const typedParams = result.parameters;
-					if (signal.aborted) return;
 					if (typeof typedParams.xMin === 'number') xMin = typedParams.xMin;
 					if (typeof typedParams.xMax === 'number') xMax = typedParams.xMax;
 					if (typeof typedParams.yMin === 'number') yMin = typedParams.yMin;

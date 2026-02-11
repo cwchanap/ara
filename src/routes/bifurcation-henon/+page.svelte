@@ -59,11 +59,11 @@
 	onMount(() => {
 		const controller = new AbortController();
 		const { signal } = controller;
-		const fetchWithSignal: typeof fetch = Object.assign(
-			(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
-				fetch(input, { ...init, signal }),
-			{ preconnect: fetch.preconnect }
-		);
+		const baseFetch = (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
+			fetch(input, { ...init, signal });
+		const preconnectProp =
+			typeof fetch.preconnect !== 'undefined' ? { preconnect: fetch.preconnect } : {};
+		const fetchWithSignal = Object.assign(baseFetch, preconnectProp) as typeof fetch;
 
 		configErrors = [];
 		showConfigError = false;
