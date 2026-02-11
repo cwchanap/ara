@@ -248,6 +248,7 @@
 		{showStabilityWarning}
 		onDismissStabilityWarning={() => (showStabilityWarning = false)}
 		onDismissSaveError={() => (saveState.saveError = null)}
+		onDismissSaveSuccess={() => (saveState.saveSuccess = false)}
 	/>
 
 	<div

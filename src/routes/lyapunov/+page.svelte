@@ -236,12 +236,13 @@
 					⊞ Compare
 				</a>
 			{:else}
-				<span
+				<button
+					type="button"
+					disabled
 					class="px-6 py-2 bg-primary/10 text-primary border border-primary/30 rounded-sm uppercase tracking-widest text-sm font-bold opacity-50 cursor-not-allowed"
-					aria-disabled="true"
 				>
 					⊞ Compare
-				</span>
+				</button>
 			{/if}
 			<button
 				onclick={() => (shareState.showShareDialog = true)}
@@ -275,6 +276,7 @@
 		{showStabilityWarning}
 		onDismissStabilityWarning={() => (showStabilityWarning = false)}
 		onDismissSaveError={() => (saveState.saveError = null)}
+		onDismissSaveSuccess={() => (saveState.saveSuccess = false)}
 	/>
 
 	<!-- Control Panel -->
