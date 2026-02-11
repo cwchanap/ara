@@ -37,6 +37,19 @@ export interface ConfigLoaderState {
 	isLoading: boolean;
 }
 
+/**
+ * Creates initial state for the config loader
+ */
+export function createInitialConfigLoaderState(): ConfigLoaderState {
+	return {
+		errors: [],
+		showError: false,
+		warnings: [],
+		showWarning: false,
+		isLoading: false
+	};
+}
+
 export interface ConfigLoaderOptions<T extends ChaosMapType> {
 	/** The Svelte page store containing URL params */
 	page: Readable<Page>;
@@ -162,6 +175,8 @@ export function useConfigLoader<T extends ChaosMapType>(
 						console.error('Failed to load configuration:', e);
 						if (signal.aborted) return;
 						if (lastAppliedConfigKey !== currentConfigKey) return;
+						// Reset lastAppliedConfigKey to allow retry on transient failures
+						lastAppliedConfigKey = null;
 						state.errors = [
 							'Failed to load configuration: ' +
 								(e instanceof Error ? e.message : 'Unknown error')
@@ -178,6 +193,8 @@ export function useConfigLoader<T extends ChaosMapType>(
 					state.isLoading = false;
 
 					if (!result.ok) {
+						// Reset lastAppliedConfigKey to allow retry on transient failures
+						lastAppliedConfigKey = null;
 						state.errors = result.errors;
 						state.showError = true;
 						return;

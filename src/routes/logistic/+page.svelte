@@ -227,6 +227,13 @@
 				>
 					⊞ Compare
 				</a>
+			{:else}
+				<span
+					class="px-6 py-2 bg-primary/10 text-primary border border-primary/30 rounded-sm uppercase tracking-widest text-sm font-bold opacity-50 cursor-not-allowed"
+					aria-disabled="true"
+				>
+					⊞ Compare
+				</span>
 			{/if}
 			<button
 				onclick={() => (shareState.showShareDialog = true)}
