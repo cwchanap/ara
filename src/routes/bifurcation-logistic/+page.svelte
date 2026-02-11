@@ -59,11 +59,38 @@
 				mapType: 'bifurcation-logistic',
 				base,
 				onParametersLoaded: (typedParams) => {
-					if (typeof typedParams.rMin === 'number') rMin = typedParams.rMin;
-					if (typeof typedParams.rMax === 'number') rMax = typedParams.rMax;
-					if (typeof typedParams.maxIterations === 'number')
-						maxIterations = typedParams.maxIterations;
-					const stability = checkParameterStability('bifurcation-logistic', typedParams);
+					// Clamp and normalize parameters before applying
+					let nextRMin = 3.5;
+					let nextRMax = 4.0;
+					let nextMaxIterations = 1000;
+
+					if (typeof typedParams.rMin === 'number') {
+						nextRMin = Math.max(2.5, Math.min(4.0, typedParams.rMin));
+					}
+					if (typeof typedParams.rMax === 'number') {
+						nextRMax = Math.max(2.5, Math.min(4.0, typedParams.rMax));
+					}
+					if (typeof typedParams.maxIterations === 'number') {
+						nextMaxIterations = Math.max(100, Math.min(2000, typedParams.maxIterations));
+					}
+
+					// Enforce rMin <= rMax
+					if (nextRMin > nextRMax) {
+						const temp = nextRMin;
+						nextRMin = nextRMax;
+						nextRMax = temp;
+					}
+
+					rMin = nextRMin;
+					rMax = nextRMax;
+					maxIterations = nextMaxIterations;
+
+					const stability = checkParameterStability('bifurcation-logistic', {
+						type: 'bifurcation-logistic',
+						rMin: nextRMin,
+						rMax: nextRMax,
+						maxIterations: nextMaxIterations
+					});
 					if (!stability.isStable) {
 						configState.warnings = stability.warnings;
 						configState.showWarning = true;
