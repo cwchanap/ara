@@ -169,20 +169,17 @@
 					const parsed = parseConfigParam({ mapType: 'henon', configParam });
 					if (!parsed.ok) {
 						console.error(parsed.logMessage, parsed.logDetails);
-						if (signal.aborted) return;
 						configErrors = parsed.errors;
 						showConfigError = true;
 					} else {
 						// Now we can safely cast since validation passed
 						const typedParams = parsed.parameters;
-						if (signal.aborted) return;
 						if (typeof typedParams.a === 'number') a = typedParams.a;
 						if (typeof typedParams.b === 'number') b = typedParams.b;
 						if (typeof typedParams.iterations === 'number') iterations = typedParams.iterations;
 
 						// Check stability
 						const stability = checkParameterStability('henon', typedParams);
-						if (signal.aborted) return;
 						if (!stability.isStable) {
 							stabilityWarnings = stability.warnings;
 							showStabilityWarning = true;
@@ -190,7 +187,6 @@
 					}
 				} catch (e) {
 					console.error('Invalid config parameter:', e);
-					if (signal.aborted) return;
 					configErrors = ['Failed to parse configuration parameters'];
 					showConfigError = true;
 				}

@@ -41,6 +41,8 @@
 		onDismissStabilityWarning?: () => void;
 		/** Callback when save error is dismissed */
 		onDismissSaveError?: () => void;
+		/** Callback when save success toast is dismissed */
+		onDismissSaveSuccess?: () => void;
 	}
 
 	let {
@@ -52,7 +54,8 @@
 		stabilityWarnings = [],
 		showStabilityWarning = false,
 		onDismissStabilityWarning = () => {},
-		onDismissSaveError = () => {}
+		onDismissSaveError = () => {},
+		onDismissSaveSuccess = () => {}
 	}: Props = $props();
 
 	const dispatch = createEventDispatcher<{ dismiss: void }>();
@@ -67,6 +70,7 @@
 			}
 			// Start new timeout to auto-dismiss after 3000ms
 			dismissTimeout = setTimeout(() => {
+				onDismissSaveSuccess();
 				dispatch('dismiss');
 			}, 3000);
 		} else {
