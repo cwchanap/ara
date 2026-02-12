@@ -25,7 +25,7 @@
 		containerElement = $bindable()
 	}: Props = $props();
 
-	let container: HTMLDivElement;
+	let container = $state<HTMLDivElement>();
 
 	// Sync internal container ref to bindable prop
 	$effect(() => {
