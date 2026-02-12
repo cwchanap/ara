@@ -231,7 +231,7 @@ describe('visualization pages', () => {
 	});
 
 	it('renders lorenz compare page', () => {
-		pageStore.set(createPage('http://localhost/lorenz/compare?compare=true'));
+		setPageUrl('http://localhost/lorenz/compare?compare=true');
 		render(LorenzComparePage);
 		expect(screen.getByText('LEFT_PARAMETERS')).toBeInTheDocument();
 	});
