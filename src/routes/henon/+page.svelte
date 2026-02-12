@@ -144,7 +144,6 @@
 					if (typeof typedParams.iterations === 'number') iterations = typedParams.iterations;
 
 					const stability = checkParameterStability('henon', typedParams);
-					if (signal.aborted) return;
 					if (!stability.isStable) {
 						stabilityWarnings = stability.warnings;
 						showStabilityWarning = true;
