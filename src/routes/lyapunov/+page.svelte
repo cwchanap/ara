@@ -37,6 +37,36 @@
 	let stabilityWarnings = $state<string[]>([]);
 	let showStabilityWarning = $state(false);
 
+	// Helper function to clamp and normalize Lyapunov parameters
+	function clampAndNormalizeLyapunovParams(typedParams: Partial<LyapunovParameters>) {
+		let rMin = 2.5;
+		let rMax = 4.0;
+		let iterations = 1000;
+		let transientIterations = 500;
+
+		if (typeof typedParams.rMin === 'number') {
+			rMin = Math.max(0, Math.min(4.0, typedParams.rMin));
+		}
+		if (typeof typedParams.rMax === 'number') {
+			rMax = Math.max(0, Math.min(4.0, typedParams.rMax));
+		}
+		if (typeof typedParams.iterations === 'number') {
+			iterations = Math.max(100, Math.min(10000, typedParams.iterations));
+		}
+		if (typeof typedParams.transientIterations === 'number') {
+			transientIterations = Math.max(50, Math.min(5000, typedParams.transientIterations));
+		}
+
+		// Enforce rMin <= rMax
+		if (rMin > rMax) {
+			const temp = rMin;
+			rMin = rMax;
+			rMax = temp;
+		}
+
+		return { rMin, rMax, iterations, transientIterations };
+	}
+
 	// Get current parameters for saving
 	function getParameters(): LyapunovParameters {
 		return { type: 'lyapunov', rMin, rMax, iterations, transientIterations };
@@ -105,42 +135,15 @@
 					const typedParams = result.parameters;
 
 					// Clamp and normalize parameters before applying
-					let nextRMin = 2.5;
-					let nextRMax = 4.0;
-					let nextIterations = 1000;
-					let nextTransientIterations = 500;
-
-					if (typeof typedParams.rMin === 'number') {
-						nextRMin = Math.max(0, Math.min(4.0, typedParams.rMin));
-					}
-					if (typeof typedParams.rMax === 'number') {
-						nextRMax = Math.max(0, Math.min(4.0, typedParams.rMax));
-					}
-					if (typeof typedParams.iterations === 'number') {
-						nextIterations = Math.max(100, Math.min(10000, typedParams.iterations));
-					}
-					if (typeof typedParams.transientIterations === 'number') {
-						nextTransientIterations = Math.max(50, Math.min(5000, typedParams.transientIterations));
-					}
-
-					// Enforce rMin <= rMax
-					if (nextRMin > nextRMax) {
-						const temp = nextRMin;
-						nextRMin = nextRMax;
-						nextRMax = temp;
-					}
-
-					rMin = nextRMin;
-					rMax = nextRMax;
-					iterations = nextIterations;
-					transientIterations = nextTransientIterations;
+					const normalizedParams = clampAndNormalizeLyapunovParams(typedParams);
+					rMin = normalizedParams.rMin;
+					rMax = normalizedParams.rMax;
+					iterations = normalizedParams.iterations;
+					transientIterations = normalizedParams.transientIterations;
 
 					const stability = checkParameterStability('lyapunov', {
 						type: 'lyapunov',
-						rMin: nextRMin,
-						rMax: nextRMax,
-						iterations: nextIterations,
-						transientIterations: nextTransientIterations
+						...normalizedParams
 					});
 					if (!stability.isStable) {
 						stabilityWarnings = stability.warnings;
@@ -178,42 +181,15 @@
 					if (signal.aborted) return;
 
 					// Clamp and normalize parameters before applying
-					let nextRMin = 2.5;
-					let nextRMax = 4.0;
-					let nextIterations = 1000;
-					let nextTransientIterations = 500;
-
-					if (typeof typedParams.rMin === 'number') {
-						nextRMin = Math.max(0, Math.min(4.0, typedParams.rMin));
-					}
-					if (typeof typedParams.rMax === 'number') {
-						nextRMax = Math.max(0, Math.min(4.0, typedParams.rMax));
-					}
-					if (typeof typedParams.iterations === 'number') {
-						nextIterations = Math.max(100, Math.min(10000, typedParams.iterations));
-					}
-					if (typeof typedParams.transientIterations === 'number') {
-						nextTransientIterations = Math.max(50, Math.min(5000, typedParams.transientIterations));
-					}
-
-					// Enforce rMin <= rMax
-					if (nextRMin > nextRMax) {
-						const temp = nextRMin;
-						nextRMin = nextRMax;
-						nextRMax = temp;
-					}
-
-					rMin = nextRMin;
-					rMax = nextRMax;
-					iterations = nextIterations;
-					transientIterations = nextTransientIterations;
+					const normalizedParams = clampAndNormalizeLyapunovParams(typedParams);
+					rMin = normalizedParams.rMin;
+					rMax = normalizedParams.rMax;
+					iterations = normalizedParams.iterations;
+					transientIterations = normalizedParams.transientIterations;
 
 					const stability = checkParameterStability('lyapunov', {
 						type: 'lyapunov',
-						rMin: nextRMin,
-						rMax: nextRMax,
-						iterations: nextIterations,
-						transientIterations: nextTransientIterations
+						...normalizedParams
 					});
 					if (signal.aborted) return;
 					if (!stability.isStable) {
@@ -249,46 +225,16 @@
 						if (signal.aborted) return;
 
 						// Clamp and normalize parameters before applying
-						let nextRMin = 2.5;
-						let nextRMax = 4.0;
-						let nextIterations = 1000;
-						let nextTransientIterations = 500;
-
-						if (typeof typedParams.rMin === 'number') {
-							nextRMin = Math.max(0, Math.min(4.0, typedParams.rMin));
-						}
-						if (typeof typedParams.rMax === 'number') {
-							nextRMax = Math.max(0, Math.min(4.0, typedParams.rMax));
-						}
-						if (typeof typedParams.iterations === 'number') {
-							nextIterations = Math.max(100, Math.min(10000, typedParams.iterations));
-						}
-						if (typeof typedParams.transientIterations === 'number') {
-							nextTransientIterations = Math.max(
-								50,
-								Math.min(5000, typedParams.transientIterations)
-							);
-						}
-
-						// Enforce rMin <= rMax
-						if (nextRMin > nextRMax) {
-							const temp = nextRMin;
-							nextRMin = nextRMax;
-							nextRMax = temp;
-						}
-
-						rMin = nextRMin;
-						rMax = nextRMax;
-						iterations = nextIterations;
-						transientIterations = nextTransientIterations;
+						const normalizedParams = clampAndNormalizeLyapunovParams(typedParams);
+						rMin = normalizedParams.rMin;
+						rMax = normalizedParams.rMax;
+						iterations = normalizedParams.iterations;
+						transientIterations = normalizedParams.transientIterations;
 
 						// Check stability
 						const stability = checkParameterStability('lyapunov', {
 							type: 'lyapunov',
-							rMin: nextRMin,
-							rMax: nextRMax,
-							iterations: nextIterations,
-							transientIterations: nextTransientIterations
+							...normalizedParams
 						});
 						if (signal.aborted) return;
 						if (!stability.isStable) {
