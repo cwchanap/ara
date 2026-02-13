@@ -22,7 +22,7 @@
 	let { data } = $props();
 
 	let rendererContainer: HTMLDivElement | undefined = $state();
-	let K = $state(0.971635);
+	let k = $state(0.971635);
 	let numP = $state(10);
 	let numQ = $state(10);
 	let iterations = $state(20000);
@@ -44,12 +44,12 @@
 
 	// Get current parameters for saving
 	function getParameters(): StandardParameters {
-		return { type: 'standard', K, numP, numQ, iterations };
+		return { type: 'standard', k, numP, numQ, iterations };
 	}
 
 	let comparisonUrl = $state('');
 	$effect(() => {
-		void K;
+		void k;
 		void numP;
 		void numQ;
 		void iterations;
@@ -146,7 +146,7 @@
 					}
 
 					const typedParams = result.parameters;
-					K = typedParams.K ?? K;
+					k = typedParams.k ?? k;
 					numP = typedParams.numP ?? numP;
 					numQ = typedParams.numQ ?? numQ;
 					iterations = typedParams.iterations ?? iterations;
@@ -185,7 +185,7 @@
 				}
 
 				const typedParams = parsed.parameters;
-				K = typedParams.K ?? K;
+				k = typedParams.k ?? k;
 				numP = typedParams.numP ?? numP;
 				numQ = typedParams.numQ ?? numQ;
 				iterations = typedParams.iterations ?? iterations;
@@ -297,15 +297,15 @@
 		<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
-					<label for="K" class="text-primary/80 text-xs uppercase tracking-widest font-bold">
+					<label for="k" class="text-primary/80 text-xs uppercase tracking-widest font-bold">
 						K
 					</label>
-					<span class="font-mono text-accent">{K.toFixed(6)}</span>
+					<span class="font-mono text-accent">{k.toFixed(6)}</span>
 				</div>
 				<input
-					id="K"
+					id="k"
 					type="range"
-					bind:value={K}
+					bind:value={k}
 					min="0"
 					max="5"
 					step="0.01"
@@ -386,7 +386,7 @@
 	<!-- Visualization Container -->
 	<StandardRenderer
 		bind:containerElement={rendererContainer}
-		bind:K
+		bind:k
 		bind:numP
 		bind:numQ
 		bind:iterations

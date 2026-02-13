@@ -429,17 +429,17 @@ describe('checkParameterStability for newton', () => {
 });
 
 describe('checkParameterStability for standard', () => {
-	test('returns warnings when K is outside stable range', () => {
+	test('returns warnings when k is outside stable range', () => {
 		const params = {
 			type: 'standard' as const,
-			K: 20,
+			k: 20,
 			numP: 10,
 			numQ: 10,
 			iterations: 20000
 		};
 		const result = checkParameterStability('standard', params);
 		expect(result.isStable).toBe(false);
-		expect(result.warnings.some((w) => w.includes('K'))).toBe(true);
+		expect(result.warnings.some((w) => w.includes('k'))).toBe(true);
 	});
 });
 

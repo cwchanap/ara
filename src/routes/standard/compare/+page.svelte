@@ -38,7 +38,7 @@
 		if (!validation.isValid) return fallback;
 		return {
 			type: 'standard',
-			K: clampValue(params.K, 'K', fallback.K),
+			k: clampValue(params.k, 'k', fallback.k),
 			numP: clampInt(params.numP, 'numP', fallback.numP),
 			numQ: clampInt(params.numQ, 'numQ', fallback.numQ),
 			iterations: clampInt(params.iterations, 'iterations', fallback.iterations)
@@ -54,12 +54,12 @@
 		defaultParams
 	);
 
-	let leftK = $state(leftInitial.K);
+	let leftK = $state(leftInitial.k);
 	let leftNumP = $state(leftInitial.numP);
 	let leftNumQ = $state(leftInitial.numQ);
 	let leftIterations = $state(leftInitial.iterations);
 
-	let rightK = $state(rightInitial.K);
+	let rightK = $state(rightInitial.k);
 	let rightNumP = $state(rightInitial.numP);
 	let rightNumQ = $state(rightInitial.numQ);
 	let rightIterations = $state(rightInitial.iterations);
@@ -77,13 +77,13 @@
 		if (debounceTimer) clearTimeout(debounceTimer);
 		debounceTimer = setTimeout(() => {
 			const leftParams = normalizeStandardParams(
-				{ type: 'standard', K: leftK, numP: leftNumP, numQ: leftNumQ, iterations: leftIterations },
+				{ type: 'standard', k: leftK, numP: leftNumP, numQ: leftNumQ, iterations: leftIterations },
 				defaultParams
 			);
 			const rightParams = normalizeStandardParams(
 				{
 					type: 'standard',
-					K: rightK,
+					k: rightK,
 					numP: rightNumP,
 					numQ: rightNumQ,
 					iterations: rightIterations
@@ -110,7 +110,7 @@
 	function getLeftParams(): StandardParameters {
 		return {
 			type: 'standard',
-			K: leftK,
+			k: leftK,
 			numP: leftNumP,
 			numQ: leftNumQ,
 			iterations: leftIterations
@@ -119,7 +119,7 @@
 	function getRightParams(): StandardParameters {
 		return {
 			type: 'standard',
-			K: rightK,
+			k: rightK,
 			numP: rightNumP,
 			numQ: rightNumQ,
 			iterations: rightIterations
@@ -127,14 +127,14 @@
 	}
 
 	function handleLeftParamsChange(params: StandardParameters) {
-		leftK = params.K;
+		leftK = params.k;
 		leftNumP = params.numP;
 		leftNumQ = params.numQ;
 		leftIterations = params.iterations;
 	}
 
 	function handleRightParamsChange(params: StandardParameters) {
-		rightK = params.K;
+		rightK = params.k;
 		rightNumP = params.numP;
 		rightNumQ = params.numQ;
 		rightIterations = params.iterations;
@@ -231,7 +231,7 @@
 					<p>q(n+1) = q(n) + p(n+1)</p>{/snippet}
 			</ComparisonParameterPanel>
 			<StandardRenderer
-				bind:K={leftK}
+				bind:k={leftK}
 				bind:numP={leftNumP}
 				bind:numQ={leftNumQ}
 				bind:iterations={leftIterations}
@@ -322,7 +322,7 @@
 					<p>q(n+1) = q(n) + p(n+1)</p>{/snippet}
 			</ComparisonParameterPanel>
 			<StandardRenderer
-				bind:K={rightK}
+				bind:k={rightK}
 				bind:numP={rightNumP}
 				bind:numQ={rightNumQ}
 				bind:iterations={rightIterations}

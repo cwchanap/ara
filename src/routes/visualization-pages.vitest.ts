@@ -64,7 +64,9 @@ const pageStore: PageStore = vi.hoisted(() => {
 		},
 		set(next) {
 			value = next;
-			subscribers.forEach((subscriber) => subscriber(value));
+			subscribers.forEach((subscriber) => {
+				subscriber(value);
+			});
 		}
 	};
 });

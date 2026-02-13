@@ -126,7 +126,7 @@ describe('API Validation Logic', () => {
 
 		describe('standard parameters', () => {
 			test('validates correct standard parameters', () => {
-				const params = { type: 'standard', K: 1, numP: 50, numQ: 50, iterations: 1000 };
+				const params = { type: 'standard', k: 1, numP: 50, numQ: 50, iterations: 1000 };
 				const result = validateParameters('standard', params);
 
 				expect(result.isValid).toBe(true);

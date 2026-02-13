@@ -48,7 +48,7 @@ describe('chaosMapsWorker', () => {
 				numP: 1,
 				numQ: 1,
 				iterations: 2,
-				K: 1,
+				k: 1,
 				maxPoints: 10
 			}
 		});

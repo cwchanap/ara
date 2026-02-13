@@ -54,7 +54,7 @@ const STABLE_RANGES: Record<ChaosMapType, StableRanges<Record<string, number>>> 
 		maxIterations: { min: 1, max: 200 }
 	},
 	standard: {
-		K: { min: 0, max: 10 },
+		k: { min: 0, max: 10 },
 		numP: { min: 1, max: 100 },
 		numQ: { min: 1, max: 100 },
 		iterations: { min: 1, max: 100000 }
