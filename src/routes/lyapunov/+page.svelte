@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
@@ -7,11 +6,7 @@
 	import VisualizationAlerts from '$lib/components/ui/VisualizationAlerts.svelte';
 	import LyapunovRenderer from '$lib/components/visualizations/LyapunovRenderer.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
-	import {
-		loadSavedConfigParameters,
-		loadSharedConfigParameters,
-		parseConfigParam
-	} from '$lib/saved-config-loader';
+	import { useConfigLoader, createInitialConfigLoaderState } from '$lib/use-config-loader';
 	import { createSaveHandler, createInitialSaveState } from '$lib/use-visualization-save';
 	import { createShareHandler, createInitialShareState } from '$lib/use-visualization-share';
 	import type { LyapunovParameters } from '$lib/types';
@@ -31,11 +26,8 @@
 	// Share dialog state
 	const shareState = $state(createInitialShareState());
 
-	// Config loading state
-	let configErrors = $state<string[]>([]);
-	let showConfigError = $state(false);
-	let stabilityWarnings = $state<string[]>([]);
-	let showStabilityWarning = $state(false);
+	// Config loading state using the unified loader
+	const configState = $state(createInitialConfigLoaderState());
 
 	// Helper function to clamp and normalize Lyapunov parameters
 	function clampAndNormalizeLyapunovParams(typedParams: Partial<LyapunovParameters>) {
@@ -99,161 +91,32 @@
 		getParameters
 	);
 
-	// Load config from URL on mount
-	onMount(() => {
-		const controller = new AbortController();
-		const { signal } = controller;
-		const baseFetch = (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
-			fetch(input, { ...init, signal });
-		const preconnectProp =
-			typeof fetch.preconnect !== 'undefined' ? { preconnect: fetch.preconnect } : {};
-		const fetchWithSignal = Object.assign(baseFetch, preconnectProp) as typeof fetch;
-
-		configErrors = [];
-		showConfigError = false;
-		stabilityWarnings = [];
-		showStabilityWarning = false;
-
-		const configId = $page.url.searchParams.get('configId');
-		const shareCode = $page.url.searchParams.get('share');
-		if (shareCode) {
-			void (async () => {
-				try {
-					const result = await loadSharedConfigParameters({
-						shareCode,
-						mapType: 'lyapunov',
-						base,
-						fetchFn: fetchWithSignal
-					});
-					if (signal.aborted) return;
-					if (!result.ok) {
-						configErrors = result.errors;
-						showConfigError = true;
-						return;
-					}
-
-					const typedParams = result.parameters;
-
+	// Reactive config loading from URL using unified loader
+	$effect(() => {
+		const { cleanup } = useConfigLoader(
+			{
+				page,
+				mapType: 'lyapunov',
+				base,
+				onParametersLoaded: (params) => {
 					// Clamp and normalize parameters before applying
-					const normalizedParams = clampAndNormalizeLyapunovParams(typedParams);
+					const normalizedParams = clampAndNormalizeLyapunovParams(params);
 					rMin = normalizedParams.rMin;
 					rMax = normalizedParams.rMax;
 					iterations = normalizedParams.iterations;
 					transientIterations = normalizedParams.transientIterations;
+				},
+				onCheckStability: (params) => checkParameterStability('lyapunov', params)
+			},
+			configState
+		);
 
-					const stability = checkParameterStability('lyapunov', {
-						type: 'lyapunov',
-						...normalizedParams
-					});
-					if (!stability.isStable) {
-						stabilityWarnings = stability.warnings;
-						showStabilityWarning = true;
-					}
-				} catch (err) {
-					if (
-						signal.aborted ||
-						(err instanceof DOMException && err.name === 'AbortError') ||
-						(err instanceof Error && err.name === 'AbortError')
-					) {
-						return;
-					}
-					configErrors = ['Failed to load shared configuration'];
-					showConfigError = true;
-				}
-			})();
-		} else if (configId) {
-			void (async () => {
-				try {
-					const result = await loadSavedConfigParameters({
-						configId,
-						mapType: 'lyapunov',
-						base,
-						fetchFn: fetchWithSignal
-					});
-					if (signal.aborted) return;
-					if (!result.ok) {
-						configErrors = result.errors;
-						showConfigError = true;
-						return;
-					}
+		return cleanup;
+	});
 
-					const typedParams = result.parameters;
-					if (signal.aborted) return;
-
-					// Clamp and normalize parameters before applying
-					const normalizedParams = clampAndNormalizeLyapunovParams(typedParams);
-					rMin = normalizedParams.rMin;
-					rMax = normalizedParams.rMax;
-					iterations = normalizedParams.iterations;
-					transientIterations = normalizedParams.transientIterations;
-
-					const stability = checkParameterStability('lyapunov', {
-						type: 'lyapunov',
-						...normalizedParams
-					});
-					if (signal.aborted) return;
-					if (!stability.isStable) {
-						stabilityWarnings = stability.warnings;
-						showStabilityWarning = true;
-					}
-				} catch (err) {
-					if (
-						signal.aborted ||
-						(err instanceof DOMException && err.name === 'AbortError') ||
-						(err instanceof Error && err.name === 'AbortError')
-					) {
-						return;
-					}
-					configErrors = ['Failed to load configuration parameters'];
-					showConfigError = true;
-				}
-			})();
-		} else {
-			const configParam = $page.url.searchParams.get('config');
-			if (configParam) {
-				try {
-					// Validate parameters structure before using
-					const parsed = parseConfigParam({ mapType: 'lyapunov', configParam });
-					if (!parsed.ok) {
-						console.error(parsed.logMessage, parsed.logDetails);
-						if (signal.aborted) return;
-						configErrors = parsed.errors;
-						showConfigError = true;
-					} else {
-						// Now we can safely cast since validation passed
-						const typedParams = parsed.parameters;
-						if (signal.aborted) return;
-
-						// Clamp and normalize parameters before applying
-						const normalizedParams = clampAndNormalizeLyapunovParams(typedParams);
-						rMin = normalizedParams.rMin;
-						rMax = normalizedParams.rMax;
-						iterations = normalizedParams.iterations;
-						transientIterations = normalizedParams.transientIterations;
-
-						// Check stability
-						const stability = checkParameterStability('lyapunov', {
-							type: 'lyapunov',
-							...normalizedParams
-						});
-						if (signal.aborted) return;
-						if (!stability.isStable) {
-							stabilityWarnings = stability.warnings;
-							showStabilityWarning = true;
-						}
-					}
-				} catch (e) {
-					console.error('Invalid config parameter:', e);
-					if (signal.aborted) return;
-					configErrors = ['Failed to parse configuration parameters'];
-					showConfigError = true;
-				}
-			}
-		}
-
+	// Cleanup handlers on unmount
+	$effect(() => {
 		return () => {
-			controller.abort();
-			// Clear save/share handler timeouts to prevent state updates after unmount
 			cleanupSaveHandler();
 			cleanupShareHandler();
 		};
@@ -314,12 +177,12 @@
 	<VisualizationAlerts
 		saveSuccess={saveState.saveSuccess}
 		saveError={saveState.saveError}
-		{configErrors}
-		{showConfigError}
-		onDismissConfigError={() => (showConfigError = false)}
-		{stabilityWarnings}
-		{showStabilityWarning}
-		onDismissStabilityWarning={() => (showStabilityWarning = false)}
+		configErrors={configState.errors}
+		showConfigError={configState.showError}
+		onDismissConfigError={() => (configState.showError = false)}
+		stabilityWarnings={configState.warnings}
+		showStabilityWarning={configState.showWarning}
+		onDismissStabilityWarning={() => (configState.showWarning = false)}
 		onDismissSaveError={() => (saveState.saveError = null)}
 		onDismissSaveSuccess={() => (saveState.saveSuccess = false)}
 	/>
