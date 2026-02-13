@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
@@ -8,11 +7,7 @@
 	import VisualizationAlerts from '$lib/components/ui/VisualizationAlerts.svelte';
 	import LorenzRenderer from '$lib/components/visualizations/LorenzRenderer.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
-	import {
-		loadSavedConfigParameters,
-		loadSharedConfigParameters,
-		parseConfigParam
-	} from '$lib/saved-config-loader';
+	import { useConfigLoader, createInitialConfigLoaderState } from '$lib/use-config-loader';
 	import { createSaveHandler, createInitialSaveState } from '$lib/use-visualization-save';
 	import { createShareHandler, createInitialShareState } from '$lib/use-visualization-share';
 	import type { LorenzParameters } from '$lib/types';
@@ -32,14 +27,8 @@
 	// Share dialog state
 	const shareState = $state(createInitialShareState());
 
-	// Config loading state
-	let configErrors = $state<string[]>([]);
-	let showConfigError = $state(false);
-	let stabilityWarnings = $state<string[]>([]);
-	let showStabilityWarning = $state(false);
-	let lastAppliedConfigKey = $state<string | null>(null);
-	let configLoadAbortController: AbortController | null = null;
-	let isUnmounted = false;
+	// Config loading state using the unified loader
+	const configState = $state(createInitialConfigLoaderState());
 
 	// Get current parameters for saving
 	function getParameters(): LorenzParameters {
@@ -72,141 +61,31 @@
 		getParameters
 	);
 
-	// Reactive config loading from URL
+	// Reactive config loading from URL using unified loader
 	$effect(() => {
-		const configId = $page.url.searchParams.get('configId');
-		const shareCode = $page.url.searchParams.get('share');
-		const configParam = $page.url.searchParams.get('config');
-		const configKey = shareCode
-			? `share:${shareCode}`
-			: configId
-				? `id:${configId}`
-				: configParam
-					? `param:${configParam}`
-					: null;
-		if (configKey === lastAppliedConfigKey) return;
-		lastAppliedConfigKey = configKey;
+		const { cleanup } = useConfigLoader(
+			{
+				page,
+				mapType: 'lorenz',
+				base,
+				onParametersLoaded: (params) => {
+					sigma = params.sigma ?? sigma;
+					rho = params.rho ?? rho;
+					beta = params.beta ?? beta;
+				},
+				onCheckStability: (params) => checkParameterStability('lorenz', params)
+			},
+			configState
+		);
 
-		configLoadAbortController?.abort();
-		configLoadAbortController = null;
-
-		if (shareCode || configId) {
-			configErrors = [];
-			showConfigError = false;
-			stabilityWarnings = [];
-			showStabilityWarning = false;
-			const controller = new AbortController();
-			configLoadAbortController = controller;
-			const { signal } = controller;
-			const currentConfigKey = configKey;
-
-			const baseFetch = (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
-				fetch(input, { ...init, signal });
-			const preconnectProp =
-				typeof fetch.preconnect !== 'undefined' ? { preconnect: fetch.preconnect } : {};
-			const fetchWithSignal = Object.assign(baseFetch, preconnectProp) as typeof fetch;
-
-			void (async () => {
-				try {
-					let result: ReturnType<typeof loadSavedConfigParameters<'lorenz'>> extends Promise<
-						infer T
-					>
-						? T
-						: never | undefined;
-
-					if (shareCode) {
-						result = await loadSharedConfigParameters({
-							shareCode,
-							mapType: 'lorenz',
-							base,
-							fetchFn: fetchWithSignal
-						});
-					} else {
-						result = await loadSavedConfigParameters({
-							configId: configId!,
-							mapType: 'lorenz',
-							base,
-							fetchFn: fetchWithSignal
-						});
-					}
-
-					if (isUnmounted || signal.aborted) return;
-					if (lastAppliedConfigKey !== currentConfigKey) return;
-					if (!result) {
-						configErrors = ['Failed to load configuration'];
-						showConfigError = true;
-						return;
-					}
-					if (!result.ok) {
-						configErrors = result.errors;
-						showConfigError = true;
-						return;
-					}
-
-					const typedParams = result.parameters;
-					sigma = typedParams.sigma ?? sigma;
-					rho = typedParams.rho ?? rho;
-					beta = typedParams.beta ?? beta;
-
-					const stability = checkParameterStability('lorenz', typedParams);
-					if (!stability.isStable) {
-						stabilityWarnings = stability.warnings;
-						showStabilityWarning = true;
-					}
-				} catch (e) {
-					if (e instanceof Error && e.name === 'AbortError') {
-						return;
-					}
-					console.error('Failed to load configuration:', e);
-					if (isUnmounted || signal.aborted) return;
-					if (lastAppliedConfigKey !== currentConfigKey) return;
-					configErrors = [
-						'Failed to load configuration: ' + (e instanceof Error ? e.message : 'Unknown error')
-					];
-					showConfigError = true;
-				}
-			})();
-		} else if (configParam) {
-			try {
-				configErrors = [];
-				showConfigError = false;
-				stabilityWarnings = [];
-				showStabilityWarning = false;
-
-				const parsed = parseConfigParam({ mapType: 'lorenz', configParam });
-				if (!parsed.ok) {
-					console.error(parsed.logMessage, parsed.logDetails);
-					configErrors = parsed.errors;
-					showConfigError = true;
-					return;
-				}
-
-				const typedParams = parsed.parameters;
-				sigma = typedParams.sigma ?? sigma;
-				rho = typedParams.rho ?? rho;
-				beta = typedParams.beta ?? beta;
-
-				const stability = checkParameterStability('lorenz', typedParams);
-				if (!stability.isStable) {
-					stabilityWarnings = stability.warnings;
-					showStabilityWarning = true;
-				}
-			} catch (e) {
-				console.error('Invalid config parameter:', e);
-				configErrors = ['Failed to parse configuration parameters'];
-				showConfigError = true;
-			}
-		}
+		return cleanup;
 	});
 
-	// Cleanup on unmount
-	onMount(() => {
+	// Cleanup handlers on unmount
+	$effect(() => {
 		return () => {
 			cleanupSaveHandler();
 			cleanupShareHandler();
-			configLoadAbortController?.abort();
-			configLoadAbortController = null;
-			isUnmounted = true;
 		};
 	});
 </script>
@@ -265,12 +144,12 @@
 	<VisualizationAlerts
 		saveSuccess={saveState.saveSuccess}
 		saveError={saveState.saveError}
-		{configErrors}
-		{showConfigError}
-		onDismissConfigError={() => (showConfigError = false)}
-		{stabilityWarnings}
-		{showStabilityWarning}
-		onDismissStabilityWarning={() => (showStabilityWarning = false)}
+		configErrors={configState.errors}
+		showConfigError={configState.showError}
+		onDismissConfigError={() => (configState.showError = false)}
+		stabilityWarnings={configState.warnings}
+		showStabilityWarning={configState.showWarning}
+		onDismissStabilityWarning={() => (configState.showWarning = false)}
 		onDismissSaveError={() => (saveState.saveError = null)}
 		onDismissSaveSuccess={() => (saveState.saveSuccess = false)}
 	/>
