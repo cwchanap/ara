@@ -11,6 +11,7 @@
 		yMax?: number;
 		maxIterations?: number;
 		height?: number;
+		containerElement?: HTMLDivElement;
 	}
 
 	let {
@@ -19,10 +20,16 @@
 		yMin = $bindable(-2),
 		yMax = $bindable(2),
 		maxIterations = $bindable(50),
-		height = 500
+		height = 500,
+		containerElement = $bindable()
 	}: Props = $props();
 
 	let container: HTMLDivElement;
+
+	// Sync internal container ref to bindable prop
+	$effect(() => {
+		containerElement = container;
+	});
 	let canvas: HTMLCanvasElement;
 	let isRendering = false;
 

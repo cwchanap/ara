@@ -4,6 +4,7 @@
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
 	import ShareDialog from '$lib/components/ui/ShareDialog.svelte';
+	import SnapshotButton from '$lib/components/ui/SnapshotButton.svelte';
 	import VisualizationAlerts from '$lib/components/ui/VisualizationAlerts.svelte';
 	import HenonRenderer from '$lib/components/visualizations/HenonRenderer.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
@@ -20,6 +21,7 @@
 
 	let { data } = $props();
 
+	let rendererContainer: HTMLDivElement | undefined = $state();
 	let a = $state(1.4);
 	let b = $state(0.3);
 	let iterations = $state(2000);
@@ -35,6 +37,9 @@
 	let showConfigError = $state(false);
 	let stabilityWarnings = $state<string[]>([]);
 	let showStabilityWarning = $state(false);
+	let lastAppliedConfigKey = $state<string | null>(null);
+	let configLoadAbortController: AbortController | null = null;
+	let isUnmounted = false;
 
 	// Get current parameters for saving
 	function getParameters(): HenonParameters {
@@ -67,136 +72,139 @@
 		getParameters
 	);
 
-	// Load config from URL on mount
-	onMount(() => {
-		const controller = new AbortController();
-		const { signal } = controller;
-		const baseFetch = (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
-			fetch(input, { ...init, signal });
-		const preconnectProp =
-			typeof fetch.preconnect !== 'undefined' ? { preconnect: fetch.preconnect } : {};
-		const fetchWithSignal = Object.assign(baseFetch, preconnectProp) as typeof fetch;
-
-		configErrors = [];
-		showConfigError = false;
-		stabilityWarnings = [];
-		showStabilityWarning = false;
-
+	// Reactive config loading from URL
+	$effect(() => {
 		const configId = $page.url.searchParams.get('configId');
 		const shareCode = $page.url.searchParams.get('share');
-		if (shareCode) {
+		const configParam = $page.url.searchParams.get('config');
+		const configKey = shareCode
+			? `share:${shareCode}`
+			: configId
+				? `id:${configId}`
+				: configParam
+					? `param:${configParam}`
+					: null;
+		if (configKey === lastAppliedConfigKey) return;
+		lastAppliedConfigKey = configKey;
+
+		configLoadAbortController?.abort();
+		configLoadAbortController = null;
+
+		if (shareCode || configId) {
+			configErrors = [];
+			showConfigError = false;
+			stabilityWarnings = [];
+			showStabilityWarning = false;
+			const controller = new AbortController();
+			configLoadAbortController = controller;
+			const { signal } = controller;
+			const currentConfigKey = configKey;
+
+			const baseFetch = (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
+				fetch(input, { ...init, signal });
+			const preconnectProp =
+				typeof fetch.preconnect !== 'undefined' ? { preconnect: fetch.preconnect } : {};
+			const fetchWithSignal = Object.assign(baseFetch, preconnectProp) as typeof fetch;
+
 			void (async () => {
 				try {
-					const result = await loadSharedConfigParameters({
-						shareCode,
-						mapType: 'henon',
-						base,
-						fetchFn: fetchWithSignal
-					});
-					if (signal.aborted) return;
-					if (!result.ok) {
-						configErrors = result.errors;
-						showConfigError = true;
-						return;
-					}
+					let result: ReturnType<typeof loadSavedConfigParameters<'henon'>> extends Promise<infer T>
+						? T
+						: never | undefined;
 
-					const typedParams = result.parameters;
-					if (typeof typedParams.a === 'number') a = typedParams.a;
-					if (typeof typedParams.b === 'number') b = typedParams.b;
-					if (typeof typedParams.iterations === 'number') iterations = typedParams.iterations;
-
-					const stability = checkParameterStability('henon', typedParams);
-					if (!stability.isStable) {
-						stabilityWarnings = stability.warnings;
-						showStabilityWarning = true;
-					}
-				} catch (err) {
-					if (
-						signal.aborted ||
-						(err instanceof DOMException && err.name === 'AbortError') ||
-						(err instanceof Error && err.name === 'AbortError')
-					) {
-						return;
-					}
-					configErrors = ['Failed to load shared configuration'];
-					showConfigError = true;
-				}
-			})();
-		} else if (configId) {
-			void (async () => {
-				try {
-					const result = await loadSavedConfigParameters({
-						configId,
-						mapType: 'henon',
-						base,
-						fetchFn: fetchWithSignal
-					});
-					if (signal.aborted) return;
-					if (!result.ok) {
-						configErrors = result.errors;
-						showConfigError = true;
-						return;
-					}
-
-					const typedParams = result.parameters;
-					if (typeof typedParams.a === 'number') a = typedParams.a;
-					if (typeof typedParams.b === 'number') b = typedParams.b;
-					if (typeof typedParams.iterations === 'number') iterations = typedParams.iterations;
-
-					const stability = checkParameterStability('henon', typedParams);
-					if (!stability.isStable) {
-						stabilityWarnings = stability.warnings;
-						showStabilityWarning = true;
-					}
-				} catch (err) {
-					if (
-						signal.aborted ||
-						(err instanceof DOMException && err.name === 'AbortError') ||
-						(err instanceof Error && err.name === 'AbortError')
-					) {
-						return;
-					}
-					configErrors = ['Failed to load configuration parameters'];
-					showConfigError = true;
-				}
-			})();
-		} else {
-			const configParam = $page.url.searchParams.get('config');
-			if (configParam) {
-				try {
-					// Validate parameters structure before using
-					const parsed = parseConfigParam({ mapType: 'henon', configParam });
-					if (!parsed.ok) {
-						console.error(parsed.logMessage, parsed.logDetails);
-						configErrors = parsed.errors;
-						showConfigError = true;
+					if (shareCode) {
+						result = await loadSharedConfigParameters({
+							shareCode,
+							mapType: 'henon',
+							base,
+							fetchFn: fetchWithSignal
+						});
 					} else {
-						// Now we can safely cast since validation passed
-						const typedParams = parsed.parameters;
-						if (typeof typedParams.a === 'number') a = typedParams.a;
-						if (typeof typedParams.b === 'number') b = typedParams.b;
-						if (typeof typedParams.iterations === 'number') iterations = typedParams.iterations;
+						result = await loadSavedConfigParameters({
+							configId: configId!,
+							mapType: 'henon',
+							base,
+							fetchFn: fetchWithSignal
+						});
+					}
 
-						// Check stability
-						const stability = checkParameterStability('henon', typedParams);
-						if (!stability.isStable) {
-							stabilityWarnings = stability.warnings;
-							showStabilityWarning = true;
-						}
+					if (isUnmounted || signal.aborted) return;
+					if (lastAppliedConfigKey !== currentConfigKey) return;
+					if (!result) {
+						configErrors = ['Failed to load configuration'];
+						showConfigError = true;
+						return;
+					}
+					if (!result.ok) {
+						configErrors = result.errors;
+						showConfigError = true;
+						return;
+					}
+
+					const typedParams = result.parameters;
+					a = typedParams.a ?? a;
+					b = typedParams.b ?? b;
+					iterations = typedParams.iterations ?? iterations;
+
+					const stability = checkParameterStability('henon', typedParams);
+					if (!stability.isStable) {
+						stabilityWarnings = stability.warnings;
+						showStabilityWarning = true;
 					}
 				} catch (e) {
-					console.error('Invalid config parameter:', e);
-					configErrors = ['Failed to parse configuration parameters'];
+					if (e instanceof Error && e.name === 'AbortError') {
+						return;
+					}
+					console.error('Failed to load configuration:', e);
+					if (isUnmounted || signal.aborted) return;
+					if (lastAppliedConfigKey !== currentConfigKey) return;
+					configErrors = [
+						'Failed to load configuration: ' + (e instanceof Error ? e.message : 'Unknown error')
+					];
 					showConfigError = true;
 				}
+			})();
+		} else if (configParam) {
+			try {
+				configErrors = [];
+				showConfigError = false;
+				stabilityWarnings = [];
+				showStabilityWarning = false;
+
+				const parsed = parseConfigParam({ mapType: 'henon', configParam });
+				if (!parsed.ok) {
+					console.error(parsed.logMessage, parsed.logDetails);
+					configErrors = parsed.errors;
+					showConfigError = true;
+					return;
+				}
+
+				const typedParams = parsed.parameters;
+				a = typedParams.a ?? a;
+				b = typedParams.b ?? b;
+				iterations = typedParams.iterations ?? iterations;
+
+				const stability = checkParameterStability('henon', typedParams);
+				if (!stability.isStable) {
+					stabilityWarnings = stability.warnings;
+					showStabilityWarning = true;
+				}
+			} catch (e) {
+				console.error('Invalid config parameter:', e);
+				configErrors = ['Failed to parse configuration parameters'];
+				showConfigError = true;
 			}
 		}
+	});
 
+	// Cleanup on unmount
+	onMount(() => {
 		return () => {
-			controller.abort();
-			// Clear save/share handler timeouts to prevent state updates after unmount
 			cleanupSaveHandler();
 			cleanupShareHandler();
+			configLoadAbortController?.abort();
+			configLoadAbortController = null;
+			isUnmounted = true;
 		};
 	});
 </script>
@@ -214,6 +222,7 @@
 			</p>
 		</div>
 		<div class="flex gap-3">
+			<SnapshotButton target={rendererContainer} targetType="container" mapType="henon" />
 			{#if comparisonUrl}
 				<a
 					href={comparisonUrl}
@@ -346,7 +355,13 @@
 	</div>
 
 	<!-- Visualization Container -->
-	<HenonRenderer bind:a bind:b bind:iterations height={VIZ_CONTAINER_HEIGHT} />
+	<HenonRenderer
+		bind:containerElement={rendererContainer}
+		bind:a
+		bind:b
+		bind:iterations
+		height={VIZ_CONTAINER_HEIGHT}
+	/>
 
 	<!-- Info Panel -->
 	<div class="bg-card/30 backdrop-blur-md border border-primary/20 rounded-sm p-6 relative">

@@ -4,6 +4,7 @@
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
 	import ShareDialog from '$lib/components/ui/ShareDialog.svelte';
+	import SnapshotButton from '$lib/components/ui/SnapshotButton.svelte';
 	import VisualizationAlerts from '$lib/components/ui/VisualizationAlerts.svelte';
 	import NewtonRenderer from '$lib/components/visualizations/NewtonRenderer.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
@@ -19,6 +20,7 @@
 
 	let { data } = $props();
 
+	let rendererContainer: HTMLDivElement | undefined = $state();
 	let xMin = $state(-0.01);
 	let xMax = $state(0.01);
 	let yMin = $state(-0.01);
@@ -36,6 +38,9 @@
 	let showConfigError = $state(false);
 	let stabilityWarnings = $state<string[]>([]);
 	let showStabilityWarning = $state(false);
+	let lastAppliedConfigKey = $state<string | null>(null);
+	let configLoadAbortController: AbortController | null = null;
+	let isUnmounted = false;
 
 	// Get current parameters for saving
 	function getParameters(): NewtonParameters {
@@ -56,150 +61,145 @@
 		getParameters
 	);
 
-	// Load config from URL on mount
-	onMount(() => {
-		const controller = new AbortController();
-		const { signal } = controller;
-		const baseFetch = (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
-			fetch(input, { ...init, signal });
-		const preconnectProp =
-			typeof fetch.preconnect !== 'undefined' ? { preconnect: fetch.preconnect } : {};
-		const fetchWithSignal = Object.assign(baseFetch, preconnectProp) as typeof fetch;
-
-		configErrors = [];
-		showConfigError = false;
-		stabilityWarnings = [];
-		showStabilityWarning = false;
-
+	// Reactive config loading from URL
+	$effect(() => {
 		const configId = $page.url.searchParams.get('configId');
 		const shareCode = $page.url.searchParams.get('share');
-		if (shareCode) {
+		const configParam = $page.url.searchParams.get('config');
+		const configKey = shareCode
+			? `share:${shareCode}`
+			: configId
+				? `id:${configId}`
+				: configParam
+					? `param:${configParam}`
+					: null;
+		if (configKey === lastAppliedConfigKey) return;
+		lastAppliedConfigKey = configKey;
+
+		configLoadAbortController?.abort();
+		configLoadAbortController = null;
+
+		if (shareCode || configId) {
+			configErrors = [];
+			showConfigError = false;
+			stabilityWarnings = [];
+			showStabilityWarning = false;
+			const controller = new AbortController();
+			configLoadAbortController = controller;
+			const { signal } = controller;
+			const currentConfigKey = configKey;
+
+			const baseFetch = (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
+				fetch(input, { ...init, signal });
+			const preconnectProp =
+				typeof fetch.preconnect !== 'undefined' ? { preconnect: fetch.preconnect } : {};
+			const fetchWithSignal = Object.assign(baseFetch, preconnectProp) as typeof fetch;
+
 			void (async () => {
 				try {
-					const result = await loadSharedConfigParameters({
-						shareCode,
-						mapType: 'newton',
-						base,
-						fetchFn: fetchWithSignal
-					});
-					if (signal.aborted) return;
-					if (!result.ok) {
-						configErrors = result.errors;
-						showConfigError = true;
-						return;
-					}
+					let result: ReturnType<typeof loadSavedConfigParameters<'newton'>> extends Promise<
+						infer T
+					>
+						? T
+						: never | undefined;
 
-					const typedParams = result.parameters;
-					if (typeof typedParams.xMin === 'number') xMin = typedParams.xMin;
-					if (typeof typedParams.xMax === 'number') xMax = typedParams.xMax;
-					if (typeof typedParams.yMin === 'number') yMin = typedParams.yMin;
-					if (typeof typedParams.yMax === 'number') yMax = typedParams.yMax;
-					if (typeof typedParams.maxIterations === 'number')
-						maxIterations = typedParams.maxIterations;
-
-					const stability = checkParameterStability('newton', typedParams);
-					if (!stability.isStable) {
-						stabilityWarnings = stability.warnings;
-						showStabilityWarning = true;
-					}
-				} catch (err) {
-					if (
-						signal.aborted ||
-						(err instanceof DOMException && err.name === 'AbortError') ||
-						(err instanceof Error && err.name === 'AbortError')
-					) {
-						return;
-					}
-					configErrors = ['Failed to load shared configuration'];
-					showConfigError = true;
-				}
-			})();
-		} else if (configId) {
-			void (async () => {
-				try {
-					const result = await loadSavedConfigParameters({
-						configId,
-						mapType: 'newton',
-						base,
-						fetchFn: fetchWithSignal
-					});
-					if (signal.aborted) return;
-					if (!result.ok) {
-						configErrors = result.errors;
-						showConfigError = true;
-						return;
-					}
-
-					const typedParams = result.parameters;
-					if (typeof typedParams.xMin === 'number') xMin = typedParams.xMin;
-					if (typeof typedParams.xMax === 'number') xMax = typedParams.xMax;
-					if (typeof typedParams.yMin === 'number') yMin = typedParams.yMin;
-					if (typeof typedParams.yMax === 'number') yMax = typedParams.yMax;
-					if (typeof typedParams.maxIterations === 'number')
-						maxIterations = typedParams.maxIterations;
-
-					const stability = checkParameterStability('newton', typedParams);
-					if (signal.aborted) return;
-					if (!stability.isStable) {
-						stabilityWarnings = stability.warnings;
-						showStabilityWarning = true;
-					}
-				} catch (err) {
-					if (
-						signal.aborted ||
-						(err instanceof DOMException && err.name === 'AbortError') ||
-						(err instanceof Error && err.name === 'AbortError')
-					) {
-						return;
-					}
-					configErrors = ['Failed to load configuration parameters'];
-					showConfigError = true;
-				}
-			})();
-		} else {
-			const configParam = $page.url.searchParams.get('config');
-			if (configParam) {
-				try {
-					// Validate parameters structure before using
-					const parsed = parseConfigParam({ mapType: 'newton', configParam });
-					if (!parsed.ok) {
-						console.error(parsed.logMessage, parsed.logDetails);
-						if (signal.aborted) return;
-						configErrors = parsed.errors;
-						showConfigError = true;
+					if (shareCode) {
+						result = await loadSharedConfigParameters({
+							shareCode,
+							mapType: 'newton',
+							base,
+							fetchFn: fetchWithSignal
+						});
 					} else {
-						// Now we can safely cast since validation passed
-						const typedParams = parsed.parameters;
-						if (signal.aborted) return;
-						if (typeof typedParams.xMin === 'number') xMin = typedParams.xMin;
-						if (typeof typedParams.xMax === 'number') xMax = typedParams.xMax;
-						if (typeof typedParams.yMin === 'number') yMin = typedParams.yMin;
-						if (typeof typedParams.yMax === 'number') yMax = typedParams.yMax;
-						if (typeof typedParams.maxIterations === 'number')
-							maxIterations = typedParams.maxIterations;
+						result = await loadSavedConfigParameters({
+							configId: configId!,
+							mapType: 'newton',
+							base,
+							fetchFn: fetchWithSignal
+						});
+					}
 
-						// Check stability
-						const stability = checkParameterStability('newton', typedParams);
-						if (signal.aborted) return;
-						if (!stability.isStable) {
-							stabilityWarnings = stability.warnings;
-							showStabilityWarning = true;
-						}
+					if (isUnmounted || signal.aborted) return;
+					if (lastAppliedConfigKey !== currentConfigKey) return;
+					if (!result) {
+						configErrors = ['Failed to load configuration'];
+						showConfigError = true;
+						return;
+					}
+					if (!result.ok) {
+						configErrors = result.errors;
+						showConfigError = true;
+						return;
+					}
+
+					const typedParams = result.parameters;
+					xMin = typedParams.xMin ?? xMin;
+					xMax = typedParams.xMax ?? xMax;
+					yMin = typedParams.yMin ?? yMin;
+					yMax = typedParams.yMax ?? yMax;
+					maxIterations = typedParams.maxIterations ?? maxIterations;
+
+					const stability = checkParameterStability('newton', typedParams);
+					if (!stability.isStable) {
+						stabilityWarnings = stability.warnings;
+						showStabilityWarning = true;
 					}
 				} catch (e) {
-					console.error('Invalid config parameter:', e);
-					if (signal.aborted) return;
-					configErrors = ['Failed to parse configuration parameters'];
+					if (e instanceof Error && e.name === 'AbortError') {
+						return;
+					}
+					console.error('Failed to load configuration:', e);
+					if (isUnmounted || signal.aborted) return;
+					if (lastAppliedConfigKey !== currentConfigKey) return;
+					configErrors = [
+						'Failed to load configuration: ' + (e instanceof Error ? e.message : 'Unknown error')
+					];
 					showConfigError = true;
 				}
+			})();
+		} else if (configParam) {
+			try {
+				configErrors = [];
+				showConfigError = false;
+				stabilityWarnings = [];
+				showStabilityWarning = false;
+
+				const parsed = parseConfigParam({ mapType: 'newton', configParam });
+				if (!parsed.ok) {
+					console.error(parsed.logMessage, parsed.logDetails);
+					configErrors = parsed.errors;
+					showConfigError = true;
+					return;
+				}
+
+				const typedParams = parsed.parameters;
+				xMin = typedParams.xMin ?? xMin;
+				xMax = typedParams.xMax ?? xMax;
+				yMin = typedParams.yMin ?? yMin;
+				yMax = typedParams.yMax ?? yMax;
+				maxIterations = typedParams.maxIterations ?? maxIterations;
+
+				const stability = checkParameterStability('newton', typedParams);
+				if (!stability.isStable) {
+					stabilityWarnings = stability.warnings;
+					showStabilityWarning = true;
+				}
+			} catch (e) {
+				console.error('Invalid config parameter:', e);
+				configErrors = ['Failed to parse configuration parameters'];
+				showConfigError = true;
 			}
 		}
+	});
 
+	// Cleanup on unmount
+	onMount(() => {
 		return () => {
-			controller.abort();
-			// Clear save/share handler timeouts to prevent state updates after unmount
 			cleanupSaveHandler();
 			cleanupShareHandler();
+			configLoadAbortController?.abort();
+			configLoadAbortController = null;
+			isUnmounted = true;
 		};
 	});
 </script>
@@ -217,6 +217,7 @@
 			</p>
 		</div>
 		<div class="flex gap-3">
+			<SnapshotButton target={rendererContainer} targetType="container" mapType="newton" />
 			<button
 				onclick={() => (shareState.showShareDialog = true)}
 				class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
@@ -360,6 +361,7 @@
 
 	<!-- Visualization Container -->
 	<NewtonRenderer
+		bind:containerElement={rendererContainer}
 		bind:xMin
 		bind:xMax
 		bind:yMin

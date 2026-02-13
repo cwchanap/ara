@@ -20,7 +20,6 @@ import {
 	loadSharedConfigParameters,
 	parseConfigParam
 } from '$lib/saved-config-loader';
-import { checkParameterStability } from '$lib/chaos-validation';
 
 type ParametersFor<T extends ChaosMapType> = Extract<ChaosMapParameters, { type: T }>;
 
@@ -205,6 +204,8 @@ export function useConfigLoader<T extends ChaosMapType>(
 				}
 
 				// Apply parameters to visualization
+				// Note: Caller is responsible for stability checking with the actual
+				// applied parameters (after any clamping/normalization in onParametersLoaded)
 				const typedParams = result.parameters;
 				try {
 					onParametersLoaded(typedParams);
@@ -213,19 +214,6 @@ export function useConfigLoader<T extends ChaosMapType>(
 					const errorMessage = err instanceof Error ? err.message : String(err);
 					state.errors = [`Failed to apply parameters: ${errorMessage}`];
 					state.showError = true;
-					return;
-				}
-
-				// Check stability (only if onParametersLoaded succeeded)
-				try {
-					const stability = checkParameterStability(mapType, typedParams);
-					if (!stability.isStable) {
-						state.warnings = stability.warnings;
-						state.showWarning = true;
-					}
-				} catch (e) {
-					// Log stability check errors but don't block parameter application
-					console.error('Stability check failed:', e);
 				}
 			})();
 		}
@@ -248,6 +236,8 @@ export function useConfigLoader<T extends ChaosMapType>(
 				}
 
 				// Apply parameters to visualization
+				// Note: Caller is responsible for stability checking with the actual
+				// applied parameters (after any clamping/normalization in onParametersLoaded)
 				const typedParams = parsed.parameters;
 				try {
 					onParametersLoaded(typedParams);
@@ -256,14 +246,6 @@ export function useConfigLoader<T extends ChaosMapType>(
 					const errorMessage = err instanceof Error ? err.message : String(err);
 					state.errors = [`Failed to apply parameters: ${errorMessage}`];
 					state.showError = true;
-					return;
-				}
-
-				// Check stability
-				const stability = checkParameterStability(mapType, typedParams);
-				if (!stability.isStable) {
-					state.warnings = stability.warnings;
-					state.showWarning = true;
 				}
 			} catch (e) {
 				console.error('Configuration error:', e);

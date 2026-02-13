@@ -10,16 +10,23 @@
 		x0?: number;
 		iterations?: number;
 		height?: number;
+		containerElement?: HTMLDivElement;
 	}
 
 	let {
 		r = $bindable(3.9),
 		x0 = $bindable(0.1),
 		iterations = $bindable(100),
-		height = 500
+		height = 500,
+		containerElement = $bindable()
 	}: Props = $props();
 
 	let container: HTMLDivElement;
+
+	// Sync internal container ref to bindable prop
+	$effect(() => {
+		containerElement = container;
+	});
 	let resizeObserver: ResizeObserver | null = null;
 
 	function calculateLogistic(r: number, x0: number, iterations: number): [number, number][] {

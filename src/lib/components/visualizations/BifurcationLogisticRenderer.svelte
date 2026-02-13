@@ -7,16 +7,24 @@
 		rMax?: number;
 		maxIterations?: number;
 		height?: number;
+		containerElement?: HTMLDivElement;
 	}
 
 	let {
 		rMin = $bindable(3.5),
 		rMax = $bindable(4.0),
 		maxIterations = $bindable(1000),
-		height = 400
+		height = 400,
+		containerElement = $bindable()
 	}: Props = $props();
 
+	let container: HTMLDivElement;
 	let canvas: HTMLCanvasElement;
+
+	// Sync internal container ref to bindable prop
+	$effect(() => {
+		containerElement = container;
+	});
 	let isRendering = false;
 	let pendingRender = false;
 	const canvasHeight = $derived(Math.max(1, height - 32));
@@ -89,6 +97,7 @@
 </script>
 
 <div
+	bind:this={container}
 	class="bg-black/40 border border-primary/30 rounded-sm overflow-hidden relative p-4 backdrop-blur-md ring-1 ring-primary/30 shadow-[0_0_25px_rgba(0,243,255,0.25),0_0_45px_rgba(255,0,255,0.15)]"
 	style="height: {height}px;"
 >
