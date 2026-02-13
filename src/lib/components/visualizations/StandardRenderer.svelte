@@ -6,7 +6,7 @@
 	import * as d3 from 'd3';
 
 	interface Props {
-		K?: number;
+		k?: number;
 		numP?: number;
 		numQ?: number;
 		iterations?: number;
@@ -15,7 +15,7 @@
 	}
 
 	let {
-		K = $bindable(0.97),
+		k = $bindable(0.97),
 		numP = $bindable(10),
 		numQ = $bindable(10),
 		iterations = $bindable(20000),
@@ -61,7 +61,7 @@
 			render(latestPoints);
 			return;
 		}
-		const points = standardMap(numP, numQ, iterations, K, MAX_POINTS);
+		const points = standardMap(numP, numQ, iterations, k, MAX_POINTS);
 		latestPoints = points;
 		render(points);
 	}
@@ -70,7 +70,7 @@
 		numP: number,
 		numQ: number,
 		iterations: number,
-		K: number,
+		k: number,
 		maxPoints: number
 	): [number, number][] {
 		if (numP <= 0 || numQ <= 0 || iterations <= 0 || maxPoints <= 0) return [];
@@ -85,7 +85,7 @@
 				let q = normalizeAngle(((j - 1) / numQ) * TWO_PI);
 
 				for (let k = 0; k < iterations; k++) {
-					const pNew = normalizeAngle(p + K * Math.sin(q));
+					const pNew = normalizeAngle(p + k * Math.sin(q));
 					const qNew = normalizeAngle(q + pNew);
 					points.push([qNew, pNew]);
 					p = pNew;
@@ -179,7 +179,7 @@
 			numP,
 			numQ,
 			iterations,
-			K,
+			k,
 			maxPoints: MAX_POINTS
 		};
 
@@ -189,7 +189,7 @@
 			worker.postMessage(payload);
 		} else {
 			isComputing = true;
-			const points = standardMap(numP, numQ, iterations, K, MAX_POINTS);
+			const points = standardMap(numP, numQ, iterations, k, MAX_POINTS);
 			latestPoints = points;
 			render(points);
 			isComputing = false;
@@ -279,7 +279,7 @@
 	});
 
 	$effect(() => {
-		void K;
+		void k;
 		void numP;
 		void numQ;
 		void iterations;

@@ -27,7 +27,7 @@ describe('StandardRenderer', () => {
 		vi.useFakeTimers();
 		const { container } = render(StandardRenderer, {
 			props: {
-				K: 1,
+				k: 1,
 				numP: 1,
 				numQ: 1,
 				iterations: 5,

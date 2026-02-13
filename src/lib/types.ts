@@ -71,7 +71,7 @@ export interface NewtonParameters {
 
 export interface StandardParameters {
 	type: 'standard';
-	K: number;
+	k: number;
 	numP: number;
 	numQ: number;
 	iterations: number;

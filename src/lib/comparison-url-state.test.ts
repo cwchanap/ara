@@ -80,7 +80,7 @@ describe('getDefaultParameters', () => {
 	test('returns correct default parameters for standard', () => {
 		const params = getDefaultParameters('standard') as StandardParameters;
 		expect(params.type).toBe('standard');
-		expect(params.K).toBe(0.97);
+		expect(params.k).toBe(0.97);
 		expect(params.numP).toBe(20);
 		expect(params.numQ).toBe(20);
 		expect(params.iterations).toBe(20000);
@@ -230,8 +230,8 @@ describe('decodeComparisonState', () => {
 	test('decodes valid comparison state for standard map', () => {
 		const state: ComparisonURLState = {
 			compare: true,
-			left: { type: 'standard', K: 0.5, numP: 10, numQ: 10, iterations: 1000 },
-			right: { type: 'standard', K: 1.5, numP: 15, numQ: 15, iterations: 2000 }
+			left: { type: 'standard', k: 0.5, numP: 10, numQ: 10, iterations: 1000 },
+			right: { type: 'standard', k: 1.5, numP: 15, numQ: 15, iterations: 2000 }
 		};
 
 		const encoded = encodeComparisonState(state);
@@ -239,8 +239,8 @@ describe('decodeComparisonState', () => {
 		const decoded = decodeComparisonState(url, 'standard');
 
 		expect(decoded).not.toBeNull();
-		expect((decoded!.left as StandardParameters).K).toBe(0.5);
-		expect((decoded!.right as StandardParameters).K).toBe(1.5);
+		expect((decoded!.left as StandardParameters).k).toBe(0.5);
+		expect((decoded!.right as StandardParameters).k).toBe(1.5);
 	});
 });
 
@@ -428,8 +428,8 @@ describe('round-trip encoding/decoding', () => {
 	test('preserves all standard map parameters through round-trip', () => {
 		const original: ComparisonURLState = {
 			compare: true,
-			left: { type: 'standard', K: 0.971, numP: 12, numQ: 15, iterations: 25000 },
-			right: { type: 'standard', K: 2.5, numP: 8, numQ: 10, iterations: 10000 }
+			left: { type: 'standard', k: 0.971, numP: 12, numQ: 15, iterations: 25000 },
+			right: { type: 'standard', k: 2.5, numP: 8, numQ: 10, iterations: 10000 }
 		};
 
 		const encoded = encodeComparisonState(original);
@@ -437,11 +437,11 @@ describe('round-trip encoding/decoding', () => {
 		const decoded = decodeComparisonState(url, 'standard');
 
 		expect(decoded).not.toBeNull();
-		expect((decoded!.left as StandardParameters).K).toBeCloseTo(0.971);
+		expect((decoded!.left as StandardParameters).k).toBeCloseTo(0.971);
 		expect((decoded!.left as StandardParameters).numP).toBe(12);
 		expect((decoded!.left as StandardParameters).numQ).toBe(15);
 		expect((decoded!.left as StandardParameters).iterations).toBe(25000);
-		expect((decoded!.right as StandardParameters).K).toBeCloseTo(2.5);
+		expect((decoded!.right as StandardParameters).k).toBeCloseTo(2.5);
 	});
 
 	test('preserves bifurcation-logistic parameters through round-trip', () => {

@@ -10,7 +10,7 @@ export interface StandardMapRequest {
 	numP: number;
 	numQ: number;
 	iterations: number;
-	K: number;
+	k: number;
 	maxPoints: number;
 }
 

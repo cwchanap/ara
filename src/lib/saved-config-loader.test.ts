@@ -322,7 +322,7 @@ describe('loadSavedConfigParameters', () => {
 			},
 			{
 				mapType: 'standard',
-				params: { type: 'standard', K: 1, numP: 50, numQ: 50, iterations: 1000 }
+				params: { type: 'standard', k: 1, numP: 50, numQ: 50, iterations: 1000 }
 			},
 			{
 				mapType: 'bifurcation-logistic',

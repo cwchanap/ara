@@ -4,7 +4,7 @@ function standardMap(
 	numP: number,
 	numQ: number,
 	iterations: number,
-	K: number,
+	k: number,
 	maxPoints: number
 ): [number, number][] {
 	const points: [number, number][] = [];
@@ -15,7 +15,7 @@ function standardMap(
 			let q = (j / numQ) % (2 * Math.PI);
 
 			for (let k = 0; k < iterations; k++) {
-				const pNew = (p + K * Math.sin(q)) % (2 * Math.PI);
+				const pNew = (p + k * Math.sin(q)) % (2 * Math.PI);
 				const qNew = (q + pNew) % (2 * Math.PI);
 
 				points.push([qNew, pNew]);
@@ -71,7 +71,7 @@ self.onmessage = (event: MessageEvent<ChaosMapsWorkerRequest>) => {
 	if (!data) return;
 
 	if (data.type === 'standard') {
-		const points = standardMap(data.numP, data.numQ, data.iterations, data.K, data.maxPoints);
+		const points = standardMap(data.numP, data.numQ, data.iterations, data.k, data.maxPoints);
 		const response: ChaosMapsWorkerResponse = {
 			type: 'standardResult',
 			id: data.id,
