@@ -58,6 +58,8 @@ export interface ConfigLoaderOptions<T extends ChaosMapType> {
 	base: string;
 	/** Callback to apply loaded parameters to the visualization */
 	onParametersLoaded: (params: ParametersFor<T>) => void;
+	/** Optional callback for parameter stability checking - returns warnings to display */
+	onCheckStability?: (params: ParametersFor<T>) => { isStable: boolean; warnings: string[] };
 }
 
 export interface ConfigLoaderCleanup {
@@ -103,7 +105,7 @@ export function useConfigLoader<T extends ChaosMapType>(
 	let configLoadAbortController: AbortController | null = null;
 	let isUnmounted = false;
 
-	const { page, mapType, base, onParametersLoaded } = options;
+	const { page, mapType, base, onParametersLoaded, onCheckStability } = options;
 
 	// Subscribe to page store for reactivity
 	const unsubscribe = page.subscribe(($page) => {
@@ -209,6 +211,15 @@ export function useConfigLoader<T extends ChaosMapType>(
 				const typedParams = result.parameters;
 				try {
 					onParametersLoaded(typedParams);
+
+					// Run stability check if provided
+					if (onCheckStability) {
+						const stability = onCheckStability(typedParams);
+						if (!stability.isStable) {
+							state.warnings = stability.warnings;
+							state.showWarning = true;
+						}
+					}
 				} catch (err) {
 					// Prevent caller exceptions from leaving UI in inconsistent state
 					const errorMessage = err instanceof Error ? err.message : String(err);
@@ -241,6 +252,15 @@ export function useConfigLoader<T extends ChaosMapType>(
 				const typedParams = parsed.parameters;
 				try {
 					onParametersLoaded(typedParams);
+
+					// Run stability check if provided
+					if (onCheckStability) {
+						const stability = onCheckStability(typedParams);
+						if (!stability.isStable) {
+							state.warnings = stability.warnings;
+							state.showWarning = true;
+						}
+					}
 				} catch (err) {
 					// Prevent caller exceptions from leaving UI in inconsistent state
 					const errorMessage = err instanceof Error ? err.message : String(err);
