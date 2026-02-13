@@ -20,6 +20,7 @@
 		height?: number;
 		compareMode?: boolean;
 		compareSide?: 'left' | 'right';
+		containerElement?: HTMLDivElement;
 	}
 
 	let {
@@ -28,10 +29,16 @@
 		beta = $bindable(8.0 / 3),
 		height = 500,
 		compareMode = false,
-		compareSide = 'left'
+		compareSide = 'left',
+		containerElement = $bindable()
 	}: Props = $props();
 
 	let container: HTMLDivElement;
+
+	// Sync internal container ref to bindable prop
+	$effect(() => {
+		containerElement = container;
+	});
 	let isAnimating = $state(true);
 	let recreate: () => void;
 	let animationFrameId: number | null = null;

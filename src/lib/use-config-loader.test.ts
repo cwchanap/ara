@@ -51,7 +51,7 @@ describe('useConfigLoader', () => {
 		});
 	});
 
-	test('applies config param and shows stability warnings', () => {
+	test('applies config param (caller handles stability warnings)', () => {
 		const params: LorenzParams = { type: 'lorenz', sigma: 100, rho: 28, beta: 2.667 };
 		const configParam = encodeURIComponent(JSON.stringify(params));
 		const page = writable<Page>(createPage(`http://localhost/lorenz?config=${configParam}`));
@@ -69,8 +69,9 @@ describe('useConfigLoader', () => {
 		);
 
 		expect(loaded).toHaveLength(1);
-		expect(state.showWarning).toBe(true);
-		expect(state.warnings[0]).toContain('sigma');
+		expect(loaded[0]).toEqual(params);
+		// Note: Stability checking is now the caller's responsibility
+		// The hook does not set warnings - the caller should check stability
 		expect(state.showError).toBe(false);
 		expect(state.isLoading).toBe(false);
 

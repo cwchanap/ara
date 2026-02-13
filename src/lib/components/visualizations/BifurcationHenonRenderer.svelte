@@ -10,6 +10,7 @@
 		b?: number;
 		maxIterations?: number;
 		height?: number;
+		containerElement?: HTMLDivElement;
 	}
 
 	let {
@@ -17,10 +18,16 @@
 		aMax = $bindable(1.1),
 		b = $bindable(0.3),
 		maxIterations = $bindable(1000),
-		height = 400
+		height = 400,
+		containerElement = $bindable()
 	}: Props = $props();
 
 	let container: HTMLDivElement;
+
+	// Sync internal container ref to bindable prop
+	$effect(() => {
+		containerElement = container;
+	});
 	let canvas: HTMLCanvasElement;
 	let isRendering = false;
 	let canvasWidth = $state(0);

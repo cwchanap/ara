@@ -13,6 +13,7 @@
 		y0?: number;
 		iterations?: number;
 		height?: number;
+		containerElement?: HTMLDivElement;
 	}
 
 	let {
@@ -21,10 +22,16 @@
 		x0 = $bindable(18),
 		y0 = $bindable(0),
 		iterations = $bindable(10000),
-		height = 500
+		height = 500,
+		containerElement = $bindable()
 	}: Props = $props();
 
 	let container: HTMLDivElement;
+
+	// Sync internal container ref to bindable prop
+	$effect(() => {
+		containerElement = container;
+	});
 	const MAX_POINTS = 15000;
 	const SHADOW_POINT_THRESHOLD = 5000;
 	const DEBOUNCE_MS = 250;

@@ -12,16 +12,23 @@
 		b?: number;
 		iterations?: number;
 		height?: number;
+		containerElement?: HTMLDivElement;
 	}
 
 	let {
 		a = $bindable(1.4),
 		b = $bindable(0.3),
 		iterations = $bindable(2000),
-		height = 500
+		height = 500,
+		containerElement = $bindable()
 	}: Props = $props();
 
 	let container: HTMLDivElement;
+
+	// Sync internal container ref to bindable prop
+	$effect(() => {
+		containerElement = container;
+	});
 
 	function calculateHenon(a: number, b: number, iterations: number) {
 		const points: [number, number][] = [];

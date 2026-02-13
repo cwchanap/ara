@@ -4,6 +4,7 @@
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
 	import ShareDialog from '$lib/components/ui/ShareDialog.svelte';
+	import SnapshotButton from '$lib/components/ui/SnapshotButton.svelte';
 	import VisualizationAlerts from '$lib/components/ui/VisualizationAlerts.svelte';
 	import LogisticRenderer from '$lib/components/visualizations/LogisticRenderer.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
@@ -20,6 +21,7 @@
 
 	let { data } = $props();
 
+	let rendererContainer: HTMLDivElement | undefined = $state();
 	let r = $state(3.9);
 	let x0 = $state(0.5);
 	let iterations = $state(100);
@@ -222,6 +224,7 @@
 			</p>
 		</div>
 		<div class="flex gap-3">
+			<SnapshotButton target={rendererContainer} targetType="container" mapType="logistic" />
 			{#if comparisonUrl}
 				<a
 					href={comparisonUrl}
@@ -353,7 +356,13 @@
 	</div>
 
 	<!-- Visualization Container -->
-	<LogisticRenderer bind:r bind:x0 bind:iterations height={VIZ_CONTAINER_HEIGHT} />
+	<LogisticRenderer
+		bind:containerElement={rendererContainer}
+		bind:r
+		bind:x0
+		bind:iterations
+		height={VIZ_CONTAINER_HEIGHT}
+	/>
 
 	<!-- Info Panel -->
 	<div class="bg-card/30 backdrop-blur-md border border-primary/20 rounded-sm p-6 relative">

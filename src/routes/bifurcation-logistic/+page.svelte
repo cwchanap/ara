@@ -3,6 +3,7 @@
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
 	import ShareDialog from '$lib/components/ui/ShareDialog.svelte';
+	import SnapshotButton from '$lib/components/ui/SnapshotButton.svelte';
 	import VisualizationAlerts from '$lib/components/ui/VisualizationAlerts.svelte';
 	import BifurcationLogisticRenderer from '$lib/components/visualizations/BifurcationLogisticRenderer.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
@@ -14,6 +15,7 @@
 
 	let { data } = $props();
 
+	let rendererContainer: HTMLDivElement | undefined = $state();
 	let rMin = $state(3.5); // Zoomed in slightly for better initial view
 	let rMax = $state(4.0);
 	let maxIterations = $state(1000);
@@ -121,6 +123,11 @@
 			</p>
 		</div>
 		<div class="flex gap-3">
+			<SnapshotButton
+				target={rendererContainer}
+				targetType="container"
+				mapType="bifurcation-logistic"
+			/>
 			<button
 				onclick={() => (shareState.showShareDialog = true)}
 				class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
@@ -238,6 +245,7 @@
 
 	<!-- Visualization Container -->
 	<BifurcationLogisticRenderer
+		bind:containerElement={rendererContainer}
 		bind:rMin
 		bind:rMax
 		bind:maxIterations
