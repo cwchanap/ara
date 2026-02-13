@@ -14,7 +14,7 @@ function standardMap(
 			let p = (i / numP) % (2 * Math.PI);
 			let q = (j / numQ) % (2 * Math.PI);
 
-			for (let k = 0; k < iterations; k++) {
+			for (let iter = 0; iter < iterations; iter++) {
 				const pNew = (p + k * Math.sin(q)) % (2 * Math.PI);
 				const qNew = (q + pNew) % (2 * Math.PI);
 
