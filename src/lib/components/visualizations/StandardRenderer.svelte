@@ -84,7 +84,7 @@
 				let p = normalizeAngle(((i - 1) / numP) * TWO_PI);
 				let q = normalizeAngle(((j - 1) / numQ) * TWO_PI);
 
-				for (let k = 0; k < iterations; k++) {
+				for (let iter = 0; iter < iterations; iter++) {
 					const pNew = normalizeAngle(p + k * Math.sin(q));
 					const qNew = normalizeAngle(q + pNew);
 					points.push([qNew, pNew]);

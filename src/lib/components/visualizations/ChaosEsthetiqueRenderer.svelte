@@ -26,9 +26,10 @@
 		containerElement = $bindable()
 	}: Props = $props();
 
-	let container: HTMLDivElement;
+	let container = $state<HTMLDivElement | undefined>(undefined);
 
 	// Sync internal container ref to bindable prop
+	// container is reactive so bind:this updates trigger the effect
 	$effect(() => {
 		containerElement = container;
 	});
