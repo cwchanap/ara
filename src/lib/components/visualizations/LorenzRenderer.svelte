@@ -33,9 +33,10 @@
 		containerElement = $bindable()
 	}: Props = $props();
 
-	let container: HTMLDivElement;
+	let container = $state<HTMLDivElement | undefined>(undefined);
 
 	// Sync internal container ref to bindable prop
+	// container is reactive so bind:this updates trigger the effect
 	$effect(() => {
 		containerElement = container;
 	});
@@ -77,17 +78,17 @@
 
 		camera = new THREE.PerspectiveCamera(
 			75,
-			container.clientWidth / container.clientHeight,
+			container!.clientWidth / container!.clientHeight,
 			0.1,
 			1000
 		);
 		camera.position.set(40, 40, 40);
 
 		const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-		renderer.setSize(container.clientWidth, container.clientHeight);
+		renderer.setSize(container!.clientWidth, container!.clientHeight);
 		renderer.setPixelRatio(window.devicePixelRatio);
-		// eslint-disable-next-line svelte/no-dom-manipulating
-		container.appendChild(renderer.domElement);
+
+		container!.appendChild(renderer.domElement);
 
 		controls = new OrbitControls(camera, renderer.domElement);
 		controls.enableDamping = true;
@@ -157,7 +158,7 @@
 				transparent: true,
 				opacity: 0.8
 			});
-			material.resolution.set(container.clientWidth, container.clientHeight);
+			material.resolution.set(container!.clientWidth, container!.clientHeight);
 
 			const line = new Line2(geometry, material);
 			line.computeLineDistances();
@@ -216,13 +217,13 @@
 			if (Array.isArray(material)) {
 				material.forEach((mat) => {
 					if (mat instanceof LineMaterial) {
-						mat.resolution.set(container.clientWidth, container.clientHeight);
+						mat.resolution.set(container!.clientWidth, container!.clientHeight);
 					}
 				});
 				return;
 			}
 			if (material instanceof LineMaterial) {
-				material.resolution.set(container.clientWidth, container.clientHeight);
+				material.resolution.set(container!.clientWidth, container!.clientHeight);
 			}
 		};
 

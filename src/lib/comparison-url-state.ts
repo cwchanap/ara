@@ -8,6 +8,25 @@
 import type { ChaosMapType, ChaosMapParameters } from './types';
 import { validateParameters } from './chaos-validation';
 
+/**
+ * Normalize parameters to ensure backward compatibility.
+ * Specifically handles the rename from uppercase "K" to lowercase "k" for standard map.
+ */
+function normalizeParameters(
+	mapType: ChaosMapType,
+	params: Record<string, unknown>
+): Record<string, unknown> {
+	const normalized = { ...params };
+
+	// Handle legacy "K" parameter for standard map (renamed to "k")
+	if (mapType === 'standard' && 'K' in normalized && !('k' in normalized)) {
+		normalized.k = normalized.K;
+		delete normalized.K;
+	}
+
+	return normalized;
+}
+
 export interface ComparisonURLState {
 	compare: boolean;
 	left: ChaosMapParameters;
@@ -111,8 +130,10 @@ function decodeParams<T extends ChaosMapType>(
 ): ChaosMapParameters | null {
 	try {
 		const decoded = JSON.parse(base64Decode(encoded));
+		// Normalize parameters for backward compatibility (e.g., "K" -> "k")
+		const normalized = normalizeParameters(mapType, decoded);
 		// Add back the type field
-		const params = { ...decoded, type: mapType };
+		const params = { ...normalized, type: mapType };
 
 		// Validate the parameters
 		const validation = validateParameters(mapType, params);
@@ -121,7 +142,7 @@ function decodeParams<T extends ChaosMapType>(
 			return null;
 		}
 
-		return params as ChaosMapParameters;
+		return params as unknown as ChaosMapParameters;
 	} catch (e) {
 		console.warn('Failed to decode comparison parameters:', e);
 		return null;

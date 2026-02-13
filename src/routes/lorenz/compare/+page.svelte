@@ -59,7 +59,7 @@
 		});
 	}, DEBOUNCE_MS);
 
-	let initialized = $state(false);
+	let initialized = false;
 	$effect(() => {
 		void leftSigma;
 		void leftRho;

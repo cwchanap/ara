@@ -23,9 +23,10 @@
 
 	let container: HTMLDivElement;
 
-	// Sync internal container ref to bindable prop
-	$effect(() => {
+	// Sync internal container ref to bindable prop after mount
+	onMount(() => {
 		containerElement = container;
+		return () => {};
 	});
 	let resizeObserver: ResizeObserver | null = null;
 

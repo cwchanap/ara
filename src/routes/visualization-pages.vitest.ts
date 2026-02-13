@@ -234,6 +234,8 @@ describe('visualization pages', () => {
 
 	it('renders lorenz compare page', () => {
 		setPageUrl('http://localhost/lorenz/compare?compare=true');
+		// Note: pageProps are intentionally omitted because LorenzComparePage uses the $page
+		// store directly and doesn't export a data prop like other pages
 		render(LorenzComparePage);
 		expect(screen.getByText('LEFT_PARAMETERS')).toBeInTheDocument();
 	});
