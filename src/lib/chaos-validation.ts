@@ -140,17 +140,21 @@ export function validateParameters(
 		errors.push(`Missing required parameters: ${missingKeys.join(', ')}`);
 	}
 
-	// Check for extra keys (but allow 'type' and 'K' field as 'K' is handled for backward compatibility)
+	// Check for extra keys (allow 'type' field, and 'K' only for standard map as backward compatibility)
 	const extraKeys = actualKeys.filter(
-		(key) => !expectedKeys.includes(key) && key !== 'type' && key !== 'K'
+		(key) =>
+			!expectedKeys.includes(key) &&
+			key !== 'type' &&
+			!(mapType === 'standard' && key === 'K')
 	);
 	if (extraKeys.length > 0) {
 		errors.push(`Unexpected parameters: ${extraKeys.join(', ')}`);
 	}
 
-	// Check that all values are numbers (except 'type' field which is a string)
+	// Check that all values are numbers (except 'type' field which is a string,
+	// and legacy 'K' field for standard map)
 	for (const key of actualKeys) {
-		if (key === 'type' || key === 'K') continue; // Skip type field and legacy 'K' field
+		if (key === 'type' || (mapType === 'standard' && key === 'K')) continue;
 		const value = paramObj[key];
 		if (typeof value !== 'number' || isNaN(value)) {
 			errors.push(`Parameter '${key}' must be a valid number, got: ${typeof value}`);
