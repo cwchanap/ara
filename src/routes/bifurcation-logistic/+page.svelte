@@ -28,11 +28,6 @@
 
 	// Config loading state
 	const configState = $state(createInitialConfigLoaderState());
-	// Reactive derived values for compatibility with existing template
-	let configErrors = $derived(configState.errors);
-	let showConfigError = $derived(configState.showError);
-	let stabilityWarnings = $derived(configState.warnings);
-	let showStabilityWarning = $derived(configState.showWarning);
 
 	// Get current parameters for saving
 	function getParameters(): BifurcationLogisticParameters {
@@ -153,11 +148,11 @@
 	<VisualizationAlerts
 		saveSuccess={saveState.saveSuccess}
 		saveError={saveState.saveError}
-		{configErrors}
-		{showConfigError}
+		configErrors={configState.errors}
+		showConfigError={configState.showError}
 		onDismissConfigError={() => (configState.showError = false)}
-		{stabilityWarnings}
-		{showStabilityWarning}
+		stabilityWarnings={configState.warnings}
+		showStabilityWarning={configState.showWarning}
 		onDismissStabilityWarning={() => (configState.showWarning = false)}
 		onDismissSaveError={() => (saveState.saveError = null)}
 		onDismissSaveSuccess={() => (saveState.saveSuccess = false)}
