@@ -118,17 +118,9 @@ export function validateParameters(
 	let paramObj = params as Record<string, unknown>;
 
 	// Backward compatibility: normalize 'K' to 'k' for Standard map
-	// Must be done before other checks to avoid "extra parameter" errors
-	// Always normalize K to k, preferring existing k if present
 	if (mapType === 'standard' && 'K' in paramObj) {
-		// If k doesn't exist, use K as the value for k
-		if (!('k' in paramObj)) {
-			paramObj = { ...paramObj, k: paramObj.K };
-		}
-		// Remove the K key regardless
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		const { K, ...rest } = paramObj;
-		paramObj = rest;
+		paramObj = 'k' in rest ? rest : { ...rest, k: K };
 	}
 
 	const ranges = STABLE_RANGES[mapType];
@@ -147,21 +139,15 @@ export function validateParameters(
 		errors.push(`Missing required parameters: ${missingKeys.join(', ')}`);
 	}
 
-	// Check for extra keys (allow 'type' field, and 'K' only for standard map as backward compatibility)
-	const extraKeys = actualKeys.filter(
-		(key) =>
-			!expectedKeys.includes(key) &&
-			key !== 'type' &&
-			!(mapType === 'standard' && key === 'K')
-	);
+	// Check for extra keys (but allow 'type' field as it's used for discriminated unions)
+	const extraKeys = actualKeys.filter((key) => !expectedKeys.includes(key) && key !== 'type');
 	if (extraKeys.length > 0) {
 		errors.push(`Unexpected parameters: ${extraKeys.join(', ')}`);
 	}
 
-	// Check that all values are numbers (except 'type' field which is a string,
-	// and legacy 'K' field for standard map)
+	// Check that all values are numbers (except 'type' field which is a string)
 	for (const key of actualKeys) {
-		if (key === 'type' || (mapType === 'standard' && key === 'K')) continue;
+		if (key === 'type') continue;
 		const value = paramObj[key];
 		if (typeof value !== 'number' || isNaN(value)) {
 			errors.push(`Parameter '${key}' must be a valid number, got: ${typeof value}`);
