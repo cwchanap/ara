@@ -97,10 +97,14 @@
 			configState
 		);
 
+		return cleanupConfigLoader;
+	});
+
+	// Separate effect for save/share handler cleanup
+	$effect(() => {
 		return () => {
 			cleanupSaveHandler();
 			cleanupShareHandler();
-			cleanupConfigLoader();
 		};
 	});
 </script>

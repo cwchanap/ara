@@ -18,7 +18,7 @@
 		containerElement = $bindable()
 	}: Props = $props();
 
-	let container: HTMLDivElement;
+	let container = $state<HTMLDivElement>();
 	let canvas: HTMLCanvasElement;
 
 	// Sync internal container ref to bindable prop
