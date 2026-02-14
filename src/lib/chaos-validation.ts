@@ -119,9 +119,16 @@ export function validateParameters(
 
 	// Backward compatibility: normalize 'K' to 'k' for Standard map
 	// Must be done before other checks to avoid "extra parameter" errors
-	if (mapType === 'standard' && 'K' in paramObj && !('k' in paramObj)) {
+	// Always normalize K to k, preferring existing k if present
+	if (mapType === 'standard' && 'K' in paramObj) {
+		// If k doesn't exist, use K as the value for k
+		if (!('k' in paramObj)) {
+			paramObj = { ...paramObj, k: paramObj.K };
+		}
+		// Remove the K key regardless
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		const { K, ...rest } = paramObj;
-		paramObj = { ...rest, k: K };
+		paramObj = rest;
 	}
 
 	const ranges = STABLE_RANGES[mapType];

@@ -130,6 +130,32 @@
 			cleanupShareHandler();
 		};
 	});
+
+	// Reactive stability check: re-run whenever parameters change
+	$effect(() => {
+		// Track all parameter dependencies
+		void rMin;
+		void rMax;
+		void iterations;
+		void transientIterations;
+
+		const stability = checkParameterStability('lyapunov', {
+			type: 'lyapunov',
+			rMin,
+			rMax,
+			iterations,
+			transientIterations
+		});
+
+		if (!stability.isStable) {
+			configState.warnings = stability.warnings;
+			configState.showWarning = true;
+		} else {
+			// Clear warnings when parameters become stable
+			configState.warnings = [];
+			configState.showWarning = false;
+		}
+	});
 </script>
 
 <div class="space-y-6">

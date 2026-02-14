@@ -22,12 +22,9 @@
 		containerElement = $bindable()
 	}: Props = $props();
 
-	let container: HTMLDivElement;
+	let container = $state<HTMLDivElement>();
 
 	// Sync internal container ref to bindable prop
-	// Note: Using plain let with bind:this plus $effect is a valid Svelte 5 pattern.
-	// The container element will be undefined until mount, so the effect runs once
-	// initially and again after mount when the binding is set.
 	$effect(() => {
 		containerElement = container;
 	});
