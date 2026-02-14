@@ -488,6 +488,61 @@ describe('validateParameters backward compatibility', () => {
 		expect(result.parameters).toBeDefined();
 		expect(result.parameters).toEqual(params);
 	});
+
+	test('allows K as extra field for standard map when both K and k are present', () => {
+		const params = {
+			type: 'standard',
+			K: 5,
+			k: 0.971635,
+			numP: 10,
+			numQ: 10,
+			iterations: 20000
+		};
+		const result = validateParameters('standard', params);
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toHaveLength(0);
+		expect(result.parameters?.k).toBe(0.971635);
+		expect(result.parameters?.K).toBe(5);
+	});
+
+	test('rejects K parameter for non-standard maps (lorenz)', () => {
+		const params = {
+			type: 'lorenz',
+			sigma: 10,
+			rho: 28,
+			beta: 2.667,
+			K: 5
+		};
+		const result = validateParameters('lorenz', params);
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('K'))).toBe(true);
+	});
+
+	test('rejects K parameter for non-standard maps (rossler)', () => {
+		const params = {
+			type: 'rossler',
+			a: 0.2,
+			b: 0.2,
+			c: 5.7,
+			K: 5
+		};
+		const result = validateParameters('rossler', params);
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('K'))).toBe(true);
+	});
+
+	test('rejects K parameter for non-standard maps (henon)', () => {
+		const params = {
+			type: 'henon',
+			a: 1.4,
+			b: 0.3,
+			iterations: 10000,
+			K: 5
+		};
+		const result = validateParameters('henon', params);
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('K'))).toBe(true);
+	});
 });
 
 describe('checkParameterStability for chaos-esthetique', () => {
