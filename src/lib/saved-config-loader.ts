@@ -165,7 +165,9 @@ export function parseConfigParam<T extends ChaosMapType>(args: {
 		};
 	}
 
-	return { ok: true, parameters: parsed as ParametersFor<T> };
+	// Use normalized parameters if available (e.g., 'K' -> 'k' for Standard map)
+	const parametersToUse = validation.parameters ?? parsed;
+	return { ok: true, parameters: parametersToUse as ParametersFor<T> };
 }
 
 export async function loadSavedConfigParameters<T extends ChaosMapType>(args: {
@@ -243,11 +245,13 @@ export async function loadSavedConfigParameters<T extends ChaosMapType>(args: {
 		};
 	}
 
+	// Use normalized parameters if available (e.g., 'K' -> 'k' for Standard map)
+	const parametersToUse = validation.parameters ?? candidateParams;
 	clearSessionStorageCandidate();
 
 	return {
 		ok: true,
-		parameters: candidateParams as ParametersFor<T>,
+		parameters: parametersToUse as ParametersFor<T>,
 		source: candidateSource
 	};
 }
@@ -303,9 +307,11 @@ export async function loadSharedConfigParameters<T extends ChaosMapType>(args: {
 			};
 		}
 
+		// Use normalized parameters if available (e.g., 'K' -> 'k' for Standard map)
+		const parametersToUse = validation.parameters ?? data.parameters;
 		return {
 			ok: true,
-			parameters: data.parameters as ParametersFor<T>,
+			parameters: parametersToUse as ParametersFor<T>,
 			source: 'sharedApi'
 		};
 	} catch (e) {

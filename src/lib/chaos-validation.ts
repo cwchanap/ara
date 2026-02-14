@@ -93,6 +93,7 @@ export interface StabilityCheckResult {
 export interface ParameterValidationResult {
 	isValid: boolean;
 	errors: string[];
+	parameters?: Record<string, unknown>;
 }
 
 /**
@@ -117,8 +118,10 @@ export function validateParameters(
 	let paramObj = params as Record<string, unknown>;
 
 	// Backward compatibility: normalize 'K' to 'k' for Standard map
+	// Must be done before other checks to avoid "extra parameter" errors
 	if (mapType === 'standard' && 'K' in paramObj && !('k' in paramObj)) {
-		paramObj = { ...paramObj, k: paramObj.K };
+		const { K, ...rest } = paramObj;
+		paramObj = { ...rest, k: K };
 	}
 
 	const ranges = STABLE_RANGES[mapType];
@@ -137,22 +140,24 @@ export function validateParameters(
 		errors.push(`Missing required parameters: ${missingKeys.join(', ')}`);
 	}
 
-	// Check for extra keys (but allow 'type' field as it's used for discriminated unions)
-	const extraKeys = actualKeys.filter((key) => !expectedKeys.includes(key) && key !== 'type');
+	// Check for extra keys (but allow 'type' and 'K' field as 'K' is handled for backward compatibility)
+	const extraKeys = actualKeys.filter(
+		(key) => !expectedKeys.includes(key) && key !== 'type' && key !== 'K'
+	);
 	if (extraKeys.length > 0) {
 		errors.push(`Unexpected parameters: ${extraKeys.join(', ')}`);
 	}
 
 	// Check that all values are numbers (except 'type' field which is a string)
 	for (const key of actualKeys) {
-		if (key === 'type') continue; // Skip type field as it's a string discriminator
+		if (key === 'type' || key === 'K') continue; // Skip type field and legacy 'K' field
 		const value = paramObj[key];
 		if (typeof value !== 'number' || isNaN(value)) {
 			errors.push(`Parameter '${key}' must be a valid number, got: ${typeof value}`);
 		}
 	}
 
-	return { isValid: errors.length === 0, errors };
+	return { isValid: errors.length === 0, errors, parameters: paramObj };
 }
 
 /**
