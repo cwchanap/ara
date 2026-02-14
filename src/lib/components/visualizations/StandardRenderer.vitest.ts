@@ -1,8 +1,13 @@
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, waitFor } from '@testing-library/svelte';
 import StandardRenderer from './StandardRenderer.svelte';
 
+let originalGetContext: typeof HTMLCanvasElement.prototype.getContext;
+
 beforeAll(() => {
+	// Save the original getContext function
+	originalGetContext = HTMLCanvasElement.prototype.getContext;
+
 	const ctx = {
 		clearRect: vi.fn(),
 		beginPath: vi.fn(),
@@ -14,6 +19,14 @@ beforeAll(() => {
 	Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
 		configurable: true,
 		value: () => ctx
+	});
+});
+
+afterAll(() => {
+	// Restore the original getContext function
+	Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+		configurable: true,
+		value: originalGetContext
 	});
 });
 

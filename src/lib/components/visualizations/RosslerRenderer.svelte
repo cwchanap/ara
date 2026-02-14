@@ -31,7 +31,7 @@
 		containerElement = $bindable()
 	}: Props = $props();
 
-	let container: HTMLDivElement;
+	let container = $state<HTMLDivElement>();
 
 	// Sync internal container ref to bindable prop
 	$effect(() => {
@@ -73,6 +73,8 @@
 	});
 
 	onMount(() => {
+		if (!container) return;
+
 		const scene = new THREE.Scene();
 		scene.background = null;
 
