@@ -443,6 +443,53 @@ describe('checkParameterStability for standard', () => {
 	});
 });
 
+describe('validateParameters backward compatibility', () => {
+	test('normalizes uppercase K to lowercase k for standard map', () => {
+		const params = {
+			type: 'standard',
+			K: 0.971635,
+			numP: 10,
+			numQ: 10,
+			iterations: 20000
+		};
+		const result = validateParameters('standard', params);
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toHaveLength(0);
+		expect(result.parameters).toBeDefined();
+		expect(result.parameters?.k).toBe(0.971635);
+		expect('K' in (result.parameters ?? {})).toBe(false);
+	});
+
+	test('does not normalize k to K for standard map when k is already present', () => {
+		const params = {
+			type: 'standard',
+			k: 0.971635,
+			numP: 10,
+			numQ: 10,
+			iterations: 20000
+		};
+		const result = validateParameters('standard', params);
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toHaveLength(0);
+		expect(result.parameters?.k).toBe(0.971635);
+		expect('K' in (result.parameters ?? {})).toBe(false);
+	});
+
+	test('returns normalized parameters for valid inputs', () => {
+		const params = {
+			type: 'standard',
+			k: 0.971635,
+			numP: 10,
+			numQ: 10,
+			iterations: 20000
+		};
+		const result = validateParameters('standard', params);
+		expect(result.isValid).toBe(true);
+		expect(result.parameters).toBeDefined();
+		expect(result.parameters).toEqual(params);
+	});
+});
+
 describe('checkParameterStability for chaos-esthetique', () => {
 	test('returns warnings when values are outside stable range', () => {
 		const params = {
