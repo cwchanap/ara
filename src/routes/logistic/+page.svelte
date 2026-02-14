@@ -72,6 +72,7 @@
 					r = params.r ?? r;
 					x0 = params.x0 ?? x0;
 					iterations = params.iterations ?? iterations;
+					return { type: 'logistic', r, x0, iterations };
 				},
 				onCheckStability: (params) => checkParameterStability('logistic', params)
 			},

@@ -56,8 +56,12 @@ export interface ConfigLoaderOptions<T extends ChaosMapType> {
 	mapType: T;
 	/** The base path for API calls */
 	base: string;
-	/** Callback to apply loaded parameters to the visualization */
-	onParametersLoaded: (params: ParametersFor<T>) => void;
+	/**
+	 * Callback to apply loaded parameters to the visualization.
+	 * Should return the actual applied parameters (after any clamping/normalization)
+	 * for use in subsequent stability checking.
+	 */
+	onParametersLoaded: (params: ParametersFor<T>) => ParametersFor<T>;
 	/** Optional callback for parameter stability checking - returns warnings to display */
 	onCheckStability?: (params: ParametersFor<T>) => { isStable: boolean; warnings: string[] };
 }
@@ -89,6 +93,8 @@ export interface ConfigLoaderCleanup {
  *         sigma = params.sigma;
  *         rho = params.rho;
  *         beta = params.beta;
+ *         // Return the actual applied parameters for stability checking
+ *         return { type: 'lorenz', sigma, rho, beta };
  *       }
  *     }, configState);
  *
@@ -206,15 +212,15 @@ export function useConfigLoader<T extends ChaosMapType>(
 				}
 
 				// Apply parameters to visualization
-				// Note: Caller is responsible for stability checking with the actual
-				// applied parameters (after any clamping/normalization in onParametersLoaded)
 				const typedParams = result.parameters;
 				try {
-					onParametersLoaded(typedParams);
+					// onParametersLoaded returns the actual applied parameters
+					// (after any clamping/normalization) for stability checking
+					const appliedParams = onParametersLoaded(typedParams);
 
 					// Run stability check if provided
 					if (onCheckStability) {
-						const stability = onCheckStability(typedParams);
+						const stability = onCheckStability(appliedParams);
 						if (!stability.isStable) {
 							state.warnings = stability.warnings;
 							state.showWarning = true;
@@ -247,15 +253,15 @@ export function useConfigLoader<T extends ChaosMapType>(
 				}
 
 				// Apply parameters to visualization
-				// Note: Caller is responsible for stability checking with the actual
-				// applied parameters (after any clamping/normalization in onParametersLoaded)
 				const typedParams = parsed.parameters;
 				try {
-					onParametersLoaded(typedParams);
+					// onParametersLoaded returns the actual applied parameters
+					// (after any clamping/normalization) for stability checking
+					const appliedParams = onParametersLoaded(typedParams);
 
 					// Run stability check if provided
 					if (onCheckStability) {
-						const stability = onCheckStability(typedParams);
+						const stability = onCheckStability(appliedParams);
 						if (!stability.isStable) {
 							state.warnings = stability.warnings;
 							state.showWarning = true;

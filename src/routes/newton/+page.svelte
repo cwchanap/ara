@@ -63,6 +63,7 @@
 					yMin = params.yMin ?? yMin;
 					yMax = params.yMax ?? yMax;
 					maxIterations = params.maxIterations ?? maxIterations;
+					return { type: 'newton', xMin, xMax, yMin, yMax, maxIterations };
 				},
 				onCheckStability: (params) => checkParameterStability('newton', params)
 			},

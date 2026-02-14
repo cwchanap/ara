@@ -63,7 +63,10 @@ describe('useConfigLoader', () => {
 				page,
 				mapType: 'lorenz',
 				base: '',
-				onParametersLoaded: (value) => loaded.push(value)
+				onParametersLoaded: (value: LorenzParams) => {
+					loaded.push(value);
+					return value;
+				}
 			},
 			state
 		);
@@ -84,7 +87,7 @@ describe('useConfigLoader', () => {
 			createPage(`http://localhost/lorenz?config=${encodeURIComponent(invalidParam)}`)
 		);
 		const state = createInitialConfigLoaderState();
-		const onParametersLoaded = mock(() => {});
+		const onParametersLoaded = mock((params: LorenzParams) => params);
 
 		const { cleanup } = useConfigLoader(
 			{
@@ -161,7 +164,10 @@ describe('useConfigLoader', () => {
 					page,
 					mapType: 'lorenz',
 					base: '/base',
-					onParametersLoaded: (value) => loaded.push(value)
+					onParametersLoaded: (value: LorenzParams) => {
+						loaded.push(value);
+						return value;
+					}
 				},
 				state
 			);
@@ -200,7 +206,7 @@ describe('useConfigLoader', () => {
 		try {
 			const page = writable<Page>(createPage('http://localhost/lorenz?configId=missing'));
 			const state = createInitialConfigLoaderState();
-			const onParametersLoaded = mock(() => {});
+			const onParametersLoaded = mock((params: LorenzParams) => params);
 
 			const { cleanup } = useConfigLoader(
 				{

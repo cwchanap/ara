@@ -72,6 +72,7 @@
 					a = params.a ?? a;
 					b = params.b ?? b;
 					iterations = params.iterations ?? iterations;
+					return { type: 'henon', a, b, iterations };
 				},
 				onCheckStability: (params) => checkParameterStability('henon', params)
 			},

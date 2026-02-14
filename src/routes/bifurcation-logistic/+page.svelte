@@ -92,6 +92,14 @@
 						configState.warnings = stability.warnings;
 						configState.showWarning = true;
 					}
+
+					// Return normalized parameters
+					return {
+						type: 'bifurcation-logistic',
+						rMin: nextRMin,
+						rMax: nextRMax,
+						maxIterations: nextMaxIterations
+					};
 				}
 			},
 			configState
