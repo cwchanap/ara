@@ -429,6 +429,19 @@ describe('checkParameterStability for newton', () => {
 });
 
 describe('checkParameterStability for standard', () => {
+	test("accepts legacy 'K' parameter for backward compatibility", () => {
+		const params = {
+			type: 'standard',
+			K: 2,
+			numP: 10,
+			numQ: 10,
+			iterations: 20000
+		};
+		const result = validateParameters('standard', params);
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toHaveLength(0);
+	});
+
 	test('returns warnings when k is outside stable range', () => {
 		const params = {
 			type: 'standard' as const,
