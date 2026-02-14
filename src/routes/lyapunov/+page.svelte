@@ -105,8 +105,17 @@
 					rMax = normalizedParams.rMax;
 					iterations = normalizedParams.iterations;
 					transientIterations = normalizedParams.transientIterations;
-				},
-				onCheckStability: (params) => checkParameterStability('lyapunov', params)
+
+					// Run stability check on normalized values (not raw loaded values)
+					const stability = checkParameterStability('lyapunov', {
+						type: 'lyapunov',
+						...normalizedParams
+					});
+					if (!stability.isStable) {
+						configState.warnings = stability.warnings;
+						configState.showWarning = true;
+					}
+				}
 			},
 			configState
 		);
