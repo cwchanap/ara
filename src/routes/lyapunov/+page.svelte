@@ -115,6 +115,9 @@
 						configState.warnings = stability.warnings;
 						configState.showWarning = true;
 					}
+
+					// Return normalized parameters
+					return { type: 'lyapunov', ...normalizedParams };
 				}
 			},
 			configState

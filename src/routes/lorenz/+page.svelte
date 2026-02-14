@@ -72,6 +72,7 @@
 					sigma = params.sigma ?? sigma;
 					rho = params.rho ?? rho;
 					beta = params.beta ?? beta;
+					return { type: 'lorenz', sigma, rho, beta };
 				},
 				onCheckStability: (params) => checkParameterStability('lorenz', params)
 			},
