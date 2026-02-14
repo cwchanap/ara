@@ -26,7 +26,6 @@
 	// Sync internal container ref to bindable prop after mount
 	onMount(() => {
 		containerElement = container;
-		return () => {};
 	});
 	let resizeObserver: ResizeObserver | null = null;
 
