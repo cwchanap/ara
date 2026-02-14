@@ -7,16 +7,20 @@ function standardMap(
 	k: number,
 	maxPoints: number
 ): [number, number][] {
+	if (numP <= 0 || numQ <= 0 || iterations <= 0 || maxPoints <= 0) return [];
+
 	const points: [number, number][] = [];
+	const TWO_PI = 2 * Math.PI;
+	const normalizeAngle = (value: number) => ((value % TWO_PI) + TWO_PI) % TWO_PI;
 
 	outer: for (let i = 1; i <= numP; i++) {
 		for (let j = 1; j <= numQ; j++) {
-			let p = (i / numP) % (2 * Math.PI);
-			let q = (j / numQ) % (2 * Math.PI);
+			let p = normalizeAngle(((i - 1) / numP) * TWO_PI);
+			let q = normalizeAngle(((j - 1) / numQ) * TWO_PI);
 
 			for (let iter = 0; iter < iterations; iter++) {
-				const pNew = (p + k * Math.sin(q)) % (2 * Math.PI);
-				const qNew = (q + pNew) % (2 * Math.PI);
+				const pNew = normalizeAngle(p + k * Math.sin(q));
+				const qNew = normalizeAngle(q + pNew);
 
 				points.push([qNew, pNew]);
 

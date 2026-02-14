@@ -5,6 +5,7 @@ import {
 	isValidMapType,
 	getStableRanges
 } from './chaos-validation';
+import type { StandardParameters } from './types';
 
 describe('validateParameters for rossler', () => {
 	test('returns valid for correct rossler parameters', () => {
@@ -440,6 +441,19 @@ describe('checkParameterStability for standard', () => {
 		const result = validateParameters('standard', params);
 		expect(result.isValid).toBe(true);
 		expect(result.errors).toHaveLength(0);
+	});
+
+	test("returns warnings when legacy 'K' is outside stable range", () => {
+		const params = {
+			type: 'standard',
+			K: 20,
+			numP: 10,
+			numQ: 10,
+			iterations: 20000
+		};
+		const result = checkParameterStability('standard', params as unknown as StandardParameters);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('k (20)'))).toBe(true);
 	});
 
 	test('returns warnings when k is outside stable range', () => {

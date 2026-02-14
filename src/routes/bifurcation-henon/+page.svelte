@@ -37,7 +37,7 @@
 	let showConfigError = $state(false);
 	let stabilityWarnings = $state<string[]>([]);
 	let showStabilityWarning = $state(false);
-	let lastAppliedConfigKey = $state<string | null>(null);
+	let lastAppliedConfigKey: string | null = null;
 	let configLoadAbortController: AbortController | null = null;
 	let isUnmounted = false;
 
@@ -121,11 +121,13 @@
 					if (isUnmounted || signal.aborted) return;
 					if (lastAppliedConfigKey !== currentConfigKey) return;
 					if (!result) {
+						lastAppliedConfigKey = null;
 						configErrors = ['Failed to load configuration'];
 						showConfigError = true;
 						return;
 					}
 					if (!result.ok) {
+						lastAppliedConfigKey = null;
 						configErrors = result.errors;
 						showConfigError = true;
 						return;
@@ -149,6 +151,7 @@
 					console.error('Failed to load configuration:', e);
 					if (isUnmounted || signal.aborted) return;
 					if (lastAppliedConfigKey !== currentConfigKey) return;
+					lastAppliedConfigKey = null;
 					configErrors = [
 						'Failed to load configuration: ' + (e instanceof Error ? e.message : 'Unknown error')
 					];
