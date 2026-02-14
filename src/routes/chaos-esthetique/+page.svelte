@@ -4,6 +4,7 @@
 	import { page } from '$app/stores';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
 	import ShareDialog from '$lib/components/ui/ShareDialog.svelte';
+	import SnapshotButton from '$lib/components/ui/SnapshotButton.svelte';
 	import VisualizationAlerts from '$lib/components/ui/VisualizationAlerts.svelte';
 	import ChaosEsthetiqueRenderer from '$lib/components/visualizations/ChaosEsthetiqueRenderer.svelte';
 	import { checkParameterStability } from '$lib/chaos-validation';
@@ -18,6 +19,8 @@
 	import { VIZ_CONTAINER_HEIGHT } from '$lib/constants';
 
 	let { data } = $props();
+
+	let rendererContainer: HTMLDivElement | undefined = $state();
 
 	let a = $state(0.9);
 	let b = $state(0.9999);
@@ -218,6 +221,11 @@
 			</p>
 		</div>
 		<div class="flex gap-3">
+			<SnapshotButton
+				target={rendererContainer}
+				targetType="container"
+				mapType="chaos-esthetique"
+			/>
 			<button
 				onclick={() => (shareState.showShareDialog = true)}
 				class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
@@ -377,6 +385,7 @@
 		bind:x0
 		bind:y0
 		bind:iterations
+		bind:containerElement={rendererContainer}
 		height={VIZ_CONTAINER_HEIGHT}
 	/>
 
