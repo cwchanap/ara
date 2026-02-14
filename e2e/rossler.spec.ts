@@ -49,8 +49,8 @@ test.describe('Rössler Attractor Page', () => {
 	test('Rössler page has visualization container', async ({ page }) => {
 		await page.goto('/rossler');
 
-		// Check for the Three.js visualization label
-		await expect(page.getByText(/LIVE_RENDER.*THREE[._]JS/i)).toBeVisible();
+		// Check for the Rössler renderer label
+		await expect(page.getByText(/ROSSLER_RENDERER/i)).toBeVisible();
 	});
 
 	test('Rössler page has Save button', async ({ page }) => {
