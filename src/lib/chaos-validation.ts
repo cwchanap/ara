@@ -189,7 +189,8 @@ export function checkParameterStability(
 		return { isStable: true, warnings: [] };
 	}
 
-	const paramRecord = params as unknown as Record<string, number>;
+	const normalizedParams = (validation.parameters ?? params) as Record<string, unknown>;
+	const paramRecord = normalizedParams as Record<string, number>;
 
 	for (const [key, value] of Object.entries(paramRecord)) {
 		const range = ranges[key];

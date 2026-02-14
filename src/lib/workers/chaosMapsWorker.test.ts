@@ -58,6 +58,30 @@ describe('chaosMapsWorker', () => {
 		expect(responses[0]?.points).toHaveLength(2);
 	});
 
+	test('normalizes standard map points to [0, 2π)', () => {
+		responses.length = 0;
+		selfMock.onmessage?.({
+			data: {
+				type: 'standard',
+				id: 3,
+				numP: 1,
+				numQ: 4,
+				iterations: 1,
+				k: 5,
+				maxPoints: 10
+			}
+		});
+
+		expect(responses).toHaveLength(1);
+		expect(responses[0]?.type).toBe('standardResult');
+		for (const [q, p] of responses[0]?.points ?? []) {
+			expect(q).toBeGreaterThanOrEqual(0);
+			expect(q).toBeLessThan(2 * Math.PI);
+			expect(p).toBeGreaterThanOrEqual(0);
+			expect(p).toBeLessThan(2 * Math.PI);
+		}
+	});
+
 	test('handles chaos map messages', () => {
 		responses.length = 0;
 		selfMock.onmessage?.({
