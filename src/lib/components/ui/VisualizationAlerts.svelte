@@ -10,6 +10,7 @@
   Usage:
   <VisualizationAlerts
     saveSuccess={saveState.saveSuccess}
+    onDismissSaveSuccess={() => saveState.saveSuccess = false}
     saveError={saveState.saveError}
     configErrors={configErrors}
     showConfigError={showConfigError}
@@ -23,6 +24,8 @@
 	interface Props {
 		/** Whether to show the save success toast */
 		saveSuccess?: boolean;
+		/** Callback when save success toast is dismissed */
+		onDismissSaveSuccess?: () => void;
 		/** Error message for save error toast, null to hide */
 		saveError?: string | null;
 		/** List of configuration validation errors */
@@ -43,6 +46,7 @@
 
 	let {
 		saveSuccess = false,
+		onDismissSaveSuccess = () => {},
 		saveError = null,
 		configErrors = [],
 		showConfigError = false,
@@ -68,6 +72,14 @@
 		<div class="flex items-center gap-3">
 			<span class="text-green-400">✓</span>
 			<span class="text-green-200">Configuration saved successfully!</span>
+			<button
+				type="button"
+				onclick={onDismissSaveSuccess}
+				class="text-green-400/60 hover:text-green-400 ml-2"
+				aria-label="Dismiss success"
+			>
+				✕
+			</button>
 		</div>
 	</div>
 {/if}
