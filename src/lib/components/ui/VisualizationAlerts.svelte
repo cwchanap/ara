@@ -20,8 +20,6 @@
   />
 -->
 <script lang="ts">
-	import { createEventDispatcher, onDestroy } from 'svelte';
-
 	interface Props {
 		/** Whether to show the save success toast */
 		saveSuccess?: boolean;
@@ -41,8 +39,6 @@
 		onDismissStabilityWarning?: () => void;
 		/** Callback when save error is dismissed */
 		onDismissSaveError?: () => void;
-		/** Callback when save success toast is dismissed */
-		onDismissSaveSuccess?: () => void;
 	}
 
 	let {
@@ -54,46 +50,12 @@
 		stabilityWarnings = [],
 		showStabilityWarning = false,
 		onDismissStabilityWarning = () => {},
-		onDismissSaveError = () => {},
-		onDismissSaveSuccess = () => {}
+		onDismissSaveError = () => {}
 	}: Props = $props();
 
-	const dispatch = createEventDispatcher<{ dismiss: void }>();
-
-	let dismissTimeout: ReturnType<typeof setTimeout> | null = null;
-
-	$effect(() => {
-		if (saveSuccess) {
-			// Clear any existing timeout
-			if (dismissTimeout) {
-				clearTimeout(dismissTimeout);
-			}
-			// Start new timeout to auto-dismiss after 3000ms
-			dismissTimeout = setTimeout(() => {
-				onDismissSaveSuccess();
-				dispatch('dismiss');
-			}, 3000);
-		} else {
-			// Clear timeout if saveSuccess flips back to false
-			if (dismissTimeout) {
-				clearTimeout(dismissTimeout);
-				dismissTimeout = null;
-			}
-		}
-
-		// Cleanup function
-		return () => {
-			if (dismissTimeout) {
-				clearTimeout(dismissTimeout);
-			}
-		};
-	});
-
-	onDestroy(() => {
-		if (dismissTimeout) {
-			clearTimeout(dismissTimeout);
-		}
-	});
+	// Note: Auto-dismiss timing is handled by createSaveHandler in the parent.
+	// It sets saveSuccess back to false after TOAST_SUCCESS_DURATION_MS.
+	// This component simply displays the toast when saveSuccess is true.
 </script>
 
 <!-- Save Success Toast -->
