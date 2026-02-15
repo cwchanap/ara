@@ -8,8 +8,7 @@ describe('VisualizationAlerts', () => {
 		cleanup();
 	});
 
-	it('auto-dismisses save success toast', async () => {
-		vi.useFakeTimers();
+	it('dismisses save success toast', async () => {
 		const onDismissSaveSuccess = vi.fn();
 
 		render(VisualizationAlerts, {
@@ -21,7 +20,7 @@ describe('VisualizationAlerts', () => {
 
 		expect(screen.getByText('Configuration saved successfully!')).toBeInTheDocument();
 
-		await vi.advanceTimersByTimeAsync(3000);
+		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss success' }));
 
 		expect(onDismissSaveSuccess).toHaveBeenCalledTimes(1);
 	});
