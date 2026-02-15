@@ -142,7 +142,8 @@ function decodeParams<T extends ChaosMapType>(
 			return null;
 		}
 
-		return params as unknown as ChaosMapParameters;
+		// Return the normalized parameters from validation (e.g., "K" -> "k" for standard map)
+		return validation.parameters as unknown as ChaosMapParameters;
 	} catch (e) {
 		console.warn('Failed to decode comparison parameters:', e);
 		return null;
