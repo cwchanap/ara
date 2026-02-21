@@ -7,6 +7,7 @@
  */
 
 import { writable, get } from 'svelte/store';
+import { CAMERA_SYNC_DEBOUNCE_MS } from '$lib/constants';
 
 /**
  * Camera state that can be synced between panels.
@@ -26,8 +27,6 @@ interface CameraSyncState {
 	lastUpdate: 'left' | 'right' | null;
 	syncing: boolean;
 }
-
-const DEBOUNCE_MS = 120;
 
 function createCameraSyncStore() {
 	const { subscribe, set, update } = writable<CameraSyncState>({
@@ -82,7 +81,7 @@ function createCameraSyncStore() {
 				syncingResetTimer = setTimeout(() => {
 					update((s) => ({ ...s, syncing: false }));
 				}, 50);
-			}, DEBOUNCE_MS);
+			}, CAMERA_SYNC_DEBOUNCE_MS);
 		},
 
 		/**
