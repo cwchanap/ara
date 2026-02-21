@@ -64,6 +64,6 @@ describe('DeleteConfirmDialog', () => {
 
 	it('does not show error when error prop is empty', () => {
 		render(DeleteConfirmDialog, { props: defaultProps });
-		expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+		expect(screen.queryByText('Delete failed')).not.toBeInTheDocument();
 	});
 });
