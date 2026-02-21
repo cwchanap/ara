@@ -7,18 +7,14 @@
 
 import { describe, expect, mock, test } from 'bun:test';
 import {
+	SHARE_CODE_LENGTH,
 	SHARE_CODE_CHARSET,
 	SHARE_RATE_LIMIT_PER_HOUR,
 	SHARE_EXPIRATION_DAYS
 } from '$lib/constants';
 
-// Mock SvelteKit virtual modules that are unavailable in Bun's test environment.
-// mock.module() is auto-hoisted so it runs before any module imports.
-mock.module('$env/dynamic/private', () => ({
-	env: { DATABASE_URL: 'postgresql://mock', NETLIFY_DATABASE_URL: undefined }
-}));
-
 // Mock $lib/server/db to prevent DB connection on import.
+// $env/dynamic/private is stubbed globally by src/test-setup.ts preload.
 mock.module('$lib/server/db', () => ({
 	db: {
 		select: () => ({ from: () => ({ where: () => ({ limit: () => [] }) }) }),
@@ -41,7 +37,7 @@ import {
 describe('generateShortCode', () => {
 	test('generates an 8-character alphanumeric code', () => {
 		const code = generateShortCode();
-		expect(code).toHaveLength(8);
+		expect(code).toHaveLength(SHARE_CODE_LENGTH);
 		expect(code).toMatch(/^[A-Za-z0-9]+$/);
 	});
 
@@ -170,12 +166,14 @@ describe('getDaysUntilExpiration', () => {
 		expect(days).toBe(-2);
 	});
 
-	test('returns 0 for current timestamp', () => {
+	test('returns 0 or -1 for current timestamp', () => {
 		const now = Date.now();
 		const currentDate = new Date(now).toISOString();
 		const days = getDaysUntilExpiration(currentDate);
-		// Current timestamp should be 0 or -0 (same thing)
-		expect(days).toBe(0);
+		// A few ms may elapse between capturing now and calling the function,
+		// so the result is 0 (exactly at boundary) or -1 (just past).
+		expect(days).toBeGreaterThanOrEqual(-1);
+		expect(days).toBeLessThanOrEqual(0);
 	});
 
 	test('calculates partial days correctly (rounds up)', () => {
