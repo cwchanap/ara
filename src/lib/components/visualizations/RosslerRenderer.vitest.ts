@@ -61,10 +61,17 @@ vi.mock('three', () => ({
 		return { dispose: vi.fn(), transparent: false, opacity: 1 };
 	}),
 	Line: vi.fn().mockImplementation(function () {
-		return { geometry: {}, material: {} };
+		return {
+			geometry: { dispose: vi.fn() },
+			material: { dispose: vi.fn() }
+		};
 	}),
 	GridHelper: vi.fn().mockImplementation(function () {
-		return { material: { transparent: false, opacity: 1 }, position: { y: 0 } };
+		return {
+			material: { transparent: false, opacity: 1, dispose: vi.fn() },
+			geometry: { dispose: vi.fn() },
+			position: { y: 0 }
+		};
 	}),
 	AdditiveBlending: 2
 }));
