@@ -1,3 +1,6 @@
 [test]
 # Exclude playwright e2e tests from bun test runner
 root = "./src"
+# Preload script registers a Bun plugin to resolve SvelteKit virtual modules
+# ($env/dynamic/private) that don't exist as real files in the filesystem.
+preload = ["./src/test-setup.ts"]

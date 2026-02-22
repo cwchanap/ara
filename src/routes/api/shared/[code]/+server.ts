@@ -6,6 +6,13 @@
  *
  * Note: View count is incremented in the share page load (/s/[code]/+page.server.ts)
  * to avoid double-counting when users visit the share page before viewing the visualization.
+ *
+ * TODO: Add integration tests for:
+ * - 404 response when code does not exist in the database
+ * - 410 (Gone) or 404 response when the share has expired
+ * - 200 response with correct configuration data on success
+ * - Database error handling (500 response)
+ * These require mocking the db module.
  */
 
 import { json, error } from '@sveltejs/kit';

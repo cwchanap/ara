@@ -5,6 +5,13 @@ import { eq } from 'drizzle-orm';
 import { validateParameters } from '$lib/chaos-validation';
 import type { ChaosMapType } from '$lib/types';
 
+// TODO: Add integration tests for:
+// - 401 response when not authenticated
+// - 404 response when configId is missing or config not found
+// - 403 response when config belongs to a different user
+// - 200 response with correct configuration data on success
+// - DELETE: 200 on success, 404 when not found, 403 when not owner
+// These require mocking locals.safeGetSession() and the db module.
 export const GET: RequestHandler = async ({ params, locals }) => {
 	const { session, user } = await locals.safeGetSession();
 	if (!session || !user) {

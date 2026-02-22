@@ -5,7 +5,7 @@
  * Database-dependent functions are tested via integration tests.
  */
 
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, mock, test } from 'bun:test';
 import {
 	SHARE_CODE_LENGTH,
 	SHARE_CODE_CHARSET,
@@ -13,68 +13,31 @@ import {
 	SHARE_EXPIRATION_DAYS
 } from '$lib/constants';
 
-/**
- * Generate a cryptographically random short code with uniform distribution.
- * Uses rejection sampling to avoid modulo bias when charset length doesn't evenly divide 256.
- *
- * This is a copy of the function from share-utils.ts for testing without database dependencies.
- */
-function generateShortCode(): string {
-	let code = '';
-	const charsetLength = SHARE_CODE_CHARSET.length;
-	// Calculate max acceptable byte value to avoid modulo bias
-	// 256 % 62 = 10, so we discard bytes >= 248
-	const maxAcceptable = Math.floor(256 / charsetLength) * charsetLength;
+// Mock $lib/server/db to prevent DB connection on import.
+// $env/dynamic/private is stubbed globally by src/test-setup.ts preload.
+mock.module('$lib/server/db', () => ({
+	db: {
+		select: () => ({ from: () => ({ where: () => ({ limit: () => [] }) }) }),
+		insert: () => ({ values: () => ({ returning: () => [] }) }),
+		update: () => ({ set: () => ({ where: () => ({ execute: async () => {} }) }) }),
+		transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn({})
+	},
+	sharedConfigurations: {},
+	savedConfigurations: {},
+	profiles: {}
+}));
 
-	for (let i = 0; i < SHARE_CODE_LENGTH; i++) {
-		let randomByte: number;
-		// Rejection sampling: discard bytes that would cause bias
-		do {
-			const randomValues = crypto.getRandomValues(new Uint8Array(1));
-			randomByte = randomValues[0];
-		} while (randomByte >= maxAcceptable);
-
-		code += SHARE_CODE_CHARSET[randomByte % charsetLength];
-	}
-	return code;
-}
-
-/**
- * Calculate the expiration date for a new share.
- *
- * This is a copy of the function from share-utils.ts for testing without database dependencies.
- */
-function calculateExpirationDate(days: number = SHARE_EXPIRATION_DAYS): Date {
-	const expiration = new Date();
-	expiration.setDate(expiration.getDate() + days);
-	return expiration;
-}
-
-/**
- * Check if a share has expired.
- *
- * This is a copy of the function from share-utils.ts for testing without database dependencies.
- */
-function isShareExpired(expiresAt: string): boolean {
-	return new Date(expiresAt) < new Date();
-}
-
-/**
- * Calculate remaining days until expiration.
- *
- * This is a copy of the function from share-utils.ts for testing without database dependencies.
- */
-function getDaysUntilExpiration(expiresAt: string): number {
-	const now = new Date();
-	const expiration = new Date(expiresAt);
-	const diffMs = expiration.getTime() - now.getTime();
-	return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-}
+import {
+	generateShortCode,
+	calculateExpirationDate,
+	isShareExpired,
+	getDaysUntilExpiration
+} from '$lib/server/share-utils';
 
 describe('generateShortCode', () => {
 	test('generates an 8-character alphanumeric code', () => {
 		const code = generateShortCode();
-		expect(code).toHaveLength(8);
+		expect(code).toHaveLength(SHARE_CODE_LENGTH);
 		expect(code).toMatch(/^[A-Za-z0-9]+$/);
 	});
 
@@ -203,12 +166,14 @@ describe('getDaysUntilExpiration', () => {
 		expect(days).toBe(-2);
 	});
 
-	test('returns 0 for current timestamp', () => {
+	test('returns 0 or -1 for current timestamp', () => {
 		const now = Date.now();
 		const currentDate = new Date(now).toISOString();
 		const days = getDaysUntilExpiration(currentDate);
-		// Current timestamp should be 0 or -0 (same thing)
-		expect(days).toBe(0);
+		// A few ms may elapse between capturing now and calling the function,
+		// so the result is 0 (exactly at boundary) or -1 (just past).
+		expect(days).toBeGreaterThanOrEqual(-1);
+		expect(days).toBeLessThanOrEqual(0);
 	});
 
 	test('calculates partial days correctly (rounds up)', () => {

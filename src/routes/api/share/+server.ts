@@ -3,6 +3,14 @@
  *
  * Requires authentication. Creates a public short URL for a chaos map configuration.
  * Rate limited to 10 shares per user per hour.
+ *
+ * TODO: Add integration tests for:
+ * - 401 response when not authenticated
+ * - 400 response for invalid mapType or parameters
+ * - 429 response when rate limit is exceeded (SHARE_RATE_LIMIT_PER_HOUR)
+ * - 200 response with shareUrl and expiresAt on success
+ * - 500 response when database insert fails
+ * These require mocking locals.safeGetSession() and the db module.
  */
 
 import { json, error } from '@sveltejs/kit';
