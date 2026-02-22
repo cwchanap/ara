@@ -166,14 +166,14 @@ describe('getDaysUntilExpiration', () => {
 		expect(days).toBe(-2);
 	});
 
-	test('returns 0 or -1 for current timestamp', () => {
+	test('returns 0 for current timestamp', () => {
 		const now = Date.now();
 		const currentDate = new Date(now).toISOString();
 		const days = getDaysUntilExpiration(currentDate);
 		// A few ms may elapse between capturing now and calling the function,
-		// so the result is 0 (exactly at boundary) or -1 (just past).
-		expect(days).toBeGreaterThanOrEqual(-1);
-		expect(days).toBeLessThanOrEqual(0);
+		// but Math.ceil of a tiny negative diff (e.g. -1ms / 86_400_000ms) still
+		// rounds up to 0, so the result is always 0.
+		expect(days).toBe(0);
 	});
 
 	test('calculates partial days correctly (rounds up)', () => {

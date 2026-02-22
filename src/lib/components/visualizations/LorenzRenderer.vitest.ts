@@ -38,7 +38,13 @@ vi.mock('three', () => ({
 		return { x: 0, y: 0, z: 0, copy: vi.fn(), lerp: vi.fn() };
 	}),
 	Color: vi.fn().mockImplementation(function () {
-		const self = { copy: vi.fn(), lerp: vi.fn(), r: 0, g: 0, b: 0 };
+		const self = { r: 0, g: 0, b: 0 } as {
+			r: number;
+			g: number;
+			b: number;
+			copy: ReturnType<typeof vi.fn>;
+			lerp: ReturnType<typeof vi.fn>;
+		};
 		self.copy = vi.fn().mockReturnValue(self);
 		self.lerp = vi.fn().mockReturnValue(self);
 		return self;

@@ -7,6 +7,8 @@ vi.mock('$app/paths', () => ({ base: '' }));
 beforeEach(() => {
 	HTMLDialogElement.prototype.showModal = vi.fn();
 	HTMLDialogElement.prototype.close = vi.fn();
+	defaultProps.onClose = vi.fn();
+	defaultProps.onSave = vi.fn(async () => {});
 });
 
 afterEach(() => {

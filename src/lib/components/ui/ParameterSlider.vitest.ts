@@ -4,6 +4,7 @@ import ParameterSlider from './ParameterSlider.svelte';
 
 afterEach(() => {
 	cleanup();
+	vi.useRealTimers();
 });
 
 const defaultProps = {
@@ -63,6 +64,5 @@ describe('ParameterSlider', () => {
 		await fireEvent.input(input, { target: { value: '25' } });
 		// onchange should not be called yet (debounce pending)
 		expect(onchange).not.toHaveBeenCalled();
-		vi.useRealTimers();
 	});
 });
