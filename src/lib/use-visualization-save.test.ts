@@ -8,41 +8,18 @@
  *
  * Mocking strategy
  * ----------------
- * $app/paths           – registered in test-setup.ts preload as `base = ''`, and
- *                        also overridden here for belt-and-suspenders clarity.
- * $lib/saved-config-loader – mocked so loadConfigFromUrl does not make real network
- *                        calls; the mock returns a pre-built success result by default.
+ * $app/paths           – registered in test-setup.ts preload as `base = ''`.
+ * $lib/saved-config-loader – not module-mocked here to avoid cross-file pollution;
+ *                        loadConfigFromUrl tests use explicit fetchFn stubs.
  * $lib/chaos-validation – NOT mocked at the module level to avoid polluting other
  *                        test files that directly test the real implementation. The
  *                        stability warning test passes actual out-of-range values and
  *                        relies on the real checkParameterStability function.
- *
- * Note: mock.module() calls are auto-hoisted by Bun before any import statements.
  */
 
 import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test';
 
-// ── Auto-hoisted mocks ──────────────────────────────────────────────────────
-
-mock.module('$app/paths', () => ({ base: '' }));
-
-// Mock the entire saved-config-loader so that:
-//   • loadSavedConfigParameters returns a success result for the configId path.
-//   • parseConfigParam returns a success result for the inline config path.
-// Individual tests can override these at the call-site level if needed.
-mock.module('$lib/saved-config-loader', () => ({
-	loadSavedConfigParameters: mock(async () => ({
-		ok: true,
-		parameters: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 },
-		source: 'api'
-	})),
-	parseConfigParam: mock(() => ({
-		ok: true,
-		parameters: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 }
-	}))
-}));
-
-// ── Imports after mocks ─────────────────────────────────────────────────────
+// ── Imports ─────────────────────────────────────────────────────────────────
 
 import {
 	createSaveHandler,
@@ -277,19 +254,22 @@ describe('loadConfigFromUrl', () => {
 	});
 
 	test('returns {ok:"none"} when signal is already aborted (configId path)', async () => {
-		// The signal-aborted check in the configId branch happens AFTER
-		// loadSavedConfigParameters resolves, so we verify the guard works
-		// when the controller is aborted before calling loadConfigFromUrl.
-		// Because loadSavedConfigParameters is mocked to resolve immediately,
-		// the abort is detected on the post-await signal check.
 		const controller = new AbortController();
 		controller.abort();
 		const params = new URLSearchParams({ configId: 'some-id' });
+		const fetchFn = makeFetch({
+			ok: true,
+			json: async () => ({
+				mapType: 'lorenz',
+				parameters: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 }
+			})
+		});
 
 		const result = await loadConfigFromUrl({
 			mapType: 'lorenz',
 			searchParams: params,
-			signal: controller.signal
+			signal: controller.signal,
+			fetchFn
 		});
 
 		expect(result.ok).toBe('none');
@@ -297,10 +277,18 @@ describe('loadConfigFromUrl', () => {
 
 	test('returns parameters from saved config via configId param', async () => {
 		const params = new URLSearchParams({ configId: 'abc-123' });
+		const fetchFn = makeFetch({
+			ok: true,
+			json: async () => ({
+				mapType: 'lorenz',
+				parameters: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 }
+			})
+		});
 
 		const result = await loadConfigFromUrl({
 			mapType: 'lorenz',
-			searchParams: params
+			searchParams: params,
+			fetchFn
 		});
 
 		expect(result.ok).toBe(true);
@@ -316,7 +304,6 @@ describe('loadConfigFromUrl', () => {
 	});
 
 	test('returns parameters from config inline JSON param', async () => {
-		// The inline `config` param path calls parseConfigParam (mocked above).
 		const encoded = encodeURIComponent(
 			JSON.stringify({ type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 })
 		);
@@ -335,49 +322,21 @@ describe('loadConfigFromUrl', () => {
 	});
 
 	test('returns {ok:false} when loadSavedConfigParameters reports an error', async () => {
-		// Temporarily override the module-level mock.
-		// Because mock.mock.implementation is always undefined in Bun 1.3.9,
-		// we explicitly restore the default after the assertion.
-		const { loadSavedConfigParameters } = await import('$lib/saved-config-loader');
-		const mockFn = loadSavedConfigParameters as ReturnType<typeof mock>;
-
-		mockFn.mockImplementation(async () => ({
-			ok: false,
-			error: 'Not found',
-			errors: ['Configuration not found']
-		}));
-
 		const params = new URLSearchParams({ configId: 'missing-id' });
+		const fetchFn = makeFetch({ ok: false, status: 404 });
 		const result = await loadConfigFromUrl({
 			mapType: 'lorenz',
-			searchParams: params
+			searchParams: params,
+			fetchFn
 		});
 
 		expect(result.ok).toBe(false);
 		if (result.ok === false) {
-			expect(result.errors).toContain('Configuration not found');
+			expect(result.errors).toContain('Failed to load configuration parameters');
 		}
-
-		// Restore the default success implementation so later tests still pass.
-		mockFn.mockImplementation(async () => ({
-			ok: true,
-			parameters: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 },
-			source: 'api'
-		}));
 	});
 
 	test('returns {ok:false} when parseConfigParam reports an error', async () => {
-		const { parseConfigParam } = await import('$lib/saved-config-loader');
-		const mockFn = parseConfigParam as ReturnType<typeof mock>;
-
-		mockFn.mockImplementation(() => ({
-			ok: false,
-			error: 'Invalid parameters',
-			errors: ['sigma is required'],
-			logMessage: 'Invalid config:',
-			logDetails: {}
-		}));
-
 		const params = new URLSearchParams({ config: encodeURIComponent('{}') });
 		const result = await loadConfigFromUrl({
 			mapType: 'lorenz',
@@ -386,32 +345,18 @@ describe('loadConfigFromUrl', () => {
 
 		expect(result.ok).toBe(false);
 		if (result.ok === false) {
-			expect(result.errors).toContain('sigma is required');
+			expect(
+				result.errors.some((error) => error.includes('Missing required parameters'))
+			).toBe(true);
 		}
-
-		// Restore the default success implementation so later tests still pass.
-		mockFn.mockImplementation(() => ({
-			ok: true,
-			parameters: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 }
-		}));
 	});
 
 	test('includes stability warnings when parameters are out of stable range', async () => {
-		// Use actual out-of-range parameters for lorenz (sigma > 50) so the real
-		// checkParameterStability produces warnings. This avoids mocking
-		// $lib/chaos-validation at module level, which would pollute other test
-		// files in the same Bun test process.
-		const { loadSavedConfigParameters } = await import('$lib/saved-config-loader');
-		const mockFn = loadSavedConfigParameters as ReturnType<typeof mock>;
-
-		// Return sigma=100, which exceeds the stable range of 0-50.
-		mockFn.mockImplementation(async () => ({
-			ok: true,
-			parameters: { type: 'lorenz', sigma: 100, rho: 28, beta: 2.667 },
-			source: 'api'
-		}));
-
-		const params = new URLSearchParams({ configId: 'out-of-range-id' });
+		const params = new URLSearchParams({
+			config: encodeURIComponent(
+				JSON.stringify({ type: 'lorenz', sigma: 100, rho: 28, beta: 2.667 })
+			)
+		});
 
 		const result = await loadConfigFromUrl({
 			mapType: 'lorenz',
@@ -423,13 +368,6 @@ describe('loadConfigFromUrl', () => {
 			// The real checkParameterStability should detect sigma=100 is out of range.
 			expect(result.stabilityWarnings.length).toBeGreaterThan(0);
 		}
-
-		// Restore the default success implementation.
-		mockFn.mockImplementation(async () => ({
-			ok: true,
-			parameters: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 },
-			source: 'api'
-		}));
 	});
 });
 
