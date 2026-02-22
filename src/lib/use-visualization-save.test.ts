@@ -131,7 +131,7 @@ describe('createSaveHandler', () => {
 			await save('My Config');
 
 			// fetchMock is a bun mock; cast to access .mock
-			const calls = (fetchMock as ReturnType<typeof mock>).mock.calls;
+			const calls = (fetchMock as unknown as ReturnType<typeof mock>).mock.calls;
 			expect(calls).toHaveLength(1);
 
 			const [url, init] = calls[0] as [string, RequestInit];
