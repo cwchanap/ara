@@ -62,7 +62,11 @@ vi.mock('three', () => ({
 		return { dispose: vi.fn(), transparent: false, opacity: 1 };
 	}),
 	GridHelper: vi.fn().mockImplementation(function () {
-		return { material: { transparent: false, opacity: 1 }, position: { y: 0 } };
+		return {
+			material: { transparent: false, opacity: 1, dispose: vi.fn() },
+			geometry: { dispose: vi.fn() },
+			position: { y: 0 }
+		};
 	}),
 	AdditiveBlending: 2
 }));
@@ -84,7 +88,11 @@ vi.mock('three/examples/jsm/controls/OrbitControls.js', () => ({
 
 vi.mock('three/examples/jsm/lines/Line2.js', () => ({
 	Line2: vi.fn().mockImplementation(function () {
-		return { geometry: {}, material: {}, computeLineDistances: vi.fn() };
+		return {
+			geometry: { dispose: vi.fn() },
+			material: { dispose: vi.fn() },
+			computeLineDistances: vi.fn()
+		};
 	})
 }));
 
