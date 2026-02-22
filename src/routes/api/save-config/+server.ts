@@ -10,6 +10,14 @@ import { validateParameters } from '$lib/chaos-validation';
  *
  * Save a new chaos map configuration.
  * Used by chaos map pages for cross-page save operations.
+ *
+ * TODO: Add integration tests for:
+ * - 401 response when not authenticated (locals.safeGetSession returns no session)
+ * - 400 response for invalid/missing JSON body
+ * - 400 response for missing name, invalid mapType, or invalid parameters
+ * - 201 response and returned configuration shape on success
+ * - 500 response when database insert fails
+ * These require mocking locals.safeGetSession() and the db module.
  */
 export const POST: RequestHandler = async ({ request, locals }) => {
 	// Check authentication
