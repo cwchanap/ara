@@ -122,7 +122,7 @@ describe('cameraSyncStore', () => {
 			expect(state.left?.position).toEqual({ x: 9, y: 9, z: 9 });
 		});
 
-		test('does not update while syncing flag is set', async () => {
+		test('syncing resets to false after an update settles', async () => {
 			// Trigger first update so syncing becomes true briefly
 			cameraSyncStore.updateFromSide('left', makeCameraState(1, 2, 3));
 			// Immediately try to update right while syncing may be in-flight —
@@ -165,7 +165,7 @@ describe('cameraSyncStore', () => {
 			expect(result?.position).toEqual({ x: 5, y: 6, z: 7 });
 		});
 
-		test('left side returns right state; right side returns left state', async () => {
+		test('left updates -> right gets', async () => {
 			const leftState = makeCameraState(1, 2, 3);
 			cameraSyncStore.updateFromSide('left', leftState);
 			await waitForDebounce();
@@ -218,7 +218,7 @@ describe('createCameraState', () => {
 		expect(result.target).toEqual({ x: 4, y: 5, z: 6 });
 	});
 
-	test('returns a plain object copy — mutations do not affect the source', () => {
+	test('returns a plain object copy — mutations to the source do not affect the result', () => {
 		const camera = { position: { x: 10, y: 20, z: 30 } };
 		const controls = { target: { x: 1, y: 2, z: 3 } };
 		const result = createCameraState(camera, controls);

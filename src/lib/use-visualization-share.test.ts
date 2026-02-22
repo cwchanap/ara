@@ -5,7 +5,7 @@
  * swapping globalThis.fetch with mock implementations.
  */
 
-import { describe, test, expect, mock } from 'bun:test';
+import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test';
 
 import { createShareHandler, createInitialShareState } from './use-visualization-share';
 import type { ShareState } from './use-visualization-share';
@@ -55,10 +55,19 @@ describe('createInitialShareState', () => {
 });
 
 describe('createShareHandler', () => {
+	let originalFetch: typeof globalThis.fetch;
+
+	beforeEach(() => {
+		originalFetch = globalThis.fetch;
+	});
+
+	afterEach(() => {
+		globalThis.fetch = originalFetch;
+	});
+
 	describe('success flow', () => {
 		test('returns shareUrl and expiresAt on success', async () => {
 			const state = makeState();
-			const globalFetch = globalThis.fetch;
 			globalThis.fetch = makeFetch({
 				ok: true,
 				json: async () => ({
@@ -80,12 +89,10 @@ describe('createShareHandler', () => {
 			expect(state.shareError).toBeNull();
 
 			cleanup();
-			globalThis.fetch = globalFetch;
 		});
 
 		test('calls fetch with correct method, headers, and body', async () => {
 			const state = makeState();
-			const globalFetch = globalThis.fetch;
 
 			let capturedInit: RequestInit | undefined;
 			globalThis.fetch = mock(async (_input: string, init?: RequestInit) => {
@@ -113,14 +120,12 @@ describe('createShareHandler', () => {
 			expect(parsedBody.parameters).toEqual(defaultParams);
 
 			cleanup();
-			globalThis.fetch = globalFetch;
 		});
 
 		test('uses base path prefix in fetch URL', async () => {
 			// The test-setup preload stubs $app/paths with base = ''
 			// so the URL should be '/api/share'.
 			const state = makeState();
-			const globalFetch = globalThis.fetch;
 
 			let capturedUrl: string | undefined;
 			globalThis.fetch = mock(async (input: string) => {
@@ -141,14 +146,12 @@ describe('createShareHandler', () => {
 			expect(capturedUrl).toBe('/api/share');
 
 			cleanup();
-			globalThis.fetch = globalFetch;
 		});
 	});
 
 	describe('error flow', () => {
 		test('sets shareError and re-throws on HTTP error', async () => {
 			const state = makeState();
-			const globalFetch = globalThis.fetch;
 			globalThis.fetch = makeFetch({
 				ok: false,
 				json: async () => ({ error: 'Rate limit exceeded' })
@@ -162,12 +165,10 @@ describe('createShareHandler', () => {
 			expect(state.isSharing).toBe(false);
 
 			cleanup();
-			globalThis.fetch = globalFetch;
 		});
 
 		test('falls back to generic message when error body has no error field', async () => {
 			const state = makeState();
-			const globalFetch = globalThis.fetch;
 			globalThis.fetch = makeFetch({
 				ok: false,
 				json: async () => ({})
@@ -179,12 +180,10 @@ describe('createShareHandler', () => {
 			expect(state.shareError).toBe('Failed to create share link');
 
 			cleanup();
-			globalThis.fetch = globalFetch;
 		});
 
 		test('falls back to generic message when JSON parsing fails', async () => {
 			const state = makeState();
-			const globalFetch = globalThis.fetch;
 			globalThis.fetch = mock(async () => ({
 				ok: false,
 				status: 500,
@@ -199,12 +198,10 @@ describe('createShareHandler', () => {
 			expect(state.shareError).toBe('Failed to share');
 
 			cleanup();
-			globalThis.fetch = globalFetch;
 		});
 
 		test('returns null on AbortError without setting shareError', async () => {
 			const state = makeState();
-			const globalFetch = globalThis.fetch;
 			const abortError = new DOMException('Aborted', 'AbortError');
 			globalThis.fetch = mock(async () => {
 				throw abortError;
@@ -219,7 +216,6 @@ describe('createShareHandler', () => {
 			expect(state.isSharing).toBe(false);
 
 			cleanup();
-			globalThis.fetch = globalFetch;
 		});
 	});
 
@@ -227,7 +223,6 @@ describe('createShareHandler', () => {
 		test('does not start a new share while isSharing is true', async () => {
 			const state = makeState({ isSharing: true });
 			let fetchCallCount = 0;
-			const globalFetch = globalThis.fetch;
 			globalThis.fetch = mock(async () => {
 				fetchCallCount++;
 				return { ok: true, json: async () => ({}) };
@@ -240,12 +235,10 @@ describe('createShareHandler', () => {
 			expect(result).toBeNull();
 
 			cleanup();
-			globalThis.fetch = globalFetch;
 		});
 
 		test('allows share again after a previous share completes', async () => {
 			const state = makeState();
-			const globalFetch = globalThis.fetch;
 			globalThis.fetch = makeFetch({
 				ok: true,
 				json: async () => ({
@@ -265,7 +258,6 @@ describe('createShareHandler', () => {
 			expect(result2).not.toBeNull();
 
 			cleanup();
-			globalThis.fetch = globalFetch;
 		});
 	});
 
@@ -278,7 +270,6 @@ describe('createShareHandler', () => {
 
 		test('cleanup called during in-flight request causes AbortError (no shareError set)', async () => {
 			const state = makeState();
-			const globalFetch = globalThis.fetch;
 
 			let resolveFetch!: () => void;
 			// fetch hangs until we manually resolve it
@@ -308,12 +299,11 @@ describe('createShareHandler', () => {
 			// Now let fetch resolve (simulating network completing after abort was signalled)
 			resolveFetch();
 
-			// The share function should resolve to null due to abort handling,
-			// OR reject — either way shareError must remain null
+			// Note: hangingFetch does not respect the AbortController signal, so this
+			// test only verifies that cleanup does not corrupt state (shareError stays
+			// null) rather than exercising a true abort-error path.
 			await sharePromise.catch(() => null);
 			expect(state.shareError).toBeNull();
-
-			globalThis.fetch = globalFetch;
 		});
 	});
 
@@ -321,7 +311,6 @@ describe('createShareHandler', () => {
 		test('passes mapType correctly in request body for rossler', async () => {
 			const rosslerParams: ChaosMapParameters = { type: 'rossler', a: 0.2, b: 0.2, c: 5.7 };
 			const state = makeState();
-			const globalFetch = globalThis.fetch;
 
 			let parsedBody: { mapType?: string; parameters?: ChaosMapParameters } = {};
 			globalThis.fetch = mock(async (_input: string, init?: RequestInit) => {
@@ -343,7 +332,6 @@ describe('createShareHandler', () => {
 			expect(parsedBody.parameters).toEqual(rosslerParams);
 
 			cleanup();
-			globalThis.fetch = globalFetch;
 		});
 	});
 });
