@@ -50,11 +50,10 @@ describe('generateShortCode', () => {
 	});
 
 	test('generates codes using only valid charset characters', () => {
-		const validCharset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 		for (let i = 0; i < 50; i++) {
 			const code = generateShortCode();
 			for (const char of code) {
-				expect(validCharset).toContain(char);
+				expect(SHARE_CODE_CHARSET).toContain(char);
 			}
 		}
 	});
@@ -110,8 +109,8 @@ describe('calculateExpirationDate', () => {
 		const diffTime = Math.abs(expiration.getTime() - now.getTime());
 		const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-		// Should be approximately SHARE_EXPIRATION_DAYS (accounting for some millisecond difference)
-		expect(diffDays).toBe(SHARE_EXPIRATION_DAYS);
+		// Should be approximately SHARE_EXPIRATION_DAYS (accounting for day boundary rollover)
+		expect([SHARE_EXPIRATION_DAYS, SHARE_EXPIRATION_DAYS + 1]).toContain(diffDays);
 	});
 });
 
@@ -234,6 +233,15 @@ describe('database-dependent functions (integration)', () => {
 		/*
 		 * Test setup requires DATABASE_URL environment variable.
 		 * This test verifies that unique short codes are generated.
+		 */
+	});
+
+	test.todo('checkShareRateLimit - enforces and reports remaining quota', async () => {
+		/*
+		 * Test setup requires DATABASE_URL environment variable.
+		 * This test verifies rate limit checking returns correct values:
+		 * - Returns remaining quota count
+		 * - Returns proper error when limit exceeded
 		 */
 	});
 });
