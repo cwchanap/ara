@@ -271,39 +271,58 @@ describe('createShareHandler', () => {
 		test('cleanup called during in-flight request causes AbortError (no shareError set)', async () => {
 			const state = makeState();
 
-			let resolveFetch!: () => void;
-			// fetch hangs until we manually resolve it
-			const hangingFetch = mock(
-				() =>
-					new Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>(
-						(resolve) => {
-							resolveFetch = () =>
+			// Mock fetch that respects AbortController signal
+			type FetchResponse = { ok: boolean; status: number; json: () => Promise<unknown> };
+			const abortAwareFetch = mock(
+				(_input: string, init?: RequestInit) =>
+					new Promise<FetchResponse>((resolve, reject) => {
+						const signal = init?.signal as AbortSignal | undefined;
+
+						// If already aborted, reject immediately
+						if (signal?.aborted) {
+							reject(new DOMException('Aborted', 'AbortError'));
+							return;
+						}
+
+						// Listen for abort events
+						const abortHandler = () => {
+							reject(new DOMException('Aborted', 'AbortError'));
+						};
+
+						if (signal) {
+							signal.addEventListener('abort', abortHandler);
+						}
+
+						// Resolve normally if not aborted (simulates slow network)
+						setTimeout(() => {
+							if (signal) {
+								signal.removeEventListener('abort', abortHandler);
+							}
+							if (!signal?.aborted) {
 								resolve({
 									ok: true,
 									status: 200,
 									json: async () => ({ shareUrl: '', expiresAt: '' })
 								});
-						}
-					)
+							}
+						}, 1000);
+					})
 			) as unknown as typeof fetch;
-			globalThis.fetch = hangingFetch;
+			globalThis.fetch = abortAwareFetch;
 
 			const { share, cleanup } = createShareHandler('lorenz', state, getParams);
 
 			// Start share but do NOT await yet
 			const sharePromise = share();
 
-			// Abort via cleanup — this aborts the AbortController signal
+			// Abort via cleanup — this triggers the abort event on the signal
 			cleanup();
 
-			// Now let fetch resolve (simulating network completing after abort was signalled)
-			resolveFetch();
-
-			// Note: hangingFetch does not respect the AbortController signal, so this
-			// test only verifies that cleanup does not corrupt state (shareError stays
-			// null) rather than exercising a true abort-error path.
-			await sharePromise.catch(() => null);
-			expect(state.shareError).toBeNull();
+			// The fetch mock should reject with AbortError due to signal.aborted
+			const result = await sharePromise;
+			expect(result).toBeNull(); // AbortError returns null, not a throw
+			expect(state.shareError).toBeNull(); // No error set for AbortError
+			expect(state.isSharing).toBe(false); // isSharing reset in finally
 		});
 	});
 
