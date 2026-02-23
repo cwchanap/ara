@@ -13,8 +13,9 @@ import {
 	SHARE_EXPIRATION_DAYS
 } from '$lib/constants';
 
-// Mock $lib/server/db to prevent DB connection on import.
-// $env/dynamic/private is stubbed globally by src/test-setup.ts preload.
+// Mock $lib/server/db BEFORE importing share-utils to ensure the mock
+// intercepts the DB module before its import-time side effects run.
+// This makes the test truly independent of DB initialization.
 mock.module('$lib/server/db', () => ({
 	db: {
 		select: () => ({ from: () => ({ where: () => ({ limit: () => [] }) }) }),
@@ -27,12 +28,10 @@ mock.module('$lib/server/db', () => ({
 	profiles: {}
 }));
 
-import {
-	generateShortCode,
-	calculateExpirationDate,
-	isShareExpired,
-	getDaysUntilExpiration
-} from '$lib/server/share-utils';
+// Dynamic import AFTER mock registration ensures the mock intercepts
+// $lib/server/db before share-utils imports it.
+const { generateShortCode, calculateExpirationDate, isShareExpired, getDaysUntilExpiration } =
+	await import('$lib/server/share-utils');
 
 describe('generateShortCode', () => {
 	test('generates an 8-character alphanumeric code', () => {
