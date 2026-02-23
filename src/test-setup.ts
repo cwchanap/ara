@@ -15,6 +15,11 @@
 
 import { plugin } from 'bun';
 
+// Prevent import-time DB config crashes in unit tests that touch server modules.
+if (!process.env.DATABASE_URL && !process.env.NETLIFY_DATABASE_URL) {
+	process.env.DATABASE_URL = 'postgresql://postgres:postgres@localhost:5432/postgres';
+}
+
 plugin({
 	name: 'sveltekit-virtual-modules',
 	setup(build) {
