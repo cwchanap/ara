@@ -232,4 +232,159 @@ describe('useConfigLoader', () => {
 			globalThis.fetch = originalFetch;
 		}
 	});
+	test('sets warning state when onCheckStability reports unstable shared config', async () => {
+		const params: LorenzParams = { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 };
+		const mockResponse = {
+			ok: true,
+			json: async () => ({ mapType: 'lorenz', parameters: params })
+		};
+		const rawFetchMock = mock(() => Promise.resolve(mockResponse as Response));
+		const fetchMock: typeof fetch = Object.assign(rawFetchMock, { preconnect: () => {} });
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = fetchMock;
+
+		try {
+			const page = writable<Page>(createPage('http://localhost/lorenz?share=warn123'));
+			const state = createInitialConfigLoaderState();
+
+			const { cleanup } = useConfigLoader(
+				{
+					page,
+					mapType: 'lorenz',
+					base: '',
+					onParametersLoaded: (value: LorenzParams) => value,
+					onCheckStability: () => ({
+						isStable: false,
+						warnings: ['Sigma may be unstable']
+					})
+				},
+				state
+			);
+
+			await waitFor(() => state.isLoading === false);
+			expect(state.showWarning).toBe(true);
+			expect(state.warnings).toEqual(['Sigma may be unstable']);
+
+			cleanup();
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
+
+	test('surfaces loader fetch exception as user-facing load error', async () => {
+		const rawFetchMock = mock(() => Promise.reject(new Error('socket closed')));
+		const fetchMock: typeof fetch = Object.assign(rawFetchMock, { preconnect: () => {} });
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = fetchMock;
+
+		try {
+			const page = writable<Page>(createPage('http://localhost/lorenz?configId=explode'));
+			const state = createInitialConfigLoaderState();
+			const onParametersLoaded = mock((params: LorenzParams) => params);
+
+			const { cleanup } = useConfigLoader(
+				{
+					page,
+					mapType: 'lorenz',
+					base: '',
+					onParametersLoaded
+				},
+				state
+			);
+
+			await waitFor(() => state.isLoading === false);
+			expect(state.showError).toBe(true);
+			expect(state.errors[0]).toContain('Failed to load configuration parameters');
+			expect(onParametersLoaded).not.toHaveBeenCalled();
+
+			cleanup();
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
+
+	test('applies direct config and sets warning state when onCheckStability reports unstable', () => {
+		const params: LorenzParams = { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 };
+		const configParam = encodeURIComponent(JSON.stringify(params));
+		const page = writable<Page>(createPage(`http://localhost/lorenz?config=${configParam}`));
+		const state = createInitialConfigLoaderState();
+
+		const { cleanup } = useConfigLoader(
+			{
+				page,
+				mapType: 'lorenz',
+				base: '',
+				onParametersLoaded: (value: LorenzParams) => value,
+				onCheckStability: () => ({ isStable: false, warnings: ['High sigma'] })
+			},
+			state
+		);
+
+		expect(state.showWarning).toBe(true);
+		expect(state.warnings).toEqual(['High sigma']);
+		expect(state.showError).toBe(false);
+
+		cleanup();
+	});
+
+	test('reports non-Error throws from onParametersLoaded for shared config', async () => {
+		const params: LorenzParams = { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 };
+		const mockResponse = {
+			ok: true,
+			json: async () => ({ mapType: 'lorenz', parameters: params })
+		};
+		const rawFetchMock = mock(() => Promise.resolve(mockResponse as Response));
+		const fetchMock: typeof fetch = Object.assign(rawFetchMock, { preconnect: () => {} });
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = fetchMock;
+
+		try {
+			const page = writable<Page>(createPage('http://localhost/lorenz?share=throw-string'));
+			const state = createInitialConfigLoaderState();
+
+			const { cleanup } = useConfigLoader(
+				{
+					page,
+					mapType: 'lorenz',
+					base: '',
+					onParametersLoaded: () => {
+						throw 'string-failure';
+					}
+				},
+				state
+			);
+
+			await waitFor(() => state.isLoading === false);
+			expect(state.showError).toBe(true);
+			expect(state.errors[0]).toBe('Failed to apply parameters: string-failure');
+
+			cleanup();
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
+
+	test('reports non-Error throws from onParametersLoaded for direct config param', () => {
+		const params: LorenzParams = { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 };
+		const configParam = encodeURIComponent(JSON.stringify(params));
+		const page = writable<Page>(createPage(`http://localhost/lorenz?config=${configParam}`));
+		const state = createInitialConfigLoaderState();
+
+		const { cleanup } = useConfigLoader(
+			{
+				page,
+				mapType: 'lorenz',
+				base: '',
+				onParametersLoaded: () => {
+					throw 'direct-string-failure';
+				}
+			},
+			state
+		);
+
+		expect(state.showError).toBe(true);
+		expect(state.errors[0]).toBe('Failed to apply parameters: direct-string-failure');
+
+		cleanup();
+	});
 });

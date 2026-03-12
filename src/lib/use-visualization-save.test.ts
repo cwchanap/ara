@@ -99,6 +99,34 @@ describe('createSaveHandler', () => {
 			cleanup();
 		});
 
+		test('auto-clears saveSuccess when success timeout callback runs', async () => {
+			const state = makeState();
+			globalThis.fetch = makeFetch({ ok: true });
+
+			const originalSetTimeout = globalThis.setTimeout;
+			const originalClearTimeout = globalThis.clearTimeout;
+			globalThis.setTimeout = ((cb: TimerHandler) => {
+				if (typeof cb === 'function') cb();
+				return 1 as unknown as ReturnType<typeof setTimeout>;
+			}) as typeof setTimeout;
+			globalThis.clearTimeout = ((timeoutId) => {
+				void timeoutId;
+			}) as typeof clearTimeout;
+
+			try {
+				const { save, cleanup } = createSaveHandler('lorenz', state, getParams);
+				await save('My Config');
+
+				expect(state.saveSuccess).toBe(false);
+				expect(state.showSaveDialog).toBe(false);
+
+				cleanup();
+			} finally {
+				globalThis.setTimeout = originalSetTimeout;
+				globalThis.clearTimeout = originalClearTimeout;
+			}
+		});
+
 		test('calls fetch with correct POST body', async () => {
 			const state = makeState();
 			const fetchMock = makeFetch({ ok: true });
@@ -164,6 +192,36 @@ describe('createSaveHandler', () => {
 			cleanup();
 		});
 
+		test('auto-clears saveError when error timeout callback runs', async () => {
+			const state = makeState();
+			globalThis.fetch = makeFetch({
+				ok: false,
+				json: async () => ({ error: 'Server error occurred' })
+			});
+
+			const originalSetTimeout = globalThis.setTimeout;
+			const originalClearTimeout = globalThis.clearTimeout;
+			globalThis.setTimeout = ((cb: TimerHandler) => {
+				if (typeof cb === 'function') cb();
+				return 1 as unknown as ReturnType<typeof setTimeout>;
+			}) as typeof setTimeout;
+			globalThis.clearTimeout = ((timeoutId) => {
+				void timeoutId;
+			}) as typeof clearTimeout;
+
+			try {
+				const { save, cleanup } = createSaveHandler('lorenz', state, getParams);
+				await save('My Config');
+
+				expect(state.saveError).toBeNull();
+				expect(state.isSaving).toBe(false);
+
+				cleanup();
+			} finally {
+				globalThis.setTimeout = originalSetTimeout;
+				globalThis.clearTimeout = originalClearTimeout;
+			}
+		});
 		test('sets saveError on network error', async () => {
 			const state = makeState();
 			globalThis.fetch = mock(async () => {
@@ -189,6 +247,24 @@ describe('createSaveHandler', () => {
 			await save('My Config');
 
 			expect(state.saveError).toBe('Failed to save configuration');
+			expect(state.isSaving).toBe(false);
+
+			cleanup();
+		});
+
+		test('does not set saveError when fetch throws AbortError', async () => {
+			const state = makeState();
+			globalThis.fetch = mock(async () => {
+				const error = new Error('aborted');
+				error.name = 'AbortError';
+				throw error;
+			}) as unknown as typeof fetch;
+
+			const { save, cleanup } = createSaveHandler('lorenz', state, getParams);
+			await save('My Config');
+
+			expect(state.saveError).toBeNull();
+			expect(state.saveSuccess).toBe(false);
 			expect(state.isSaving).toBe(false);
 
 			cleanup();
@@ -369,6 +445,41 @@ describe('loadConfigFromUrl', () => {
 			expect(result.stabilityWarnings.length).toBeGreaterThan(0);
 		}
 	});
+});
+
+test('returns {ok:false} when fetchFn throws AbortError during configId load', async () => {
+	const params = new URLSearchParams({ configId: 'abc-123' });
+	const fetchFn = mock(async () => {
+		const error = new Error('aborted');
+		error.name = 'AbortError';
+		throw error;
+	}) as unknown as typeof fetch;
+
+	const result = await loadConfigFromUrl({
+		mapType: 'lorenz',
+		searchParams: params,
+		fetchFn
+	});
+
+	expect(result.ok).toBe(false);
+});
+
+test('returns {ok:false} when fetchFn throws non-abort error during configId load', async () => {
+	const params = new URLSearchParams({ configId: 'abc-123' });
+	const fetchFn = mock(async () => {
+		throw new Error('network down');
+	}) as unknown as typeof fetch;
+
+	const result = await loadConfigFromUrl({
+		mapType: 'lorenz',
+		searchParams: params,
+		fetchFn
+	});
+
+	expect(result.ok).toBe(false);
+	if (result.ok === false) {
+		expect(result.errors).toEqual(['Failed to load configuration parameters']);
+	}
 });
 
 // ── createInitialSaveState ───────────────────────────────────────────────────
