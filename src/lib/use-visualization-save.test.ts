@@ -108,10 +108,10 @@ describe('createSaveHandler', () => {
 			globalThis.setTimeout = ((cb: TimerHandler) => {
 				if (typeof cb === 'function') cb();
 				return 1 as unknown as ReturnType<typeof setTimeout>;
-			}) as typeof setTimeout;
-			globalThis.clearTimeout = ((timeoutId) => {
+			}) as unknown as typeof setTimeout;
+			globalThis.clearTimeout = ((timeoutId: ReturnType<typeof setTimeout>) => {
 				void timeoutId;
-			}) as typeof clearTimeout;
+			}) as unknown as typeof clearTimeout;
 
 			try {
 				const { save, cleanup } = createSaveHandler('lorenz', state, getParams);
@@ -204,10 +204,10 @@ describe('createSaveHandler', () => {
 			globalThis.setTimeout = ((cb: TimerHandler) => {
 				if (typeof cb === 'function') cb();
 				return 1 as unknown as ReturnType<typeof setTimeout>;
-			}) as typeof setTimeout;
-			globalThis.clearTimeout = ((timeoutId) => {
+			}) as unknown as typeof setTimeout;
+			globalThis.clearTimeout = ((timeoutId: ReturnType<typeof setTimeout>) => {
 				void timeoutId;
-			}) as typeof clearTimeout;
+			}) as unknown as typeof clearTimeout;
 
 			try {
 				const { save, cleanup } = createSaveHandler('lorenz', state, getParams);
