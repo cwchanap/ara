@@ -427,6 +427,41 @@ describe('loadConfigFromUrl', () => {
 		}
 	});
 
+	test('returns {ok:false} when fetchFn throws AbortError during configId load', async () => {
+		const params = new URLSearchParams({ configId: 'abc-123' });
+		const fetchFn = mock(async () => {
+			const error = new Error('aborted');
+			error.name = 'AbortError';
+			throw error;
+		}) as unknown as typeof fetch;
+
+		const result = await loadConfigFromUrl({
+			mapType: 'lorenz',
+			searchParams: params,
+			fetchFn
+		});
+
+		expect(result.ok).toBe(false);
+	});
+
+	test('returns {ok:false} when fetchFn throws non-abort error during configId load', async () => {
+		const params = new URLSearchParams({ configId: 'abc-123' });
+		const fetchFn = mock(async () => {
+			throw new Error('network down');
+		}) as unknown as typeof fetch;
+
+		const result = await loadConfigFromUrl({
+			mapType: 'lorenz',
+			searchParams: params,
+			fetchFn
+		});
+
+		expect(result.ok).toBe(false);
+		if (result.ok === false) {
+			expect(result.errors).toEqual(['Failed to load configuration parameters']);
+		}
+	});
+
 	test('includes stability warnings when parameters are out of stable range', async () => {
 		const params = new URLSearchParams({
 			config: encodeURIComponent(
@@ -445,41 +480,6 @@ describe('loadConfigFromUrl', () => {
 			expect(result.stabilityWarnings.length).toBeGreaterThan(0);
 		}
 	});
-});
-
-test('returns {ok:false} when fetchFn throws AbortError during configId load', async () => {
-	const params = new URLSearchParams({ configId: 'abc-123' });
-	const fetchFn = mock(async () => {
-		const error = new Error('aborted');
-		error.name = 'AbortError';
-		throw error;
-	}) as unknown as typeof fetch;
-
-	const result = await loadConfigFromUrl({
-		mapType: 'lorenz',
-		searchParams: params,
-		fetchFn
-	});
-
-	expect(result.ok).toBe(false);
-});
-
-test('returns {ok:false} when fetchFn throws non-abort error during configId load', async () => {
-	const params = new URLSearchParams({ configId: 'abc-123' });
-	const fetchFn = mock(async () => {
-		throw new Error('network down');
-	}) as unknown as typeof fetch;
-
-	const result = await loadConfigFromUrl({
-		mapType: 'lorenz',
-		searchParams: params,
-		fetchFn
-	});
-
-	expect(result.ok).toBe(false);
-	if (result.ok === false) {
-		expect(result.errors).toEqual(['Failed to load configuration parameters']);
-	}
 });
 
 // ── createInitialSaveState ───────────────────────────────────────────────────
