@@ -606,3 +606,719 @@ describe('getStableRanges for lozi', () => {
 		expect(ranges?.iterations).toEqual({ min: 1, max: 50000 });
 	});
 });
+
+describe('validateParameters for lorenz', () => {
+	test('returns valid for correct lorenz parameters', () => {
+		const params = { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 };
+		const result = validateParameters('lorenz', params);
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toHaveLength(0);
+	});
+
+	test('returns invalid for missing parameters', () => {
+		const params = { type: 'lorenz', sigma: 10, rho: 28 }; // missing beta
+		const result = validateParameters('lorenz', params);
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('beta'))).toBe(true);
+	});
+
+	test('returns invalid for non-numeric parameters', () => {
+		const params = { type: 'lorenz', sigma: 'not a number', rho: 28, beta: 2.667 };
+		const result = validateParameters('lorenz', params);
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('sigma'))).toBe(true);
+	});
+
+	test('returns invalid for NaN parameters', () => {
+		const params = { type: 'lorenz', sigma: NaN, rho: 28, beta: 2.667 };
+		const result = validateParameters('lorenz', params);
+		expect(result.isValid).toBe(false);
+	});
+
+	test('returns invalid for extra parameters', () => {
+		const params = { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667, extra: 123 };
+		const result = validateParameters('lorenz', params);
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('extra'))).toBe(true);
+	});
+
+	test('returns invalid for null parameters', () => {
+		const result = validateParameters('lorenz', null);
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('object'))).toBe(true);
+	});
+
+	test('returns invalid for unknown map type', () => {
+		const params = { type: 'unknown', sigma: 10, rho: 28, beta: 2.667 };
+		const result = validateParameters('unknown' as never, params);
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('Unknown map type'))).toBe(true);
+	});
+});
+
+describe('checkParameterStability for lorenz', () => {
+	test('returns stable for classic parameters', () => {
+		const params = { type: 'lorenz' as const, sigma: 10, rho: 28, beta: 2.667 };
+		const result = checkParameterStability('lorenz', params);
+		expect(result.isStable).toBe(true);
+		expect(result.warnings).toHaveLength(0);
+	});
+
+	test('returns warnings for sigma below stable range (sigma < 0)', () => {
+		const params = { type: 'lorenz' as const, sigma: -1, rho: 28, beta: 2.667 };
+		const result = checkParameterStability('lorenz', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('sigma'))).toBe(true);
+	});
+
+	test('returns warnings for sigma above stable range (sigma > 50)', () => {
+		const params = { type: 'lorenz' as const, sigma: 100, rho: 28, beta: 2.667 };
+		const result = checkParameterStability('lorenz', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('sigma'))).toBe(true);
+	});
+
+	test('returns warnings for rho above stable range (rho > 100)', () => {
+		const params = { type: 'lorenz' as const, sigma: 10, rho: 150, beta: 2.667 };
+		const result = checkParameterStability('lorenz', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('rho'))).toBe(true);
+	});
+
+	test('returns warnings for beta above stable range (beta > 10)', () => {
+		const params = { type: 'lorenz' as const, sigma: 10, rho: 28, beta: 15 };
+		const result = checkParameterStability('lorenz', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('beta'))).toBe(true);
+	});
+
+	test('returns stable for minimum boundary values', () => {
+		const params = { type: 'lorenz' as const, sigma: 0, rho: 0, beta: 0 };
+		const result = checkParameterStability('lorenz', params);
+		expect(result.isStable).toBe(true);
+	});
+
+	test('returns stable for maximum boundary values', () => {
+		const params = { type: 'lorenz' as const, sigma: 50, rho: 100, beta: 10 };
+		const result = checkParameterStability('lorenz', params);
+		expect(result.isStable).toBe(true);
+	});
+});
+
+describe('isValidMapType for lorenz', () => {
+	test('returns true for lorenz', () => {
+		expect(isValidMapType('lorenz')).toBe(true);
+	});
+});
+
+describe('getStableRanges for lorenz', () => {
+	test('returns correct ranges for lorenz', () => {
+		const ranges = getStableRanges('lorenz');
+		expect(ranges).toBeDefined();
+		expect(ranges?.sigma).toEqual({ min: 0, max: 50 });
+		expect(ranges?.rho).toEqual({ min: 0, max: 100 });
+		expect(ranges?.beta).toEqual({ min: 0, max: 10 });
+	});
+});
+
+describe('validateParameters for henon', () => {
+	test('returns valid for correct henon parameters', () => {
+		const params = { type: 'henon', a: 1.4, b: 0.3, iterations: 10000 };
+		const result = validateParameters('henon', params);
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toHaveLength(0);
+	});
+
+	test('returns invalid for missing iterations', () => {
+		const params = { type: 'henon', a: 1.4, b: 0.3 };
+		const result = validateParameters('henon', params);
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('iterations'))).toBe(true);
+	});
+
+	test('returns invalid for non-numeric a', () => {
+		const params = { type: 'henon', a: 'not a number', b: 0.3, iterations: 2000 };
+		const result = validateParameters('henon', params);
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('a'))).toBe(true);
+	});
+
+	test('returns invalid for NaN b', () => {
+		const params = { type: 'henon', a: 1.4, b: NaN, iterations: 2000 };
+		const result = validateParameters('henon', params);
+		expect(result.isValid).toBe(false);
+	});
+
+	test('returns invalid for extra parameters', () => {
+		const params = { type: 'henon', a: 1.4, b: 0.3, iterations: 2000, extra: 0 };
+		const result = validateParameters('henon', params);
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('extra'))).toBe(true);
+	});
+});
+
+describe('checkParameterStability for henon', () => {
+	test('returns stable for classic parameters', () => {
+		const params = { type: 'henon' as const, a: 1.4, b: 0.3, iterations: 10000 };
+		const result = checkParameterStability('henon', params);
+		expect(result.isStable).toBe(true);
+		expect(result.warnings).toHaveLength(0);
+	});
+
+	test('returns warnings for a below stable range (a < 0)', () => {
+		const params = { type: 'henon' as const, a: -0.5, b: 0.3, iterations: 2000 };
+		const result = checkParameterStability('henon', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('a'))).toBe(true);
+	});
+
+	test('returns warnings for a above stable range (a > 2)', () => {
+		const params = { type: 'henon' as const, a: 2.5, b: 0.3, iterations: 2000 };
+		const result = checkParameterStability('henon', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('a'))).toBe(true);
+	});
+
+	test('returns warnings for b below stable range (b < -1)', () => {
+		const params = { type: 'henon' as const, a: 1.4, b: -1.5, iterations: 2000 };
+		const result = checkParameterStability('henon', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('b'))).toBe(true);
+	});
+
+	test('returns warnings for b above stable range (b > 1)', () => {
+		const params = { type: 'henon' as const, a: 1.4, b: 1.5, iterations: 2000 };
+		const result = checkParameterStability('henon', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('b'))).toBe(true);
+	});
+
+	test('returns warnings for iterations above stable range', () => {
+		const params = { type: 'henon' as const, a: 1.4, b: 0.3, iterations: 100000 };
+		const result = checkParameterStability('henon', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('iterations'))).toBe(true);
+	});
+
+	test('returns stable for boundary values (min)', () => {
+		const params = { type: 'henon' as const, a: 0, b: -1, iterations: 1 };
+		const result = checkParameterStability('henon', params);
+		expect(result.isStable).toBe(true);
+	});
+
+	test('returns stable for boundary values (max)', () => {
+		const params = { type: 'henon' as const, a: 2, b: 1, iterations: 50000 };
+		const result = checkParameterStability('henon', params);
+		expect(result.isStable).toBe(true);
+	});
+});
+
+describe('isValidMapType for henon', () => {
+	test('returns true for henon', () => {
+		expect(isValidMapType('henon')).toBe(true);
+	});
+});
+
+describe('getStableRanges for henon', () => {
+	test('returns correct ranges for henon', () => {
+		const ranges = getStableRanges('henon');
+		expect(ranges).toBeDefined();
+		expect(ranges?.a).toEqual({ min: 0, max: 2 });
+		expect(ranges?.b).toEqual({ min: -1, max: 1 });
+		expect(ranges?.iterations).toEqual({ min: 1, max: 50000 });
+	});
+});
+
+describe('validateParameters for logistic', () => {
+	test('returns valid for correct logistic parameters', () => {
+		const params = { type: 'logistic', r: 3.9, x0: 0.1, iterations: 100 };
+		const result = validateParameters('logistic', params);
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toHaveLength(0);
+	});
+
+	test('returns invalid for missing x0', () => {
+		const params = { type: 'logistic', r: 3.9, iterations: 100 };
+		const result = validateParameters('logistic', params);
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('x0'))).toBe(true);
+	});
+
+	test('returns invalid for non-numeric r', () => {
+		const params = { type: 'logistic', r: 'not a number', x0: 0.1, iterations: 100 };
+		const result = validateParameters('logistic', params);
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('r'))).toBe(true);
+	});
+
+	test('returns invalid for NaN iterations', () => {
+		const params = { type: 'logistic', r: 3.9, x0: 0.1, iterations: NaN };
+		const result = validateParameters('logistic', params);
+		expect(result.isValid).toBe(false);
+	});
+
+	test('returns invalid for extra parameters', () => {
+		const params = { type: 'logistic', r: 3.9, x0: 0.1, iterations: 100, extra: 0 };
+		const result = validateParameters('logistic', params);
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('extra'))).toBe(true);
+	});
+});
+
+describe('checkParameterStability for logistic', () => {
+	test('returns stable for classic parameters', () => {
+		const params = { type: 'logistic' as const, r: 3.9, x0: 0.1, iterations: 100 };
+		const result = checkParameterStability('logistic', params);
+		expect(result.isStable).toBe(true);
+		expect(result.warnings).toHaveLength(0);
+	});
+
+	test('returns warnings for r below stable range (r < 0)', () => {
+		const params = { type: 'logistic' as const, r: -0.5, x0: 0.1, iterations: 100 };
+		const result = checkParameterStability('logistic', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('r'))).toBe(true);
+	});
+
+	test('returns warnings for r above stable range (r > 4)', () => {
+		const params = { type: 'logistic' as const, r: 4.5, x0: 0.1, iterations: 100 };
+		const result = checkParameterStability('logistic', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('r'))).toBe(true);
+	});
+
+	test('returns warnings for x0 below stable range (x0 < 0)', () => {
+		const params = { type: 'logistic' as const, r: 3.9, x0: -0.5, iterations: 100 };
+		const result = checkParameterStability('logistic', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('x0'))).toBe(true);
+	});
+
+	test('returns warnings for x0 above stable range (x0 > 1)', () => {
+		const params = { type: 'logistic' as const, r: 3.9, x0: 1.5, iterations: 100 };
+		const result = checkParameterStability('logistic', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('x0'))).toBe(true);
+	});
+
+	test('returns warnings for iterations above stable range', () => {
+		const params = { type: 'logistic' as const, r: 3.9, x0: 0.1, iterations: 5000 };
+		const result = checkParameterStability('logistic', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('iterations'))).toBe(true);
+	});
+
+	test('returns stable for boundary values (min)', () => {
+		const params = { type: 'logistic' as const, r: 0, x0: 0, iterations: 1 };
+		const result = checkParameterStability('logistic', params);
+		expect(result.isStable).toBe(true);
+	});
+
+	test('returns stable for boundary values (max)', () => {
+		const params = { type: 'logistic' as const, r: 4, x0: 1, iterations: 1000 };
+		const result = checkParameterStability('logistic', params);
+		expect(result.isStable).toBe(true);
+	});
+});
+
+describe('isValidMapType for logistic', () => {
+	test('returns true for logistic', () => {
+		expect(isValidMapType('logistic')).toBe(true);
+	});
+});
+
+describe('getStableRanges for logistic', () => {
+	test('returns correct ranges for logistic', () => {
+		const ranges = getStableRanges('logistic');
+		expect(ranges).toBeDefined();
+		expect(ranges?.r).toEqual({ min: 0, max: 4 });
+		expect(ranges?.x0).toEqual({ min: 0, max: 1 });
+		expect(ranges?.iterations).toEqual({ min: 1, max: 1000 });
+	});
+});
+
+describe('validateParameters for bifurcation-logistic', () => {
+	test('returns valid for correct bifurcation-logistic parameters', () => {
+		const params = { type: 'bifurcation-logistic', rMin: 2.5, rMax: 4.0, maxIterations: 1000 };
+		const result = validateParameters('bifurcation-logistic', params);
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toHaveLength(0);
+	});
+
+	test('returns invalid for missing rMax', () => {
+		const params = { type: 'bifurcation-logistic', rMin: 2.5, maxIterations: 1000 };
+		const result = validateParameters('bifurcation-logistic', params);
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('rMax'))).toBe(true);
+	});
+
+	test('returns invalid for non-numeric rMin', () => {
+		const params = {
+			type: 'bifurcation-logistic',
+			rMin: 'not a number',
+			rMax: 4.0,
+			maxIterations: 1000
+		};
+		const result = validateParameters('bifurcation-logistic', params);
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('rMin'))).toBe(true);
+	});
+
+	test('returns invalid for NaN maxIterations', () => {
+		const params = { type: 'bifurcation-logistic', rMin: 2.5, rMax: 4.0, maxIterations: NaN };
+		const result = validateParameters('bifurcation-logistic', params);
+		expect(result.isValid).toBe(false);
+	});
+
+	test('returns invalid for extra parameters', () => {
+		const params = {
+			type: 'bifurcation-logistic',
+			rMin: 2.5,
+			rMax: 4.0,
+			maxIterations: 1000,
+			extra: 0
+		};
+		const result = validateParameters('bifurcation-logistic', params);
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('extra'))).toBe(true);
+	});
+});
+
+describe('checkParameterStability for bifurcation-logistic', () => {
+	test('returns stable for in-range parameters', () => {
+		const params = {
+			type: 'bifurcation-logistic' as const,
+			rMin: 2.5,
+			rMax: 4.0,
+			maxIterations: 1000
+		};
+		const result = checkParameterStability('bifurcation-logistic', params);
+		expect(result.isStable).toBe(true);
+		expect(result.warnings).toHaveLength(0);
+	});
+
+	test('returns warnings when rMin is below stable range', () => {
+		const params = {
+			type: 'bifurcation-logistic' as const,
+			rMin: -0.5,
+			rMax: 4.0,
+			maxIterations: 1000
+		};
+		const result = checkParameterStability('bifurcation-logistic', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('rMin'))).toBe(true);
+	});
+
+	test('returns warnings when rMax is above stable range', () => {
+		const params = {
+			type: 'bifurcation-logistic' as const,
+			rMin: 2.5,
+			rMax: 4.5,
+			maxIterations: 1000
+		};
+		const result = checkParameterStability('bifurcation-logistic', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('rMax'))).toBe(true);
+	});
+
+	test('returns warnings when rMin is not less than rMax', () => {
+		const params = {
+			type: 'bifurcation-logistic' as const,
+			rMin: 3.5,
+			rMax: 3.0,
+			maxIterations: 1000
+		};
+		const result = checkParameterStability('bifurcation-logistic', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('rMin must be less than rMax'))).toBe(true);
+	});
+
+	test('returns warnings when rMin equals rMax', () => {
+		const params = {
+			type: 'bifurcation-logistic' as const,
+			rMin: 3.0,
+			rMax: 3.0,
+			maxIterations: 1000
+		};
+		const result = checkParameterStability('bifurcation-logistic', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('rMin must be less than rMax'))).toBe(true);
+	});
+
+	test('returns warnings when maxIterations is above stable range', () => {
+		const params = {
+			type: 'bifurcation-logistic' as const,
+			rMin: 2.5,
+			rMax: 4.0,
+			maxIterations: 10000
+		};
+		const result = checkParameterStability('bifurcation-logistic', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('maxIterations'))).toBe(true);
+	});
+
+	test('returns stable for boundary values', () => {
+		const params = {
+			type: 'bifurcation-logistic' as const,
+			rMin: 0,
+			rMax: 4,
+			maxIterations: 5000
+		};
+		const result = checkParameterStability('bifurcation-logistic', params);
+		expect(result.isStable).toBe(true);
+	});
+});
+
+describe('isValidMapType for bifurcation-logistic', () => {
+	test('returns true for bifurcation-logistic', () => {
+		expect(isValidMapType('bifurcation-logistic')).toBe(true);
+	});
+});
+
+describe('getStableRanges for bifurcation-logistic', () => {
+	test('returns correct ranges for bifurcation-logistic', () => {
+		const ranges = getStableRanges('bifurcation-logistic');
+		expect(ranges).toBeDefined();
+		expect(ranges?.rMin).toEqual({ min: 0, max: 4 });
+		expect(ranges?.rMax).toEqual({ min: 0, max: 4 });
+		expect(ranges?.maxIterations).toEqual({ min: 1, max: 5000 });
+	});
+});
+
+describe('validateParameters for bifurcation-henon', () => {
+	test('returns valid for correct bifurcation-henon parameters', () => {
+		const params = {
+			type: 'bifurcation-henon',
+			aMin: 0.8,
+			aMax: 1.4,
+			b: 0.3,
+			maxIterations: 500
+		};
+		const result = validateParameters('bifurcation-henon', params);
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toHaveLength(0);
+	});
+
+	test('returns invalid for missing b', () => {
+		const params = { type: 'bifurcation-henon', aMin: 0.8, aMax: 1.4, maxIterations: 500 };
+		const result = validateParameters('bifurcation-henon', params);
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('b'))).toBe(true);
+	});
+
+	test('returns invalid for non-numeric aMin', () => {
+		const params = {
+			type: 'bifurcation-henon',
+			aMin: 'not a number',
+			aMax: 1.4,
+			b: 0.3,
+			maxIterations: 500
+		};
+		const result = validateParameters('bifurcation-henon', params);
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('aMin'))).toBe(true);
+	});
+
+	test('returns invalid for NaN aMax', () => {
+		const params = {
+			type: 'bifurcation-henon',
+			aMin: 0.8,
+			aMax: NaN,
+			b: 0.3,
+			maxIterations: 500
+		};
+		const result = validateParameters('bifurcation-henon', params);
+		expect(result.isValid).toBe(false);
+	});
+
+	test('returns invalid for extra parameters', () => {
+		const params = {
+			type: 'bifurcation-henon',
+			aMin: 0.8,
+			aMax: 1.4,
+			b: 0.3,
+			maxIterations: 500,
+			extra: 0
+		};
+		const result = validateParameters('bifurcation-henon', params);
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('extra'))).toBe(true);
+	});
+});
+
+describe('checkParameterStability for bifurcation-henon', () => {
+	test('returns stable for in-range parameters', () => {
+		const params = {
+			type: 'bifurcation-henon' as const,
+			aMin: 0.8,
+			aMax: 1.4,
+			b: 0.3,
+			maxIterations: 500
+		};
+		const result = checkParameterStability('bifurcation-henon', params);
+		expect(result.isStable).toBe(true);
+		expect(result.warnings).toHaveLength(0);
+	});
+
+	test('returns warnings when aMin is below stable range', () => {
+		const params = {
+			type: 'bifurcation-henon' as const,
+			aMin: -0.5,
+			aMax: 1.4,
+			b: 0.3,
+			maxIterations: 500
+		};
+		const result = checkParameterStability('bifurcation-henon', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('aMin'))).toBe(true);
+	});
+
+	test('returns warnings when aMax is above stable range', () => {
+		const params = {
+			type: 'bifurcation-henon' as const,
+			aMin: 0.8,
+			aMax: 2.5,
+			b: 0.3,
+			maxIterations: 500
+		};
+		const result = checkParameterStability('bifurcation-henon', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('aMax'))).toBe(true);
+	});
+
+	test('returns warnings when b is outside stable range', () => {
+		const params = {
+			type: 'bifurcation-henon' as const,
+			aMin: 0.8,
+			aMax: 1.4,
+			b: 1.5,
+			maxIterations: 500
+		};
+		const result = checkParameterStability('bifurcation-henon', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('b'))).toBe(true);
+	});
+
+	test('returns warnings when aMin is not less than aMax', () => {
+		const params = {
+			type: 'bifurcation-henon' as const,
+			aMin: 1.4,
+			aMax: 0.8,
+			b: 0.3,
+			maxIterations: 500
+		};
+		const result = checkParameterStability('bifurcation-henon', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('aMin must be less than aMax'))).toBe(true);
+	});
+
+	test('returns warnings when aMin equals aMax', () => {
+		const params = {
+			type: 'bifurcation-henon' as const,
+			aMin: 1.0,
+			aMax: 1.0,
+			b: 0.3,
+			maxIterations: 500
+		};
+		const result = checkParameterStability('bifurcation-henon', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('aMin must be less than aMax'))).toBe(true);
+	});
+
+	test('returns warnings when maxIterations is above stable range', () => {
+		const params = {
+			type: 'bifurcation-henon' as const,
+			aMin: 0.8,
+			aMax: 1.4,
+			b: 0.3,
+			maxIterations: 10000
+		};
+		const result = checkParameterStability('bifurcation-henon', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('maxIterations'))).toBe(true);
+	});
+
+	test('returns stable for boundary values', () => {
+		const params = {
+			type: 'bifurcation-henon' as const,
+			aMin: 0,
+			aMax: 2,
+			b: -1,
+			maxIterations: 5000
+		};
+		const result = checkParameterStability('bifurcation-henon', params);
+		expect(result.isStable).toBe(true);
+	});
+});
+
+describe('isValidMapType for bifurcation-henon', () => {
+	test('returns true for bifurcation-henon', () => {
+		expect(isValidMapType('bifurcation-henon')).toBe(true);
+	});
+});
+
+describe('getStableRanges for bifurcation-henon', () => {
+	test('returns correct ranges for bifurcation-henon', () => {
+		const ranges = getStableRanges('bifurcation-henon');
+		expect(ranges).toBeDefined();
+		expect(ranges?.aMin).toEqual({ min: 0, max: 2 });
+		expect(ranges?.aMax).toEqual({ min: 0, max: 2 });
+		expect(ranges?.b).toEqual({ min: -1, max: 1 });
+		expect(ranges?.maxIterations).toEqual({ min: 1, max: 5000 });
+	});
+});
+
+describe('isValidMapType for all map types', () => {
+	test('returns true for all valid map types', () => {
+		const validTypes = [
+			'lorenz',
+			'rossler',
+			'henon',
+			'lozi',
+			'logistic',
+			'newton',
+			'standard',
+			'bifurcation-logistic',
+			'bifurcation-henon',
+			'chaos-esthetique',
+			'lyapunov'
+		] as const;
+		for (const mapType of validTypes) {
+			expect(isValidMapType(mapType)).toBe(true);
+		}
+	});
+
+	test('returns false for invalid map type', () => {
+		expect(isValidMapType('invalid-type')).toBe(false);
+	});
+
+	test('returns false for empty string', () => {
+		expect(isValidMapType('')).toBe(false);
+	});
+});
+
+describe('getStableRanges for all map types', () => {
+	test('returns undefined for unknown map type', () => {
+		const ranges = getStableRanges('unknown' as never);
+		expect(ranges).toBeUndefined();
+	});
+
+	test('returns defined ranges for all valid map types', () => {
+		const validTypes = [
+			'lorenz',
+			'rossler',
+			'henon',
+			'lozi',
+			'logistic',
+			'newton',
+			'standard',
+			'bifurcation-logistic',
+			'bifurcation-henon',
+			'chaos-esthetique',
+			'lyapunov'
+		] as const;
+		for (const mapType of validTypes) {
+			expect(getStableRanges(mapType)).toBeDefined();
+		}
+	});
+});
