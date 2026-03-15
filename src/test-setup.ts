@@ -38,5 +38,23 @@ plugin({
 			contents: `export const base = '';`,
 			loader: 'js'
 		}));
+
+		// Stubs for $lib/* modules: bun cannot resolve the $lib path alias
+		// without .svelte-kit/tsconfig.json (generated at dev/build time).
+		// Re-export from real files using absolute paths so values stay in
+		// sync without duplication.
+		const libDir = `${import.meta.dir}/lib`;
+		build.module('$lib/constants', () => ({
+			contents: `export * from '${libDir}/constants.ts';`,
+			loader: 'ts'
+		}));
+		build.module('$lib/chaos-validation', () => ({
+			contents: `export * from '${libDir}/chaos-validation.ts';`,
+			loader: 'ts'
+		}));
+		build.module('$lib/saved-config-loader', () => ({
+			contents: `export * from '${libDir}/saved-config-loader.ts';`,
+			loader: 'ts'
+		}));
 	}
 });
