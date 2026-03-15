@@ -103,10 +103,11 @@ describe('createSaveHandler', () => {
 			const state = makeState();
 			globalThis.fetch = makeFetch({ ok: true });
 
+			let capturedCallback: (() => void) | null = null;
 			const originalSetTimeout = globalThis.setTimeout;
 			const originalClearTimeout = globalThis.clearTimeout;
 			globalThis.setTimeout = ((cb: TimerHandler) => {
-				if (typeof cb === 'function') cb();
+				if (typeof cb === 'function') capturedCallback = cb;
 				return 1 as unknown as ReturnType<typeof setTimeout>;
 			}) as unknown as typeof setTimeout;
 			globalThis.clearTimeout = ((timeoutId: ReturnType<typeof setTimeout>) => {
@@ -117,8 +118,14 @@ describe('createSaveHandler', () => {
 				const { save, cleanup } = createSaveHandler('lorenz', state, getParams);
 				await save('My Config');
 
-				expect(state.saveSuccess).toBe(false);
+				// Timeout is pending — saveSuccess should still be true at this point.
+				expect(state.saveSuccess).toBe(true);
 				expect(state.showSaveDialog).toBe(false);
+				expect(capturedCallback).not.toBeNull();
+
+				// Simulate the timeout firing; now the flag should be cleared.
+				capturedCallback?.();
+				expect(state.saveSuccess).toBe(false);
 
 				cleanup();
 			} finally {
@@ -199,10 +206,11 @@ describe('createSaveHandler', () => {
 				json: async () => ({ error: 'Server error occurred' })
 			});
 
+			let capturedCallback: (() => void) | null = null;
 			const originalSetTimeout = globalThis.setTimeout;
 			const originalClearTimeout = globalThis.clearTimeout;
 			globalThis.setTimeout = ((cb: TimerHandler) => {
-				if (typeof cb === 'function') cb();
+				if (typeof cb === 'function') capturedCallback = cb;
 				return 1 as unknown as ReturnType<typeof setTimeout>;
 			}) as unknown as typeof setTimeout;
 			globalThis.clearTimeout = ((timeoutId: ReturnType<typeof setTimeout>) => {
@@ -213,8 +221,14 @@ describe('createSaveHandler', () => {
 				const { save, cleanup } = createSaveHandler('lorenz', state, getParams);
 				await save('My Config');
 
-				expect(state.saveError).toBeNull();
+				// Timeout is pending — saveError should still be set at this point.
+				expect(state.saveError).toBe('Server error occurred');
 				expect(state.isSaving).toBe(false);
+				expect(capturedCallback).not.toBeNull();
+
+				// Simulate the timeout firing; now the error should be cleared.
+				capturedCallback?.();
+				expect(state.saveError).toBeNull();
 
 				cleanup();
 			} finally {
