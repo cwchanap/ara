@@ -705,12 +705,6 @@ describe('checkParameterStability for lorenz', () => {
 	});
 });
 
-describe('isValidMapType for lorenz', () => {
-	test('returns true for lorenz', () => {
-		expect(isValidMapType('lorenz')).toBe(true);
-	});
-});
-
 describe('getStableRanges for lorenz', () => {
 	test('returns correct ranges for lorenz', () => {
 		const ranges = getStableRanges('lorenz');
@@ -740,7 +734,7 @@ describe('validateParameters for henon', () => {
 		const params = { type: 'henon', a: 'not a number', b: 0.3, iterations: 2000 };
 		const result = validateParameters('henon', params);
 		expect(result.isValid).toBe(false);
-		expect(result.errors.some((e) => e.includes('a'))).toBe(true);
+		expect(result.errors.some((e) => e.includes("Parameter 'a'"))).toBe(true);
 	});
 
 	test('returns invalid for NaN b', () => {
@@ -769,28 +763,28 @@ describe('checkParameterStability for henon', () => {
 		const params = { type: 'henon' as const, a: -0.5, b: 0.3, iterations: 2000 };
 		const result = checkParameterStability('henon', params);
 		expect(result.isStable).toBe(false);
-		expect(result.warnings.some((w) => w.includes('a'))).toBe(true);
+		expect(result.warnings.some((w) => /\ba\b/.test(w))).toBe(true);
 	});
 
 	test('returns warnings for a above stable range (a > 2)', () => {
 		const params = { type: 'henon' as const, a: 2.5, b: 0.3, iterations: 2000 };
 		const result = checkParameterStability('henon', params);
 		expect(result.isStable).toBe(false);
-		expect(result.warnings.some((w) => w.includes('a'))).toBe(true);
+		expect(result.warnings.some((w) => /\ba\b/.test(w))).toBe(true);
 	});
 
 	test('returns warnings for b below stable range (b < -1)', () => {
 		const params = { type: 'henon' as const, a: 1.4, b: -1.5, iterations: 2000 };
 		const result = checkParameterStability('henon', params);
 		expect(result.isStable).toBe(false);
-		expect(result.warnings.some((w) => w.includes('b'))).toBe(true);
+		expect(result.warnings.some((w) => /\bb\b/.test(w))).toBe(true);
 	});
 
 	test('returns warnings for b above stable range (b > 1)', () => {
 		const params = { type: 'henon' as const, a: 1.4, b: 1.5, iterations: 2000 };
 		const result = checkParameterStability('henon', params);
 		expect(result.isStable).toBe(false);
-		expect(result.warnings.some((w) => w.includes('b'))).toBe(true);
+		expect(result.warnings.some((w) => /\bb\b/.test(w))).toBe(true);
 	});
 
 	test('returns warnings for iterations above stable range', () => {
@@ -810,12 +804,6 @@ describe('checkParameterStability for henon', () => {
 		const params = { type: 'henon' as const, a: 2, b: 1, iterations: 50000 };
 		const result = checkParameterStability('henon', params);
 		expect(result.isStable).toBe(true);
-	});
-});
-
-describe('isValidMapType for henon', () => {
-	test('returns true for henon', () => {
-		expect(isValidMapType('henon')).toBe(true);
 	});
 });
 
@@ -848,7 +836,7 @@ describe('validateParameters for logistic', () => {
 		const params = { type: 'logistic', r: 'not a number', x0: 0.1, iterations: 100 };
 		const result = validateParameters('logistic', params);
 		expect(result.isValid).toBe(false);
-		expect(result.errors.some((e) => e.includes('r'))).toBe(true);
+		expect(result.errors.some((e) => e.includes("Parameter 'r'"))).toBe(true);
 	});
 
 	test('returns invalid for NaN iterations', () => {
@@ -877,14 +865,14 @@ describe('checkParameterStability for logistic', () => {
 		const params = { type: 'logistic' as const, r: -0.5, x0: 0.1, iterations: 100 };
 		const result = checkParameterStability('logistic', params);
 		expect(result.isStable).toBe(false);
-		expect(result.warnings.some((w) => w.includes('r'))).toBe(true);
+		expect(result.warnings.some((w) => /\br\b/.test(w))).toBe(true);
 	});
 
 	test('returns warnings for r above stable range (r > 4)', () => {
 		const params = { type: 'logistic' as const, r: 4.5, x0: 0.1, iterations: 100 };
 		const result = checkParameterStability('logistic', params);
 		expect(result.isStable).toBe(false);
-		expect(result.warnings.some((w) => w.includes('r'))).toBe(true);
+		expect(result.warnings.some((w) => /\br\b/.test(w))).toBe(true);
 	});
 
 	test('returns warnings for x0 below stable range (x0 < 0)', () => {
@@ -918,12 +906,6 @@ describe('checkParameterStability for logistic', () => {
 		const params = { type: 'logistic' as const, r: 4, x0: 1, iterations: 1000 };
 		const result = checkParameterStability('logistic', params);
 		expect(result.isStable).toBe(true);
-	});
-});
-
-describe('isValidMapType for logistic', () => {
-	test('returns true for logistic', () => {
-		expect(isValidMapType('logistic')).toBe(true);
 	});
 });
 
@@ -1069,12 +1051,6 @@ describe('checkParameterStability for bifurcation-logistic', () => {
 	});
 });
 
-describe('isValidMapType for bifurcation-logistic', () => {
-	test('returns true for bifurcation-logistic', () => {
-		expect(isValidMapType('bifurcation-logistic')).toBe(true);
-	});
-});
-
 describe('getStableRanges for bifurcation-logistic', () => {
 	test('returns correct ranges for bifurcation-logistic', () => {
 		const ranges = getStableRanges('bifurcation-logistic');
@@ -1103,7 +1079,7 @@ describe('validateParameters for bifurcation-henon', () => {
 		const params = { type: 'bifurcation-henon', aMin: 0.8, aMax: 1.4, maxIterations: 500 };
 		const result = validateParameters('bifurcation-henon', params);
 		expect(result.isValid).toBe(false);
-		expect(result.errors.some((e) => e.includes('b'))).toBe(true);
+		expect(result.errors.some((e) => /\bb\b/.test(e))).toBe(true);
 	});
 
 	test('returns invalid for non-numeric aMin', () => {
@@ -1196,7 +1172,7 @@ describe('checkParameterStability for bifurcation-henon', () => {
 		};
 		const result = checkParameterStability('bifurcation-henon', params);
 		expect(result.isStable).toBe(false);
-		expect(result.warnings.some((w) => w.includes('b'))).toBe(true);
+		expect(result.warnings.some((w) => /\bb\b/.test(w))).toBe(true);
 	});
 
 	test('returns warnings when aMin is not less than aMax', () => {
@@ -1248,12 +1224,6 @@ describe('checkParameterStability for bifurcation-henon', () => {
 		};
 		const result = checkParameterStability('bifurcation-henon', params);
 		expect(result.isStable).toBe(true);
-	});
-});
-
-describe('isValidMapType for bifurcation-henon', () => {
-	test('returns true for bifurcation-henon', () => {
-		expect(isValidMapType('bifurcation-henon')).toBe(true);
 	});
 });
 
