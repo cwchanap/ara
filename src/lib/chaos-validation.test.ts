@@ -5,7 +5,8 @@ import {
 	isValidMapType,
 	getStableRanges
 } from './chaos-validation';
-import type { StandardParameters } from './types';
+import type { StandardParameters, ChaosMapType } from './types';
+import { VALID_MAP_TYPES } from './types';
 
 describe('validateParameters for rossler', () => {
 	test('returns valid for correct rossler parameters', () => {
@@ -650,7 +651,7 @@ describe('validateParameters for lorenz', () => {
 
 	test('returns invalid for unknown map type', () => {
 		const params = { type: 'unknown', sigma: 10, rho: 28, beta: 2.667 };
-		const result = validateParameters('unknown' as never, params);
+		const result = validateParameters('unknown' as unknown as ChaosMapType, params);
 		expect(result.isValid).toBe(false);
 		expect(result.errors.some((e) => e.includes('Unknown map type'))).toBe(true);
 	});
@@ -1240,20 +1241,7 @@ describe('getStableRanges for bifurcation-henon', () => {
 
 describe('isValidMapType for all map types', () => {
 	test('returns true for all valid map types', () => {
-		const validTypes = [
-			'lorenz',
-			'rossler',
-			'henon',
-			'lozi',
-			'logistic',
-			'newton',
-			'standard',
-			'bifurcation-logistic',
-			'bifurcation-henon',
-			'chaos-esthetique',
-			'lyapunov'
-		] as const;
-		for (const mapType of validTypes) {
+		for (const mapType of VALID_MAP_TYPES) {
 			expect(isValidMapType(mapType)).toBe(true);
 		}
 	});
@@ -1269,25 +1257,12 @@ describe('isValidMapType for all map types', () => {
 
 describe('getStableRanges for all map types', () => {
 	test('returns undefined for unknown map type', () => {
-		const ranges = getStableRanges('unknown' as never);
+		const ranges = getStableRanges('unknown' as unknown as ChaosMapType);
 		expect(ranges).toBeUndefined();
 	});
 
 	test('returns defined ranges for all valid map types', () => {
-		const validTypes = [
-			'lorenz',
-			'rossler',
-			'henon',
-			'lozi',
-			'logistic',
-			'newton',
-			'standard',
-			'bifurcation-logistic',
-			'bifurcation-henon',
-			'chaos-esthetique',
-			'lyapunov'
-		] as const;
-		for (const mapType of validTypes) {
+		for (const mapType of VALID_MAP_TYPES) {
 			expect(getStableRanges(mapType)).toBeDefined();
 		}
 	});
