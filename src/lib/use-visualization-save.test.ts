@@ -107,7 +107,7 @@ describe('createSaveHandler', () => {
 			const originalSetTimeout = globalThis.setTimeout;
 			const originalClearTimeout = globalThis.clearTimeout;
 			globalThis.setTimeout = ((cb: TimerHandler) => {
-				if (typeof cb === 'function') capturedCallback = cb;
+				if (typeof cb === 'function') capturedCallback = cb as () => void;
 				return 1 as unknown as ReturnType<typeof setTimeout>;
 			}) as unknown as typeof setTimeout;
 			globalThis.clearTimeout = ((timeoutId: ReturnType<typeof setTimeout>) => {
@@ -124,7 +124,7 @@ describe('createSaveHandler', () => {
 				expect(capturedCallback).not.toBeNull();
 
 				// Simulate the timeout firing; now the flag should be cleared.
-				capturedCallback?.();
+				capturedCallback!();
 				expect(state.saveSuccess).toBe(false);
 
 				cleanup();
@@ -210,7 +210,7 @@ describe('createSaveHandler', () => {
 			const originalSetTimeout = globalThis.setTimeout;
 			const originalClearTimeout = globalThis.clearTimeout;
 			globalThis.setTimeout = ((cb: TimerHandler) => {
-				if (typeof cb === 'function') capturedCallback = cb;
+				if (typeof cb === 'function') capturedCallback = cb as () => void;
 				return 1 as unknown as ReturnType<typeof setTimeout>;
 			}) as unknown as typeof setTimeout;
 			globalThis.clearTimeout = ((timeoutId: ReturnType<typeof setTimeout>) => {
@@ -227,7 +227,7 @@ describe('createSaveHandler', () => {
 				expect(capturedCallback).not.toBeNull();
 
 				// Simulate the timeout firing; now the error should be cleared.
-				capturedCallback?.();
+				capturedCallback!();
 				expect(state.saveError).toBeNull();
 
 				cleanup();
