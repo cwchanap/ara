@@ -153,6 +153,26 @@ describe('parseConfigParam', () => {
 			}
 		});
 
+		test('handles backslash-escaped characters in JSON strings', () => {
+			// A JSON string with a backslash triggers the escape-handling code paths
+			// in getMaxJsonNestingDepth (the `escaped` flag logic, lines 37-38 and 41-42).
+			// The extra 'note' field makes validation fail with "Unexpected parameters".
+			const rawJson = JSON.stringify({
+				type: 'lorenz',
+				sigma: 10,
+				rho: 28,
+				beta: 2.667,
+				note: 'C:\\Users\\test' // contains backslashes that JSON escapes as \\
+			});
+			const configParam = encodeURIComponent(rawJson);
+
+			const result = parseConfigParam({ mapType: 'lorenz', configParam });
+
+			// Fails validation due to unexpected 'note' parameter, but the
+			// depth-check escape-handling code is exercised before validation.
+			expect(result.ok).toBe(false);
+		});
+
 		test('returns error for unexpected parameters', () => {
 			const configParam = encodeURIComponent(
 				JSON.stringify({
@@ -365,6 +385,84 @@ describe('loadSavedConfigParameters', () => {
 				expect(result.ok).toBe(true);
 			}
 		);
+	});
+
+	describe('sessionStorage fallback', () => {
+		test('falls back to sessionStorage when API returns non-ok response', async () => {
+			const mockResponse = { ok: false, status: 404 };
+			const mockFetch = createMockFetch(() => Promise.resolve(mockResponse as Response));
+
+			const storageKey = 'saved-config:test-config-id';
+			const storageData: Record<string, string> = {
+				[storageKey]: JSON.stringify({ type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 })
+			};
+
+			const savedDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'sessionStorage');
+			Object.defineProperty(globalThis, 'sessionStorage', {
+				value: {
+					getItem: (key: string) => storageData[key] ?? null,
+					removeItem: (key: string) => {
+						delete storageData[key];
+					}
+				},
+				configurable: true,
+				writable: true
+			});
+
+			try {
+				const result = await loadSavedConfigParameters({
+					configId: 'test-config-id',
+					mapType: 'lorenz',
+					base: '',
+					fetchFn: mockFetch
+				});
+
+				expect(result.ok).toBe(true);
+				if (result.ok) {
+					expect(result.source).toBe('sessionStorage');
+					expect((result.parameters as { sigma: number }).sigma).toBe(10);
+				}
+				// Key should be removed after successful load (clearSessionStorageCandidate)
+				expect(storageData[storageKey]).toBeUndefined();
+			} finally {
+				if (savedDescriptor) {
+					Object.defineProperty(globalThis, 'sessionStorage', savedDescriptor);
+				}
+			}
+		});
+
+		test('handles sessionStorage.getItem throwing without crashing', async () => {
+			const mockResponse = { ok: false, status: 404 };
+			const mockFetch = createMockFetch(() => Promise.resolve(mockResponse as Response));
+
+			const savedDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'sessionStorage');
+			Object.defineProperty(globalThis, 'sessionStorage', {
+				value: {
+					getItem: () => {
+						throw new Error('Storage unavailable');
+					},
+					removeItem: () => {}
+				},
+				configurable: true,
+				writable: true
+			});
+
+			try {
+				const result = await loadSavedConfigParameters({
+					configId: 'test-config-id',
+					mapType: 'lorenz',
+					base: '',
+					fetchFn: mockFetch
+				});
+
+				// Gracefully handles the error and returns failure
+				expect(result.ok).toBe(false);
+			} finally {
+				if (savedDescriptor) {
+					Object.defineProperty(globalThis, 'sessionStorage', savedDescriptor);
+				}
+			}
+		});
 	});
 });
 

@@ -329,6 +329,135 @@ describe('createSaveHandler', () => {
 			cleanup();
 			expect(state.saveSuccess).toBe(true);
 		});
+
+		test('aborts in-flight request when save() is called with abortController still set', async () => {
+			const state = makeState();
+
+			let capturedSignal: AbortSignal | null = null;
+
+			// First fetch: hangs until aborted
+			globalThis.fetch = mock(
+				(_url: RequestInfo | URL, init?: RequestInit) =>
+					new Promise<Response>((_, reject) => {
+						capturedSignal = (init?.signal as AbortSignal) ?? null;
+						capturedSignal?.addEventListener('abort', () => {
+							const err = new Error('Aborted');
+							err.name = 'AbortError';
+							reject(err);
+						});
+					})
+			) as unknown as typeof fetch;
+
+			const { save, cleanup } = createSaveHandler('lorenz', state, getParams);
+
+			// Start first save — hangs waiting for fetch
+			const firstSavePromise = save('First');
+			expect(state.isSaving).toBe(true);
+
+			// Manually reset isSaving to bypass the concurrency guard, then start second save.
+			// At this point abortController != null (set by first save), so line 86 runs.
+			state.isSaving = false;
+			globalThis.fetch = makeFetch({ ok: true });
+			await save('Second');
+
+			// First save's abort signal should have fired
+			expect(capturedSignal!.aborted).toBe(true);
+
+			// Allow first save to settle after abort
+			await firstSavePromise;
+			cleanup();
+		});
+
+		test('cleanup aborts an in-flight request via AbortController', async () => {
+			const state = makeState();
+
+			// Fetch that respects the AbortSignal — rejects when signal fires
+			globalThis.fetch = mock(
+				(_url: RequestInfo | URL, init?: RequestInit) =>
+					new Promise<Response>((_, reject) => {
+						const signal = init?.signal;
+						if (signal) {
+							signal.addEventListener('abort', () => {
+								const err = new Error('aborted');
+								err.name = 'AbortError';
+								reject(err);
+							});
+						}
+					})
+			) as unknown as typeof fetch;
+
+			const { save, cleanup } = createSaveHandler('lorenz', state, getParams);
+
+			// Start the save but don't await — fetch is still pending
+			const savePromise = save('My Config');
+			expect(state.isSaving).toBe(true);
+
+			// cleanup() should abort the in-flight request (exercises lines 151-152)
+			cleanup();
+
+			// Wait for the aborted save to settle
+			await savePromise;
+
+			expect(state.isSaving).toBe(false);
+			// AbortError is silently swallowed — no saveError set
+			expect(state.saveError).toBeNull();
+		});
+	});
+
+	// ── timeout-clearing on second save ──────────────────────────────────────
+
+	describe('pending timeout cleared on subsequent save', () => {
+		test('second save clears the success timeout from the first save', async () => {
+			const state = makeState();
+			globalThis.fetch = makeFetch({ ok: true });
+
+			const { save, cleanup } = createSaveHandler('lorenz', state, getParams);
+
+			// First save sets saveSuccess=true and schedules a timeout
+			await save('First Save');
+			expect(state.saveSuccess).toBe(true);
+
+			// Second save should clear the pending timeout (exercises lines 92-93)
+			// and then also succeed
+			await save('Second Save');
+			expect(state.saveSuccess).toBe(true);
+
+			cleanup();
+		});
+
+		test('catch-block timeout callback clears saveError (network throw path)', async () => {
+			const state = makeState();
+			globalThis.fetch = mock(async () => {
+				throw new Error('Network failure');
+			}) as unknown as typeof fetch;
+
+			let capturedCallback: (() => void) | null = null;
+			const originalSetTimeout = globalThis.setTimeout;
+			const originalClearTimeout = globalThis.clearTimeout;
+			globalThis.setTimeout = ((cb: TimerHandler) => {
+				if (typeof cb === 'function') capturedCallback = cb as () => void;
+				return 1 as unknown as ReturnType<typeof setTimeout>;
+			}) as unknown as typeof setTimeout;
+			globalThis.clearTimeout = (() => {}) as unknown as typeof clearTimeout;
+
+			try {
+				const { save, cleanup } = createSaveHandler('lorenz', state, getParams);
+				await save('My Config');
+
+				// Catch block should have set saveError and scheduled a timeout
+				expect(state.saveError).toBe('Network failure');
+				expect(capturedCallback).not.toBeNull();
+
+				// Simulate the catch-block timeout firing (exercises lines 135-136)
+				capturedCallback!();
+				expect(state.saveError).toBeNull();
+
+				cleanup();
+			} finally {
+				globalThis.setTimeout = originalSetTimeout;
+				globalThis.clearTimeout = originalClearTimeout;
+			}
+		});
 	});
 });
 

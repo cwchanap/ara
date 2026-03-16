@@ -96,6 +96,9 @@ describe('getErrorMessage', () => {
 		expect(getErrorMessage({ message: 'Password is too weak' })).toBe(
 			'Password must be at least 8 characters'
 		);
+		expect(getErrorMessage({ message: 'Email is invalid' })).toBe(
+			'Please enter a valid email address'
+		);
 	});
 
 	test('returns default message for unknown errors', () => {

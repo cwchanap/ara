@@ -193,6 +193,22 @@ describe('decodeComparisonState', () => {
 		expect((result!.left as LorenzParameters).sigma).toBe(10);
 	});
 
+	test('falls back to defaults when encoded parameters fail validation', () => {
+		// Encode parameters with an invalid value (sigma as string, not number)
+		const invalidPayload = base64Encode(
+			JSON.stringify({ sigma: 'not-a-number', rho: 28, beta: 2.667 })
+		);
+		const url = new URL(
+			`https://example.com/lorenz/compare?compare=true&left=${invalidPayload}`
+		);
+		const result = decodeComparisonState(url, 'lorenz');
+
+		expect(result).not.toBeNull();
+		// left should fall back to defaults because validation failed
+		expect((result!.left as LorenzParameters).sigma).toBe(10);
+		expect((result!.left as LorenzParameters).rho).toBe(28);
+	});
+
 	test('prefers mapType over decoded type field', () => {
 		const leftPayload = base64Encode(
 			JSON.stringify({ type: 'logistic', sigma: 10, rho: 28, beta: 2.667 })
@@ -454,6 +470,79 @@ describe('SSR-safe base64 helpers', () => {
 			const encoded = base64Encode(input);
 			const decoded = base64Decode(encoded);
 			expect(decoded).toBe(input);
+		}
+	});
+
+	test('base64Encode uses Node.js Buffer when btoa is unavailable', () => {
+		const savedBtoa = globalThis.btoa;
+		(globalThis as Record<string, unknown>).btoa = undefined;
+		try {
+			const input = 'hello world';
+			const encoded = base64Encode(input);
+			expect(encoded).toBe(Buffer.from(input, 'utf8').toString('base64'));
+		} finally {
+			(globalThis as Record<string, unknown>).btoa = savedBtoa;
+		}
+	});
+
+	test('base64Decode uses Node.js Buffer when atob is unavailable', () => {
+		const savedAtob = globalThis.atob;
+		(globalThis as Record<string, unknown>).atob = undefined;
+		try {
+			const input = 'hello world';
+			const encoded = Buffer.from(input, 'utf8').toString('base64');
+			const decoded = base64Decode(encoded);
+			expect(decoded).toBe(input);
+		} finally {
+			(globalThis as Record<string, unknown>).atob = savedAtob;
+		}
+	});
+
+	test('base64Encode throws when neither btoa nor Buffer is available', () => {
+		const savedBtoa = globalThis.btoa;
+		const savedBuffer = globalThis.Buffer;
+		(globalThis as Record<string, unknown>).btoa = undefined;
+		(globalThis as Record<string, unknown>).Buffer = undefined;
+		try {
+			expect(() => base64Encode('test')).toThrow(
+				'No base64 encoding method available in current environment'
+			);
+		} finally {
+			(globalThis as Record<string, unknown>).btoa = savedBtoa;
+			(globalThis as Record<string, unknown>).Buffer = savedBuffer;
+		}
+	});
+
+	test('base64Decode throws when neither atob nor Buffer is available', () => {
+		const savedAtob = globalThis.atob;
+		const savedBuffer = globalThis.Buffer;
+		(globalThis as Record<string, unknown>).atob = undefined;
+		(globalThis as Record<string, unknown>).Buffer = undefined;
+		try {
+			expect(() => base64Decode('dGVzdA==')).toThrow(
+				'No base64 decoding method available in current environment'
+			);
+		} finally {
+			(globalThis as Record<string, unknown>).atob = savedAtob;
+			(globalThis as Record<string, unknown>).Buffer = savedBuffer;
+		}
+	});
+
+	test('base64Encode and base64Decode are symmetric via Buffer path', () => {
+		const savedBtoa = globalThis.btoa;
+		const savedAtob = globalThis.atob;
+		(globalThis as Record<string, unknown>).btoa = undefined;
+		(globalThis as Record<string, unknown>).atob = undefined;
+		try {
+			const inputs = ['{"sigma":10,"rho":28}', 'hello', '日本語'];
+			for (const input of inputs) {
+				const encoded = base64Encode(input);
+				const decoded = base64Decode(encoded);
+				expect(decoded).toBe(input);
+			}
+		} finally {
+			(globalThis as Record<string, unknown>).btoa = savedBtoa;
+			(globalThis as Record<string, unknown>).atob = savedAtob;
 		}
 	});
 });

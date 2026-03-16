@@ -1255,6 +1255,18 @@ describe('isValidMapType for all map types', () => {
 	});
 });
 
+describe('checkParameterStability with invalid parameters', () => {
+	test('returns isStable:false with validation errors when params are structurally invalid', () => {
+		// Passing params that fail validateParameters covers lines 182-183 in checkParameterStability
+		const invalidParams = { type: 'lorenz', sigma: 'not-a-number', rho: 28, beta: 2.667 };
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const result = checkParameterStability('lorenz', invalidParams as any);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.length).toBeGreaterThan(0);
+		expect(result.warnings.some((w) => w.includes('sigma'))).toBe(true);
+	});
+});
+
 describe('getStableRanges for all map types', () => {
 	test('returns undefined for unknown map type', () => {
 		const ranges = getStableRanges('unknown' as unknown as ChaosMapType);
