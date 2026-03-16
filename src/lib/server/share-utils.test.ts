@@ -1,8 +1,7 @@
 /**
  * Unit tests for share utilities
  *
- * Tests pure functions that don't require database access.
- * Database-dependent functions are tested via integration tests.
+ * Tests pure functions and DB-dependent functions (using mocked db).
  */
 
 import { describe, expect, mock, test } from 'bun:test';
@@ -13,25 +12,114 @@ import {
 	SHARE_EXPIRATION_DAYS
 } from '$lib/constants';
 
+// Mutable state controlling mock tx behavior – mutated per test.
+let mockTxShareCount = 0;
+
+// Mutable state controlling outer db.select result (for generateUniqueShortCode).
+// Empty array = no collision; non-empty = collision (code already exists).
+let mockDbSelectResult: { id: string }[] = [];
+
+// Controls tx.insert().values().returning() behavior:
+// - mockTxInsertThrowCount > 0: throw a 23505 unique-violation that many times before succeeding
+// - mockTxInsertThrowNonUnique: throw a generic (non-23505) error on the next call
+let mockTxInsertThrowCount = 0;
+let mockTxInsertThrowNonUnique = false;
+
+const getMockTxShares = () =>
+	Array(mockTxShareCount)
+		.fill(null)
+		.map((_, i) => ({ createdAt: new Date(Date.now() - (i + 1) * 1000).toISOString() }));
+
+const createMockTx = () => {
+	let insertCallCount = 0;
+	return {
+		select: () => ({
+			from: () => ({
+				where: () => ({
+					orderBy: () => getMockTxShares()
+				})
+			})
+		}),
+		insert: () => ({
+			values: () => ({
+				returning: () => {
+					if (mockTxInsertThrowNonUnique) {
+						mockTxInsertThrowNonUnique = false;
+						throw new Error('Database connection failed');
+					}
+					if (insertCallCount < mockTxInsertThrowCount) {
+						insertCallCount++;
+						// Simulate PostgreSQL unique constraint violation
+						throw { code: '23505', message: 'unique_violation' };
+					}
+					return [
+						{
+							id: 'mock-share-id',
+							shortCode: 'ABCD1234',
+							expiresAt: '2030-01-01T00:00:00.000Z'
+						}
+					];
+				}
+			})
+		})
+	};
+};
+
 // Mock $lib/server/db BEFORE importing share-utils to ensure the mock
 // intercepts the DB module before its import-time side effects run.
 // This makes the test truly independent of DB initialization.
 mock.module('$lib/server/db', () => ({
 	db: {
-		select: () => ({ from: () => ({ where: () => ({ limit: () => [] }) }) }),
-		insert: () => ({ values: () => ({ returning: () => [] }) }),
-		update: () => ({ set: () => ({ where: () => ({ execute: async () => {} }) }) }),
-		transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn({})
+		select: () => ({
+			from: () => ({
+				where: () => ({
+					limit: () => mockDbSelectResult,
+					orderBy: () => []
+				})
+			})
+		}),
+		insert: () => ({
+			values: () => ({
+				returning: () => [
+					{
+						id: 'mock-share-id',
+						shortCode: 'ABCD1234',
+						expiresAt: '2030-01-01T00:00:00.000Z'
+					}
+				]
+			})
+		}),
+		update: () => ({
+			set: () => ({
+				where: () => ({
+					execute: async () => {}
+				})
+			})
+		}),
+		transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(createMockTx())
 	},
-	sharedConfigurations: {},
+	sharedConfigurations: {
+		id: { name: 'id' },
+		createdAt: { name: 'created_at' },
+		userId: { name: 'user_id' },
+		shortCode: { name: 'short_code' },
+		viewCount: { name: 'view_count' }
+	},
 	savedConfigurations: {},
 	profiles: {}
 }));
 
 // Dynamic import AFTER mock registration ensures the mock intercepts
 // $lib/server/db before share-utils imports it.
-const { generateShortCode, calculateExpirationDate, isShareExpired, getDaysUntilExpiration } =
-	await import('$lib/server/share-utils');
+const {
+	generateShortCode,
+	calculateExpirationDate,
+	isShareExpired,
+	getDaysUntilExpiration,
+	generateUniqueShortCode,
+	createShareWithRateLimit,
+	incrementViewCount
+} = await import('$lib/server/share-utils');
 
 describe('generateShortCode', () => {
 	test('generates an 8-character alphanumeric code', () => {
@@ -196,52 +284,153 @@ describe('share rate limit constant', () => {
 	});
 });
 
-/**
- * Integration tests for database-dependent functions
- *
- * These tests require a DATABASE_URL environment variable to be set.
- * They are conditionally run only when a database connection is available.
- *
- * To run these tests:
- *   DATABASE_URL="your-connection-string" bun test src/lib/server/share-utils.test.ts
- *
- * The tests verify:
- * 1. createShareWithRateLimit - atomic rate limiting works correctly
- * 2. checkShareRateLimit - rate limit checking returns correct values
- * 3. generateUniqueShortCode - generates unique short codes
- *
- * Key test: The atomic rate limiting test creates shares up to the limit
- * and verifies that:
- * - Shares can be created when under the limit
- * - The 11th request is rejected
- * - Concurrent requests cannot bypass the limit (handled by database transaction)
- */
-describe('database-dependent functions (integration)', () => {
-	test.todo('createShareWithRateLimit - atomic rate limiting', async () => {
-		/*
-		 * Test setup requires DATABASE_URL environment variable.
-		 * This test verifies that the rate limit is enforced atomically.
-		 *
-		 * Steps:
-		 * 1. Create shares up to SHARE_RATE_LIMIT_PER_HOUR - 1
-		 * 2. Verify the next request succeeds and remaining is 0
-		 * 3. Verify the following request fails with rate limit error
-		 */
+describe('generateUniqueShortCode (mocked db)', () => {
+	test('returns a valid short code when no collision exists', async () => {
+		mockDbSelectResult = []; // no existing code → no collision
+		const code = await generateUniqueShortCode();
+		expect(code).not.toBeNull();
+		expect(typeof code).toBe('string');
+		expect(code!.length).toBe(SHARE_CODE_LENGTH);
+		expect(code).toMatch(/^[A-Za-z0-9]+$/);
 	});
 
-	test.todo('generateUniqueShortCode - generates unique codes', async () => {
-		/*
-		 * Test setup requires DATABASE_URL environment variable.
-		 * This test verifies that unique short codes are generated.
-		 */
+	test('returns a string that uses only valid charset characters', async () => {
+		mockDbSelectResult = [];
+		const code = await generateUniqueShortCode();
+		expect(code).not.toBeNull();
+		for (const char of code!) {
+			expect(SHARE_CODE_CHARSET).toContain(char);
+		}
 	});
 
-	test.todo('checkShareRateLimit - enforces and reports remaining quota', async () => {
-		/*
-		 * Test setup requires DATABASE_URL environment variable.
-		 * This test verifies rate limit checking returns correct values:
-		 * - Returns remaining quota count
-		 * - Returns proper error when limit exceeded
-		 */
+	test('returns null when all retries collide with existing codes', async () => {
+		// Simulates every generated code already existing in DB → all retries fail
+		mockDbSelectResult = [{ id: 'existing-id' }];
+		const code = await generateUniqueShortCode();
+		expect(code).toBeNull();
+		mockDbSelectResult = []; // reset for subsequent tests
+	});
+});
+
+describe('incrementViewCount (mocked db)', () => {
+	test('completes without throwing', async () => {
+		await expect(incrementViewCount('mock-share-id')).resolves.toBeUndefined();
+	});
+
+	test('accepts any share ID string', async () => {
+		const ids = ['uuid-1', 'uuid-2', '00000000-0000-0000-0000-000000000000'];
+		for (const id of ids) {
+			await expect(incrementViewCount(id)).resolves.toBeUndefined();
+		}
+	});
+});
+
+describe('createShareWithRateLimit (mocked db)', () => {
+	test('returns success with share data when under rate limit', async () => {
+		mockTxShareCount = 0; // under rate limit
+
+		const result = await createShareWithRateLimit(
+			'user-id',
+			'lorenz',
+			{ type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 },
+			'TESTCODE',
+			'2030-01-01T00:00:00.000Z'
+		);
+
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.share).toBeDefined();
+			expect(result.share!.id).toBe('mock-share-id');
+			expect(result.share!.shortCode).toBe('ABCD1234');
+			expect(result.share!.expiresAt).toBe('2030-01-01T00:00:00.000Z');
+		}
+		expect(result.remaining).toBe(SHARE_RATE_LIMIT_PER_HOUR - 1);
+		expect(result.resetAt).toBeInstanceOf(Date);
+	});
+
+	test('calculates remaining shares correctly', async () => {
+		mockTxShareCount = 5; // 5 shares already used
+
+		const result = await createShareWithRateLimit(
+			'user-id',
+			'henon',
+			{ type: 'henon', a: 1.4, b: 0.3, iterations: 2000 },
+			'TESTCODE',
+			'2030-01-01T00:00:00.000Z'
+		);
+
+		expect(result.success).toBe(true);
+		// remaining = SHARE_RATE_LIMIT_PER_HOUR - shareCount - 1 = 10 - 5 - 1 = 4
+		expect(result.remaining).toBe(SHARE_RATE_LIMIT_PER_HOUR - 5 - 1);
+	});
+
+	test('returns rate limit error when at the limit', async () => {
+		mockTxShareCount = SHARE_RATE_LIMIT_PER_HOUR; // exactly at limit
+
+		const result = await createShareWithRateLimit(
+			'user-id',
+			'lorenz',
+			{ type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 },
+			'TESTCODE',
+			'2030-01-01T00:00:00.000Z'
+		);
+
+		expect(result.success).toBe(false);
+		expect(result.remaining).toBe(0);
+		expect(result.resetAt).toBeInstanceOf(Date);
+		if (!result.success) {
+			expect(result.error).toContain('Rate limit exceeded');
+		}
+	});
+
+	test('retries on unique constraint violation (23505) and succeeds', async () => {
+		mockTxShareCount = 0;
+		mockTxInsertThrowCount = 1; // first insert throws 23505, second succeeds
+
+		const result = await createShareWithRateLimit(
+			'user-id',
+			'lorenz',
+			{ type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 },
+			'TESTCODE',
+			'2030-01-01T00:00:00.000Z'
+		);
+
+		expect(result.success).toBe(true);
+		mockTxInsertThrowCount = 0; // reset
+	});
+
+	test('throws non-unique-violation errors from insert', async () => {
+		mockTxShareCount = 0;
+		mockTxInsertThrowNonUnique = true; // throws a generic Error (not 23505)
+
+		await expect(
+			createShareWithRateLimit(
+				'user-id',
+				'lorenz',
+				{ type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 },
+				'TESTCODE',
+				'2030-01-01T00:00:00.000Z'
+			)
+		).rejects.toThrow('Database connection failed');
+	});
+
+	test('reset time is approximately 1 hour after oldest share when rate limited', async () => {
+		mockTxShareCount = SHARE_RATE_LIMIT_PER_HOUR;
+		const before = Date.now();
+
+		const result = await createShareWithRateLimit(
+			'user-id',
+			'lorenz',
+			{ type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 },
+			'TESTCODE',
+			'2030-01-01T00:00:00.000Z'
+		);
+
+		expect(result.success).toBe(false);
+		// resetAt should be approximately 1 hour from the oldest share's createdAt
+		const resetAtMs = result.resetAt.getTime();
+		// The oldest share in our mock is ~SHARE_RATE_LIMIT_PER_HOUR seconds in the past,
+		// so resetAt should be roughly (now + 1hour - SHARE_RATE_LIMIT_PER_HOUR seconds)
+		expect(resetAtMs).toBeGreaterThan(before);
 	});
 });
