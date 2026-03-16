@@ -411,18 +411,41 @@ describe('createSaveHandler', () => {
 			const state = makeState();
 			globalThis.fetch = makeFetch({ ok: true });
 
-			const { save, cleanup } = createSaveHandler('lorenz', state, getParams);
+			// Stub setTimeout/clearTimeout to capture timer IDs and assert cleanup.
+			const originalSetTimeout = globalThis.setTimeout;
+			const originalClearTimeout = globalThis.clearTimeout;
+			let nextTimerId = 100;
+			const scheduledTimers: number[] = [];
+			const clearedTimers: number[] = [];
+			globalThis.setTimeout = (() => {
+				const id = nextTimerId++;
+				scheduledTimers.push(id);
+				return id as unknown as ReturnType<typeof setTimeout>;
+			}) as unknown as typeof setTimeout;
+			globalThis.clearTimeout = ((id: ReturnType<typeof setTimeout>) => {
+				clearedTimers.push(id as unknown as number);
+			}) as unknown as typeof clearTimeout;
 
-			// First save sets saveSuccess=true and schedules a timeout
-			await save('First Save');
-			expect(state.saveSuccess).toBe(true);
+			try {
+				const { save, cleanup } = createSaveHandler('lorenz', state, getParams);
 
-			// Second save should clear the pending timeout (exercises lines 92-93)
-			// and then also succeed
-			await save('Second Save');
-			expect(state.saveSuccess).toBe(true);
+				// First save sets saveSuccess=true and schedules a timeout
+				await save('First Save');
+				expect(state.saveSuccess).toBe(true);
+				expect(scheduledTimers).toHaveLength(1);
+				const firstTimerId = scheduledTimers[0];
 
-			cleanup();
+				// Second save should clear the first timer (exercises lines 92-93)
+				// and then also succeed
+				await save('Second Save');
+				expect(clearedTimers).toContain(firstTimerId);
+				expect(state.saveSuccess).toBe(true);
+
+				cleanup();
+			} finally {
+				globalThis.setTimeout = originalSetTimeout;
+				globalThis.clearTimeout = originalClearTimeout;
+			}
 		});
 
 		test('catch-block timeout callback clears saveError (network throw path)', async () => {

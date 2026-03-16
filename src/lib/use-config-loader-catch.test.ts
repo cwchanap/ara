@@ -25,8 +25,16 @@ let loadSharedThrow: Error | null = null;
 // Controls whether parseConfigParam throws.
 let parseConfigThrow: Error | null = null;
 
+// Controllable signal: resolved by the mock when loadSavedConfigParameters is invoked,
+// allowing tests to await the exact async call instead of relying on flushPromises().
+let notifyLoadSavedCalled: (() => void) | null = null;
+// Controllable signal for loadSharedConfigParameters.
+let notifyLoadSharedCalled: (() => void) | null = null;
+
 mock.module('$lib/saved-config-loader', () => ({
 	loadSavedConfigParameters: async () => {
+		notifyLoadSavedCalled?.();
+		notifyLoadSavedCalled = null;
 		if (loadSavedThrow) throw loadSavedThrow;
 		return {
 			ok: true as const,
@@ -35,6 +43,8 @@ mock.module('$lib/saved-config-loader', () => ({
 		};
 	},
 	loadSharedConfigParameters: async () => {
+		notifyLoadSharedCalled?.();
+		notifyLoadSharedCalled = null;
 		if (loadSharedThrow) throw loadSharedThrow;
 		return { ok: false as const, error: 'not found', errors: ['not found'] };
 	},
@@ -111,6 +121,12 @@ describe('useConfigLoader catch blocks (functions throw unexpectedly)', () => {
 		loadSharedThrow = null;
 		parseConfigThrow = null;
 
+		// Controllable promise: resolves the moment the mock function is entered,
+		// giving us a deterministic point to await rather than relying on flushPromises().
+		const loadSavedCalledPromise = new Promise<void>((resolve) => {
+			notifyLoadSavedCalled = resolve;
+		});
+
 		const page = writable<Page>(createPage('http://localhost/lorenz?configId=test-id'));
 		const state = createInitialConfigLoaderState();
 
@@ -124,8 +140,9 @@ describe('useConfigLoader catch blocks (functions throw unexpectedly)', () => {
 			state
 		);
 
-		// Give async operations time to complete
-		await flushPromises();
+		// Wait for loadSavedConfigParameters to be invoked, then give the
+		// async catch block one microtask to finish processing.
+		await loadSavedCalledPromise;
 		await flushPromises();
 
 		// AbortError should be silently ignored — no error state set
