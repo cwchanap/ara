@@ -427,6 +427,8 @@ describe('loadSavedConfigParameters', () => {
 			} finally {
 				if (savedDescriptor) {
 					Object.defineProperty(globalThis, 'sessionStorage', savedDescriptor);
+				} else {
+					delete (globalThis as Record<string, unknown>).sessionStorage;
 				}
 			}
 		});
@@ -460,6 +462,8 @@ describe('loadSavedConfigParameters', () => {
 			} finally {
 				if (savedDescriptor) {
 					Object.defineProperty(globalThis, 'sessionStorage', savedDescriptor);
+				} else {
+					delete (globalThis as Record<string, unknown>).sessionStorage;
 				}
 			}
 		});
