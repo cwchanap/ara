@@ -304,31 +304,6 @@ describe('createSaveHandler', () => {
 
 			cleanup();
 		});
-	});
-
-	// ── cleanup ───────────────────────────────────────────────────────────────
-
-	describe('cleanup', () => {
-		test('cleanup does not throw when called with no in-flight request', () => {
-			const state = makeState();
-			const { cleanup } = createSaveHandler('lorenz', state, getParams);
-			expect(() => cleanup()).not.toThrow();
-		});
-
-		test('cleanup cancels pending timeout so saveSuccess is not cleared prematurely', async () => {
-			const state = makeState();
-			globalThis.fetch = makeFetch({ ok: true });
-
-			const { save, cleanup } = createSaveHandler('lorenz', state, getParams);
-			await save('My Config');
-
-			// At this point saveSuccess is true and a timeout is scheduled.
-			expect(state.saveSuccess).toBe(true);
-
-			// cleanup() should cancel the timeout — saveSuccess stays true after cleanup.
-			cleanup();
-			expect(state.saveSuccess).toBe(true);
-		});
 
 		test('ignores a second save call while a save is already in progress', async () => {
 			const state = makeState();
@@ -358,6 +333,31 @@ describe('createSaveHandler', () => {
 			expect(fetchCallCount).toBe(1);
 			expect(state.isSaving).toBe(false);
 			cleanup();
+		});
+	});
+
+	// ── cleanup ───────────────────────────────────────────────────────────────
+
+	describe('cleanup', () => {
+		test('cleanup does not throw when called with no in-flight request', () => {
+			const state = makeState();
+			const { cleanup } = createSaveHandler('lorenz', state, getParams);
+			expect(() => cleanup()).not.toThrow();
+		});
+
+		test('cleanup cancels pending timeout so saveSuccess is not cleared prematurely', async () => {
+			const state = makeState();
+			globalThis.fetch = makeFetch({ ok: true });
+
+			const { save, cleanup } = createSaveHandler('lorenz', state, getParams);
+			await save('My Config');
+
+			// At this point saveSuccess is true and a timeout is scheduled.
+			expect(state.saveSuccess).toBe(true);
+
+			// cleanup() should cancel the timeout — saveSuccess stays true after cleanup.
+			cleanup();
+			expect(state.saveSuccess).toBe(true);
 		});
 
 		test('cleanup aborts an in-flight request via AbortController', async () => {

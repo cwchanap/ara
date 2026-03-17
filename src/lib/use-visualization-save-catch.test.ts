@@ -11,7 +11,7 @@
  * use-visualization-save.test.ts to avoid polluting its test environment.
  */
 
-import { describe, expect, mock, test } from 'bun:test';
+import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 // Mutable: controls what loadSavedConfigParameters throws per-test.
 let loadSavedThrow: Error | null = new Error('Unexpected DB connection failure');
@@ -44,6 +44,11 @@ mock.module('$lib/saved-config-loader', () => ({
 const { loadConfigFromUrl } = await import('./use-visualization-save');
 
 describe('loadConfigFromUrl catch blocks (functions throw unexpectedly)', () => {
+	beforeEach(() => {
+		loadSavedThrow = null;
+		parseConfigThrow = null;
+	});
+
 	test('returns {ok:false} on configId path when loadSavedConfigParameters throws', async () => {
 		loadSavedThrow = new Error('Unexpected DB connection failure');
 		const params = new URLSearchParams({ configId: 'test-id' });
