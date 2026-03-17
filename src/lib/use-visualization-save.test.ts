@@ -330,41 +330,33 @@ describe('createSaveHandler', () => {
 			expect(state.saveSuccess).toBe(true);
 		});
 
-		test('aborts in-flight request when save() is called with abortController still set', async () => {
+		test('ignores a second save call while a save is already in progress', async () => {
 			const state = makeState();
+			let fetchCallCount = 0;
 
-			let capturedSignal: AbortSignal | null = null;
-
-			// First fetch: hangs until aborted
-			globalThis.fetch = mock(
-				(_url: RequestInfo | URL, init?: RequestInit) =>
-					new Promise<Response>((_, reject) => {
-						capturedSignal = (init?.signal as AbortSignal) ?? null;
-						capturedSignal?.addEventListener('abort', () => {
-							const err = new Error('Aborted');
-							err.name = 'AbortError';
-							reject(err);
-						});
-					})
-			) as unknown as typeof fetch;
+			// Fetch that stays pending briefly so isSaving remains true when
+			// the second save is attempted.
+			globalThis.fetch = (async () => {
+				fetchCallCount++;
+				await new Promise<void>((resolve) => setTimeout(resolve, 10));
+				return { ok: true, json: async () => ({}) } as unknown as Response;
+			}) as unknown as typeof fetch;
 
 			const { save, cleanup } = createSaveHandler('lorenz', state, getParams);
 
-			// Start first save — hangs waiting for fetch
+			// Start first save — fetch is still pending, so isSaving should be true
 			const firstSavePromise = save('First');
 			expect(state.isSaving).toBe(true);
 
-			// Manually reset isSaving to bypass the concurrency guard, then start second save.
-			// At this point abortController != null (set by first save), so line 86 runs.
-			state.isSaving = false;
-			globalThis.fetch = makeFetch({ ok: true });
-			await save('Second');
+			// Second save should be a no-op due to the concurrency guard
+			const secondSavePromise = save('Second');
 
-			// First save's abort signal should have fired
-			expect(capturedSignal!.aborted).toBe(true);
-
-			// Allow first save to settle after abort
 			await firstSavePromise;
+			await secondSavePromise;
+
+			// Only one network request should have been issued
+			expect(fetchCallCount).toBe(1);
+			expect(state.isSaving).toBe(false);
 			cleanup();
 		});
 
@@ -392,7 +384,7 @@ describe('createSaveHandler', () => {
 			const savePromise = save('My Config');
 			expect(state.isSaving).toBe(true);
 
-			// cleanup() should abort the in-flight request (exercises lines 151-152)
+			// cleanup() should abort the in-flight request via the AbortController
 			cleanup();
 
 			// Wait for the aborted save to settle

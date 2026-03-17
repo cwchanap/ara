@@ -1,10 +1,11 @@
 /**
  * Targeted tests for the defensive catch blocks in loadConfigFromUrl.
  *
- * Lines 194-202 and 221-223 in use-visualization-save.ts are catch blocks that
- * wrap calls which never throw in practice (loadSavedConfigParameters and
- * parseConfigParam handle their own errors internally and return error objects).
- * By mocking $lib/saved-config-loader to throw, we exercise those defensive paths.
+ * In use-visualization-save.ts, loadConfigFromUrl has defensive catch blocks
+ * around calls that are not expected to throw in normal operation
+ * (loadSavedConfigParameters and parseConfigParam handle their own errors
+ * internally and return error objects). By mocking $lib/saved-config-loader to
+ * throw, we exercise those defensive paths.
  *
  * Note: This file uses mock.module() so it is kept separate from the main
  * use-visualization-save.test.ts to avoid polluting its test environment.

@@ -1,14 +1,14 @@
 /**
  * Targeted tests for the defensive catch blocks in useConfigLoader.
  *
- * Lines 181-197 in use-config-loader.ts are catch blocks that wrap
- * loadSavedConfigParameters / loadSharedConfigParameters calls which never
- * throw in practice (they handle their own errors internally and return
+ * These tests cover the defensive catch blocks that wrap
+ * loadSavedConfigParameters / loadSharedConfigParameters calls which normally
+ * do not throw in practice (they handle their own errors internally and return
  * error objects). By mocking $lib/saved-config-loader to throw, we exercise
  * those defensive paths.
  *
- * Lines 276-281 wrap the synchronous parseConfigParam call — similarly
- * unreachable in practice, covered here by making it throw.
+ * They also cover the defensive catch around the synchronous parseConfigParam
+ * call — similarly unreachable in practice — by forcing that function to throw.
  *
  * Note: This file uses mock.module() so it is kept separate from the main
  * use-config-loader.test.ts to avoid polluting its test environment.
