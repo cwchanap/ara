@@ -59,8 +59,10 @@ const createMockTx = () => {
 						}
 						if (insertCallCount < mockTxInsertThrowCount) {
 							insertCallCount++;
-							// Simulate PostgreSQL unique constraint violation
-							throw { code: '23505', message: 'unique_violation' };
+							// Simulate PostgreSQL unique constraint violation with proper Error semantics
+							const uniqueViolation = new Error('unique_violation');
+							(uniqueViolation as NodeJS.ErrnoException).code = '23505';
+							throw uniqueViolation;
 						}
 						return [
 							{
@@ -114,6 +116,7 @@ mock.module('$lib/server/db', () => ({
 		createdAt: { name: 'created_at' },
 		userId: { name: 'user_id' },
 		shortCode: { name: 'short_code' },
+		expiresAt: { name: 'expires_at' },
 		viewCount: { name: 'view_count' }
 	},
 	savedConfigurations: {},
