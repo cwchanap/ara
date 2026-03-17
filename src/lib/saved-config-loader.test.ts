@@ -154,8 +154,10 @@ describe('parseConfigParam', () => {
 		});
 
 		test('handles backslash-escaped characters in JSON strings', () => {
-			// A JSON string with a backslash triggers the escape-handling code paths
-			// in getMaxJsonNestingDepth (the `escaped` flag logic, lines 37-38 and 41-42).
+			// Use a JSON string containing backslashes so that string-escape handling
+			// in getMaxJsonNestingDepth (the `escaped` flag and related control flow)
+			// is exercised while computing the nesting depth, without treating escaped
+			// characters inside strings as additional structural delimiters.
 			// The extra 'note' field makes validation fail with "Unexpected parameters".
 			const rawJson = JSON.stringify({
 				type: 'lorenz',
