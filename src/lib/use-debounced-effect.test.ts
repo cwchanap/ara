@@ -61,4 +61,65 @@ describe('useDebouncedEffect', () => {
 		expect(callCount).toBe(1);
 		expect(fn).toHaveBeenCalledTimes(1);
 	});
+
+	test('uses default delay of 300ms when none specified', async () => {
+		const fn = mock(() => {});
+		const debounced = useDebouncedEffect(fn); // no delay arg
+
+		debounced.trigger();
+
+		// Not called within shorter window
+		await new Promise((resolve) => setTimeout(resolve, 100));
+		expect(fn).not.toHaveBeenCalled();
+
+		// Called after full 300ms default
+		await new Promise((resolve) => setTimeout(resolve, 250));
+		expect(fn).toHaveBeenCalledTimes(1);
+	});
+
+	test('cleanup is safe to call when no timer is pending', () => {
+		const fn = mock(() => {});
+		const debounced = useDebouncedEffect(fn, 50);
+
+		// Call cleanup without triggering first — should not throw
+		expect(() => debounced.cleanup()).not.toThrow();
+	});
+
+	test('cleanup is idempotent (calling it twice is safe)', async () => {
+		const fn = mock(() => {});
+		const debounced = useDebouncedEffect(fn, 50);
+
+		debounced.trigger();
+		debounced.cleanup();
+		debounced.cleanup(); // second cleanup should not throw
+
+		await new Promise((resolve) => setTimeout(resolve, 100));
+		expect(fn).not.toHaveBeenCalled();
+	});
+
+	test('trigger after cleanup schedules a new execution', async () => {
+		const fn = mock(() => {});
+		const debounced = useDebouncedEffect(fn, 50);
+
+		debounced.trigger();
+		debounced.cleanup();
+
+		// Trigger again after cleanup — should work normally
+		debounced.trigger();
+
+		await new Promise((resolve) => setTimeout(resolve, 100));
+		expect(fn).toHaveBeenCalledTimes(1);
+	});
+
+	test('fn is called with no arguments', async () => {
+		let capturedArgs: unknown[] | null = null;
+		const fn = mock((...args: unknown[]) => {
+			capturedArgs = args;
+		});
+		const debounced = useDebouncedEffect(fn, 30);
+		debounced.trigger();
+
+		await new Promise((resolve) => setTimeout(resolve, 60));
+		expect(capturedArgs).toEqual([]);
+	});
 });
