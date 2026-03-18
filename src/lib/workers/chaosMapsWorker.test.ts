@@ -108,4 +108,157 @@ describe('chaosMapsWorker', () => {
 
 		expect(responses).toHaveLength(0);
 	});
+
+	test('standard map: returns empty array when numP <= 0', () => {
+		responses.length = 0;
+		selfMock.onmessage?.({
+			data: {
+				type: 'standard',
+				id: 10,
+				numP: 0,
+				numQ: 1,
+				iterations: 5,
+				k: 1,
+				maxPoints: 100
+			}
+		});
+
+		expect(responses).toHaveLength(1);
+		expect(responses[0]?.type).toBe('standardResult');
+		expect(responses[0]?.points).toHaveLength(0);
+	});
+
+	test('standard map: returns empty array when numQ <= 0', () => {
+		responses.length = 0;
+		selfMock.onmessage?.({
+			data: {
+				type: 'standard',
+				id: 11,
+				numP: 1,
+				numQ: 0,
+				iterations: 5,
+				k: 1,
+				maxPoints: 100
+			}
+		});
+
+		expect(responses).toHaveLength(1);
+		expect(responses[0]?.type).toBe('standardResult');
+		expect(responses[0]?.points).toHaveLength(0);
+	});
+
+	test('standard map: returns empty array when iterations <= 0', () => {
+		responses.length = 0;
+		selfMock.onmessage?.({
+			data: {
+				type: 'standard',
+				id: 12,
+				numP: 2,
+				numQ: 2,
+				iterations: 0,
+				k: 1,
+				maxPoints: 100
+			}
+		});
+
+		expect(responses).toHaveLength(1);
+		expect(responses[0]?.type).toBe('standardResult');
+		expect(responses[0]?.points).toHaveLength(0);
+	});
+
+	test('standard map: truncates output when maxPoints is reached', () => {
+		responses.length = 0;
+		// numP=2, numQ=2, iterations=100 → could generate up to 400 points
+		// but maxPoints=5 should stop early
+		selfMock.onmessage?.({
+			data: {
+				type: 'standard',
+				id: 13,
+				numP: 2,
+				numQ: 2,
+				iterations: 100,
+				k: 1,
+				maxPoints: 5
+			}
+		});
+
+		expect(responses).toHaveLength(1);
+		expect(responses[0]?.type).toBe('standardResult');
+		expect(responses[0]?.points).toHaveLength(5);
+	});
+
+	test('standard map: echoes request id in response', () => {
+		responses.length = 0;
+		const requestId = 42;
+		selfMock.onmessage?.({
+			data: {
+				type: 'standard',
+				id: requestId,
+				numP: 1,
+				numQ: 1,
+				iterations: 1,
+				k: 0.5,
+				maxPoints: 10
+			}
+		});
+
+		expect(responses[0]?.id).toBe(requestId);
+	});
+
+	test('chaos map: echoes request id in response', () => {
+		responses.length = 0;
+		const requestId = 99;
+		selfMock.onmessage?.({
+			data: {
+				type: 'chaos',
+				id: requestId,
+				a: 1.4,
+				b: 0.3,
+				x0: 0,
+				y0: 0,
+				iterations: 10,
+				maxPoints: 100
+			}
+		});
+
+		expect(responses[0]?.id).toBe(requestId);
+	});
+
+	test('chaos map: respects maxPoints limit', () => {
+		responses.length = 0;
+		selfMock.onmessage?.({
+			data: {
+				type: 'chaos',
+				id: 20,
+				a: 1.4,
+				b: 0.3,
+				x0: 0,
+				y0: 0,
+				iterations: 1000,
+				maxPoints: 5
+			}
+		});
+
+		expect(responses).toHaveLength(1);
+		expect(responses[0]?.type).toBe('chaosResult');
+		expect(responses[0]?.points).toHaveLength(5);
+	});
+
+	test('standard map: multiple initial conditions (numP=3, numQ=3)', () => {
+		responses.length = 0;
+		selfMock.onmessage?.({
+			data: {
+				type: 'standard',
+				id: 30,
+				numP: 3,
+				numQ: 3,
+				iterations: 2,
+				k: 0.5,
+				maxPoints: 1000
+			}
+		});
+
+		// 3 × 3 initial conditions × 2 iterations = 18 points
+		expect(responses[0]?.points).toHaveLength(18);
+	});
 });
