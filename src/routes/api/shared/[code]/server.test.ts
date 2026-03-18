@@ -124,7 +124,7 @@ describe('GET /api/shared/[code]', () => {
 			let deleteCalled = false;
 			// Re-override the delete mock to track calls
 			const originalDb = await import('$lib/server/db');
-			const typedDb = originalDb as {
+			const typedDb = originalDb as unknown as {
 				db: { delete: (t: unknown) => { where: (c: unknown) => Promise<void> } };
 			};
 			const originalDelete = typedDb.db.delete;

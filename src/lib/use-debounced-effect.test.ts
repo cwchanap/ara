@@ -112,14 +112,17 @@ describe('useDebouncedEffect', () => {
 	});
 
 	test('fn is called with no arguments', async () => {
-		let capturedArgs: unknown[] | null = null;
+		let callCount = 0;
+		let capturedArgCount = -1;
 		const fn = mock((...args: unknown[]) => {
-			capturedArgs = args;
+			callCount++;
+			capturedArgCount = args.length;
 		});
 		const debounced = useDebouncedEffect(fn, 30);
 		debounced.trigger();
 
 		await new Promise((resolve) => setTimeout(resolve, 60));
-		expect(capturedArgs).toEqual([]);
+		expect(callCount).toBe(1);
+		expect(capturedArgCount).toBe(0);
 	});
 });
