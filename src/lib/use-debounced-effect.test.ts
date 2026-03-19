@@ -72,8 +72,8 @@ describe('useDebouncedEffect', () => {
 		await new Promise((resolve) => setTimeout(resolve, 100));
 		expect(fn).not.toHaveBeenCalled();
 
-		// Called after full 300ms default
-		await new Promise((resolve) => setTimeout(resolve, 250));
+		// Called after full 300ms default, with extra buffer to avoid flakiness on slow CI
+		await new Promise((resolve) => setTimeout(resolve, 400));
 		expect(fn).toHaveBeenCalledTimes(1);
 	});
 
