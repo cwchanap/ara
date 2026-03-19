@@ -153,10 +153,25 @@ describe('GET /api/shared/[code]', () => {
 				// expected 410 error
 			}
 
-			// The where clause should reference the share's id, not its shortCode
-			const serialized = JSON.stringify(capturedWhereArg);
-			expect(serialized).toContain(share.id);
-			expect(serialized).not.toContain(share.shortCode);
+			// The where clause should reference the share's id, not its shortCode.
+			// Use a recursive string extractor instead of JSON.stringify so the
+			// assertion is robust regardless of Drizzle's internal SQL object shape.
+			const extractStrings = (value: unknown, seen = new Set<unknown>()): string[] => {
+				if (value === null || typeof value === 'undefined') return [];
+				if (typeof value === 'string') return [value];
+				if (typeof value !== 'object') return [];
+				if (seen.has(value)) return [];
+				seen.add(value);
+				const result: string[] = [];
+				for (const key of Object.keys(value as Record<string, unknown>)) {
+					const v = (value as Record<string, unknown>)[key];
+					result.push(...extractStrings(v, seen));
+				}
+				return result;
+			};
+			const allStrings = extractStrings(capturedWhereArg);
+			expect(allStrings).toContain(share.id);
+			expect(allStrings).not.toContain(share.shortCode);
 
 			deleteImpl = originalDeleteImpl;
 		});
