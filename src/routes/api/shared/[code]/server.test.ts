@@ -23,6 +23,17 @@ interface MockShare {
 let mockDbSelectResult: MockShare | null = null;
 let mockDbDeleteThrows = false;
 
+// Indirection layer so individual tests can swap the delete behaviour
+// without a dynamic import inside the test body (which causes cross-file
+// module-cache issues when tests run together).
+type DeleteWhere = (c: unknown) => unknown;
+let deleteImpl: () => { where: DeleteWhere } = () => ({
+	where: () => {
+		if (mockDbDeleteThrows) throw new Error('Delete failed');
+		return Promise.resolve();
+	}
+});
+
 const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 const pastDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
@@ -37,12 +48,7 @@ mock.module('$lib/server/db', () => ({
 				})
 			})
 		}),
-		delete: () => ({
-			where: () => {
-				if (mockDbDeleteThrows) throw new Error('Delete failed');
-				return Promise.resolve();
-			}
-		})
+		delete: () => deleteImpl()
 	},
 	sharedConfigurations: {
 		id: {},
@@ -82,9 +88,17 @@ function makeValidShare(overrides: Partial<MockShare> = {}): MockShare {
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
+const defaultDeleteImpl: () => { where: DeleteWhere } = () => ({
+	where: () => {
+		if (mockDbDeleteThrows) throw new Error('Delete failed');
+		return Promise.resolve();
+	}
+});
+
 beforeEach(() => {
 	mockDbSelectResult = null;
 	mockDbDeleteThrows = false;
+	deleteImpl = defaultDeleteImpl;
 });
 
 describe('GET /api/shared/[code]', () => {
@@ -120,30 +134,31 @@ describe('GET /api/shared/[code]', () => {
 			await expect(GET(event as never)).rejects.toMatchObject({ status: 410 });
 		});
 
-		test('attempts to delete expired share', async () => {
-			let deleteCalled = false;
-			// Re-override the delete mock to track calls
-			const originalDb = await import('$lib/server/db');
-			const typedDb = originalDb as unknown as {
-				db: { delete: (t: unknown) => { where: (c: unknown) => Promise<void> } };
-			};
-			const originalDelete = typedDb.db.delete;
-			typedDb.db.delete = () => ({
-				where: () => {
-					deleteCalled = true;
+		test('deletes expired share by id, not by shortCode', async () => {
+			let capturedWhereArg: unknown;
+			const originalDeleteImpl = deleteImpl;
+			deleteImpl = () => ({
+				where: (criteria: unknown) => {
+					capturedWhereArg = criteria;
 					return Promise.resolve();
 				}
 			});
 
-			mockDbSelectResult = makeValidShare({ expiresAt: pastDate });
+			const share = makeValidShare({ expiresAt: pastDate });
+			mockDbSelectResult = share;
 			const event = makeEvent('ABCD1234');
 			try {
 				await GET(event as never);
 			} catch {
 				// expected 410 error
 			}
-			expect(deleteCalled).toBe(true);
-			typedDb.db.delete = originalDelete;
+
+			// The where clause should reference the share's id, not its shortCode
+			const serialized = JSON.stringify(capturedWhereArg);
+			expect(serialized).toContain(share.id);
+			expect(serialized).not.toContain(share.shortCode);
+
+			deleteImpl = originalDeleteImpl;
 		});
 
 		test('still returns 410 even if delete throws', async () => {

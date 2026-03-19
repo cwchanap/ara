@@ -35,7 +35,26 @@ mock.module('$lib/server/db', () => ({
 			}
 		})
 	},
-	savedConfigurations: { id: {}, name: {}, mapType: {}, createdAt: {} }
+	savedConfigurations: {
+		id: {},
+		userId: {},
+		name: {},
+		mapType: {},
+		parameters: {},
+		createdAt: {},
+		updatedAt: {}
+	},
+	sharedConfigurations: {
+		id: {},
+		userId: {},
+		shortCode: {},
+		mapType: {},
+		parameters: {},
+		viewCount: {},
+		createdAt: {},
+		expiresAt: {}
+	},
+	profiles: { id: {}, username: {} }
 }));
 
 // Dynamic import AFTER mock registration
