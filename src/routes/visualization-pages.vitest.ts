@@ -9,10 +9,12 @@ import LogisticPage from './logistic/+page.svelte';
 import LorenzPage from './lorenz/+page.svelte';
 import LorenzComparePage from './lorenz/compare/+page.svelte';
 import LoziPage from './lozi/+page.svelte';
+import LoziComparePage from './lozi/compare/+page.svelte';
 import LyapunovPage from './lyapunov/+page.svelte';
 import NewtonPage from './newton/+page.svelte';
 import RosslerPage from './rossler/+page.svelte';
 import StandardPage from './standard/+page.svelte';
+import StandardComparePage from './standard/compare/+page.svelte';
 
 const pageData = {
 	session: null,
@@ -238,5 +240,19 @@ describe('visualization pages', () => {
 		// store directly and doesn't export a data prop like other pages
 		render(LorenzComparePage);
 		expect(screen.getByText('LEFT_PARAMETERS')).toBeInTheDocument();
+	});
+
+	it('renders lozi compare page', () => {
+		setPageUrl('http://localhost/lozi/compare?compare=true');
+		render(LoziComparePage);
+		expect(screen.getByText('LEFT_PARAMETERS')).toBeInTheDocument();
+		expect(screen.getByText('RIGHT_PARAMETERS')).toBeInTheDocument();
+	});
+
+	it('renders standard compare page', () => {
+		setPageUrl('http://localhost/standard/compare?compare=true');
+		render(StandardComparePage);
+		expect(screen.getByText('LEFT_PARAMETERS')).toBeInTheDocument();
+		expect(screen.getByText('RIGHT_PARAMETERS')).toBeInTheDocument();
 	});
 });
