@@ -125,7 +125,7 @@ describe('saved-configs route server', () => {
 			load({
 				locals: makeLocals({ session: null, user: null }),
 				url: new URL('http://localhost/saved-configs')
-			} as Parameters<typeof load>[0])
+			} as unknown as Parameters<typeof load>[0])
 		).rejects.toMatchObject({
 			status: 303,
 			location: '/login?redirect=%2Fsaved-configs'
@@ -162,7 +162,11 @@ describe('saved-configs route server', () => {
 		const result = await load({
 			locals: makeLocals(),
 			url: new URL('http://localhost/saved-configs')
-		} as Parameters<typeof load>[0]);
+		} as unknown as Parameters<typeof load>[0]);
+
+		if (!result || !('configurations' in result)) {
+			throw new Error('Expected saved configurations from load');
+		}
 
 		expect(result.configurations).toHaveLength(1);
 		expect(result.configurations[0]?.id).toBe('cfg-valid');
@@ -176,7 +180,7 @@ describe('saved-configs route server', () => {
 				mapType: 'lorenz',
 				parameters: JSON.stringify({ type: 'lorenz', sigma: 10, rho: 28, beta: 8 / 3 })
 			})
-		} as Parameters<(typeof actions)['save']>[0]);
+		} as unknown as Parameters<(typeof actions)['save']>[0]);
 
 		expect(result).toMatchObject({
 			status: 400,
@@ -192,7 +196,7 @@ describe('saved-configs route server', () => {
 				mapType: 'lorenz',
 				parameters: '{not-json}'
 			})
-		} as Parameters<(typeof actions)['save']>[0]);
+		} as unknown as Parameters<(typeof actions)['save']>[0]);
 
 		expect(result).toMatchObject({
 			status: 400,
@@ -210,7 +214,7 @@ describe('saved-configs route server', () => {
 				mapType: 'lorenz',
 				parameters: JSON.stringify({ type: 'lorenz', sigma: 10, rho: 28, beta: 8 / 3 })
 			})
-		} as Parameters<(typeof actions)['save']>[0]);
+		} as unknown as Parameters<(typeof actions)['save']>[0]);
 
 		expect(insertMock).toHaveBeenCalledTimes(1);
 		expect(result).toEqual({ success: true, configurationId: 'cfg-new' });
@@ -222,12 +226,25 @@ describe('saved-configs route server', () => {
 		const result = await actions.delete({
 			locals: makeLocals(),
 			request: makeRequest({ configurationId: 'cfg-1' })
-		} as Parameters<(typeof actions)['delete']>[0]);
+		} as unknown as Parameters<(typeof actions)['delete']>[0]);
 
 		expect(result).toMatchObject({
 			status: 403,
 			data: { deleteError: 'You do not have permission to delete this configuration' }
 		});
+	});
+
+	it('deletes configurations owned by the current user', async () => {
+		selectResults.push([{ id: 'cfg-1', userId: 'user-1' }]);
+		deleteResults.push([]);
+
+		const result = await actions.delete({
+			locals: makeLocals(),
+			request: makeRequest({ configurationId: 'cfg-1' })
+		} as unknown as Parameters<(typeof actions)['delete']>[0]);
+
+		expect(deleteMock).toHaveBeenCalledTimes(1);
+		expect(result).toEqual({ deleteSuccess: true });
 	});
 
 	it('returns not found when rename target does not exist', async () => {
@@ -236,7 +253,7 @@ describe('saved-configs route server', () => {
 		const result = await actions.rename({
 			locals: makeLocals(),
 			request: makeRequest({ configurationId: 'cfg-missing', name: 'Updated Name' })
-		} as Parameters<(typeof actions)['rename']>[0]);
+		} as unknown as Parameters<(typeof actions)['rename']>[0]);
 
 		expect(result).toMatchObject({
 			status: 404,
@@ -251,7 +268,7 @@ describe('saved-configs route server', () => {
 		const result = await actions.rename({
 			locals: makeLocals(),
 			request: makeRequest({ configurationId: 'cfg-1', name: '  Updated Name  ' })
-		} as Parameters<(typeof actions)['rename']>[0]);
+		} as unknown as Parameters<(typeof actions)['rename']>[0]);
 
 		expect(updateMock).toHaveBeenCalledTimes(1);
 		expect(result).toEqual({ renameSuccess: true, name: 'Updated Name' });

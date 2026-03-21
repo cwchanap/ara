@@ -115,7 +115,7 @@ describe('signup route server', () => {
 			load({
 				locals: makeLocals({ session: { access_token: 'token' } }),
 				url: new URL('http://localhost/signup?redirect=%2Florenz')
-			} as Parameters<typeof load>[0])
+			} as unknown as Parameters<typeof load>[0])
 		).rejects.toMatchObject({
 			status: 303,
 			location: '/lorenz'
@@ -127,7 +127,7 @@ describe('signup route server', () => {
 			load({
 				locals: makeLocals({ session: { access_token: 'token' } }),
 				url: new URL('http://localhost/signup?redirect=https://evil.example')
-			} as Parameters<typeof load>[0])
+			} as unknown as Parameters<typeof load>[0])
 		).rejects.toMatchObject({
 			status: 303,
 			location: '/'
@@ -142,7 +142,7 @@ describe('signup route server', () => {
 				email: 'not-an-email'
 			}),
 			url: new URL('http://localhost/signup')
-		} as Parameters<(typeof actions)['default']>[0]);
+		} as unknown as Parameters<(typeof actions)['default']>[0]);
 
 		expect(result).toMatchObject({
 			status: 400,
@@ -157,7 +157,7 @@ describe('signup route server', () => {
 			locals: makeLocals(),
 			request: makeRequest(validFields),
 			url: new URL('http://localhost/signup')
-		} as Parameters<(typeof actions)['default']>[0]);
+		} as unknown as Parameters<(typeof actions)['default']>[0]);
 
 		expect(result).toMatchObject({
 			status: 400,
@@ -176,7 +176,7 @@ describe('signup route server', () => {
 			locals: makeLocals(),
 			request: makeRequest(validFields),
 			url: new URL('http://localhost/signup')
-		} as Parameters<(typeof actions)['default']>[0]);
+		} as unknown as Parameters<(typeof actions)['default']>[0]);
 
 		expect(result).toMatchObject({
 			status: 400,
@@ -195,7 +195,7 @@ describe('signup route server', () => {
 			locals: makeLocals(),
 			request: makeRequest(validFields),
 			url: new URL('http://localhost/signup')
-		} as Parameters<(typeof actions)['default']>[0]);
+		} as unknown as Parameters<(typeof actions)['default']>[0]);
 
 		expect(result).toMatchObject({
 			status: 400,
@@ -221,7 +221,7 @@ describe('signup route server', () => {
 			locals: makeLocals(),
 			request: makeRequest(validFields),
 			url: new URL('http://localhost/signup')
-		} as Parameters<(typeof actions)['default']>[0]);
+		} as unknown as Parameters<(typeof actions)['default']>[0]);
 
 		expect(signOutMock).toHaveBeenCalledTimes(1);
 		expect(deleteAuthUserMock).toHaveBeenCalledWith('user-1');
@@ -246,7 +246,7 @@ describe('signup route server', () => {
 				locals: makeLocals(),
 				request: makeRequest(validFields),
 				url: new URL('http://localhost/signup?redirect=%2Fsaved-configs')
-			} as Parameters<(typeof actions)['default']>[0])
+			} as unknown as Parameters<(typeof actions)['default']>[0])
 		).rejects.toMatchObject({
 			status: 303,
 			location: '/saved-configs'
