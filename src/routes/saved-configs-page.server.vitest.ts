@@ -35,20 +35,14 @@ selectMock.mockImplementation(() => {
 });
 
 insertMock.mockImplementation(() => ({
-	values: vi.fn((values) => ({
-		returning: vi.fn(async () => {
-			insertResults.push(Array.isArray(values) ? values : [values]);
-			return nextResult(insertResults);
-		})
+	values: vi.fn(() => ({
+		returning: vi.fn(async () => nextResult(insertResults))
 	}))
 }));
 
 updateMock.mockImplementation(() => ({
-	set: vi.fn((values) => ({
-		where: vi.fn(async () => {
-			updateResults.push(Array.isArray(values) ? values : [values]);
-			return nextResult(updateResults);
-		})
+	set: vi.fn(() => ({
+		where: vi.fn(async () => nextResult(updateResults))
 	}))
 }));
 
