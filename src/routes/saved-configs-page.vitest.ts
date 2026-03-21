@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import SavedConfigsPage from './saved-configs/+page.svelte';
 import type { SavedConfiguration } from '$lib/types';
+import type { ActionData, PageData } from './saved-configs/$types';
 
 const gotoMock = vi.hoisted(() => vi.fn());
 const invalidateAllMock = vi.hoisted(() => vi.fn());
@@ -39,11 +40,17 @@ function makeActionResponse(response: {
 
 function renderPage(
 	configurations: SavedConfiguration[] = [defaultConfig],
-	form: Record<string, unknown> | null = null
+	form: ActionData | null = null
 ) {
+	const data: PageData = {
+		configurations,
+		session: null,
+		user: null
+	};
+
 	return render(SavedConfigsPage, {
 		props: {
-			data: { configurations },
+			data,
 			form
 		}
 	});
@@ -85,12 +92,12 @@ describe('saved-configs page', () => {
 		const circularParameters: Record<string, unknown> = { type: 'lorenz' };
 		circularParameters.self = circularParameters;
 
-		renderPage([
-			{
-				...defaultConfig,
-				parameters: circularParameters as SavedConfiguration['parameters']
-			}
-		]);
+		const circularConfig = {
+			...defaultConfig,
+			parameters: circularParameters as unknown as SavedConfiguration['parameters']
+		} as unknown as SavedConfiguration;
+
+		renderPage([circularConfig]);
 
 		await fireEvent.click(screen.getByRole('button', { name: 'LOAD' }));
 
@@ -156,7 +163,7 @@ describe('saved-configs page', () => {
 	});
 
 	it('shows rename success feedback from form results', () => {
-		renderPage([defaultConfig], { renameSuccess: true });
+		renderPage([defaultConfig], { renameSuccess: true, name: defaultConfig.name });
 
 		expect(screen.getByText('Configuration renamed successfully!')).toBeInTheDocument();
 	});
