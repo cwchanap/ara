@@ -7,6 +7,9 @@ import type { ActionData, PageData } from './saved-configs/$types';
 const gotoMock = vi.hoisted(() => vi.fn());
 const invalidateAllMock = vi.hoisted(() => vi.fn());
 
+const originalShowModal = HTMLDialogElement.prototype.showModal;
+const originalClose = HTMLDialogElement.prototype.close;
+
 vi.mock('$app/paths', () => ({ base: '' }));
 
 vi.mock('$app/navigation', () => ({
@@ -73,6 +76,8 @@ describe('saved-configs page', () => {
 	});
 
 	afterEach(() => {
+		HTMLDialogElement.prototype.showModal = originalShowModal;
+		HTMLDialogElement.prototype.close = originalClose;
 		globalThis.fetch = originalFetch;
 		cleanup();
 	});
