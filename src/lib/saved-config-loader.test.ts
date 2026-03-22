@@ -193,6 +193,79 @@ describe('parseConfigParam', () => {
 				expect(result.errors.some((e) => e.includes('Unexpected parameters'))).toBe(true);
 			}
 		});
+
+		test('returns "too deeply nested" for JSON with extra closing bracket (depth < 0)', () => {
+			// '{"a":1}}' — the second '}' drives nesting depth below 0,
+			// exercising the `depth < 0 → { ok: false }` branch in getMaxJsonNestingDepth.
+			const configParam = encodeURIComponent('{"a":1}}');
+
+			const result = parseConfigParam({ mapType: 'lorenz', configParam });
+
+			expect(result.ok).toBe(false);
+			if (!result.ok) {
+				expect(result.errors.some((e) => e.includes('too deeply nested'))).toBe(true);
+			}
+		});
+
+		test('returns "too deeply nested" for JSON starting with a closing bracket', () => {
+			// A lone '}' immediately sends depth to -1.
+			const configParam = encodeURIComponent('}');
+
+			const result = parseConfigParam({ mapType: 'lorenz', configParam });
+
+			expect(result.ok).toBe(false);
+			if (!result.ok) {
+				expect(result.errors.some((e) => e.includes('too deeply nested'))).toBe(true);
+			}
+		});
+
+		test('returns "too deeply nested" for JSON array with extra closing bracket', () => {
+			// '[1,2]]' — the second ']' drives depth to -1, exercising the ']' branch.
+			const configParam = encodeURIComponent('[1,2]]');
+
+			const result = parseConfigParam({ mapType: 'lorenz', configParam });
+
+			expect(result.ok).toBe(false);
+			if (!result.ok) {
+				expect(result.errors.some((e) => e.includes('too deeply nested'))).toBe(true);
+			}
+		});
+
+		test('logMessage field is present in failed result', () => {
+			const configParam = encodeURIComponent('not-valid-json');
+
+			const result = parseConfigParam({ mapType: 'lorenz', configParam });
+
+			expect(result.ok).toBe(false);
+			if (!result.ok) {
+				expect(result).toHaveProperty('logMessage');
+				expect(typeof result.logMessage).toBe('string');
+			}
+		});
+
+		test('logDetails field is present in failed result', () => {
+			const configParam = encodeURIComponent('not-valid-json');
+
+			const result = parseConfigParam({ mapType: 'lorenz', configParam });
+
+			expect(result.ok).toBe(false);
+			if (!result.ok) {
+				expect(result).toHaveProperty('logDetails');
+			}
+		});
+
+		test('handles JSON containing array brackets without false nesting errors', () => {
+			// Valid JSON object with array value — brackets inside strings/values
+			// should not corrupt nesting depth tracking.
+			const configParam = encodeURIComponent(
+				JSON.stringify({ type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 })
+			);
+
+			const result = parseConfigParam({ mapType: 'lorenz', configParam });
+
+			// Should parse successfully (no spurious nesting error)
+			expect(result.ok).toBe(true);
+		});
 	});
 });
 

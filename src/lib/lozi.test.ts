@@ -245,4 +245,40 @@ describe('calculateLoziTuples', () => {
 			expect(tuplePoints[i][1]).toBeCloseTo(objectPoints[i].y, 10);
 		}
 	});
+
+	test('handles negative x0 initial condition', () => {
+		const params = { a: 1.7, b: 0.5, x0: -1, y0: 0.3, iterations: 50 };
+		const objectPoints = calculateLozi(params);
+		const tuplePoints = calculateLoziTuples(params);
+
+		expect(tuplePoints).toHaveLength(50);
+		for (let i = 0; i < objectPoints.length; i++) {
+			expect(tuplePoints[i][0]).toBeCloseTo(objectPoints[i].x, 10);
+			expect(tuplePoints[i][1]).toBeCloseTo(objectPoints[i].y, 10);
+		}
+	});
+
+	test('returns empty array for zero iterations', () => {
+		const params = { a: 1.7, b: 0.5, x0: 0, y0: 0, iterations: 0 };
+		expect(calculateLoziTuples(params)).toHaveLength(0);
+	});
+
+	test('first tuple matches Lozi equations for one step', () => {
+		const a = 1.7, b = 0.5, x0 = 0.5, y0 = 0.3;
+		const tuples = calculateLoziTuples({ a, b, x0, y0, iterations: 1 });
+
+		const expectedX = 1 + y0 - a * Math.abs(x0);
+		const expectedY = b * x0;
+
+		expect(tuples[0][0]).toBeCloseTo(expectedX, 10);
+		expect(tuples[0][1]).toBeCloseTo(expectedY, 10);
+	});
+
+	test('all tuple values are finite numbers', () => {
+		const tuples = calculateLoziTuples({ a: 1.7, b: 0.5, x0: 0, y0: 0, iterations: 200 });
+		for (const [x, y] of tuples) {
+			expect(Number.isFinite(x)).toBe(true);
+			expect(Number.isFinite(y)).toBe(true);
+		}
+	});
 });
