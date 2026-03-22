@@ -604,4 +604,53 @@ describe('round-trip encoding/decoding', () => {
 		expect(decoded!.left).toHaveProperty('maxIterations', 1500);
 		expect(decoded!.right).toHaveProperty('rMin', 2.8);
 	});
+
+	test('normalizes legacy uppercase K to lowercase k for standard map during decode', () => {
+		// Simulate a URL produced by old code that used uppercase 'K'
+		// Encode manually with uppercase 'K' bypassing encodeComparisonState
+		const legacyParams = { K: 0.97, numP: 20, numQ: 20, iterations: 20000 };
+		const encoded = base64Encode(JSON.stringify(legacyParams));
+		const url = new URL(
+			`https://example.com/standard/compare?compare=true&left=${encoded}&right=${encoded}`
+		);
+
+		const decoded = decodeComparisonState(url, 'standard');
+
+		expect(decoded).not.toBeNull();
+		// After normalization 'K' → 'k', the result should contain lowercase 'k'
+		expect(decoded!.left).toHaveProperty('k', 0.97);
+		expect(decoded!.right).toHaveProperty('k', 0.97);
+	});
+
+	test('falls back to defaults when encoded params are invalid JSON', () => {
+		const url = new URL(
+			'https://example.com/lorenz/compare?compare=true&left=INVALID_BASE64!!!&right=ALSO_BAD'
+		);
+		const decoded = decodeComparisonState(url, 'lorenz');
+
+		// decodeParams returns null for invalid base64 → falls back to defaults
+		expect(decoded).not.toBeNull();
+		expect(decoded!.compare).toBe(true);
+		// Should fall back to default lorenz params
+		expect(decoded!.left).toHaveProperty('type', 'lorenz');
+		expect(decoded!.right).toHaveProperty('type', 'lorenz');
+	});
+
+	test('falls back to defaults when left param is missing', () => {
+		const right = encodeComparisonState({
+			compare: true,
+			left: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 },
+			right: { type: 'lorenz', sigma: 12, rho: 30, beta: 3 }
+		});
+		// Remove the left param from the URL
+		const params = new URLSearchParams(right.toString());
+		params.delete('left');
+		const url = new URL(`https://example.com/lorenz/compare?${params.toString()}`);
+
+		const decoded = decodeComparisonState(url, 'lorenz');
+
+		expect(decoded).not.toBeNull();
+		// left should fall back to defaults
+		expect((decoded!.left as LorenzParameters).sigma).toBe(10);
+	});
 });

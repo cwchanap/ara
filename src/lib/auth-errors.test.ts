@@ -119,4 +119,62 @@ describe('getErrorMessage', () => {
 		expect(getErrorMessage('invalid_credentials')).toBe('Invalid email or password');
 		expect(getErrorMessage('random_string')).toBe('Something went wrong. Please try again.');
 	});
+
+	test('returns correct message for email_exists error code', () => {
+		expect(getErrorMessage({ code: 'email_exists' })).toBe(
+			'An account with this email already exists'
+		);
+	});
+
+	test('returns correct message for username_exists error code', () => {
+		expect(getErrorMessage({ code: 'username_exists' })).toBe('This username is already taken');
+	});
+
+	test('returns correct message for user_not_found error code', () => {
+		expect(getErrorMessage({ code: 'user_not_found' })).toBe('No account found with this email');
+	});
+
+	test('returns correct message for unauthorized error code', () => {
+		expect(getErrorMessage({ code: 'unauthorized' })).toBe(
+			'You must be logged in to perform this action'
+		);
+	});
+
+	test('returns correct message for invalid_current_password error code', () => {
+		expect(getErrorMessage({ code: 'invalid_current_password' })).toBe(
+			'Current password is incorrect'
+		);
+	});
+
+	test('returns correct message for password_mismatch error code', () => {
+		expect(getErrorMessage({ code: 'password_mismatch' })).toBe('New passwords do not match');
+	});
+
+	test('returns correct message for invalid_grant error code', () => {
+		expect(getErrorMessage({ code: 'invalid_grant' })).toBe('Invalid email or password');
+	});
+
+	test('returns "already exists" match for message containing "already exists"', () => {
+		expect(getErrorMessage({ message: 'Email already exists in the system' })).toBe(
+			'An account with this email already exists'
+		);
+	});
+
+	test('returns correct message for "invalid credentials" (without "login") in message', () => {
+		expect(getErrorMessage({ message: 'Invalid credentials provided' })).toBe(
+			'Invalid email or password'
+		);
+	});
+
+	test('returns default message for object without code or message', () => {
+		expect(getErrorMessage({ status: 500 })).toBe('Something went wrong. Please try again.');
+	});
+
+	test('returns default message for boolean false', () => {
+		expect(getErrorMessage(false)).toBe('Something went wrong. Please try again.');
+	});
+
+	test('returns default message for number 0', () => {
+		expect(getErrorMessage(0)).toBe('Something went wrong. Please try again.');
+	});
 });

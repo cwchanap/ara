@@ -470,4 +470,74 @@ describe('createShareWithRateLimit (mocked db)', () => {
 			Date.now = originalDateNow;
 		}
 	});
+
+	test('passes correct mapType and parameters to insert', async () => {
+		mockTxShareCount = 0;
+
+		await createShareWithRateLimit(
+			'user-99',
+			'rossler',
+			{ type: 'rossler', a: 0.2, b: 0.2, c: 5.7 },
+			'ROSSLER1',
+			'2030-06-01T00:00:00.000Z'
+		);
+
+		expect(savedInsertPayload).not.toBeNull();
+		expect(savedInsertPayload!.mapType).toBe('rossler');
+		expect(savedInsertPayload!.expiresAt).toBe('2030-06-01T00:00:00.000Z');
+	});
+
+	test('returns remaining = 0 when exactly one slot is left', async () => {
+		mockTxShareCount = SHARE_RATE_LIMIT_PER_HOUR - 1; // 9 used, 1 remaining
+
+		const result = await createShareWithRateLimit(
+			'user-id',
+			'lorenz',
+			{ type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 },
+			'TESTCODE',
+			'2030-01-01T00:00:00.000Z'
+		);
+
+		expect(result.success).toBe(true);
+		// remaining = SHARE_RATE_LIMIT_PER_HOUR - (SHARE_RATE_LIMIT_PER_HOUR - 1) - 1 = 0
+		expect(result.remaining).toBe(0);
+	});
+});
+
+describe('calculateExpirationDate edge cases', () => {
+	test('returns a date in the past for 0 days', () => {
+		const now = new Date();
+		const expiration = calculateExpirationDate(0);
+		// 0 days: setDate(getDate() + 0) = today
+		expect(expiration.getDate()).toBe(now.getDate());
+		expect(expiration.getMonth()).toBe(now.getMonth());
+		expect(expiration.getFullYear()).toBe(now.getFullYear());
+	});
+
+	test('returns correct date for 1 day', () => {
+		const now = new Date();
+		const expiration = calculateExpirationDate(1);
+		const expected = new Date(now);
+		expected.setDate(expected.getDate() + 1);
+		expect(expiration.getDate()).toBe(expected.getDate());
+	});
+
+	test('returns a Date object', () => {
+		const result = calculateExpirationDate(7);
+		expect(result).toBeInstanceOf(Date);
+	});
+});
+
+describe('isShareExpired and getDaysUntilExpiration combined', () => {
+	test('a future expiration is not expired and has positive days remaining', () => {
+		const future = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString();
+		expect(isShareExpired(future)).toBe(false);
+		expect(getDaysUntilExpiration(future)).toBeGreaterThan(0);
+	});
+
+	test('a past expiration is expired and has non-positive days remaining', () => {
+		const past = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+		expect(isShareExpired(past)).toBe(true);
+		expect(getDaysUntilExpiration(past)).toBeLessThanOrEqual(0);
+	});
 });
