@@ -233,8 +233,26 @@ describe('calculateRossler', () => {
 
 	test('sensitivity to initial conditions: perturbation diverges over time', () => {
 		// Use a clearly distinguishable perturbation so we can verify chaotic divergence
-		const base = calculateRossler({ x0: 0.1, y0: 0, z0: 0, steps: 1000, dt: 0.01, a: 0.2, b: 0.2, c: 5.7 });
-		const perturbed = calculateRossler({ x0: 0.11, y0: 0, z0: 0, steps: 1000, dt: 0.01, a: 0.2, b: 0.2, c: 5.7 });
+		const base = calculateRossler({
+			x0: 0.1,
+			y0: 0,
+			z0: 0,
+			steps: 1000,
+			dt: 0.01,
+			a: 0.2,
+			b: 0.2,
+			c: 5.7
+		});
+		const perturbed = calculateRossler({
+			x0: 0.11,
+			y0: 0,
+			z0: 0,
+			steps: 1000,
+			dt: 0.01,
+			a: 0.2,
+			b: 0.2,
+			c: 5.7
+		});
 
 		const lastBase = base[999];
 		const lastPert = perturbed[999];
@@ -246,7 +264,16 @@ describe('calculateRossler', () => {
 	});
 
 	test('all points have three numeric coordinates', () => {
-		const points = calculateRossler({ x0: 1, y0: 1, z0: 1, steps: 5, dt: 0.05, a: 0.2, b: 0.2, c: 5.7 });
+		const points = calculateRossler({
+			x0: 1,
+			y0: 1,
+			z0: 1,
+			steps: 5,
+			dt: 0.05,
+			a: 0.2,
+			b: 0.2,
+			c: 5.7
+		});
 		for (const p of points) {
 			expect(Object.keys(p)).toContain('x');
 			expect(Object.keys(p)).toContain('y');
@@ -258,8 +285,13 @@ describe('calculateRossler', () => {
 	});
 
 	test('single step with non-zero z0 matches RK4 formula', () => {
-		const x0 = 0, y0 = 0, z0 = 2;
-		const a = 0.2, b = 0.2, c = 5.7, dt = 0.01;
+		const x0 = 0,
+			y0 = 0,
+			z0 = 2;
+		const a = 0.2,
+			b = 0.2,
+			c = 5.7,
+			dt = 0.01;
 
 		const points = calculateRossler({ x0, y0, z0, steps: 1, dt, a, b, c });
 
@@ -270,12 +302,21 @@ describe('calculateRossler', () => {
 		});
 
 		const k1 = derivatives(x0, y0, z0);
-		const k2 = derivatives(x0 + dt * k1.dx / 2, y0 + dt * k1.dy / 2, z0 + dt * k1.dz / 2);
-		const k3 = derivatives(x0 + dt * k2.dx / 2, y0 + dt * k2.dy / 2, z0 + dt * k2.dz / 2);
+		const k2 = derivatives(x0 + (dt * k1.dx) / 2, y0 + (dt * k1.dy) / 2, z0 + (dt * k1.dz) / 2);
+		const k3 = derivatives(x0 + (dt * k2.dx) / 2, y0 + (dt * k2.dy) / 2, z0 + (dt * k2.dz) / 2);
 		const k4 = derivatives(x0 + dt * k3.dx, y0 + dt * k3.dy, z0 + dt * k3.dz);
 
-		expect(points[0].x).toBeCloseTo(x0 + (dt / 6) * (k1.dx + 2 * k2.dx + 2 * k3.dx + k4.dx), 10);
-		expect(points[0].y).toBeCloseTo(y0 + (dt / 6) * (k1.dy + 2 * k2.dy + 2 * k3.dy + k4.dy), 10);
-		expect(points[0].z).toBeCloseTo(z0 + (dt / 6) * (k1.dz + 2 * k2.dz + 2 * k3.dz + k4.dz), 10);
+		expect(points[0].x).toBeCloseTo(
+			x0 + (dt / 6) * (k1.dx + 2 * k2.dx + 2 * k3.dx + k4.dx),
+			10
+		);
+		expect(points[0].y).toBeCloseTo(
+			y0 + (dt / 6) * (k1.dy + 2 * k2.dy + 2 * k3.dy + k4.dy),
+			10
+		);
+		expect(points[0].z).toBeCloseTo(
+			z0 + (dt / 6) * (k1.dz + 2 * k2.dz + 2 * k3.dz + k4.dz),
+			10
+		);
 	});
 });

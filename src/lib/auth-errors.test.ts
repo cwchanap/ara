@@ -131,7 +131,9 @@ describe('getErrorMessage', () => {
 	});
 
 	test('returns correct message for user_not_found error code', () => {
-		expect(getErrorMessage({ code: 'user_not_found' })).toBe('No account found with this email');
+		expect(getErrorMessage({ code: 'user_not_found' })).toBe(
+			'No account found with this email'
+		);
 	});
 
 	test('returns correct message for unauthorized error code', () => {

@@ -264,7 +264,10 @@ describe('calculateLoziTuples', () => {
 	});
 
 	test('first tuple matches Lozi equations for one step', () => {
-		const a = 1.7, b = 0.5, x0 = 0.5, y0 = 0.3;
+		const a = 1.7,
+			b = 0.5,
+			x0 = 0.5,
+			y0 = 0.3;
 		const tuples = calculateLoziTuples({ a, b, x0, y0, iterations: 1 });
 
 		const expectedX = 1 + y0 - a * Math.abs(x0);

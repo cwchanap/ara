@@ -366,13 +366,31 @@ describe('chaosMapsWorker', () => {
 	test('chaos map: different a values produce different trajectories', () => {
 		responses.length = 0;
 		selfMock.onmessage?.({
-			data: { type: 'chaos', id: 60, a: 1.4, b: 0.3, x0: 0.5, y0: 0.5, iterations: 50, maxPoints: 50 }
+			data: {
+				type: 'chaos',
+				id: 60,
+				a: 1.4,
+				b: 0.3,
+				x0: 0.5,
+				y0: 0.5,
+				iterations: 50,
+				maxPoints: 50
+			}
 		});
 		const points1 = [...(responses[0]?.points ?? [])];
 
 		responses.length = 0;
 		selfMock.onmessage?.({
-			data: { type: 'chaos', id: 61, a: 0.1, b: 0.3, x0: 0.5, y0: 0.5, iterations: 50, maxPoints: 50 }
+			data: {
+				type: 'chaos',
+				id: 61,
+				a: 0.1,
+				b: 0.3,
+				x0: 0.5,
+				y0: 0.5,
+				iterations: 50,
+				maxPoints: 50
+			}
 		});
 		const points2 = [...(responses[0]?.points ?? [])];
 
