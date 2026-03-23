@@ -56,5 +56,48 @@ plugin({
 			contents: `export * from '${libDir}/saved-config-loader.ts';`,
 			loader: 'ts'
 		}));
+		build.module('$lib/auth-errors', () => ({
+			contents: `export * from '${libDir}/auth-errors.ts';`,
+			loader: 'ts'
+		}));
+		build.module('$lib/types', () => ({
+			contents: `export * from '${libDir}/types.ts';`,
+			loader: 'ts'
+		}));
+
+		// Stub for @sveltejs/kit: provides the subset of helpers used by server
+		// modules (fail, redirect, error, json). The real package is only available
+		// inside the SvelteKit Vite build environment; in Bun's standalone test
+		// runner we supply lightweight equivalents that mirror the runtime behaviour.
+		build.module('@sveltejs/kit', () => ({
+			contents: `
+export function fail(status, data) { return { status, data }; }
+export function redirect(status, location) {
+  const e = Object.assign(new Error('Redirect'), { status, location });
+  throw e;
+}
+export function error(status, body) {
+  const e = Object.assign(new Error(typeof body === 'string' ? body : 'Error'), { status });
+  throw e;
+}
+export function json(data, init) {
+  return new Response(JSON.stringify(data), {
+    status: (init && init.status) || 200,
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
+`,
+			loader: 'js'
+		}));
+
+		// Stub for $env/static/public: used by supabase-admin and browser Supabase
+		// client. In tests we return placeholder values so imports don't crash.
+		build.module('$env/static/public', () => ({
+			contents: `
+export const PUBLIC_SUPABASE_URL = process.env.PUBLIC_SUPABASE_URL ?? 'http://localhost:54321';
+export const PUBLIC_SUPABASE_ANON_KEY = process.env.PUBLIC_SUPABASE_ANON_KEY ?? 'test-anon-key';
+`,
+			loader: 'js'
+		}));
 	}
 });
