@@ -399,7 +399,7 @@ describe('chaosMapsWorker', () => {
 		expect(diff).toBeGreaterThan(0.001);
 	});
 
-	test('standard map: k = 0 produces points on identity line', () => {
+	test('standard map: k = 0 keeps p constant and points stay in [0, 2π)', () => {
 		responses.length = 0;
 		selfMock.onmessage?.({
 			data: {
@@ -415,10 +415,17 @@ describe('chaosMapsWorker', () => {
 
 		expect(responses).toHaveLength(1);
 		expect(responses[0]?.type).toBe('standardResult');
-		// With k=0: pNew = p + 0*sin(q) = p, qNew = q + p (mod 2π)
-		// Points should be finite and within [0, 2π)
+
+		const points = responses[0]?.points ?? [];
+		expect(points).toHaveLength(3);
+
+		// With k=0: pNew = p + 0*sin(q) = p (p is unchanged each iteration)
+		const firstP = points[0]?.[1];
 		const TWO_PI = 2 * Math.PI;
-		for (const [q, p] of responses[0]?.points ?? []) {
+		for (const [q, p] of points) {
+			// p must remain equal to its initial value throughout all iterations
+			expect(p).toBeCloseTo(firstP!, 10);
+			// Both coordinates must stay within the normalised [0, 2π) range
 			expect(q).toBeGreaterThanOrEqual(0);
 			expect(q).toBeLessThan(TWO_PI);
 			expect(p).toBeGreaterThanOrEqual(0);

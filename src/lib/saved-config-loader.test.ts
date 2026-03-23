@@ -254,9 +254,10 @@ describe('parseConfigParam', () => {
 			}
 		});
 
-		test('handles JSON containing array brackets without false nesting errors', () => {
-			// Valid JSON object with array value — brackets inside strings/values
-			// should not corrupt nesting depth tracking.
+		test('handles valid JSON object without false nesting errors', () => {
+			// Plain JSON object with numeric fields — structural curly-braces in the
+			// encoded string must be correctly tracked by getMaxJsonNestingDepth
+			// without producing a false "too deeply nested" error.
 			const configParam = encodeURIComponent(
 				JSON.stringify({ type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 })
 			);

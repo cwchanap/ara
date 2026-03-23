@@ -471,7 +471,7 @@ describe('createShareWithRateLimit (mocked db)', () => {
 		}
 	});
 
-	test('passes correct mapType and parameters to insert', async () => {
+	test('passes correct mapType, parameters, userId, and shortCode to insert', async () => {
 		mockTxShareCount = 0;
 
 		await createShareWithRateLimit(
@@ -485,6 +485,9 @@ describe('createShareWithRateLimit (mocked db)', () => {
 		expect(savedInsertPayload).not.toBeNull();
 		expect(savedInsertPayload!.mapType).toBe('rossler');
 		expect(savedInsertPayload!.expiresAt).toBe('2030-06-01T00:00:00.000Z');
+		expect(savedInsertPayload!.parameters).toEqual({ type: 'rossler', a: 0.2, b: 0.2, c: 5.7 });
+		expect(savedInsertPayload!.userId).toBe('user-99');
+		expect(savedInsertPayload!.shortCode).toBe('ROSSLER1');
 	});
 
 	test('returns remaining = 0 when exactly one slot is left', async () => {
@@ -505,21 +508,28 @@ describe('createShareWithRateLimit (mocked db)', () => {
 });
 
 describe('calculateExpirationDate edge cases', () => {
-	test('returns a date in the past for 0 days', () => {
-		const now = new Date();
+	test("returns today's date for 0 days", () => {
+		// Snapshot the reference time once so both sides use the same instant,
+		// avoiding flakiness when the test runs near midnight. new Date() inside
+		// calculateExpirationDate is called immediately after, within the same
+		// tick, so date parts are stable.
+		const ref = new Date();
 		const expiration = calculateExpirationDate(0);
-		// 0 days: setDate(getDate() + 0) = today
-		expect(expiration.getDate()).toBe(now.getDate());
-		expect(expiration.getMonth()).toBe(now.getMonth());
-		expect(expiration.getFullYear()).toBe(now.getFullYear());
+		expect(expiration.getDate()).toBe(ref.getDate());
+		expect(expiration.getMonth()).toBe(ref.getMonth());
+		expect(expiration.getFullYear()).toBe(ref.getFullYear());
 	});
 
 	test('returns correct date for 1 day', () => {
-		const now = new Date();
-		const expiration = calculateExpirationDate(1);
-		const expected = new Date(now);
+		// Snapshot the reference time once and derive the expected date from it,
+		// so both sides of the comparison use the same instant.
+		const ref = new Date();
+		const expected = new Date(ref);
 		expected.setDate(expected.getDate() + 1);
+		const expiration = calculateExpirationDate(1);
 		expect(expiration.getDate()).toBe(expected.getDate());
+		expect(expiration.getMonth()).toBe(expected.getMonth());
+		expect(expiration.getFullYear()).toBe(expected.getFullYear());
 	});
 
 	test('returns a Date object', () => {
