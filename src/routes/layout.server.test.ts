@@ -30,20 +30,22 @@ function makeEvent({
 
 describe('layout server load', () => {
 	test('returns null session and user for unauthenticated requests', async () => {
-		const result = await load(makeEvent() as never);
+		const result = await load(makeEvent() as unknown as Parameters<typeof load>[0]);
 		expect(result).toEqual({ session: null, user: null });
 	});
 
 	test('returns session and user for authenticated requests', async () => {
 		const session = { access_token: 'tok', expires_at: 9999999999 };
 		const user = { id: 'user-1', email: 'user@example.com' };
-		const result = await load(makeEvent({ session, user }) as never);
+		const result = await load(
+			makeEvent({ session, user }) as unknown as Parameters<typeof load>[0]
+		);
 		expect(result).toMatchObject({ session, user });
 	});
 
 	test('calls depends with "supabase:auth" to register invalidation key', async () => {
 		const event = makeEvent();
-		await load(event as never);
+		await load(event as unknown as Parameters<typeof load>[0]);
 		expect(event.depends).toHaveBeenCalledWith('supabase:auth');
 	});
 });

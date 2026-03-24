@@ -95,7 +95,7 @@ function makeShareRow(overrides: Record<string, unknown> = {}) {
 		parameters: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 },
 		viewCount: 5,
 		createdAt: new Date('2026-01-01').toISOString(),
-		expiresAt: new Date('2026-06-01').toISOString(),
+		expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
 		...overrides
 	};
 }
@@ -114,26 +114,34 @@ beforeEach(() => {
 
 describe('share viewer page load', () => {
 	test('throws 400 for a code shorter than 8 characters', async () => {
-		await expect(load({ params: { code: 'SHORT' } } as never)).rejects.toMatchObject({
+		await expect(
+			load({ params: { code: 'SHORT' } } as unknown as Parameters<typeof load>[0])
+		).rejects.toMatchObject({
 			status: 400
 		});
 	});
 
 	test('throws 400 for a code longer than 8 characters', async () => {
-		await expect(load({ params: { code: 'TOOLONGCO' } } as never)).rejects.toMatchObject({
+		await expect(
+			load({ params: { code: 'TOOLONGCO' } } as unknown as Parameters<typeof load>[0])
+		).rejects.toMatchObject({
 			status: 400
 		});
 	});
 
 	test('throws 400 for an empty code', async () => {
-		await expect(load({ params: { code: '' } } as never)).rejects.toMatchObject({
+		await expect(
+			load({ params: { code: '' } } as unknown as Parameters<typeof load>[0])
+		).rejects.toMatchObject({
 			status: 400
 		});
 	});
 
 	test('throws 404 when the share is not found in the database', async () => {
 		selectQueue.push([]); // empty result
-		await expect(load({ params: { code: 'NOTFOUND' } } as never)).rejects.toMatchObject({
+		await expect(
+			load({ params: { code: 'NOTFOUND' } } as unknown as Parameters<typeof load>[0])
+		).rejects.toMatchObject({
 			status: 404
 		});
 	});
@@ -141,7 +149,9 @@ describe('share viewer page load', () => {
 	test('throws 410 and triggers lazy deletion for an expired share', async () => {
 		mockIsShareExpiredOverride = true;
 		selectQueue.push([makeShareRow()]);
-		await expect(load({ params: { code: 'ABCD1234' } } as never)).rejects.toMatchObject({
+		await expect(
+			load({ params: { code: 'ABCD1234' } } as unknown as Parameters<typeof load>[0])
+		).rejects.toMatchObject({
 			status: 410
 		});
 		expect(deleteCalled).toBe(true);
@@ -149,7 +159,9 @@ describe('share viewer page load', () => {
 
 	test('throws 500 for an unrecognised map type', async () => {
 		selectQueue.push([makeShareRow({ mapType: 'unknown-type' })]);
-		await expect(load({ params: { code: 'ABCD1234' } } as never)).rejects.toMatchObject({
+		await expect(
+			load({ params: { code: 'ABCD1234' } } as unknown as Parameters<typeof load>[0])
+		).rejects.toMatchObject({
 			status: 500
 		});
 	});
@@ -157,7 +169,9 @@ describe('share viewer page load', () => {
 	test('returns share data with incremented view count on success', async () => {
 		selectQueue.push([makeShareRow()]); // first select: the share row
 		selectQueue.push([{ viewCount: 6 }]); // second select: fresh count after increment
-		const result = await load({ params: { code: 'ABCD1234' } } as never);
+		const result = await load({ params: { code: 'ABCD1234' } } as unknown as Parameters<
+			typeof load
+		>[0]);
 		expect(result).toMatchObject({
 			shortCode: 'ABCD1234',
 			username: 'testuser',
@@ -170,7 +184,9 @@ describe('share viewer page load', () => {
 	test('falls back to optimistic view count when increment throws', async () => {
 		incrementViewCountShouldThrow = true;
 		selectQueue.push([makeShareRow({ viewCount: 5 })]);
-		const result = await load({ params: { code: 'ABCD1234' } } as never);
+		const result = await load({ params: { code: 'ABCD1234' } } as unknown as Parameters<
+			typeof load
+		>[0]);
 		// Optimistic increment: original viewCount + 1
 		expect(result).toMatchObject({ viewCount: 6 });
 	});
@@ -178,14 +194,16 @@ describe('share viewer page load', () => {
 	test('uses "Anonymous" when share has no associated username', async () => {
 		selectQueue.push([makeShareRow({ username: null })]);
 		selectQueue.push([{ viewCount: 6 }]);
-		const result = await load({ params: { code: 'ABCD1234' } } as never);
+		const result = await load({ params: { code: 'ABCD1234' } } as unknown as Parameters<
+			typeof load
+		>[0]);
 		expect(result).toMatchObject({ username: 'Anonymous' });
 	});
 
 	test('does NOT delete the share when it is not expired', async () => {
 		selectQueue.push([makeShareRow()]);
 		selectQueue.push([{ viewCount: 6 }]);
-		await load({ params: { code: 'ABCD1234' } } as never);
+		await load({ params: { code: 'ABCD1234' } } as unknown as Parameters<typeof load>[0]);
 		expect(deleteCalled).toBe(false);
 	});
 });

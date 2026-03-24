@@ -54,7 +54,7 @@ describe('login page load', () => {
 		const result = await load({
 			locals: makeLocals({ hasSession: false }),
 			url: new URL('http://localhost/login')
-		} as never);
+		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toEqual({});
 	});
 
@@ -63,7 +63,7 @@ describe('login page load', () => {
 			load({
 				locals: makeLocals({ hasSession: true }),
 				url: new URL('http://localhost/login')
-			} as never)
+			} as unknown as Parameters<typeof load>[0])
 		).rejects.toMatchObject({ status: 303, location: '/' });
 	});
 
@@ -72,7 +72,7 @@ describe('login page load', () => {
 			load({
 				locals: makeLocals({ hasSession: true }),
 				url: new URL('http://localhost/login?redirect=%2Florenz')
-			} as never)
+			} as unknown as Parameters<typeof load>[0])
 		).rejects.toMatchObject({ status: 303, location: '/lorenz' });
 	});
 
@@ -81,7 +81,7 @@ describe('login page load', () => {
 			load({
 				locals: makeLocals({ hasSession: true }),
 				url: new URL('http://localhost/login?redirect=https%3A%2F%2Fevil.example')
-			} as never)
+			} as unknown as Parameters<typeof load>[0])
 		).rejects.toMatchObject({ status: 303, location: '/' });
 	});
 
@@ -90,7 +90,7 @@ describe('login page load', () => {
 			load({
 				locals: makeLocals({ hasSession: true }),
 				url: new URL('http://localhost/login?redirect=%2F%2Fattacker.example')
-			} as never)
+			} as unknown as Parameters<typeof load>[0])
 		).rejects.toMatchObject({ status: 303, location: '/' });
 	});
 });
@@ -104,7 +104,7 @@ describe('login default action', () => {
 				locals: makeLocals(),
 				request: makeRequest({ email: '', password: 'Pass123!' }),
 				url: new URL('http://localhost/login')
-			} as never);
+			} as unknown as Parameters<(typeof actions)['default']>[0]);
 			expect(result).toMatchObject({ status: 400 });
 		});
 
@@ -113,7 +113,7 @@ describe('login default action', () => {
 				locals: makeLocals(),
 				request: makeRequest({ email: 'not-an-email', password: 'Pass123!' }),
 				url: new URL('http://localhost/login')
-			} as never);
+			} as unknown as Parameters<(typeof actions)['default']>[0]);
 			expect(result).toMatchObject({ status: 400, data: { error: expect.any(String) } });
 		});
 
@@ -122,7 +122,7 @@ describe('login default action', () => {
 				locals: makeLocals(),
 				request: makeRequest({ email: 'user@example.com', password: '' }),
 				url: new URL('http://localhost/login')
-			} as never);
+			} as unknown as Parameters<(typeof actions)['default']>[0]);
 			expect(result).toMatchObject({
 				status: 400,
 				data: { error: 'Password is required', email: 'user@example.com' }
@@ -137,7 +137,7 @@ describe('login default action', () => {
 				locals: makeLocals(),
 				request: makeRequest({ email: 'user@example.com', password: 'wrongpass' }),
 				url: new URL('http://localhost/login')
-			} as never);
+			} as unknown as Parameters<(typeof actions)['default']>[0]);
 			expect(result).toMatchObject({
 				status: 400,
 				data: { error: expect.any(String), email: 'user@example.com' }
@@ -152,7 +152,7 @@ describe('login default action', () => {
 					locals: makeLocals(),
 					request: makeRequest({ email: 'user@example.com', password: 'correct' }),
 					url: new URL('http://localhost/login')
-				} as never)
+				} as unknown as Parameters<(typeof actions)['default']>[0])
 			).rejects.toMatchObject({ status: 303, location: '/' });
 		});
 
@@ -162,7 +162,7 @@ describe('login default action', () => {
 					locals: makeLocals(),
 					request: makeRequest({ email: 'user@example.com', password: 'correct' }),
 					url: new URL('http://localhost/login?redirect=%2Fsaved-configs')
-				} as never)
+				} as unknown as Parameters<(typeof actions)['default']>[0])
 			).rejects.toMatchObject({ status: 303, location: '/saved-configs' });
 		});
 
@@ -172,7 +172,7 @@ describe('login default action', () => {
 					locals: makeLocals(),
 					request: makeRequest({ email: 'user@example.com', password: 'correct' }),
 					url: new URL('http://localhost/login?redirect=%2F%2Fattacker.example')
-				} as never)
+				} as unknown as Parameters<(typeof actions)['default']>[0])
 			).rejects.toMatchObject({ status: 303, location: '/' });
 		});
 	});
