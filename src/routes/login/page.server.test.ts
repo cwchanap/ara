@@ -5,7 +5,7 @@
  * Supabase auth error handling, and successful sign-in redirect.
  */
 
-import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
+import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 // ── Supabase auth mock state ──────────────────────────────────────────────────
 
@@ -45,17 +45,8 @@ function makeRequest(fields: Record<string, string>) {
 	return { formData: async () => fd };
 }
 
-// ── Fixtures ──────────────────────────────────────────────────────────────────
-
-let consoleErrorSpy: ReturnType<typeof import('bun:test').spyOn>;
-
 beforeEach(() => {
 	mockSignInError = null;
-	consoleErrorSpy = mock.module && (undefined as never); // no-op placeholder
-});
-
-afterEach(() => {
-	// nothing to restore
 });
 
 // ── load ──────────────────────────────────────────────────────────────────────

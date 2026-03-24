@@ -51,7 +51,11 @@ mock.module('$lib/server/db', () => ({
 		update: updateMock,
 		insert: insertMock
 	},
-	profiles: { id: 'id', username: 'username' }
+	profiles: { id: 'id', username: 'username' },
+	// Included so the module cache stays valid when other test files that import
+	// $lib/server/db (e.g. the share viewer) run in the same bun process.
+	savedConfigurations: {},
+	sharedConfigurations: {}
 }));
 
 mock.module('drizzle-orm', () => ({
