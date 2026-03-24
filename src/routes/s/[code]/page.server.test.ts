@@ -48,7 +48,10 @@ mock.module('$lib/server/db', () => ({
 		createdAt: 'createdAt',
 		expiresAt: 'expiresAt'
 	},
-	profiles: { id: 'id', username: 'username' }
+	profiles: { id: 'id', username: 'username' },
+	// Included so the module cache stays valid when other test files that import
+	// $lib/server/db (e.g. saved-configs actions) run in the same bun process.
+	savedConfigurations: {}
 }));
 
 mock.module('drizzle-orm', () => ({

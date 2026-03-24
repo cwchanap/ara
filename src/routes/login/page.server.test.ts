@@ -5,13 +5,11 @@
  * Supabase auth error handling, and successful sign-in redirect.
  */
 
-import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
 
 // ── Supabase auth mock state ──────────────────────────────────────────────────
 
 let mockSignInError: Error | null = null;
-
-mock.module('@supabase/ssr', () => ({}));
 
 // Dynamic import AFTER mock registration so the server module resolves the
 // $lib/* virtual modules through the build plugin stubs in test-setup.ts.
