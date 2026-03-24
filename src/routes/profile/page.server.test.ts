@@ -121,7 +121,7 @@ describe('profile page load', () => {
 			load({
 				locals: makeLocals({ hasSession: false }),
 				url: new URL('http://localhost/profile')
-			} as never)
+			} as unknown as Parameters<typeof load>[0])
 		).rejects.toMatchObject({ status: 303 });
 	});
 
@@ -130,7 +130,7 @@ describe('profile page load', () => {
 		const result = await load({
 			locals: makeLocals(),
 			url: new URL('http://localhost/profile')
-		} as never);
+		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({
 			session: expect.any(Object),
 			user: expect.any(Object),
@@ -143,7 +143,7 @@ describe('profile page load', () => {
 		const result = await load({
 			locals: makeLocals(),
 			url: new URL('http://localhost/profile')
-		} as never);
+		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({ profile: null });
 	});
 });
@@ -155,7 +155,7 @@ describe('profile update action', () => {
 		const result = await actions.update({
 			locals: makeLocals({ hasSession: false }),
 			request: makeRequest({ username: 'newname' })
-		} as never);
+		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({ status: 401 });
 	});
 
@@ -163,7 +163,7 @@ describe('profile update action', () => {
 		const result = await actions.update({
 			locals: makeLocals(),
 			request: makeRequest({ username: 'ab' })
-		} as never);
+		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({ status: 400, data: { updateError: expect.any(String) } });
 	});
 
@@ -173,7 +173,7 @@ describe('profile update action', () => {
 		const result = await actions.update({
 			locals: makeLocals(),
 			request: makeRequest({ username: 'takenname' })
-		} as never);
+		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({
 			status: 400,
 			data: { updateError: 'This username is already taken' }
@@ -187,7 +187,7 @@ describe('profile update action', () => {
 		const result = await actions.update({
 			locals: makeLocals(),
 			request: makeRequest({ username: 'sameuser' })
-		} as never);
+		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({ updateSuccess: true });
 	});
 
@@ -197,7 +197,7 @@ describe('profile update action', () => {
 		const result = await actions.update({
 			locals: makeLocals(),
 			request: makeRequest({ username: 'newusername' })
-		} as never);
+		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({ updateSuccess: true, username: 'newusername' });
 	});
 
@@ -207,7 +207,7 @@ describe('profile update action', () => {
 		const result = await actions.update({
 			locals: makeLocals(),
 			request: makeRequest({ username: 'brandnew' })
-		} as never);
+		} as unknown as Parameters<typeof load>[0]);
 		expect(insertMock).toHaveBeenCalled();
 		expect(result).toMatchObject({ updateSuccess: true });
 	});
@@ -218,7 +218,7 @@ describe('profile update action', () => {
 		const result = await actions.update({
 			locals: makeLocals(),
 			request: makeRequest({ username: 'validname' })
-		} as never);
+		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({ status: 400, data: { updateError: expect.any(String) } });
 	});
 });
@@ -234,7 +234,7 @@ describe('profile changePassword action', () => {
 				newPassword: 'New1234!',
 				confirmPassword: 'New1234!'
 			})
-		} as never);
+		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({ status: 401 });
 	});
 
@@ -246,7 +246,7 @@ describe('profile changePassword action', () => {
 				newPassword: 'New1234!',
 				confirmPassword: 'New1234!'
 			})
-		} as never);
+		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({
 			status: 400,
 			data: { passwordError: 'Current password is required' }
@@ -261,7 +261,7 @@ describe('profile changePassword action', () => {
 				newPassword: 'short',
 				confirmPassword: 'short'
 			})
-		} as never);
+		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({ status: 400, data: { passwordError: expect.any(String) } });
 	});
 
@@ -273,7 +273,7 @@ describe('profile changePassword action', () => {
 				newPassword: 'NewValid1!',
 				confirmPassword: 'NewValid2!'
 			})
-		} as never);
+		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({
 			status: 400,
 			data: { passwordError: 'New passwords do not match' }
@@ -288,7 +288,7 @@ describe('profile changePassword action', () => {
 				newPassword: 'NewValid1!',
 				confirmPassword: 'NewValid1!'
 			})
-		} as never);
+		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({ status: 400, data: { passwordError: expect.any(String) } });
 	});
 
@@ -304,7 +304,7 @@ describe('profile changePassword action', () => {
 				newPassword: 'NewValid1!',
 				confirmPassword: 'NewValid1!'
 			})
-		} as never);
+		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({
 			status: 400,
 			data: { passwordError: 'Current password is incorrect' }
@@ -323,7 +323,7 @@ describe('profile changePassword action', () => {
 				newPassword: 'NewValid1!',
 				confirmPassword: 'NewValid1!'
 			})
-		} as never);
+		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({ status: 400, data: { passwordError: expect.any(String) } });
 	});
 
@@ -335,7 +335,7 @@ describe('profile changePassword action', () => {
 				newPassword: 'NewValid1!',
 				confirmPassword: 'NewValid1!'
 			})
-		} as never);
+		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({ passwordSuccess: true });
 	});
 
@@ -351,7 +351,7 @@ describe('profile changePassword action', () => {
 				newPassword: 'NewValid1!',
 				confirmPassword: 'NewValid1!'
 			})
-		} as never);
+		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({
 			passwordSuccess: true,
 			passwordWarning: expect.any(String)
@@ -363,7 +363,9 @@ describe('profile changePassword action', () => {
 
 describe('profile signout action', () => {
 	test('redirects to login after sign-out', async () => {
-		await expect(actions.signout({ locals: makeLocals() } as never)).rejects.toMatchObject({
+		await expect(
+			actions.signout({ locals: makeLocals() } as unknown as Parameters<typeof load>[0])
+		).rejects.toMatchObject({
 			status: 303
 		});
 	});
@@ -373,6 +375,8 @@ describe('profile signout action', () => {
 		(locals.supabase.auth.signOut as ReturnType<typeof mock>).mockResolvedValueOnce({
 			error: new Error('Network error')
 		});
-		await expect(actions.signout({ locals } as never)).rejects.toMatchObject({ status: 303 });
+		await expect(
+			actions.signout({ locals } as unknown as Parameters<typeof load>[0])
+		).rejects.toMatchObject({ status: 303 });
 	});
 });
