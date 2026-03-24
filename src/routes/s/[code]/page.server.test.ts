@@ -57,12 +57,18 @@ mock.module('drizzle-orm', () => ({
 
 // ── share-utils mock state ────────────────────────────────────────────────────
 
-let mockIsShareExpired = false;
+// null = fall back to real date-based logic (keeps the mock compatible with
+// other test files that rely on isShareExpired checking actual dates).
+// Set to true/false to force a specific return value within a single test.
+let mockIsShareExpiredOverride: boolean | null = null;
 let mockDaysRemaining = 30;
 let incrementViewCountShouldThrow = false;
 
 mock.module('$lib/server/share-utils', () => ({
-	isShareExpired: () => mockIsShareExpired,
+	isShareExpired: (expiresAt: string | null) => {
+		if (mockIsShareExpiredOverride !== null) return mockIsShareExpiredOverride;
+		return expiresAt !== null && new Date(expiresAt) < new Date();
+	},
 	getDaysUntilExpiration: () => mockDaysRemaining,
 	incrementViewCount: async () => {
 		if (incrementViewCountShouldThrow) {
@@ -94,7 +100,7 @@ function makeShareRow(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
 	selectQueue.length = 0;
 	deleteCalled = false;
-	mockIsShareExpired = false;
+	mockIsShareExpiredOverride = null;
 	mockDaysRemaining = 30;
 	incrementViewCountShouldThrow = false;
 	selectMock.mockClear();
@@ -105,42 +111,44 @@ beforeEach(() => {
 
 describe('share viewer page load', () => {
 	test('throws 400 for a code shorter than 8 characters', async () => {
-		await expect(
-			load({ params: { code: 'SHORT' } } as never)
-		).rejects.toMatchObject({ status: 400 });
+		await expect(load({ params: { code: 'SHORT' } } as never)).rejects.toMatchObject({
+			status: 400
+		});
 	});
 
 	test('throws 400 for a code longer than 8 characters', async () => {
-		await expect(
-			load({ params: { code: 'TOOLONGCO' } } as never)
-		).rejects.toMatchObject({ status: 400 });
+		await expect(load({ params: { code: 'TOOLONGCO' } } as never)).rejects.toMatchObject({
+			status: 400
+		});
 	});
 
 	test('throws 400 for an empty code', async () => {
-		await expect(load({ params: { code: '' } } as never)).rejects.toMatchObject({ status: 400 });
+		await expect(load({ params: { code: '' } } as never)).rejects.toMatchObject({
+			status: 400
+		});
 	});
 
 	test('throws 404 when the share is not found in the database', async () => {
 		selectQueue.push([]); // empty result
-		await expect(
-			load({ params: { code: 'NOTFOUND' } } as never)
-		).rejects.toMatchObject({ status: 404 });
+		await expect(load({ params: { code: 'NOTFOUND' } } as never)).rejects.toMatchObject({
+			status: 404
+		});
 	});
 
 	test('throws 410 and triggers lazy deletion for an expired share', async () => {
-		mockIsShareExpired = true;
+		mockIsShareExpiredOverride = true;
 		selectQueue.push([makeShareRow()]);
-		await expect(
-			load({ params: { code: 'ABCD1234' } } as never)
-		).rejects.toMatchObject({ status: 410 });
+		await expect(load({ params: { code: 'ABCD1234' } } as never)).rejects.toMatchObject({
+			status: 410
+		});
 		expect(deleteCalled).toBe(true);
 	});
 
 	test('throws 500 for an unrecognised map type', async () => {
 		selectQueue.push([makeShareRow({ mapType: 'unknown-type' })]);
-		await expect(
-			load({ params: { code: 'ABCD1234' } } as never)
-		).rejects.toMatchObject({ status: 500 });
+		await expect(load({ params: { code: 'ABCD1234' } } as never)).rejects.toMatchObject({
+			status: 500
+		});
 	});
 
 	test('returns share data with incremented view count on success', async () => {

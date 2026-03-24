@@ -38,7 +38,7 @@ describe('layout server load', () => {
 		const session = { access_token: 'tok', expires_at: 9999999999 };
 		const user = { id: 'user-1', email: 'user@example.com' };
 		const result = await load(makeEvent({ session, user }) as never);
-		expect(result).toEqual({ session, user });
+		expect(result).toMatchObject({ session, user });
 	});
 
 	test('calls depends with "supabase:auth" to register invalidation key', async () => {

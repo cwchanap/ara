@@ -21,7 +21,7 @@ mock.module('@supabase/supabase-js', () => ({
 		return {
 			auth: {
 				admin: {
-					deleteUser: async (_userId: string) => {
+					deleteUser: async () => {
 						if (mockDeleteShouldThrow) {
 							throw new Error('Network failure');
 						}

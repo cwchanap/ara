@@ -17,6 +17,7 @@ import { beforeEach, describe, expect, mock, test } from 'bun:test';
 const selectQueue: unknown[][] = [];
 const updateReturnQueue: unknown[][] = [];
 let insertShouldThrow: Error | null = null;
+let updateShouldThrow: Error | null = null;
 
 const selectMock = mock(() => {
 	const chain: Record<string, unknown> = {
@@ -30,7 +31,14 @@ const selectMock = mock(() => {
 const updateMock = mock(() => ({
 	set: mock(() => ({
 		where: mock(() => ({
-			returning: mock(async () => updateReturnQueue.shift() ?? [])
+			returning: mock(async () => {
+				if (updateShouldThrow) {
+					const err = updateShouldThrow;
+					updateShouldThrow = null;
+					throw err;
+				}
+				return updateReturnQueue.shift() ?? [];
+			})
 		}))
 	}))
 }));
@@ -99,6 +107,7 @@ beforeEach(() => {
 	selectQueue.length = 0;
 	updateReturnQueue.length = 0;
 	insertShouldThrow = null;
+	updateShouldThrow = null;
 	selectMock.mockClear();
 	updateMock.mockClear();
 	insertMock.mockClear();
@@ -205,17 +214,7 @@ describe('profile update action', () => {
 
 	test('returns 400 when database update throws', async () => {
 		selectQueue.push([]); // username not taken
-		const dbError = new Error('DB connection failed');
-		// Make the returning() call throw by having update mock throw
-		updateMock.mockImplementationOnce(() => ({
-			set: () => ({
-				where: () => ({
-					returning: async () => {
-						throw dbError;
-					}
-				})
-			})
-		}));
+		updateShouldThrow = new Error('DB connection failed');
 		const result = await actions.update({
 			locals: makeLocals(),
 			request: makeRequest({ username: 'validname' })
@@ -353,7 +352,10 @@ describe('profile changePassword action', () => {
 				confirmPassword: 'NewValid1!'
 			})
 		} as never);
-		expect(result).toMatchObject({ passwordSuccess: true, passwordWarning: expect.any(String) });
+		expect(result).toMatchObject({
+			passwordSuccess: true,
+			passwordWarning: expect.any(String)
+		});
 	});
 });
 
@@ -361,9 +363,9 @@ describe('profile changePassword action', () => {
 
 describe('profile signout action', () => {
 	test('redirects to login after sign-out', async () => {
-		await expect(
-			actions.signout({ locals: makeLocals() } as never)
-		).rejects.toMatchObject({ status: 303 });
+		await expect(actions.signout({ locals: makeLocals() } as never)).rejects.toMatchObject({
+			status: 303
+		});
 	});
 
 	test('still redirects when signOut returns an error', async () => {
