@@ -191,6 +191,47 @@ describe('captureContainer', () => {
 		expect(result.error).toBe('Failed to create output canvas context');
 	});
 
+	test('uses jpeg mime type when format is jpeg', async () => {
+		const sourceCanvas = createMockCanvas(100, 80);
+		sourceCanvas.getBoundingClientRect = mock(() => ({
+			left: 0,
+			top: 0,
+			width: 100,
+			height: 80
+		})) as never;
+
+		const container = {
+			querySelectorAll: mock((selector: string) =>
+				selector === 'canvas' ? [sourceCanvas] : []
+			),
+			clientWidth: 100,
+			clientHeight: 80,
+			getBoundingClientRect: mock(() => ({ left: 0, top: 0 }))
+		} as unknown as HTMLElement;
+
+		const toDataURL = mock(() => 'data:image/jpeg;base64,jpegdata');
+		const outputCanvas = {
+			width: 0,
+			height: 0,
+			getContext: mock(() => ({
+				drawImage: mock(() => {}),
+				fillRect: mock(() => {}),
+				fillStyle: ''
+			})),
+			toDataURL
+		};
+		const fakeDocument = {
+			createElement: mock(() => outputCanvas)
+		};
+
+		const result = await withMockedDocument(fakeDocument, () =>
+			captureContainer(container, { format: 'jpeg', quality: 0.9 })
+		);
+
+		expect(result.success).toBe(true);
+		expect(toDataURL).toHaveBeenCalledWith('image/jpeg', 0.9);
+	});
+
 	test('captures canvas layers and returns output data URL', async () => {
 		const sourceCanvas = createMockCanvas(100, 80);
 		sourceCanvas.getBoundingClientRect = mock(() => ({

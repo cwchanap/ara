@@ -638,6 +638,30 @@ describe('loadConfigFromUrl', () => {
 			expect(result.stabilityWarnings.length).toBeGreaterThan(0);
 		}
 	});
+
+	test('includes stability warnings when configId params are out of stable range', async () => {
+		// Exercises the stability check in the configId (API) path of loadConfigFromUrl.
+		const params = new URLSearchParams({ configId: 'unstable-config' });
+		const fetchFn = makeFetch({
+			ok: true,
+			json: async () => ({
+				mapType: 'lorenz',
+				// sigma=100 is well outside the stable range and should trigger a warning
+				parameters: { type: 'lorenz', sigma: 100, rho: 28, beta: 2.667 }
+			})
+		});
+
+		const result = await loadConfigFromUrl({
+			mapType: 'lorenz',
+			searchParams: params,
+			fetchFn
+		});
+
+		expect(result.ok).toBe(true);
+		if (result.ok === true) {
+			expect(result.stabilityWarnings.length).toBeGreaterThan(0);
+		}
+	});
 });
 
 // ── createInitialSaveState ───────────────────────────────────────────────────

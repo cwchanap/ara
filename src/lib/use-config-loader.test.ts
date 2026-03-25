@@ -327,6 +327,147 @@ describe('useConfigLoader', () => {
 		cleanup();
 	});
 
+	test('does not reload when page updates to the same configKey', async () => {
+		// Exercises the early-return deduplication guard:
+		// `if (configKey === lastAppliedConfigKey) return;`
+		const params: LorenzParams = { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 };
+		const mockResponse = {
+			ok: true,
+			json: async () => ({ mapType: 'lorenz', parameters: params })
+		};
+		const rawFetchMock = mock(() => Promise.resolve(mockResponse as Response));
+		const fetchMock: typeof fetch = Object.assign(rawFetchMock, { preconnect: () => {} });
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = fetchMock;
+
+		try {
+			const page = writable<Page>(createPage('http://localhost/lorenz?configId=same-id'));
+			const state = createInitialConfigLoaderState();
+			const loaded: LorenzParams[] = [];
+
+			const { cleanup } = useConfigLoader(
+				{
+					page,
+					mapType: 'lorenz',
+					base: '',
+					onParametersLoaded: (value: LorenzParams) => {
+						loaded.push(value);
+						return value;
+					}
+				},
+				state
+			);
+
+			await waitFor(() => loaded.length === 1);
+
+			// Navigate to the exact same URL — same configKey should be deduped
+			page.set(createPage('http://localhost/lorenz?configId=same-id'));
+			await flushPromises();
+
+			expect(loaded).toHaveLength(1);
+			expect(rawFetchMock).toHaveBeenCalledTimes(1);
+
+			cleanup();
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
+
+	test('reports Error-instance throws from onParametersLoaded for shared config', async () => {
+		// Exercises the `err instanceof Error ? err.message : String(err)` branch
+		// where `err` IS an Error instance (distinct from the string-throw test).
+		const params: LorenzParams = { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 };
+		const mockResponse = {
+			ok: true,
+			json: async () => ({ mapType: 'lorenz', parameters: params })
+		};
+		const rawFetchMock = mock(() => Promise.resolve(mockResponse as Response));
+		const fetchMock: typeof fetch = Object.assign(rawFetchMock, { preconnect: () => {} });
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = fetchMock;
+
+		try {
+			const page = writable<Page>(createPage('http://localhost/lorenz?share=error-instance'));
+			const state = createInitialConfigLoaderState();
+
+			const { cleanup } = useConfigLoader(
+				{
+					page,
+					mapType: 'lorenz',
+					base: '',
+					onParametersLoaded: () => {
+						throw new Error('error-instance-failure');
+					}
+				},
+				state
+			);
+
+			await waitFor(() => state.isLoading === false);
+			expect(state.showError).toBe(true);
+			expect(state.errors[0]).toBe('Failed to apply parameters: error-instance-failure');
+
+			cleanup();
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
+
+	test('does not apply result when cleanup is called before async load settles', async () => {
+		// Exercises the `if (signal.aborted || isUnmounted) return;` guard at the
+		// top of the result-processing block (after loadSaved/SharedConfigParameters returns).
+		let resolveFetch!: (value: Response) => void;
+		const rawFetchMock = mock(
+			() =>
+				new Promise<Response>((resolve) => {
+					resolveFetch = resolve;
+				})
+		);
+		const fetchMock: typeof fetch = Object.assign(rawFetchMock, { preconnect: () => {} });
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = fetchMock;
+
+		try {
+			const page = writable<Page>(createPage('http://localhost/lorenz?configId=slow-load'));
+			const state = createInitialConfigLoaderState();
+			const loaded: LorenzParams[] = [];
+
+			const { cleanup } = useConfigLoader(
+				{
+					page,
+					mapType: 'lorenz',
+					base: '',
+					onParametersLoaded: (value: LorenzParams) => {
+						loaded.push(value);
+						return value;
+					}
+				},
+				state
+			);
+
+			expect(state.isLoading).toBe(true);
+
+			// Abort before the fetch resolves — sets signal.aborted = true
+			cleanup();
+
+			// Now resolve the fetch so the async body can continue
+			resolveFetch({
+				ok: true,
+				json: async () => ({
+					mapType: 'lorenz',
+					parameters: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 }
+				})
+			} as Response);
+
+			await flushPromises();
+			await flushPromises();
+
+			// Because the signal was aborted, the result should be discarded
+			expect(loaded).toHaveLength(0);
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
+
 	test('reports non-Error throws from onParametersLoaded for shared config', async () => {
 		const params: LorenzParams = { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 };
 		const mockResponse = {
