@@ -68,6 +68,16 @@ describe('loadConfigFromUrl catch blocks (functions throw unexpectedly)', () => 
 		expect(result.ok).toBe('none');
 	});
 
+	test('returns {ok:"none"} on configId path when loadSavedConfigParameters throws DOMException AbortError', async () => {
+		// Exercises the `err instanceof DOMException && err.name === 'AbortError'` branch
+		// in the loadConfigFromUrl catch block, which is distinct from the
+		// `err instanceof Error && err.name === 'AbortError'` branch.
+		loadSavedThrow = new DOMException('Aborted', 'AbortError') as unknown as Error;
+		const params = new URLSearchParams({ configId: 'test-id' });
+		const result = await loadConfigFromUrl({ mapType: 'lorenz', searchParams: params });
+		expect(result.ok).toBe('none');
+	});
+
 	test('returns {ok:false} on config param path when parseConfigParam throws', async () => {
 		parseConfigThrow = new Error('Unexpected parse failure');
 		const configParam = encodeURIComponent(
