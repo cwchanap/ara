@@ -139,7 +139,8 @@ describe('handle (hooks.server.ts)', () => {
 		test('getAll returns cookies from the event', async () => {
 			const event = makeEvent({ 'sb-auth-token': 'tok123', other: 'val' });
 			await handle({ event: event as never, resolve: resolve as never });
-			const cookies = capturedGetAll!();
+			expect(capturedGetAll).toBeDefined();
+			const cookies = capturedGetAll();
 			expect(cookies).toContainEqual({ name: 'sb-auth-token', value: 'tok123' });
 			expect(cookies).toContainEqual({ name: 'other', value: 'val' });
 		});
@@ -148,7 +149,8 @@ describe('handle (hooks.server.ts)', () => {
 			const event = makeEvent();
 			await handle({ event: event as never, resolve: resolve as never });
 
-			capturedSetAll!([{ name: 'sb-token', value: 'new-tok', options: { httpOnly: true } }]);
+			expect(capturedSetAll).toBeDefined();
+			capturedSetAll([{ name: 'sb-token', value: 'new-tok', options: { httpOnly: true } }]);
 
 			// The cookie should now appear via event.cookies.getAll()
 			const stored = event.cookies.getAll().find((c) => c.name === 'sb-token');
@@ -159,7 +161,8 @@ describe('handle (hooks.server.ts)', () => {
 			const event = makeEvent();
 			await handle({ event: event as never, resolve: resolve as never });
 
-			capturedSetAll!([
+			expect(capturedSetAll).toBeDefined();
+			capturedSetAll([
 				{ name: 'sb-refresh', value: 'refresh-tok', options: { secure: true } }
 			]);
 
@@ -168,6 +171,8 @@ describe('handle (hooks.server.ts)', () => {
 			expect(entry?.value).toBe('refresh-tok');
 			// The path '/' should be merged into options by hooks.server.ts
 			expect((entry?.options as Record<string, unknown>)?.path).toBe('/');
+			// The original options must also be preserved alongside the merged path
+			expect((entry?.options as Record<string, unknown>)?.secure).toBe(true);
 		});
 	});
 
@@ -221,6 +226,8 @@ describe('handle (hooks.server.ts)', () => {
 		async function getFilter() {
 			const event = makeEvent();
 			await handle({ event: event as never, resolve: resolve as never });
+			expect(lastResolveOpts).toBeDefined();
+			expect(lastResolveOpts?.filterSerializedResponseHeaders).toBeDefined();
 			return lastResolveOpts!.filterSerializedResponseHeaders!;
 		}
 
