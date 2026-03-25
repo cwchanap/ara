@@ -267,4 +267,279 @@ describe('saved-configs route server', () => {
 		expect(updateMock).toHaveBeenCalledTimes(1);
 		expect(result).toEqual({ renameSuccess: true, name: 'Updated Name' });
 	});
+
+	// ── load: additional branches ─────────────────────────────────────────────
+
+	it('returns empty configurations array when no configs exist', async () => {
+		selectResults.push([]);
+
+		const result = await load({
+			locals: makeLocals(),
+			url: new URL('http://localhost/saved-configs')
+		} as unknown as Parameters<typeof load>[0]);
+
+		expect(result).toMatchObject({ configurations: [] });
+	});
+
+	it('returns valid configurations from the database', async () => {
+		const config = {
+			id: 'cfg-valid',
+			userId: 'user-1',
+			name: 'Lorenz Default',
+			mapType: 'lorenz',
+			parameters: { type: 'lorenz', sigma: 10, rho: 28, beta: 8 / 3 },
+			createdAt: '2026-01-01T00:00:00.000Z',
+			updatedAt: '2026-01-01T00:00:00.000Z'
+		};
+		selectResults.push([config]);
+
+		const result = await load({
+			locals: makeLocals(),
+			url: new URL('http://localhost/saved-configs')
+		} as unknown as Parameters<typeof load>[0]);
+
+		expect(result?.configurations).toHaveLength(1);
+		expect(result?.configurations[0]?.id).toBe('cfg-valid');
+	});
+
+	// ── save: additional branches ─────────────────────────────────────────────
+
+	it('returns 401 when unauthenticated user calls save', async () => {
+		const result = await actions.save({
+			locals: makeLocals({ session: null, user: null }),
+			request: makeRequest({
+				name: 'Test',
+				mapType: 'lorenz',
+				parameters: JSON.stringify({ type: 'lorenz', sigma: 10, rho: 28, beta: 8 / 3 })
+			})
+		} as unknown as Parameters<(typeof actions)['save']>[0]);
+
+		expect(result).toMatchObject({ status: 401, data: { saveError: expect.any(String) } });
+	});
+
+	it('returns 400 when name exceeds 100 characters', async () => {
+		const result = await actions.save({
+			locals: makeLocals(),
+			request: makeRequest({
+				name: 'a'.repeat(101),
+				mapType: 'lorenz',
+				parameters: JSON.stringify({ type: 'lorenz', sigma: 10, rho: 28, beta: 8 / 3 })
+			})
+		} as unknown as Parameters<(typeof actions)['save']>[0]);
+
+		expect(result).toMatchObject({
+			status: 400,
+			data: { saveError: 'Name must be 100 characters or less' }
+		});
+	});
+
+	it('returns 400 for an invalid mapType', async () => {
+		const result = await actions.save({
+			locals: makeLocals(),
+			request: makeRequest({
+				name: 'Test Config',
+				mapType: 'not-a-valid-type',
+				parameters: JSON.stringify({ type: 'lorenz', sigma: 10, rho: 28, beta: 8 / 3 })
+			})
+		} as unknown as Parameters<(typeof actions)['save']>[0]);
+
+		expect(result).toMatchObject({ status: 400, data: { saveError: 'Invalid map type' } });
+	});
+
+	it('returns 400 when parameters field is absent', async () => {
+		// FormData has no "parameters" key → get('parameters') returns null
+		const result = await actions.save({
+			locals: makeLocals(),
+			request: makeRequest({ name: 'Test Config', mapType: 'lorenz' })
+		} as unknown as Parameters<(typeof actions)['save']>[0]);
+
+		expect(result).toMatchObject({
+			status: 400,
+			data: { saveError: 'Parameters are required' }
+		});
+	});
+
+	it('returns 400 when parameters fail schema validation', async () => {
+		validateParametersMock.mockReturnValue({ isValid: false, errors: ['Missing sigma'] });
+
+		const result = await actions.save({
+			locals: makeLocals(),
+			request: makeRequest({
+				name: 'Bad Config',
+				mapType: 'lorenz',
+				parameters: JSON.stringify({ type: 'lorenz' })
+			})
+		} as unknown as Parameters<(typeof actions)['save']>[0]);
+
+		expect(result).toMatchObject({ status: 400 });
+		expect((result as { data?: { saveError?: string } }).data?.saveError).toContain(
+			'Invalid parameters'
+		);
+	});
+
+	it('returns 500 when the database insert throws during save', async () => {
+		insertMock.mockImplementationOnce(() => ({
+			values: vi.fn(() => ({
+				returning: async () => {
+					throw new Error('DB connection lost');
+				}
+			}))
+		}));
+
+		const result = await actions.save({
+			locals: makeLocals(),
+			request: makeRequest({
+				name: 'Test Config',
+				mapType: 'lorenz',
+				parameters: JSON.stringify({ type: 'lorenz', sigma: 10, rho: 28, beta: 8 / 3 })
+			})
+		} as unknown as Parameters<(typeof actions)['save']>[0]);
+
+		expect(result).toMatchObject({
+			status: 500,
+			data: { saveError: 'Failed to save configuration' }
+		});
+	});
+
+	// ── delete: additional branches ───────────────────────────────────────────
+
+	it('returns 401 when unauthenticated user calls delete', async () => {
+		const result = await actions.delete({
+			locals: makeLocals({ session: null, user: null }),
+			request: makeRequest({ configurationId: 'cfg-1' })
+		} as unknown as Parameters<(typeof actions)['delete']>[0]);
+
+		expect(result).toMatchObject({ status: 401, data: { deleteError: expect.any(String) } });
+	});
+
+	it('returns 400 when configurationId is empty in delete', async () => {
+		const result = await actions.delete({
+			locals: makeLocals(),
+			request: makeRequest({ configurationId: '' })
+		} as unknown as Parameters<(typeof actions)['delete']>[0]);
+
+		expect(result).toMatchObject({
+			status: 400,
+			data: { deleteError: 'Configuration ID is required' }
+		});
+	});
+
+	it('returns 404 when config does not exist during delete', async () => {
+		selectResults.push([]); // empty — config not found
+
+		const result = await actions.delete({
+			locals: makeLocals(),
+			request: makeRequest({ configurationId: 'cfg-missing' })
+		} as unknown as Parameters<(typeof actions)['delete']>[0]);
+
+		expect(result).toMatchObject({
+			status: 404,
+			data: { deleteError: 'Configuration not found' }
+		});
+	});
+
+	it('returns 500 when the database throws during delete', async () => {
+		selectMock.mockImplementationOnce(() => ({
+			from: vi.fn(() => ({
+				where: vi.fn(() => ({
+					limit: async () => {
+						throw new Error('DB error');
+					}
+				}))
+			}))
+		}));
+
+		const result = await actions.delete({
+			locals: makeLocals(),
+			request: makeRequest({ configurationId: 'cfg-1' })
+		} as unknown as Parameters<(typeof actions)['delete']>[0]);
+
+		expect(result).toMatchObject({
+			status: 500,
+			data: { deleteError: 'Failed to delete configuration' }
+		});
+	});
+
+	// ── rename: additional branches ───────────────────────────────────────────
+
+	it('returns 401 when unauthenticated user calls rename', async () => {
+		const result = await actions.rename({
+			locals: makeLocals({ session: null, user: null }),
+			request: makeRequest({ configurationId: 'cfg-1', name: 'New Name' })
+		} as unknown as Parameters<(typeof actions)['rename']>[0]);
+
+		expect(result).toMatchObject({ status: 401, data: { renameError: expect.any(String) } });
+	});
+
+	it('returns 400 when configurationId is empty in rename', async () => {
+		const result = await actions.rename({
+			locals: makeLocals(),
+			request: makeRequest({ configurationId: '', name: 'New Name' })
+		} as unknown as Parameters<(typeof actions)['rename']>[0]);
+
+		expect(result).toMatchObject({
+			status: 400,
+			data: { renameError: 'Configuration ID is required' }
+		});
+	});
+
+	it('returns 400 when new name is blank in rename', async () => {
+		const result = await actions.rename({
+			locals: makeLocals(),
+			request: makeRequest({ configurationId: 'cfg-1', name: '   ' })
+		} as unknown as Parameters<(typeof actions)['rename']>[0]);
+
+		expect(result).toMatchObject({
+			status: 400,
+			data: { renameError: 'New name is required', configurationId: 'cfg-1' }
+		});
+	});
+
+	it('returns 400 when new name exceeds 100 characters in rename', async () => {
+		const result = await actions.rename({
+			locals: makeLocals(),
+			request: makeRequest({ configurationId: 'cfg-1', name: 'b'.repeat(101) })
+		} as unknown as Parameters<(typeof actions)['rename']>[0]);
+
+		expect(result).toMatchObject({
+			status: 400,
+			data: { renameError: 'Name must be 100 characters or less' }
+		});
+	});
+
+	it('returns 403 when renaming a config that belongs to another user', async () => {
+		selectResults.push([{ id: 'cfg-1', userId: 'different-owner' }]);
+
+		const result = await actions.rename({
+			locals: makeLocals(),
+			request: makeRequest({ configurationId: 'cfg-1', name: 'New Name' })
+		} as unknown as Parameters<(typeof actions)['rename']>[0]);
+
+		expect(result).toMatchObject({
+			status: 403,
+			data: { renameError: 'You do not have permission to rename this configuration' }
+		});
+	});
+
+	it('returns 500 when the database throws during rename', async () => {
+		selectMock.mockImplementationOnce(() => ({
+			from: vi.fn(() => ({
+				where: vi.fn(() => ({
+					limit: async () => {
+						throw new Error('DB error');
+					}
+				}))
+			}))
+		}));
+
+		const result = await actions.rename({
+			locals: makeLocals(),
+			request: makeRequest({ configurationId: 'cfg-1', name: 'New Name' })
+		} as unknown as Parameters<(typeof actions)['rename']>[0]);
+
+		expect(result).toMatchObject({
+			status: 500,
+			data: { renameError: 'Failed to rename configuration' }
+		});
+	});
 });
