@@ -14,7 +14,7 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 // Mutable: controls what loadSavedConfigParameters throws per-test.
-let loadSavedThrow: Error | null = new Error('Unexpected DB connection failure');
+let loadSavedThrow: Error | DOMException | null = new Error('Unexpected DB connection failure');
 // Mutable: controls what parseConfigParam throws per-test.
 let parseConfigThrow: Error | null = new Error('Unexpected parse failure');
 
@@ -72,7 +72,7 @@ describe('loadConfigFromUrl catch blocks (functions throw unexpectedly)', () => 
 		// Exercises the `err instanceof DOMException && err.name === 'AbortError'` branch
 		// in the loadConfigFromUrl catch block, which is distinct from the
 		// `err instanceof Error && err.name === 'AbortError'` branch.
-		loadSavedThrow = new DOMException('Aborted', 'AbortError') as unknown as Error;
+		loadSavedThrow = new DOMException('Aborted', 'AbortError');
 		const params = new URLSearchParams({ configId: 'test-id' });
 		const result = await loadConfigFromUrl({ mapType: 'lorenz', searchParams: params });
 		expect(result.ok).toBe('none');
