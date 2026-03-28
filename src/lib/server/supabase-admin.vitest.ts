@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+// ── Mutable env object ─────────────────────────────────────────────────────────
+// supabase-admin.ts imports `env` by reference, so mutations are visible to
+// subsequent calls to createAdminClient() without re-importing the module.
+const mockEnv = vi.hoisted<{ SUPABASE_SERVICE_ROLE_KEY: string | undefined }>(() => ({
+	SUPABASE_SERVICE_ROLE_KEY: undefined
+}));
 const deleteUserMock = vi.hoisted(() => vi.fn());
 const createClientMock = vi.hoisted(() => vi.fn());
 
@@ -12,21 +18,18 @@ vi.mock('$env/static/public', () => ({
 }));
 
 vi.mock('$env/dynamic/private', () => ({
-	env: {
-		SUPABASE_SERVICE_ROLE_KEY: undefined
-	}
+	env: mockEnv
 }));
 
 import { createAdminClient, deleteAuthUser } from './supabase-admin';
 
 describe('createAdminClient', () => {
 	afterEach(() => {
-		vi.resetModules();
+		mockEnv.SUPABASE_SERVICE_ROLE_KEY = undefined;
 		vi.clearAllMocks();
 	});
 
-	it('returns null when SUPABASE_SERVICE_ROLE_KEY is not set', async () => {
-		// The mock sets the key to undefined
+	it('returns null when SUPABASE_SERVICE_ROLE_KEY is not set', () => {
 		const result = createAdminClient();
 		expect(result).toBeNull();
 	});
@@ -41,38 +44,38 @@ describe('createAdminClient', () => {
 
 describe('deleteAuthUser', () => {
 	afterEach(() => {
+		mockEnv.SUPABASE_SERVICE_ROLE_KEY = undefined;
 		vi.clearAllMocks();
 	});
 
 	it('returns false when admin client is not available (no service role key)', async () => {
-		// createAdminClient returns null (no service role key)
 		const result = await deleteAuthUser('user-123');
 		expect(result).toBe(false);
 	});
 
 	it('returns true when deleteUser succeeds', async () => {
-		deleteUserMock.mockResolvedValue({ error: null });
-		createClientMock.mockReturnValue({
-			auth: {
-				admin: {
-					deleteUser: deleteUserMock
-				}
-			}
+		mockEnv.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
+		deleteUserMock.mockResolvedValueOnce({ error: null });
+		createClientMock.mockReturnValueOnce({
+			auth: { admin: { deleteUser: deleteUserMock } }
 		});
 
-		// We need to test with a service role key available
-		// Since the module is already imported with env.SUPABASE_SERVICE_ROLE_KEY = undefined,
-		// we test the code path where the admin client IS available
-		// by testing deleteAuthUser with a mocked adminClient
-		// The simplest approach: verify the function handles the null client case correctly
-		const result = await deleteAuthUser('some-user-id');
-		// With no service role key, should return false
-		expect(result).toBe(false);
+		const result = await deleteAuthUser('user-123');
+		expect(result).toBe(true);
+		expect(deleteUserMock).toHaveBeenCalledWith('user-123');
 	});
 
 	it('returns false when deleteUser returns an error', async () => {
-		// Without service role key, it returns false early
+		mockEnv.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
+		deleteUserMock.mockResolvedValueOnce({ error: new Error('User not found') });
+		createClientMock.mockReturnValueOnce({
+			auth: { admin: { deleteUser: deleteUserMock } }
+		});
+
+		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 		const result = await deleteAuthUser('user-with-error');
 		expect(result).toBe(false);
+		expect(deleteUserMock).toHaveBeenCalledWith('user-with-error');
+		consoleErrorSpy.mockRestore();
 	});
 });
