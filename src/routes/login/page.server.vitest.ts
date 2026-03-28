@@ -4,11 +4,6 @@ const signInWithPasswordMock = vi.hoisted(() => vi.fn());
 
 vi.mock('$app/paths', () => ({ base: '' }));
 
-vi.mock('$lib/auth-errors', async (importOriginal) => {
-	const actual = await importOriginal<typeof import('$lib/auth-errors')>();
-	return { ...actual };
-});
-
 function makeLocals({ hasSession = false }: { hasSession?: boolean } = {}) {
 	return {
 		safeGetSession: vi.fn(async () => ({

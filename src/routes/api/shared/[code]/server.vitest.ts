@@ -22,29 +22,6 @@ deleteMock.mockImplementation(() => ({
 const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 const pastDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-vi.mock('$lib/server/db', () => ({
-	db: {
-		select: vi.fn(() => ({
-			from: vi.fn(function (this: unknown) {
-				return this;
-			})
-		})),
-		delete: deleteMock
-	},
-	sharedConfigurations: {
-		id: {},
-		shortCode: {},
-		mapType: {},
-		parameters: {},
-		viewCount: {},
-		createdAt: {},
-		expiresAt: {},
-		userId: {}
-	},
-	profiles: { username: {}, id: {} }
-}));
-
-// Override the db.select with a proper chain mock
 const dbSelectMock = vi.hoisted(() => vi.fn());
 dbSelectMock.mockImplementation(() => {
 	const chain: Record<string, unknown> = {

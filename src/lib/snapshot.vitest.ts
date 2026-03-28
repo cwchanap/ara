@@ -85,7 +85,7 @@ describe('captureCanvas', () => {
 });
 
 describe('downloadSnapshot', () => {
-	it('throws when called outside of browser (document undefined)', () => {
+	it('creates anchor and clicks in jsdom when document is available', () => {
 		// This is expected to not throw in jsdom since document is available
 		// Just verifying it creates an anchor element and calls click
 		const clickSpy = vi.fn();
