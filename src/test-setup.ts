@@ -39,32 +39,6 @@ plugin({
 			loader: 'js'
 		}));
 
-		// Stubs for $lib/* modules: bun cannot resolve the $lib path alias
-		// without .svelte-kit/tsconfig.json (generated at dev/build time).
-		// Re-export from real files using absolute paths so values stay in
-		// sync without duplication.
-		const libDir = `${import.meta.dir}/lib`;
-		build.module('$lib/constants', () => ({
-			contents: `export * from '${libDir}/constants.ts';`,
-			loader: 'ts'
-		}));
-		build.module('$lib/chaos-validation', () => ({
-			contents: `export * from '${libDir}/chaos-validation.ts';`,
-			loader: 'ts'
-		}));
-		build.module('$lib/saved-config-loader', () => ({
-			contents: `export * from '${libDir}/saved-config-loader.ts';`,
-			loader: 'ts'
-		}));
-		build.module('$lib/auth-errors', () => ({
-			contents: `export * from '${libDir}/auth-errors.ts';`,
-			loader: 'ts'
-		}));
-		build.module('$lib/types', () => ({
-			contents: `export * from '${libDir}/types.ts';`,
-			loader: 'ts'
-		}));
-
 		// Stub for @sveltejs/kit: provides the subset of helpers used by server
 		// modules (fail, redirect, error, json). The real package is only available
 		// inside the SvelteKit Vite build environment; in Bun's standalone test
