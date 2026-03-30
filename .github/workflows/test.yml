@@ -47,7 +47,7 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            function read(p) { try { return fs.readFileSync(p,'utf8').slice(0,10000); } catch(e) { return '(not captured)'; } }
+            function read(p) { try { const s = fs.readFileSync(p,'utf8'); return s.length > 15000 ? '...(truncated)...\n' + s.slice(-15000) : s; } catch(e) { return '(not captured)'; } }
             const body = [
               '## CI Diagnostic',
               '### Smoke test', '```', read('/tmp/smoke-output.txt'), '```',
