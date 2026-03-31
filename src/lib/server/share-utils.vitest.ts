@@ -50,10 +50,28 @@ describe('generateShortCode', () => {
 		}
 	});
 
-	it('generates different codes on subsequent calls (probabilistic)', () => {
-		const codes = new Set(Array.from({ length: 20 }, () => generateShortCode()));
-		// With 62^8 combinations, getting 20 identical codes is astronomically unlikely
-		expect(codes.size).toBeGreaterThan(1);
+	it('generates different codes on subsequent calls', () => {
+		// Deterministic: each getRandomValues call gets the next byte value (0, 1, 2…)
+		// so the two 8-char codes use different input bytes and therefore differ.
+		let callCount = 0;
+		const spy = vi.spyOn(globalThis.crypto, 'getRandomValues').mockImplementation((array) => {
+			const bytes = new Uint8Array(
+				(array as ArrayBufferView).buffer as ArrayBuffer,
+				(array as ArrayBufferView).byteOffset,
+				(array as ArrayBufferView).byteLength
+			);
+			for (let i = 0; i < bytes.length; i++) {
+				bytes[i] = callCount++;
+			}
+			return array;
+		});
+		try {
+			const code1 = generateShortCode();
+			const code2 = generateShortCode();
+			expect(code1).not.toBe(code2);
+		} finally {
+			spy.mockRestore();
+		}
 	});
 
 	it('returns only alphanumeric characters', () => {
