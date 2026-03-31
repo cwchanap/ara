@@ -14,46 +14,6 @@
  */
 
 import { plugin } from 'bun';
-import { mock } from 'bun:test';
-
-// Stub drizzle-orm so that deep export* chains don't crash Bun's ESM linker
-// on Linux (v1.3.11 fails to resolve 'asc' through 3-level re-export chains).
-// All server-side tests mock $lib/server/db, so these operators are only used
-// to build query objects that are passed to mock functions and then discarded.
-// Test files that need specific drizzle-orm behaviour can override this with
-// their own mock.module('drizzle-orm', ...) call.
-const stub = (..._args: unknown[]) => _args;
-mock.module('drizzle-orm', () => ({
-	eq: stub,
-	ne: stub,
-	lt: stub,
-	lte: stub,
-	gt: stub,
-	gte: stub,
-	and: stub,
-	or: stub,
-	not: stub,
-	isNull: stub,
-	isNotNull: stub,
-	like: stub,
-	ilike: stub,
-	notLike: stub,
-	notIlike: stub,
-	inArray: stub,
-	notInArray: stub,
-	between: stub,
-	notBetween: stub,
-	exists: stub,
-	notExists: stub,
-	asc: stub,
-	desc: stub,
-	sql: stub,
-	count: stub,
-	sum: stub,
-	avg: stub,
-	min: stub,
-	max: stub
-}));
 
 // Prevent import-time DB config crashes in unit tests that touch server modules.
 if (!process.env.DATABASE_URL && !process.env.NETLIFY_DATABASE_URL) {
@@ -110,6 +70,29 @@ export function json(data, init) {
 			contents: `
 export const PUBLIC_SUPABASE_URL = process.env.PUBLIC_SUPABASE_URL ?? 'http://localhost:54321';
 export const PUBLIC_SUPABASE_ANON_KEY = process.env.PUBLIC_SUPABASE_ANON_KEY ?? 'test-anon-key';
+`,
+			loader: 'js'
+		}));
+
+		// Stub for drizzle-orm: Bun v1.3.11 on Linux fails to resolve named
+		// exports (e.g. `asc`) that live 3 levels deep in export* re-export
+		// chains at ESM link time. All server-side tests mock $lib/server/db,
+		// so these operators are only ever passed to mock DB methods and their
+		// exact return values don't matter. Individual test files that need
+		// specific drizzle-orm behaviour can override this with mock.module().
+		build.module('drizzle-orm', () => ({
+			contents: `
+const stub = (...args) => args;
+export { stub as eq, stub as ne, stub as lt, stub as lte, stub as gt, stub as gte };
+export { stub as and, stub as or, stub as not };
+export { stub as isNull, stub as isNotNull };
+export { stub as like, stub as ilike, stub as notLike, stub as notIlike };
+export { stub as inArray, stub as notInArray };
+export { stub as between, stub as notBetween };
+export { stub as exists, stub as notExists };
+export { stub as asc, stub as desc };
+export { stub as sql };
+export { stub as count, stub as sum, stub as avg, stub as min, stub as max };
 `,
 			loader: 'js'
 		}));
