@@ -6,9 +6,6 @@ on:
   pull_request:
     branches: [main]
 
-permissions:
-  pull-requests: write
-
 jobs:
   unit-test:
     name: Unit Tests
@@ -29,36 +26,11 @@ jobs:
       - name: Sync SvelteKit types
         run: bunx svelte-kit sync
 
-      - name: Single-file smoke test
-        run: bun test src/lib/auth-errors.test.ts 2>&1 | tee /tmp/smoke-output.txt; exit ${PIPESTATUS[0]}
-
-      - name: Run Bun unit tests
-        run: bun test 2>&1 | tee /tmp/bun-output.txt; exit ${PIPESTATUS[0]}
-
       - name: Run Bun unit tests with coverage
-        run: bun test --coverage --coverage-reporter=lcov --coverage-dir=coverage/bun 2>&1 | tee /tmp/coverage-output.txt; exit ${PIPESTATUS[0]}
+        run: bun test --coverage --coverage-reporter=lcov --coverage-dir=coverage/bun
 
       - name: Run Vitest component tests with coverage
-        run: bun run test:unit -- --coverage --coverage.reporter=lcov --coverage.reportsDirectory=coverage/vitest 2>&1 | tee /tmp/vitest-output.txt; exit ${PIPESTATUS[0]}
-
-      - name: Post diagnostic output as PR comment
-        if: always() && github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            function read(p) { try { const s = fs.readFileSync(p,'utf8'); return s.length > 15000 ? '...(truncated)...\n' + s.slice(-15000) : s; } catch(e) { return '(not captured)'; } }
-            const body = [
-              '## CI Diagnostic',
-              '### Smoke test', '```', read('/tmp/smoke-output.txt'), '```',
-              '### bun test', '```', read('/tmp/bun-output.txt'), '```',
-              '### bun test --coverage', '```', read('/tmp/coverage-output.txt'), '```',
-              '### vitest', '```', read('/tmp/vitest-output.txt'), '```',
-            ].join('\n');
-            await github.rest.issues.createComment({
-              owner: context.repo.owner, repo: context.repo.repo,
-              issue_number: context.issue.number, body
-            });
+        run: bun run test:unit -- --coverage --coverage.reporter=lcov --coverage.reportsDirectory=coverage/vitest
 
       - name: Upload coverage to Codecov
         if: success()
