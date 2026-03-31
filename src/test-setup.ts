@@ -14,6 +14,46 @@
  */
 
 import { plugin } from 'bun';
+import { mock } from 'bun:test';
+
+// Stub drizzle-orm so that deep export* chains don't crash Bun's ESM linker
+// on Linux (v1.3.11 fails to resolve 'asc' through 3-level re-export chains).
+// All server-side tests mock $lib/server/db, so these operators are only used
+// to build query objects that are passed to mock functions and then discarded.
+// Test files that need specific drizzle-orm behaviour can override this with
+// their own mock.module('drizzle-orm', ...) call.
+const stub = (..._args: unknown[]) => _args;
+mock.module('drizzle-orm', () => ({
+	eq: stub,
+	ne: stub,
+	lt: stub,
+	lte: stub,
+	gt: stub,
+	gte: stub,
+	and: stub,
+	or: stub,
+	not: stub,
+	isNull: stub,
+	isNotNull: stub,
+	like: stub,
+	ilike: stub,
+	notLike: stub,
+	notIlike: stub,
+	inArray: stub,
+	notInArray: stub,
+	between: stub,
+	notBetween: stub,
+	exists: stub,
+	notExists: stub,
+	asc: stub,
+	desc: stub,
+	sql: stub,
+	count: stub,
+	sum: stub,
+	avg: stub,
+	min: stub,
+	max: stub
+}));
 
 // Prevent import-time DB config crashes in unit tests that touch server modules.
 if (!process.env.DATABASE_URL && !process.env.NETLIFY_DATABASE_URL) {
