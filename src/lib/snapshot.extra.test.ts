@@ -45,16 +45,14 @@ function createMockCanvas(width = 100, height = 80): HTMLCanvasElement {
 	} as unknown as HTMLCanvasElement;
 }
 
-function withMockedDocument<T>(doc: unknown, run: () => T | Promise<T>): T | Promise<T> {
+async function withMockedDocument<T>(doc: unknown, run: () => T | Promise<T>): Promise<T> {
 	const original = (globalThis as Record<string, unknown>).document;
 	(globalThis as Record<string, unknown>).document = doc;
-	let result: T | Promise<T>;
 	try {
-		result = run();
+		return await run();
 	} finally {
 		(globalThis as Record<string, unknown>).document = original;
 	}
-	return result;
 }
 
 // ── generateFilename – additional cases ──────────────────────────────────────
