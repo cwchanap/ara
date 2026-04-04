@@ -261,7 +261,7 @@ describe('captureContainer – additional cases', () => {
 // ── downloadSnapshot – additional cases ──────────────────────────────────────
 
 describe('downloadSnapshot – additional cases', () => {
-	test('sets display:none on the link element', () => {
+	test('sets display:none on the link element', async () => {
 		const link = {
 			href: '',
 			download: '',
@@ -274,14 +274,14 @@ describe('downloadSnapshot – additional cases', () => {
 			body: { appendChild: mock(() => {}) }
 		};
 
-		withMockedDocument(fakeDocument, () =>
+		await withMockedDocument(fakeDocument, () =>
 			downloadSnapshot('data:image/png;base64,x', 'file.png')
 		);
 
 		expect(link.style.display).toBe('none');
 	});
 
-	test('sets correct href and download attributes', () => {
+	test('sets correct href and download attributes', async () => {
 		const link = {
 			href: '',
 			download: '',
@@ -294,7 +294,7 @@ describe('downloadSnapshot – additional cases', () => {
 			body: { appendChild: mock(() => {}) }
 		};
 
-		withMockedDocument(fakeDocument, () =>
+		await withMockedDocument(fakeDocument, () =>
 			downloadSnapshot('data:image/jpeg;base64,abc123', 'snapshot_2024.jpeg')
 		);
 
@@ -302,7 +302,7 @@ describe('downloadSnapshot – additional cases', () => {
 		expect(link.download).toBe('snapshot_2024.jpeg');
 	});
 
-	test('removes link even when click throws', () => {
+	test('removes link even when click throws', async () => {
 		const remove = mock(() => {});
 		const link = {
 			href: '',
@@ -318,13 +318,14 @@ describe('downloadSnapshot – additional cases', () => {
 			body: { appendChild: mock(() => {}) }
 		};
 
-		// downloadSnapshot uses try/finally so remove should still be called
-		expect(() =>
+		// withMockedDocument is async so errors surface as rejected Promises
+		await expect(
 			withMockedDocument(fakeDocument, () =>
 				downloadSnapshot('data:image/png;base64,x', 'file.png')
 			)
-		).toThrow('click failed');
+		).rejects.toThrow('click failed');
 
+		// downloadSnapshot uses try/finally so remove is called despite the throw
 		expect(remove).toHaveBeenCalledTimes(1);
 	});
 });
