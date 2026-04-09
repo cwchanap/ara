@@ -27,10 +27,16 @@ jobs:
         run: bunx svelte-kit sync
 
       - name: Run Bun unit tests with coverage
-        run: bun test --coverage --coverage-reporter=lcov --coverage-dir=coverage/bun
+        run: |
+          echo "Bun version: $(bun --version)"
+          bun test --coverage --coverage-reporter=lcov --coverage-dir=coverage/bun 2>&1 | tee /tmp/bun-test-output.txt
+          exit ${PIPESTATUS[0]}
 
       - name: Run Vitest component tests with coverage
-        run: bun run test:unit -- --coverage --coverage.reporter=lcov --coverage.reportsDirectory=coverage/vitest
+        run: |
+          echo "Bun version: $(bun --version)"
+          bun run test:unit -- --coverage --coverage.reporter=lcov --coverage.reportsDirectory=coverage/vitest 2>&1 | tee /tmp/vitest-output.txt
+          exit ${PIPESTATUS[0]}
 
       - name: Upload coverage to Codecov
         if: success()
