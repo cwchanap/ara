@@ -9,7 +9,7 @@
  *    successful signup redirect
  */
 
-import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
+import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 // ── DB mock state ─────────────────────────────────────────────────────────────
 
@@ -25,14 +25,17 @@ const selectMock = mock(() => {
 	return chain;
 });
 
+let lastInsertedValues: Record<string, unknown> | null = null;
+
 const insertMock = mock(() => ({
-	values: mock(async () => {
+	values: async (vals: Record<string, unknown>) => {
+		lastInsertedValues = vals;
 		if (insertShouldThrow) {
 			const e = insertShouldThrow;
 			insertShouldThrow = null;
 			throw e;
 		}
-	})
+	}
 }));
 
 mock.module('$lib/server/db', () => ({
@@ -49,9 +52,10 @@ mock.module('drizzle-orm', () => ({
 // ── supabase-admin mock ───────────────────────────────────────────────────────
 
 let deleteAuthUserResult = true;
+const deleteAuthUserMock = mock(async () => deleteAuthUserResult);
 
 mock.module('$lib/server/supabase-admin', () => ({
-	deleteAuthUser: async () => deleteAuthUserResult
+	deleteAuthUser: deleteAuthUserMock
 }));
 
 // Dynamic import AFTER mocks.
@@ -106,12 +110,12 @@ const validFields = {
 beforeEach(() => {
 	selectQueue.length = 0;
 	insertShouldThrow = null;
+	lastInsertedValues = null;
 	deleteAuthUserResult = true;
 	selectMock.mockClear();
 	insertMock.mockClear();
+	deleteAuthUserMock.mockClear();
 });
-
-afterEach(() => {});
 
 // ── load ──────────────────────────────────────────────────────────────────────
 
@@ -325,7 +329,10 @@ describe('signup default action', () => {
 				request: makeRequest(validFields),
 				url: new URL('http://localhost/signup')
 			} as unknown as Parameters<(typeof actions)['default']>[0]);
-			expect(result).toMatchObject({ status: 400, data: { error: expect.any(String) } });
+			expect(result).toMatchObject({
+				status: 400,
+				data: { error: expect.stringContaining('Something went wrong') }
+			});
 		});
 	});
 
@@ -398,6 +405,8 @@ describe('signup default action', () => {
 			} as unknown as Parameters<(typeof actions)['default']>[0]);
 			// Should still return an error, not crash
 			expect(result).toMatchObject({ status: 500 });
+			expect(deleteAuthUserMock).toHaveBeenCalledTimes(1);
+			expect(deleteAuthUserMock).toHaveBeenCalledWith('new-user-id');
 		});
 	});
 
@@ -437,12 +446,6 @@ describe('signup default action', () => {
 
 		test('creates profile with correct userId and username', async () => {
 			selectQueue.push([]);
-			let capturedValues: Record<string, unknown> | null = null;
-			insertMock.mockImplementationOnce(() => ({
-				values: mock(async (vals: Record<string, unknown>) => {
-					capturedValues = vals;
-				})
-			}));
 			try {
 				await actions.default({
 					locals: makeLocals({
@@ -460,8 +463,8 @@ describe('signup default action', () => {
 			} catch {
 				// redirect throws, that's expected
 			}
-			expect(capturedValues?.id).toBe('new-user-123');
-			expect(capturedValues?.username).toBe(validFields.username);
+			expect(lastInsertedValues?.id).toBe('new-user-123');
+			expect(lastInsertedValues?.username).toBe(validFields.username);
 		});
 
 		test('preserves email and username in error response for re-population', async () => {
