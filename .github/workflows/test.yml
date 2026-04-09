@@ -27,16 +27,53 @@ jobs:
         run: bunx svelte-kit sync
 
       - name: Run Bun unit tests with coverage
+        id: bun-tests
+        continue-on-error: true
         run: |
           echo "Bun version: $(bun --version)"
           bun test --coverage --coverage-reporter=lcov --coverage-dir=coverage/bun 2>&1 | tee /tmp/bun-test-output.txt
-          exit ${PIPESTATUS[0]}
+          echo "BUN_EXIT=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
 
       - name: Run Vitest component tests with coverage
+        id: vitest
+        continue-on-error: true
         run: |
-          echo "Bun version: $(bun --version)"
           bun run test:unit -- --coverage --coverage.reporter=lcov --coverage.reportsDirectory=coverage/vitest 2>&1 | tee /tmp/vitest-output.txt
-          exit ${PIPESTATUS[0]}
+          echo "VITEST_EXIT=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Post failure output as PR comment
+        if: steps.bun-tests.outcome == 'failure' || steps.vitest.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '## CI Test Failure Debug Output\n\n';
+            body += `Bun exit: ${{ steps.bun-tests.outputs.BUN_EXIT }}\n`;
+            body += `Vitest exit: ${{ steps.vitest.outputs.VITEST_EXIT }}\n\n`;
+            try {
+              const bunOut = fs.readFileSync('/tmp/bun-test-output.txt', 'utf8');
+              body += '### Bun test output (last 100 lines)\n```\n';
+              body += bunOut.split('\n').slice(-100).join('\n');
+              body += '\n```\n\n';
+            } catch (e) { body += 'bun output unavailable\n\n'; }
+            try {
+              const vitestOut = fs.readFileSync('/tmp/vitest-output.txt', 'utf8');
+              body += '### Vitest output (last 100 lines)\n```\n';
+              body += vitestOut.split('\n').slice(-100).join('\n');
+              body += '\n```\n';
+            } catch (e) { body += 'vitest output unavailable\n'; }
+            if (context.payload.pull_request) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body
+              });
+            }
+
+      - name: Fail if tests failed
+        if: steps.bun-tests.outputs.BUN_EXIT != '0' || steps.vitest.outputs.VITEST_EXIT != '0'
+        run: exit 1
 
       - name: Upload coverage to Codecov
         if: success()
