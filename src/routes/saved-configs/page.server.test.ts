@@ -17,6 +17,7 @@ const insertQueue: unknown[][] = [];
 let deleteShouldThrow: Error | null = null;
 let updateShouldThrow: Error | null = null;
 let insertShouldThrow: Error | null = null;
+let lastInsertedValues: Record<string, unknown> | null = null;
 
 const selectMock = mock(() => {
 	const chain: Record<string, unknown> = {
@@ -29,16 +30,19 @@ const selectMock = mock(() => {
 });
 
 const insertMock = mock(() => ({
-	values: mock(() => ({
-		returning: mock(async () => {
-			if (insertShouldThrow) {
-				const e = insertShouldThrow;
-				insertShouldThrow = null;
-				throw e;
-			}
-			return insertQueue.shift() ?? [{ id: 'new-config-id' }];
-		})
-	}))
+	values: (vals: Record<string, unknown>) => {
+		lastInsertedValues = vals;
+		return {
+			returning: mock(async () => {
+				if (insertShouldThrow) {
+					const e = insertShouldThrow;
+					insertShouldThrow = null;
+					throw e;
+				}
+				return insertQueue.shift() ?? [{ id: 'new-config-id' }];
+			})
+		};
+	}
 }));
 
 const updateMock = mock(() => ({
@@ -137,6 +141,7 @@ beforeEach(() => {
 	deleteShouldThrow = null;
 	updateShouldThrow = null;
 	insertShouldThrow = null;
+	lastInsertedValues = null;
 	selectMock.mockClear();
 	insertMock.mockClear();
 	updateMock.mockClear();
@@ -152,24 +157,28 @@ describe('saved-configs load', () => {
 				locals: makeLocals({ hasSession: false }),
 				url: makeUrl()
 			} as unknown as Parameters<typeof load>[0])
-		).rejects.toMatchObject({ status: 303 });
+		).rejects.toMatchObject({ status: 303, location: '/login?redirect=%2Fsaved-configs' });
 	});
 
 	test('returns empty configurations array when user has none', async () => {
 		selectQueue.push([]); // DB returns empty
-		const result = await load({
+		const result = (await load({
 			locals: makeLocals(),
 			url: makeUrl()
-		} as unknown as Parameters<typeof load>[0]);
+		} as unknown as Parameters<typeof load>[0])) as unknown as {
+			configurations: Array<{ id: string; mapType: string }>;
+		};
 		expect(result.configurations).toEqual([]);
 	});
 
 	test('returns typed configurations for valid DB rows', async () => {
 		selectQueue.push([makeDbConfig()]);
-		const result = await load({
+		const result = (await load({
 			locals: makeLocals(),
 			url: makeUrl()
-		} as unknown as Parameters<typeof load>[0]);
+		} as unknown as Parameters<typeof load>[0])) as unknown as {
+			configurations: Array<{ id: string; mapType: string }>;
+		};
 		expect(result.configurations).toHaveLength(1);
 		expect(result.configurations[0].id).toBe('config-1');
 		expect(result.configurations[0].mapType).toBe('lorenz');
@@ -183,10 +192,12 @@ describe('saved-configs load', () => {
 				parameters: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 }
 			}) // valid
 		]);
-		const result = await load({
+		const result = (await load({
 			locals: makeLocals(),
 			url: makeUrl()
-		} as unknown as Parameters<typeof load>[0]);
+		} as unknown as Parameters<typeof load>[0])) as unknown as {
+			configurations: Array<{ id: string; mapType: string }>;
+		};
 		expect(result.configurations).toHaveLength(1);
 		expect(result.configurations[0].id).toBe('config-2');
 	});
@@ -205,10 +216,12 @@ describe('saved-configs load', () => {
 				parameters: { type: 'henon', a: 1.4, b: 0.3, iterations: 2000 }
 			})
 		]);
-		const result = await load({
+		const result = (await load({
 			locals: makeLocals(),
 			url: makeUrl()
-		} as unknown as Parameters<typeof load>[0]);
+		} as unknown as Parameters<typeof load>[0])) as unknown as {
+			configurations: Array<{ id: string; mapType: string }>;
+		};
 		expect(result.configurations).toHaveLength(3);
 	});
 });
@@ -327,16 +340,7 @@ describe('saved-configs save action', () => {
 	});
 
 	test('trims whitespace from name before saving', async () => {
-		let capturedValues: Record<string, unknown> | null = null;
-		// Override insert mock temporarily to capture values
-		insertMock.mockImplementationOnce(() => ({
-			values: mock((vals: Record<string, unknown>) => {
-				capturedValues = vals;
-				return {
-					returning: mock(async () => [{ id: 'new-id' }])
-				};
-			})
-		}));
+		insertQueue.push([{ id: 'new-id' }]);
 		await actions.save({
 			locals: makeLocals(),
 			request: makeRequest({
@@ -345,7 +349,7 @@ describe('saved-configs save action', () => {
 				parameters: JSON.stringify({ type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 })
 			})
 		} as unknown as Parameters<typeof load>[0]);
-		expect(capturedValues?.name).toBe('Trimmed Config');
+		expect(lastInsertedValues?.name).toBe('Trimmed Config');
 	});
 
 	test('returns 500 when DB insert fails', async () => {
