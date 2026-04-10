@@ -436,6 +436,7 @@ describe('saved-configs delete action', () => {
 			request: makeRequest({ configurationId: 'config-1' })
 		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({ deleteSuccess: true });
+		expect(deleteMock).toHaveBeenCalledTimes(1);
 	});
 
 	test('returns 500 when DB delete throws', async () => {
@@ -512,6 +513,7 @@ describe('saved-configs rename action', () => {
 			request: makeRequest({ configurationId: 'config-1', name: 'Renamed Config' })
 		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({ renameSuccess: true, name: 'Renamed Config' });
+		expect(updateMock).toHaveBeenCalledTimes(1);
 	});
 
 	test('trims whitespace from new name', async () => {

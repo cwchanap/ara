@@ -25,21 +25,37 @@ jobs:
 
       - name: Sync SvelteKit types
         run: bunx svelte-kit sync
+        env:
+          PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          PUBLIC_SUPABASE_ANON_KEY: placeholder-key
+          DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
 
       - name: Run Bun unit tests with coverage
         id: bun-tests
         continue-on-error: true
+        env:
+          PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          PUBLIC_SUPABASE_ANON_KEY: placeholder-key
+          DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
         run: |
           echo "Bun version: $(bun --version)"
           bun test --coverage --coverage-reporter=lcov --coverage-dir=coverage/bun 2>&1 | tee /tmp/bun-test-output.txt
-          echo "BUN_EXIT=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+          BUN_EXIT="${PIPESTATUS[0]}"
+          echo "BUN_EXIT=${BUN_EXIT}" >> "$GITHUB_OUTPUT"
+          exit "${BUN_EXIT}"
 
       - name: Run Vitest component tests with coverage
         id: vitest
         continue-on-error: true
+        env:
+          PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          PUBLIC_SUPABASE_ANON_KEY: placeholder-key
+          DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
         run: |
           bun run test:unit -- --coverage --coverage.reporter=lcov --coverage.reportsDirectory=coverage/vitest 2>&1 | tee /tmp/vitest-output.txt
-          echo "VITEST_EXIT=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+          VITEST_EXIT="${PIPESTATUS[0]}"
+          echo "VITEST_EXIT=${VITEST_EXIT}" >> "$GITHUB_OUTPUT"
+          exit "${VITEST_EXIT}"
 
       - name: Post failure output as PR comment
         if: steps.bun-tests.outcome == 'failure' || steps.vitest.outcome == 'failure'
@@ -48,8 +64,6 @@ jobs:
           script: |
             const fs = require('fs');
             let body = '## CI Test Failure Debug Output\n\n';
-            body += `Bun exit: ${{ steps.bun-tests.outputs.BUN_EXIT }}\n`;
-            body += `Vitest exit: ${{ steps.vitest.outputs.VITEST_EXIT }}\n\n`;
             try {
               const bunOut = fs.readFileSync('/tmp/bun-test-output.txt', 'utf8');
               body += '### Bun test output (last 100 lines)\n```\n';
@@ -72,7 +86,7 @@ jobs:
             }
 
       - name: Fail if tests failed
-        if: steps.bun-tests.outputs.BUN_EXIT != '0' || steps.vitest.outputs.VITEST_EXIT != '0'
+        if: steps.bun-tests.outcome == 'failure' || steps.vitest.outcome == 'failure'
         run: exit 1
 
       - name: Upload coverage to Codecov

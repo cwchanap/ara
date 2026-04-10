@@ -53,6 +53,7 @@ mock.module('drizzle-orm', () => ({
 
 let deleteAuthUserResult = true;
 const deleteAuthUserMock = mock(async () => deleteAuthUserResult);
+const signOutMock = mock(async () => ({ error: null as Error | null }));
 
 mock.module('$lib/server/supabase-admin', () => ({
 	deleteAuthUser: deleteAuthUserMock
@@ -73,12 +74,10 @@ function makeLocals({
 	signUpResult = {
 		data: { user: { id: 'new-user-id' }, session: { access_token: 'tok' } },
 		error: null
-	} as SignUpResult,
-	signOutError = null as Error | null
+	} as SignUpResult
 }: {
 	hasSession?: boolean;
 	signUpResult?: SignUpResult;
-	signOutError?: Error | null;
 } = {}) {
 	return {
 		safeGetSession: async () => ({
@@ -88,7 +87,7 @@ function makeLocals({
 		supabase: {
 			auth: {
 				signUp: async () => signUpResult,
-				signOut: async () => ({ error: signOutError })
+				signOut: signOutMock
 			}
 		}
 	};
@@ -115,6 +114,7 @@ beforeEach(() => {
 	selectMock.mockClear();
 	insertMock.mockClear();
 	deleteAuthUserMock.mockClear();
+	signOutMock.mockClear();
 });
 
 // ── load ──────────────────────────────────────────────────────────────────────
@@ -175,7 +175,10 @@ describe('signup default action', () => {
 				request: makeRequest({ ...validFields, email: '' }),
 				url: new URL('http://localhost/signup')
 			} as unknown as Parameters<(typeof actions)['default']>[0]);
-			expect(result).toMatchObject({ status: 400 });
+			expect(result).toMatchObject({
+				status: 400,
+				data: { error: 'Email is required' }
+			});
 		});
 
 		test('returns 400 for invalid email format', async () => {
@@ -186,7 +189,7 @@ describe('signup default action', () => {
 			} as unknown as Parameters<(typeof actions)['default']>[0]);
 			expect(result).toMatchObject({
 				status: 400,
-				data: { error: expect.stringContaining('email') }
+				data: { error: 'Please enter a valid email address' }
 			});
 		});
 	});
@@ -222,7 +225,10 @@ describe('signup default action', () => {
 				}),
 				url: new URL('http://localhost/signup')
 			} as unknown as Parameters<(typeof actions)['default']>[0]);
-			expect(result).toMatchObject({ status: 400 });
+			expect(result).toMatchObject({
+				status: 400,
+				data: { error: 'Password must be at least 8 characters' }
+			});
 		});
 
 		test('returns 400 when passwords do not match', async () => {
@@ -392,6 +398,8 @@ describe('signup default action', () => {
 				url: new URL('http://localhost/signup')
 			} as unknown as Parameters<(typeof actions)['default']>[0]);
 			expect(result).toMatchObject({ status: 500, data: { error: expect.any(String) } });
+			expect(signOutMock).toHaveBeenCalledTimes(1);
+			expect(deleteAuthUserMock).toHaveBeenCalledTimes(1);
 		});
 
 		test('still returns error when deleteAuthUser fails after profile creation failure', async () => {
@@ -405,6 +413,7 @@ describe('signup default action', () => {
 			} as unknown as Parameters<(typeof actions)['default']>[0]);
 			// Should still return an error, not crash
 			expect(result).toMatchObject({ status: 500 });
+			expect(signOutMock).toHaveBeenCalledTimes(1);
 			expect(deleteAuthUserMock).toHaveBeenCalledTimes(1);
 			expect(deleteAuthUserMock).toHaveBeenCalledWith('new-user-id');
 		});
@@ -446,8 +455,8 @@ describe('signup default action', () => {
 
 		test('creates profile with correct userId and username', async () => {
 			selectQueue.push([]);
-			try {
-				await actions.default({
+			await expect(
+				actions.default({
 					locals: makeLocals({
 						signUpResult: {
 							data: {
@@ -459,10 +468,8 @@ describe('signup default action', () => {
 					}),
 					request: makeRequest(validFields),
 					url: new URL('http://localhost/signup')
-				} as unknown as Parameters<(typeof actions)['default']>[0]);
-			} catch {
-				// redirect throws, that's expected
-			}
+				} as unknown as Parameters<(typeof actions)['default']>[0])
+			).rejects.toMatchObject({ status: 303, location: '/' });
 			expect(lastInsertedValues?.id).toBe('new-user-123');
 			expect(lastInsertedValues?.username).toBe(validFields.username);
 		});
