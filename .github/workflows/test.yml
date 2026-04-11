@@ -44,9 +44,7 @@ jobs:
         run: |
           echo "Bun version: $(bun --version)"
           bun test --coverage --coverage-reporter=lcov --coverage-dir=coverage/bun 2>&1 | tee /tmp/bun-test-output.txt
-          BUN_EXIT="${PIPESTATUS[0]}"
-          echo "BUN_EXIT=${BUN_EXIT}" >> "$GITHUB_OUTPUT"
-          exit "${BUN_EXIT}"
+          exit "${PIPESTATUS[0]}"
 
       - name: Run Vitest component tests with coverage
         id: vitest
@@ -57,9 +55,7 @@ jobs:
           DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
         run: |
           bun run test:unit -- --coverage --coverage.reporter=lcov --coverage.reportsDirectory=coverage/vitest 2>&1 | tee /tmp/vitest-output.txt
-          VITEST_EXIT="${PIPESTATUS[0]}"
-          echo "VITEST_EXIT=${VITEST_EXIT}" >> "$GITHUB_OUTPUT"
-          exit "${VITEST_EXIT}"
+          exit "${PIPESTATUS[0]}"
 
       - name: Post failure output as PR comment
         if: github.event_name == 'pull_request' && (steps.bun-tests.outcome == 'failure' || steps.vitest.outcome == 'failure')
