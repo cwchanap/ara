@@ -2,9 +2,14 @@
  * Tests for saved-config-loader.ts
  *
  * Tests the parseConfigParam and loadSavedConfigParameters functions.
+ *
+ * Uses Vitest (instead of bun:test) to ensure proper per-file module isolation:
+ * other bun test files mock '$lib/saved-config-loader' via mock.module(), which
+ * persists in bun's shared module registry and would contaminate these tests
+ * when the full suite runs. Vitest's isolation prevents this cross-file pollution.
  */
 
-import { describe, expect, test, mock } from 'bun:test';
+import { describe, expect, test, vi } from 'vitest';
 import {
 	parseConfigParam,
 	loadSavedConfigParameters,
@@ -272,7 +277,7 @@ describe('parseConfigParam', () => {
 
 // Helper to create a mock fetch function with proper typing
 function createMockFetch(responseProvider: () => Promise<Response>): typeof fetch {
-	const mockFn = mock(responseProvider);
+	const mockFn = vi.fn(responseProvider);
 	// Add the preconnect property that fetch requires
 	Object.defineProperty(mockFn, 'preconnect', {
 		value: () => {},

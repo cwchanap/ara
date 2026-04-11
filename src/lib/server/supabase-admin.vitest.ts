@@ -40,6 +40,25 @@ describe('createAdminClient', () => {
 		expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('SUPABASE_SERVICE_ROLE_KEY'));
 		warnSpy.mockRestore();
 	});
+
+	it('returns a non-null client when SUPABASE_SERVICE_ROLE_KEY is set', () => {
+		mockEnv.SUPABASE_SERVICE_ROLE_KEY = 'test-service-key';
+		createClientMock.mockReturnValueOnce({ auth: { admin: {} } });
+		const result = createAdminClient();
+		expect(result).not.toBeNull();
+		expect(createClientMock).toHaveBeenCalledTimes(1);
+	});
+
+	it('passes the service role key as the second argument to createClient', () => {
+		mockEnv.SUPABASE_SERVICE_ROLE_KEY = 'my-secret-key';
+		createClientMock.mockReturnValueOnce({ auth: { admin: {} } });
+		createAdminClient();
+		expect(createClientMock).toHaveBeenCalledWith(
+			'https://test.supabase.co',
+			'my-secret-key',
+			expect.any(Object)
+		);
+	});
 });
 
 describe('deleteAuthUser', () => {
@@ -76,6 +95,19 @@ describe('deleteAuthUser', () => {
 		const result = await deleteAuthUser('user-with-error');
 		expect(result).toBe(false);
 		expect(deleteUserMock).toHaveBeenCalledWith('user-with-error');
+		consoleErrorSpy.mockRestore();
+	});
+
+	it('returns false when deleteUser throws an exception', async () => {
+		mockEnv.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
+		deleteUserMock.mockRejectedValueOnce(new Error('Network failure'));
+		createClientMock.mockReturnValueOnce({
+			auth: { admin: { deleteUser: deleteUserMock } }
+		});
+
+		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const result = await deleteAuthUser('user-throws');
+		expect(result).toBe(false);
 		consoleErrorSpy.mockRestore();
 	});
 });
