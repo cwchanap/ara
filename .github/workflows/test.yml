@@ -34,16 +34,6 @@ jobs:
           PUBLIC_SUPABASE_ANON_KEY: placeholder-key
           DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
 
-      - name: Run failing tests in isolation (debug)
-        continue-on-error: true
-        env:
-          PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-          PUBLIC_SUPABASE_ANON_KEY: placeholder-key
-          DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
-        run: |
-          echo "=== Running known-failing files in isolation ===" | tee /tmp/isolated-output.txt
-          bun test src/lib/saved-config-loader.test.ts src/lib/server/supabase-admin.test.ts 2>&1 | tee -a /tmp/isolated-output.txt
-
       - name: Run Bun unit tests with coverage
         id: bun-tests
         continue-on-error: true
@@ -78,12 +68,6 @@ jobs:
           script: |
             const fs = require('fs');
             let body = '## CI Test Failure Debug Output\n\n';
-            try {
-              const iso = fs.readFileSync('/tmp/isolated-output.txt', 'utf8');
-              body += '### Isolated run (failing files only, no coverage)\n```\n';
-              body += iso.slice(0, 3000);
-              body += '\n```\n\n';
-            } catch (e) { body += 'isolated output unavailable\n\n'; }
             try {
               const bunOut = fs.readFileSync('/tmp/bun-test-output.txt', 'utf8');
               const lines = bunOut.split('\n');

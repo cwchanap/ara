@@ -18,6 +18,7 @@ let deleteShouldThrow: Error | null = null;
 let updateShouldThrow: Error | null = null;
 let insertShouldThrow: Error | null = null;
 let lastInsertedValues: Record<string, unknown> | null = null;
+let lastUpdatedValues: Record<string, unknown> | null = null;
 
 const selectMock = mock(() => {
 	const chain: Record<string, unknown> = {
@@ -46,15 +47,18 @@ const insertMock = mock(() => ({
 }));
 
 const updateMock = mock(() => ({
-	set: mock(() => ({
-		where: mock(async () => {
-			if (updateShouldThrow) {
-				const e = updateShouldThrow;
-				updateShouldThrow = null;
-				throw e;
-			}
-		})
-	}))
+	set: mock((vals: Record<string, unknown>) => {
+		lastUpdatedValues = vals;
+		return {
+			where: mock(async () => {
+				if (updateShouldThrow) {
+					const e = updateShouldThrow;
+					updateShouldThrow = null;
+					throw e;
+				}
+			})
+		};
+	})
 }));
 
 const deleteMock = mock(() => ({
@@ -142,6 +146,7 @@ beforeEach(() => {
 	updateShouldThrow = null;
 	insertShouldThrow = null;
 	lastInsertedValues = null;
+	lastUpdatedValues = null;
 	selectMock.mockClear();
 	insertMock.mockClear();
 	updateMock.mockClear();
@@ -523,6 +528,7 @@ describe('saved-configs rename action', () => {
 			request: makeRequest({ configurationId: 'config-1', name: '  Trimmed Name  ' })
 		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({ renameSuccess: true, name: 'Trimmed Name' });
+		expect(lastUpdatedValues?.name).toBe('Trimmed Name');
 	});
 
 	test('returns 500 when DB update throws', async () => {
