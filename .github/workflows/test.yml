@@ -22,7 +22,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.3.x
+          bun-version: 1.3.11
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -33,6 +33,16 @@ jobs:
           PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           PUBLIC_SUPABASE_ANON_KEY: placeholder-key
           DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
+
+      - name: Run failing tests in isolation (debug)
+        continue-on-error: true
+        env:
+          PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          PUBLIC_SUPABASE_ANON_KEY: placeholder-key
+          DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
+        run: |
+          echo "=== Running known-failing files in isolation ===" | tee /tmp/isolated-output.txt
+          bun test src/lib/saved-config-loader.test.ts src/lib/server/supabase-admin.test.ts 2>&1 | tee -a /tmp/isolated-output.txt
 
       - name: Run Bun unit tests with coverage
         id: bun-tests
@@ -69,15 +79,25 @@ jobs:
             const fs = require('fs');
             let body = '## CI Test Failure Debug Output\n\n';
             try {
+              const iso = fs.readFileSync('/tmp/isolated-output.txt', 'utf8');
+              body += '### Isolated run (failing files only, no coverage)\n```\n';
+              body += iso.slice(0, 3000);
+              body += '\n```\n\n';
+            } catch (e) { body += 'isolated output unavailable\n\n'; }
+            try {
               const bunOut = fs.readFileSync('/tmp/bun-test-output.txt', 'utf8');
-              body += '### Bun test output (last 100 lines)\n```\n';
-              body += bunOut.split('\n').slice(-100).join('\n');
+              const lines = bunOut.split('\n');
+              body += '### Bun test output (first 150 lines)\n```\n';
+              body += lines.slice(0, 150).join('\n');
+              body += '\n```\n\n';
+              body += '### Bun test output (last 60 lines)\n```\n';
+              body += lines.slice(-60).join('\n');
               body += '\n```\n\n';
             } catch (e) { body += 'bun output unavailable\n\n'; }
             try {
               const vitestOut = fs.readFileSync('/tmp/vitest-output.txt', 'utf8');
-              body += '### Vitest output (last 100 lines)\n```\n';
-              body += vitestOut.split('\n').slice(-100).join('\n');
+              body += '### Vitest output (last 60 lines)\n```\n';
+              body += vitestOut.split('\n').slice(-60).join('\n');
               body += '\n```\n';
             } catch (e) { body += 'vitest output unavailable\n'; }
             if (context.payload.pull_request) {
