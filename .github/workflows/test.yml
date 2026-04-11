@@ -62,7 +62,7 @@ jobs:
           exit "${VITEST_EXIT}"
 
       - name: Post failure output as PR comment
-        if: steps.bun-tests.outcome == 'failure' || steps.vitest.outcome == 'failure'
+        if: github.event_name == 'pull_request' && (steps.bun-tests.outcome == 'failure' || steps.vitest.outcome == 'failure')
         uses: actions/github-script@v7
         with:
           script: |
