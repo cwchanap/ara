@@ -2,7 +2,119 @@ import { describe, expect, mock, test } from 'bun:test';
 import type { Page } from '@sveltejs/kit';
 import { writable } from 'svelte/store';
 import type { ChaosMapParameters } from '$lib/types';
-import { createInitialConfigLoaderState, useConfigLoader } from './use-config-loader';
+
+// Re-register $lib/saved-config-loader with a correct real-like implementation.
+// This overrides any mock registered by use-config-loader-catch.test.ts, which
+// runs first alphabetically in the same Bun process and leaves parseConfigParam
+// returning ok:false for all calls (and throwing after the last catch test).
+mock.module('$lib/saved-config-loader', () => ({
+	parseConfigParam: ({ mapType, configParam }: { mapType: string; configParam: string }) => {
+		try {
+			const decoded = decodeURIComponent(configParam);
+			const parsed = JSON.parse(decoded) as Record<string, unknown>;
+			if (!parsed || typeof parsed !== 'object' || parsed['type'] !== mapType) {
+				return {
+					ok: false as const,
+					error: 'Invalid parameters',
+					errors: ['Invalid parameters'],
+					logMessage: '',
+					logDetails: {}
+				};
+			}
+			return { ok: true as const, parameters: parsed };
+		} catch {
+			return {
+				ok: false as const,
+				error: 'Failed to parse configuration parameters',
+				errors: ['Failed to parse configuration parameters'],
+				logMessage: 'Invalid config parameter',
+				logDetails: {}
+			};
+		}
+	},
+	loadSavedConfigParameters: async ({
+		configId,
+		mapType,
+		base,
+		fetchFn
+	}: {
+		configId: string;
+		mapType: string;
+		base: string;
+		fetchFn: typeof fetch;
+	}) => {
+		try {
+			const response = await fetchFn(
+				`${base}/api/saved-config/${encodeURIComponent(configId)}`
+			);
+			if (!response.ok) {
+				return {
+					ok: false as const,
+					error: 'Failed to load configuration parameters',
+					errors: ['Failed to load configuration parameters']
+				};
+			}
+			const data = (await response.json()) as { mapType?: string; parameters?: unknown };
+			if (!data || data.mapType !== mapType || !data.parameters) {
+				return {
+					ok: false as const,
+					error: 'Invalid configuration data',
+					errors: ['Invalid configuration data']
+				};
+			}
+			return { ok: true as const, parameters: data.parameters, source: 'api' as const };
+		} catch {
+			return {
+				ok: false as const,
+				error: 'Failed to load configuration parameters',
+				errors: ['Failed to load configuration parameters']
+			};
+		}
+	},
+	loadSharedConfigParameters: async ({
+		shareCode,
+		mapType,
+		base,
+		fetchFn
+	}: {
+		shareCode: string;
+		mapType: string;
+		base: string;
+		fetchFn: typeof fetch;
+	}) => {
+		try {
+			const response = await fetchFn(`${base}/api/shared/${encodeURIComponent(shareCode)}`);
+			if (!response.ok) {
+				return {
+					ok: false as const,
+					error: `Failed to load shared configuration (${response.status})`,
+					errors: [`Failed to load shared configuration (${response.status})`]
+				};
+			}
+			const data = (await response.json()) as { mapType?: string; parameters?: unknown };
+			if (!data || data.mapType !== mapType || !data.parameters) {
+				return {
+					ok: false as const,
+					error: 'Invalid shared configuration data',
+					errors: ['Invalid shared configuration data']
+				};
+			}
+			return {
+				ok: true as const,
+				parameters: data.parameters,
+				source: 'sharedApi' as const
+			};
+		} catch {
+			return {
+				ok: false as const,
+				error: 'Failed to load shared configuration',
+				errors: ['Failed to load shared configuration']
+			};
+		}
+	}
+}));
+
+const { createInitialConfigLoaderState, useConfigLoader } = await import('./use-config-loader');
 
 type LorenzParams = Extract<ChaosMapParameters, { type: 'lorenz' }>;
 
