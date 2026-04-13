@@ -18,16 +18,90 @@
  */
 
 import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test';
+import { validateParameters } from '$lib/chaos-validation';
+import type { SaveState } from './use-visualization-save';
+import type { ChaosMapParameters, ChaosMapType } from '$lib/types';
+
+// Re-register $lib/saved-config-loader with a correct real-like implementation.
+// use-visualization-save-catch.test.ts runs first alphabetically in the same
+// Bun process and registers a mock that may leave parseConfigParam throwing or
+// returning hardcoded values regardless of input.
+mock.module('$lib/saved-config-loader', () => ({
+	parseConfigParam: ({ mapType, configParam }: { mapType: string; configParam: string }) => {
+		try {
+			const decoded = decodeURIComponent(configParam);
+			const parsed = JSON.parse(decoded) as Record<string, unknown>;
+			const validation = validateParameters(mapType as ChaosMapType, parsed);
+			if (!validation.isValid) {
+				return {
+					ok: false as const,
+					error: 'Invalid parameters',
+					errors: validation.errors,
+					logMessage: '',
+					logDetails: {}
+				};
+			}
+			return { ok: true as const, parameters: parsed };
+		} catch {
+			return {
+				ok: false as const,
+				error: 'Failed to parse configuration parameters',
+				errors: ['Failed to parse configuration parameters'],
+				logMessage: 'Invalid config parameter',
+				logDetails: {}
+			};
+		}
+	},
+	loadSavedConfigParameters: async ({
+		configId,
+		base,
+		fetchFn
+	}: {
+		configId: string;
+		mapType: string;
+		base: string;
+		fetchFn: typeof fetch;
+	}) => {
+		try {
+			const response = await fetchFn(
+				`${base}/api/saved-config/${encodeURIComponent(configId)}`
+			);
+			if (!response.ok) {
+				return {
+					ok: false as const,
+					error: 'Failed to load configuration parameters',
+					errors: ['Failed to load configuration parameters']
+				};
+			}
+			const data = (await response.json()) as { mapType?: string; parameters?: unknown };
+			if (!data || !data.parameters) {
+				return {
+					ok: false as const,
+					error: 'Invalid configuration data',
+					errors: ['Invalid configuration data']
+				};
+			}
+			return { ok: true as const, parameters: data.parameters, source: 'api' as const };
+		} catch {
+			return {
+				ok: false as const,
+				error: 'Failed to load configuration parameters',
+				errors: ['Failed to load configuration parameters']
+			};
+		}
+	},
+	loadSharedConfigParameters: async () => ({
+		ok: false as const,
+		error: 'not found',
+		errors: ['not found']
+	})
+}));
 
 // ── Imports ─────────────────────────────────────────────────────────────────
 
-import {
-	createSaveHandler,
-	loadConfigFromUrl,
-	createInitialSaveState
-} from './use-visualization-save';
-import type { SaveState } from './use-visualization-save';
-import type { ChaosMapParameters } from '$lib/types';
+const { createSaveHandler, loadConfigFromUrl, createInitialSaveState } = await import(
+	'./use-visualization-save'
+);
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 

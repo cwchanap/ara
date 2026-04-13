@@ -344,6 +344,44 @@ describe('useConfigLoader', () => {
 			globalThis.fetch = originalFetch;
 		}
 	});
+	test('does not set warnings when onCheckStability reports stable shared config', async () => {
+		const params: LorenzParams = { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 };
+		const mockResponse = {
+			ok: true,
+			json: async () => ({ mapType: 'lorenz', parameters: params })
+		};
+		const rawFetchMock = mock(() => Promise.resolve(mockResponse as Response));
+		const fetchMock: typeof fetch = Object.assign(rawFetchMock, { preconnect: () => {} });
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = fetchMock;
+
+		try {
+			const page = writable<Page>(createPage('http://localhost/lorenz?share=stable123'));
+			const state = createInitialConfigLoaderState();
+
+			const { cleanup } = useConfigLoader(
+				{
+					page,
+					mapType: 'lorenz',
+					base: '',
+					onParametersLoaded: (value: LorenzParams) => value,
+					onCheckStability: () => ({ isStable: true, warnings: [] })
+				},
+				state
+			);
+
+			await waitFor(() => state.isLoading === false);
+			// isStable: true → no warnings should be set
+			expect(state.showWarning).toBe(false);
+			expect(state.warnings).toEqual([]);
+			expect(state.showError).toBe(false);
+
+			cleanup();
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
+
 	test('sets warning state when onCheckStability reports unstable shared config', async () => {
 		const params: LorenzParams = { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 };
 		const mockResponse = {
@@ -437,6 +475,105 @@ describe('useConfigLoader', () => {
 		expect(state.showError).toBe(false);
 
 		cleanup();
+	});
+
+	test('does not set warnings when onCheckStability reports stable for direct config param', () => {
+		const params: LorenzParams = { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 };
+		const configParam = encodeURIComponent(JSON.stringify(params));
+		const page = writable<Page>(createPage(`http://localhost/lorenz?config=${configParam}`));
+		const state = createInitialConfigLoaderState();
+
+		const { cleanup } = useConfigLoader(
+			{
+				page,
+				mapType: 'lorenz',
+				base: '',
+				onParametersLoaded: (value: LorenzParams) => value,
+				onCheckStability: () => ({ isStable: true, warnings: [] })
+			},
+			state
+		);
+
+		// isStable: true → no warnings should be set
+		expect(state.showWarning).toBe(false);
+		expect(state.warnings).toEqual([]);
+		expect(state.showError).toBe(false);
+
+		cleanup();
+	});
+
+	test('applies configId config and sets warning when onCheckStability reports unstable', async () => {
+		const params: LorenzParams = { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 };
+		const mockResponse = {
+			ok: true,
+			json: async () => ({ mapType: 'lorenz', parameters: params })
+		};
+		const rawFetchMock = mock(() => Promise.resolve(mockResponse as Response));
+		const fetchMock: typeof fetch = Object.assign(rawFetchMock, { preconnect: () => {} });
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = fetchMock;
+
+		try {
+			const page = writable<Page>(createPage('http://localhost/lorenz?configId=cfg-abc'));
+			const state = createInitialConfigLoaderState();
+
+			const { cleanup } = useConfigLoader(
+				{
+					page,
+					mapType: 'lorenz',
+					base: '',
+					onParametersLoaded: (value: LorenzParams) => value,
+					onCheckStability: () => ({ isStable: false, warnings: ['Unstable configId'] })
+				},
+				state
+			);
+
+			await waitFor(() => state.isLoading === false);
+			expect(state.showWarning).toBe(true);
+			expect(state.warnings).toEqual(['Unstable configId']);
+			expect(state.showError).toBe(false);
+
+			cleanup();
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
+
+	test('applies configId config without warnings when onCheckStability reports stable', async () => {
+		const params: LorenzParams = { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 };
+		const mockResponse = {
+			ok: true,
+			json: async () => ({ mapType: 'lorenz', parameters: params })
+		};
+		const rawFetchMock = mock(() => Promise.resolve(mockResponse as Response));
+		const fetchMock: typeof fetch = Object.assign(rawFetchMock, { preconnect: () => {} });
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = fetchMock;
+
+		try {
+			const page = writable<Page>(createPage('http://localhost/lorenz?configId=cfg-stable'));
+			const state = createInitialConfigLoaderState();
+
+			const { cleanup } = useConfigLoader(
+				{
+					page,
+					mapType: 'lorenz',
+					base: '',
+					onParametersLoaded: (value: LorenzParams) => value,
+					onCheckStability: () => ({ isStable: true, warnings: [] })
+				},
+				state
+			);
+
+			await waitFor(() => state.isLoading === false);
+			expect(state.showWarning).toBe(false);
+			expect(state.warnings).toEqual([]);
+			expect(state.showError).toBe(false);
+
+			cleanup();
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
 	});
 
 	test('does not reload when page updates to the same configKey', async () => {
@@ -639,5 +776,116 @@ describe('useConfigLoader', () => {
 		expect(state.errors[0]).toBe('Failed to apply parameters: direct-string-failure');
 
 		cleanup();
+	});
+
+	test('loads saved config via configId and applies parameters', async () => {
+		// This tests the configId success path (as opposed to the failure path in
+		// "reports errors when saved config load fails").
+		const params: LorenzParams = { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 };
+		const mockResponse = {
+			ok: true,
+			json: async () => ({ mapType: 'lorenz', parameters: params })
+		};
+		const rawFetchMock = mock(() => Promise.resolve(mockResponse as Response));
+		const fetchMock: typeof fetch = Object.assign(rawFetchMock, { preconnect: () => {} });
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = fetchMock;
+
+		try {
+			const page = writable<Page>(createPage('http://localhost/lorenz?configId=saved-abc'));
+			const state = createInitialConfigLoaderState();
+			const loaded: LorenzParams[] = [];
+
+			const { cleanup } = useConfigLoader(
+				{
+					page,
+					mapType: 'lorenz',
+					base: '/app',
+					onParametersLoaded: (value: LorenzParams) => {
+						loaded.push(value);
+						return value;
+					}
+				},
+				state
+			);
+
+			expect(state.isLoading).toBe(true);
+
+			await waitFor(() => loaded.length === 1);
+
+			expect(state.isLoading).toBe(false);
+			expect(state.showError).toBe(false);
+			expect(loaded[0]).toEqual(params);
+			// Verify the correct API URL was called
+			expect(rawFetchMock.mock.calls[0]?.[0]).toBe('/app/api/saved-config/saved-abc');
+
+			cleanup();
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
+
+	test('discards stale configId result when configKey changes during async load', async () => {
+		// Tests the `signal.aborted` guard: when the user navigates to a different
+		// configId while the first load is in-flight, the first controller is aborted.
+		// The first fetch resolves successfully but the result is discarded because
+		// signal.aborted is true at the check point.
+		const params: LorenzParams = { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 };
+
+		// Track all fetch promise resolvers in order so we can resolve only the first.
+		const fetchResolvers: Array<(value: Response) => void> = [];
+		const rawFetchMock = mock(
+			() =>
+				new Promise<Response>((resolve) => {
+					fetchResolvers.push(resolve);
+				})
+		);
+		const fetchMock: typeof fetch = Object.assign(rawFetchMock, { preconnect: () => {} });
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = fetchMock;
+
+		try {
+			const page = writable<Page>(createPage('http://localhost/lorenz?configId=first'));
+			const state = createInitialConfigLoaderState();
+			const loaded: LorenzParams[] = [];
+
+			const { cleanup } = useConfigLoader(
+				{
+					page,
+					mapType: 'lorenz',
+					base: '',
+					onParametersLoaded: (value: LorenzParams) => {
+						loaded.push(value);
+						return value;
+					}
+				},
+				state
+			);
+
+			// First subscription has started a fetch.
+			expect(state.isLoading).toBe(true);
+			expect(fetchResolvers).toHaveLength(1);
+
+			// Navigate to a different configId — this aborts controller A and
+			// starts a new async load for "second" (which creates fetchResolvers[1]).
+			page.set(createPage('http://localhost/lorenz?configId=second'));
+
+			// Resolve only the FIRST fetch (controller A is aborted, so the async
+			// body will hit signal.aborted=true and discard the result).
+			fetchResolvers[0]({
+				ok: true,
+				json: async () => ({ mapType: 'lorenz', parameters: params })
+			} as Response);
+
+			await flushPromises();
+			await flushPromises();
+
+			// The first result was discarded because controller A was aborted.
+			expect(loaded).toHaveLength(0);
+
+			cleanup();
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
 	});
 });
