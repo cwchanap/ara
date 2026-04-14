@@ -786,7 +786,11 @@ describe('useConfigLoader', () => {
 			ok: true,
 			json: async () => ({ mapType: 'lorenz', parameters: params })
 		};
-		const rawFetchMock = mock(() => Promise.resolve(mockResponse as Response));
+		let capturedUrl: Parameters<typeof fetch>[0] | undefined;
+		const rawFetchMock = mock((input: Parameters<typeof fetch>[0]) => {
+			capturedUrl = input;
+			return Promise.resolve(mockResponse as Response);
+		});
 		const fetchMock: typeof fetch = Object.assign(rawFetchMock, { preconnect: () => {} });
 		const originalFetch = globalThis.fetch;
 		globalThis.fetch = fetchMock;
@@ -817,7 +821,7 @@ describe('useConfigLoader', () => {
 			expect(state.showError).toBe(false);
 			expect(loaded[0]).toEqual(params);
 			// Verify the correct API URL was called
-			expect(rawFetchMock.mock.calls[0]?.[0]).toBe('/app/api/saved-config/saved-abc');
+			expect(capturedUrl).toBe('/app/api/saved-config/saved-abc');
 
 			cleanup();
 		} finally {
@@ -829,10 +833,12 @@ describe('useConfigLoader', () => {
 		// Tests the `signal.aborted` guard: when the user navigates to a different
 		// configId while the first load is in-flight, the first controller is aborted.
 		// The first fetch resolves successfully but the result is discarded because
-		// signal.aborted is true at the check point.
-		const params: LorenzParams = { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 };
+		// signal.aborted is true at the check point. Then the second fetch (for the
+		// new configId) is resolved with a distinct payload and verified to apply.
+		const staleParams: LorenzParams = { type: 'lorenz', sigma: 1, rho: 1, beta: 1 };
+		const newParams: LorenzParams = { type: 'lorenz', sigma: 99, rho: 50, beta: 5 };
 
-		// Track all fetch promise resolvers in order so we can resolve only the first.
+		// Track all fetch promise resolvers in order so we can control resolution.
 		const fetchResolvers: Array<(value: Response) => void> = [];
 		const rawFetchMock = mock(
 			() =>
@@ -870,11 +876,10 @@ describe('useConfigLoader', () => {
 			// starts a new async load for "second" (which creates fetchResolvers[1]).
 			page.set(createPage('http://localhost/lorenz?configId=second'));
 
-			// Resolve only the FIRST fetch (controller A is aborted, so the async
-			// body will hit signal.aborted=true and discard the result).
+			// Resolve the FIRST fetch (controller A is aborted, result discarded).
 			fetchResolvers[0]({
 				ok: true,
-				json: async () => ({ mapType: 'lorenz', parameters: params })
+				json: async () => ({ mapType: 'lorenz', parameters: staleParams })
 			} as Response);
 
 			await flushPromises();
@@ -882,6 +887,20 @@ describe('useConfigLoader', () => {
 
 			// The first result was discarded because controller A was aborted.
 			expect(loaded).toHaveLength(0);
+
+			// Wait for the second fetch resolver to be registered, then resolve it
+			// with the new payload — verifying the second load actually completes.
+			await waitFor(() => fetchResolvers.length >= 2);
+			fetchResolvers[1]({
+				ok: true,
+				json: async () => ({ mapType: 'lorenz', parameters: newParams })
+			} as Response);
+
+			await waitFor(() => loaded.length === 1);
+
+			// The second result (newParams) was applied successfully.
+			expect(loaded[0]).toEqual(newParams);
+			expect(loaded[0]).not.toEqual(staleParams);
 
 			cleanup();
 		} finally {
