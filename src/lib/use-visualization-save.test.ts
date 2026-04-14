@@ -54,6 +54,7 @@ mock.module('$lib/saved-config-loader', () => ({
 	},
 	loadSavedConfigParameters: async ({
 		configId,
+		mapType,
 		base,
 		fetchFn
 	}: {
@@ -74,14 +75,26 @@ mock.module('$lib/saved-config-loader', () => ({
 				};
 			}
 			const data = (await response.json()) as { mapType?: string; parameters?: unknown };
-			if (!data || !data.parameters) {
+			if (!data || data.mapType !== mapType || !data.parameters) {
 				return {
 					ok: false as const,
 					error: 'Invalid configuration data',
 					errors: ['Invalid configuration data']
 				};
 			}
-			return { ok: true as const, parameters: data.parameters, source: 'api' as const };
+			const validation = validateParameters(mapType as ChaosMapType, data.parameters);
+			if (!validation.isValid) {
+				return {
+					ok: false as const,
+					error: 'Invalid configuration data',
+					errors: validation.errors
+				};
+			}
+			return {
+				ok: true as const,
+				parameters: validation.parameters ?? data.parameters,
+				source: 'api' as const
+			};
 		} catch {
 			return {
 				ok: false as const,

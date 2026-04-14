@@ -7,23 +7,25 @@
  * - API success/failure paths, sessionStorage fallback, URL construction
  * - 410 expiry, mapType mismatch, null JSON body, network errors
  *
- * Uses mock.module + dynamic import pattern to protect against live-binding
- * contamination from other test files that also mock '$lib/saved-config-loader'.
+ * WHY the self-mock pattern:
+ * Bun's test runner shares a single module registry across test files within a
+ * run. Files like use-config-loader-catch.test.ts and use-visualization-save.test.ts
+ * register mock.module('$lib/saved-config-loader', ...) at evaluation time, and
+ * those mocks persist for later files. saved-config-loader.test.ts runs after those
+ * files, so without the self-mock the dynamic import below would resolve to one of
+ * those stubs. By calling mock.module here first (before the await import) we
+ * override the contaminating registration with our own faithful copy of the
+ * implementation so the captured function references test the real business logic.
  */
 
 import { describe, expect, test, mock } from 'bun:test';
 import { validateParameters } from '$lib/chaos-validation';
+import { MAX_DECODED_CONFIG_PARAM_LENGTH, MAX_JSON_NESTING_DEPTH } from '$lib/constants';
 import type { ChaosMapType, ChaosMapParameters } from '$lib/types';
 
-// ── Inline real implementation ────────────────────────────────────────────────
-// We register our own mock so that static-import live bindings set up by
-// OTHER test files (use-config-loader.test.ts, use-visualization-save.test.ts)
-// cannot override the functions we capture via dynamic import below.
+// ── Self-mock: faithful copy of the real implementation ───────────────────────
 
-const MAX_DECODED_CONFIG_PARAM_LENGTH = 50 * 1024;
-const MAX_JSON_NESTING_DEPTH = 20;
-
-function _getMaxJsonNestingDepth(text: string) {
+function getMaxJsonNestingDepth(text: string) {
 	let depth = 0;
 	let maxDepth = 0;
 	let inString = false;
@@ -62,6 +64,13 @@ function _getMaxJsonNestingDepth(text: string) {
 	return { ok: true as const, maxDepth };
 }
 
+function normalizeErrorForLog(err: unknown) {
+	if (err instanceof Error) {
+		return { name: err.name, message: err.message };
+	}
+	return { error: String(err) };
+}
+
 mock.module('$lib/saved-config-loader', () => ({
 	parseConfigParam<T extends ChaosMapType>(args: { mapType: T; configParam: string }) {
 		let decoded: string;
@@ -73,7 +82,7 @@ mock.module('$lib/saved-config-loader', () => ({
 				error: 'Failed to parse configuration parameters',
 				errors: ['Failed to parse configuration parameters'],
 				logMessage: 'Invalid config parameter:',
-				logDetails: { error: String(e) }
+				logDetails: normalizeErrorForLog(e)
 			};
 		}
 
@@ -85,11 +94,14 @@ mock.module('$lib/saved-config-loader', () => ({
 					`Configuration parameter too large (max ${MAX_DECODED_CONFIG_PARAM_LENGTH} chars)`
 				],
 				logMessage: 'Config parameter too large:',
-				logDetails: { decodedLength: decoded.length }
+				logDetails: {
+					decodedLength: decoded.length,
+					maxDecodedLength: MAX_DECODED_CONFIG_PARAM_LENGTH
+				}
 			};
 		}
 
-		const depthCheck = _getMaxJsonNestingDepth(decoded);
+		const depthCheck = getMaxJsonNestingDepth(decoded);
 		if (!depthCheck.ok || depthCheck.maxDepth > MAX_JSON_NESTING_DEPTH) {
 			return {
 				ok: false as const,
@@ -98,7 +110,10 @@ mock.module('$lib/saved-config-loader', () => ({
 					`Configuration parameter too deeply nested (max depth ${MAX_JSON_NESTING_DEPTH})`
 				],
 				logMessage: 'Config parameter too deeply nested:',
-				logDetails: { maxDepth: depthCheck.maxDepth }
+				logDetails: {
+					maxDepth: depthCheck.maxDepth,
+					maxAllowedDepth: MAX_JSON_NESTING_DEPTH
+				}
 			};
 		}
 
@@ -111,7 +126,7 @@ mock.module('$lib/saved-config-loader', () => ({
 				error: 'Failed to parse configuration parameters',
 				errors: ['Failed to parse configuration parameters'],
 				logMessage: 'Invalid config parameter:',
-				logDetails: { error: String(e) }
+				logDetails: normalizeErrorForLog(e)
 			};
 		}
 
@@ -270,7 +285,7 @@ mock.module('$lib/saved-config-loader', () => ({
 				source: 'sharedApi' as const
 			};
 		} catch (e) {
-			void e;
+			console.error('Error loading shared config:', e);
 			return {
 				ok: false as const,
 				error: 'Failed to load shared configuration (network error)',
@@ -332,15 +347,15 @@ function mockSessionStorage(data: Record<string, string> = {}): {
 	};
 }
 
-const VALID_LORENZ = { type: 'lorenz' as const, sigma: 10, rho: 28, beta: 2.667 };
-const VALID_ROSSLER = { type: 'rossler' as const, a: 0.2, b: 0.2, c: 5.7 };
+const validLorenz = { type: 'lorenz' as const, sigma: 10, rho: 28, beta: 2.667 };
+const validRossler = { type: 'rossler' as const, a: 0.2, b: 0.2, c: 5.7 };
 
 // ── parseConfigParam ──────────────────────────────────────────────────────────
 
 describe('parseConfigParam', () => {
 	describe('success paths', () => {
 		test('returns ok:true for valid lorenz parameters', () => {
-			const configParam = encodeURIComponent(JSON.stringify(VALID_LORENZ));
+			const configParam = encodeURIComponent(JSON.stringify(validLorenz));
 			const result = parseConfigParam({ mapType: 'lorenz', configParam });
 			expect(result.ok).toBe(true);
 			if (result.ok) {
@@ -349,7 +364,7 @@ describe('parseConfigParam', () => {
 		});
 
 		test('returns ok:true for valid rossler parameters', () => {
-			const configParam = encodeURIComponent(JSON.stringify(VALID_ROSSLER));
+			const configParam = encodeURIComponent(JSON.stringify(validRossler));
 			const result = parseConfigParam({ mapType: 'rossler', configParam });
 			expect(result.ok).toBe(true);
 			if (result.ok) {
@@ -379,9 +394,9 @@ describe('parseConfigParam', () => {
 	});
 
 	describe('size guard', () => {
-		test('returns ok:false when decoded param exceeds 50 KB', () => {
-			// Build a string > 50 * 1024 chars; URL-encode it so decodeURIComponent succeeds
-			const big = 'x'.repeat(51 * 1024);
+		test('returns ok:false when decoded param exceeds limit', () => {
+			// Build a string larger than the limit; URL-encode so decodeURIComponent succeeds
+			const big = 'x'.repeat(MAX_DECODED_CONFIG_PARAM_LENGTH + 1024);
 			const configParam = encodeURIComponent(big);
 			const result = parseConfigParam({ mapType: 'lorenz', configParam });
 			expect(result.ok).toBe(false);
@@ -391,9 +406,9 @@ describe('parseConfigParam', () => {
 		});
 
 		test('accepts param at exactly the size limit', () => {
-			// 50 * 1024 chars — should NOT trigger the too-large guard
+			// Exactly at the limit — should NOT trigger the too-large guard
 			// (it will fail JSON parse instead, but not the size guard)
-			const exact = 'x'.repeat(50 * 1024);
+			const exact = 'x'.repeat(MAX_DECODED_CONFIG_PARAM_LENGTH);
 			const configParam = encodeURIComponent(exact);
 			const result = parseConfigParam({ mapType: 'lorenz', configParam });
 			expect(result.ok).toBe(false);
@@ -405,9 +420,9 @@ describe('parseConfigParam', () => {
 	});
 
 	describe('nesting depth guard', () => {
-		test('returns ok:false when JSON nesting exceeds 20 levels', () => {
+		test('returns ok:false when JSON nesting exceeds limit', () => {
 			let nested = '"value"';
-			for (let i = 0; i < 22; i++) {
+			for (let i = 0; i < MAX_JSON_NESTING_DEPTH + 2; i++) {
 				nested = `{"k":${nested}}`;
 			}
 			const configParam = encodeURIComponent(nested);
@@ -428,10 +443,10 @@ describe('parseConfigParam', () => {
 			}
 		});
 
-		test('accepts JSON at exactly 20 levels deep (limit)', () => {
-			// 20 levels deep — should NOT trigger nesting guard (will fail validation instead)
+		test('accepts JSON at exactly the nesting limit', () => {
+			// At the limit — should NOT trigger nesting guard (will fail validation instead)
 			let nested = '"value"';
-			for (let i = 0; i < 20; i++) {
+			for (let i = 0; i < MAX_JSON_NESTING_DEPTH; i++) {
 				nested = `{"k":${nested}}`;
 			}
 			const configParam = encodeURIComponent(nested);
@@ -468,7 +483,7 @@ describe('parseConfigParam', () => {
 		});
 
 		test('returns ok:false for wrong mapType (rossler params for lorenz)', () => {
-			const configParam = encodeURIComponent(JSON.stringify(VALID_ROSSLER));
+			const configParam = encodeURIComponent(JSON.stringify(validRossler));
 			const result = parseConfigParam({ mapType: 'lorenz', configParam });
 			expect(result.ok).toBe(false);
 		});
@@ -500,7 +515,7 @@ describe('loadSavedConfigParameters', () => {
 		test('returns ok:true with source "api" on successful fetch', async () => {
 			const fetchFn = makeFetch({
 				ok: true,
-				json: async () => ({ mapType: 'lorenz', parameters: VALID_LORENZ })
+				json: async () => ({ mapType: 'lorenz', parameters: validLorenz })
 			});
 			const result = await loadSavedConfigParameters({
 				configId: 'cfg-1',
@@ -516,24 +531,28 @@ describe('loadSavedConfigParameters', () => {
 		});
 
 		test('builds fetch URL with base path and URL-encoded configId', async () => {
-			const rawFetch = mock(async () => ({
-				ok: true,
-				status: 200,
-				json: async () => ({ mapType: 'lorenz', parameters: VALID_LORENZ })
-			}));
+			let capturedUrl: Parameters<typeof fetch>[0] | undefined;
+			const rawFetch = mock(async (input: Parameters<typeof fetch>[0]) => {
+				capturedUrl = input;
+				return {
+					ok: true,
+					status: 200,
+					json: async () => ({ mapType: 'lorenz', parameters: validLorenz })
+				};
+			});
 			await loadSavedConfigParameters({
 				configId: 'my id/special',
 				mapType: 'lorenz',
 				base: '/app',
 				fetchFn: rawFetch as unknown as typeof fetch
 			});
-			expect(rawFetch.mock.calls[0][0]).toBe('/app/api/saved-config/my%20id%2Fspecial');
+			expect(capturedUrl).toBe('/app/api/saved-config/my%20id%2Fspecial');
 		});
 
 		test('falls through when API response mapType mismatches', async () => {
 			const fetchFn = makeFetch({
 				ok: true,
-				json: async () => ({ mapType: 'rossler', parameters: VALID_ROSSLER })
+				json: async () => ({ mapType: 'rossler', parameters: validRossler })
 			});
 			const result = await loadSavedConfigParameters({
 				configId: 'cfg-1',
@@ -629,7 +648,7 @@ describe('loadSavedConfigParameters', () => {
 	describe('sessionStorage fallback', () => {
 		test('returns ok:true with source "sessionStorage" when API fails but storage has params', async () => {
 			const { restore } = mockSessionStorage({
-				'saved-config:cfg-ss': JSON.stringify(VALID_LORENZ)
+				'saved-config:cfg-ss': JSON.stringify(validLorenz)
 			});
 			try {
 				const fetchFn = makeFetch({ ok: false, status: 404 });
@@ -650,7 +669,7 @@ describe('loadSavedConfigParameters', () => {
 
 		test('removes the sessionStorage key after successful load', async () => {
 			const { removedKeys, restore } = mockSessionStorage({
-				'saved-config:cfg-ss': JSON.stringify(VALID_LORENZ)
+				'saved-config:cfg-ss': JSON.stringify(validLorenz)
 			});
 			try {
 				const fetchFn = makeFetch({ ok: false, status: 404 });
@@ -720,7 +739,7 @@ describe('loadSharedConfigParameters', () => {
 		test('returns ok:true with source "sharedApi" on success', async () => {
 			const fetchFn = makeFetch({
 				ok: true,
-				json: async () => ({ mapType: 'lorenz', parameters: VALID_LORENZ })
+				json: async () => ({ mapType: 'lorenz', parameters: validLorenz })
 			});
 			const result = await loadSharedConfigParameters({
 				shareCode: 'ABCD1234',
@@ -736,18 +755,22 @@ describe('loadSharedConfigParameters', () => {
 		});
 
 		test('builds fetch URL with base path and URL-encoded share code', async () => {
-			const rawFetch = mock(async () => ({
-				ok: true,
-				status: 200,
-				json: async () => ({ mapType: 'lorenz', parameters: VALID_LORENZ })
-			}));
+			let capturedUrl: Parameters<typeof fetch>[0] | undefined;
+			const rawFetch = mock(async (input: Parameters<typeof fetch>[0]) => {
+				capturedUrl = input;
+				return {
+					ok: true,
+					status: 200,
+					json: async () => ({ mapType: 'lorenz', parameters: validLorenz })
+				};
+			});
 			await loadSharedConfigParameters({
 				shareCode: 'AB/CD',
 				mapType: 'lorenz',
 				base: '/app',
 				fetchFn: rawFetch as unknown as typeof fetch
 			});
-			expect(rawFetch.mock.calls[0][0]).toBe('/app/api/shared/AB%2FCD');
+			expect(capturedUrl).toBe('/app/api/shared/AB%2FCD');
 		});
 	});
 
@@ -851,7 +874,7 @@ describe('loadSharedConfigParameters', () => {
 		test('returns invalid data error when mapType mismatches', async () => {
 			const fetchFn = makeFetch({
 				ok: true,
-				json: async () => ({ mapType: 'rossler', parameters: VALID_ROSSLER })
+				json: async () => ({ mapType: 'rossler', parameters: validRossler })
 			});
 			const result = await loadSharedConfigParameters({
 				shareCode: 'ABCD1234',
