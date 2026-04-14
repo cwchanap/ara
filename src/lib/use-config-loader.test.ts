@@ -3,10 +3,12 @@ import type { Page } from '@sveltejs/kit';
 import { writable } from 'svelte/store';
 import type { ChaosMapParameters } from '$lib/types';
 
-// Re-register $lib/saved-config-loader with a correct real-like implementation.
-// This overrides any mock registered by use-config-loader-catch.test.ts, which
-// runs first alphabetically in the same Bun process and leaves parseConfigParam
-// returning ok:false for all calls (and throwing after the last catch test).
+// Re-register $lib/saved-config-loader with a simplified stub that covers the
+// paths exercised by useConfigLoader. This overrides any mock registered by
+// use-config-loader-catch.test.ts, which runs first in the same Bun process
+// and leaves parseConfigParam returning ok:false / throwing for all calls.
+// NOTE: this stub omits the real loader's size/depth guards and full
+// validateParameters normalization — it is intentionally minimal for these tests.
 mock.module('$lib/saved-config-loader', () => ({
 	parseConfigParam: ({ mapType, configParam }: { mapType: string; configParam: string }) => {
 		try {
