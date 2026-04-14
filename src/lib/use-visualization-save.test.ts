@@ -41,7 +41,7 @@ mock.module('$lib/saved-config-loader', () => ({
 					logDetails: {}
 				};
 			}
-			return { ok: true as const, parameters: parsed };
+			return { ok: true as const, parameters: validation.parameters ?? parsed };
 		} catch {
 			return {
 				ok: false as const,
