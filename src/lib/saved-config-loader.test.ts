@@ -16,6 +16,14 @@
  * those stubs. By calling mock.module here first (before the await import) we
  * override the contaminating registration with our own faithful copy of the
  * implementation so the captured function references test the real business logic.
+ *
+ * NOTE on relative vs alias imports:
+ * Bun resolves the $lib alias (src/lib) and relative paths (./saved-config-loader
+ * from this file's directory) to the same canonical module path, so they share
+ * one registry entry. Removing the self-mock here and relying on the relative
+ * import alone would NOT bypass the contamination — the contaminating stubs
+ * registered by earlier files would still take effect. This was verified
+ * experimentally: removing the self-mock caused 20 test failures.
  */
 
 import { describe, expect, test, mock } from 'bun:test';

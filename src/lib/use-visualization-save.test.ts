@@ -9,8 +9,10 @@
  * Mocking strategy
  * ----------------
  * $app/paths           – registered in test-setup.ts preload as `base = ''`.
- * $lib/saved-config-loader – not module-mocked here to avoid cross-file pollution;
- *                        loadConfigFromUrl tests use explicit fetchFn stubs.
+ * $lib/saved-config-loader – re-registered with a simplified stub (see mock.module
+ *                        call below) to override the contaminating mock left by
+ *                        use-visualization-save-catch.test.ts, which runs first
+ *                        in the same Bun process and installs a throwing stub.
  * $lib/chaos-validation – NOT mocked at the module level to avoid polluting other
  *                        test files that directly test the real implementation. The
  *                        stability warning test passes actual out-of-range values and
