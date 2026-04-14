@@ -354,6 +354,7 @@ describe('useConfigLoader', () => {
 		const fetchMock: typeof fetch = Object.assign(rawFetchMock, { preconnect: () => {} });
 		const originalFetch = globalThis.fetch;
 		globalThis.fetch = fetchMock;
+		const onCheckStability = mock(() => ({ isStable: true, warnings: [] as string[] }));
 
 		try {
 			const page = writable<Page>(createPage('http://localhost/lorenz?share=stable123'));
@@ -365,13 +366,14 @@ describe('useConfigLoader', () => {
 					mapType: 'lorenz',
 					base: '',
 					onParametersLoaded: (value: LorenzParams) => value,
-					onCheckStability: () => ({ isStable: true, warnings: [] })
+					onCheckStability
 				},
 				state
 			);
 
 			await waitFor(() => state.isLoading === false);
-			// isStable: true → no warnings should be set
+			// isStable: true → no warnings should be set; verify the check actually ran
+			expect(onCheckStability).toHaveBeenCalledWith(params);
 			expect(state.showWarning).toBe(false);
 			expect(state.warnings).toEqual([]);
 			expect(state.showError).toBe(false);
@@ -482,6 +484,7 @@ describe('useConfigLoader', () => {
 		const configParam = encodeURIComponent(JSON.stringify(params));
 		const page = writable<Page>(createPage(`http://localhost/lorenz?config=${configParam}`));
 		const state = createInitialConfigLoaderState();
+		const onCheckStability = mock(() => ({ isStable: true, warnings: [] as string[] }));
 
 		const { cleanup } = useConfigLoader(
 			{
@@ -489,12 +492,13 @@ describe('useConfigLoader', () => {
 				mapType: 'lorenz',
 				base: '',
 				onParametersLoaded: (value: LorenzParams) => value,
-				onCheckStability: () => ({ isStable: true, warnings: [] })
+				onCheckStability
 			},
 			state
 		);
 
-		// isStable: true → no warnings should be set
+		// isStable: true → no warnings should be set; verify the check actually ran
+		expect(onCheckStability).toHaveBeenCalledWith(params);
 		expect(state.showWarning).toBe(false);
 		expect(state.warnings).toEqual([]);
 		expect(state.showError).toBe(false);
@@ -549,6 +553,7 @@ describe('useConfigLoader', () => {
 		const fetchMock: typeof fetch = Object.assign(rawFetchMock, { preconnect: () => {} });
 		const originalFetch = globalThis.fetch;
 		globalThis.fetch = fetchMock;
+		const onCheckStability = mock(() => ({ isStable: true, warnings: [] as string[] }));
 
 		try {
 			const page = writable<Page>(createPage('http://localhost/lorenz?configId=cfg-stable'));
@@ -560,12 +565,14 @@ describe('useConfigLoader', () => {
 					mapType: 'lorenz',
 					base: '',
 					onParametersLoaded: (value: LorenzParams) => value,
-					onCheckStability: () => ({ isStable: true, warnings: [] })
+					onCheckStability
 				},
 				state
 			);
 
 			await waitFor(() => state.isLoading === false);
+			// isStable: true → no warnings should be set; verify the check actually ran
+			expect(onCheckStability).toHaveBeenCalledWith(params);
 			expect(state.showWarning).toBe(false);
 			expect(state.warnings).toEqual([]);
 			expect(state.showError).toBe(false);
