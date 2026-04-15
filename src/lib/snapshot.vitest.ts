@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { generateFilename, downloadSnapshot, captureCanvas, captureContainer } from './snapshot';
 
 describe('generateFilename', () => {
@@ -85,6 +85,10 @@ describe('captureCanvas', () => {
 });
 
 describe('captureContainer', () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
 	it('returns failure when container is null', async () => {
 		const result = await captureContainer(null as unknown as HTMLElement);
 		expect(result.success).toBe(false);
@@ -93,7 +97,9 @@ describe('captureContainer', () => {
 
 	it('returns failure when container has no canvas or SVG elements', async () => {
 		const container = document.createElement('div');
-		container.innerHTML = '<p>No canvas here</p>';
+		const p = document.createElement('p');
+		p.textContent = 'No canvas here';
+		container.appendChild(p);
 		const result = await captureContainer(container);
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('No capturable content found');
@@ -131,8 +137,6 @@ describe('captureContainer', () => {
 
 		expect(result.success).toBe(true);
 		expect(result.dataUrl).toBe('data:image/png;base64,mock');
-
-		vi.restoreAllMocks();
 	});
 
 	it('fills background when backgroundColor option is provided', async () => {
@@ -161,8 +165,6 @@ describe('captureContainer', () => {
 		await captureContainer(container, { backgroundColor: '#000000' });
 
 		expect(mockCtx.fillRect).toHaveBeenCalled();
-
-		vi.restoreAllMocks();
 	});
 
 	it('returns failure when getContext returns null', async () => {
@@ -183,12 +185,14 @@ describe('captureContainer', () => {
 		const result = await captureContainer(container);
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('Failed to create output canvas context');
-
-		vi.restoreAllMocks();
 	});
 });
 
 describe('downloadSnapshot', () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
 	it('creates anchor and clicks in jsdom when document is available', () => {
 		// This is expected to not throw in jsdom since document is available
 		// Just verifying it creates an anchor element and calls click
@@ -226,7 +230,5 @@ describe('downloadSnapshot', () => {
 		const link = createdLinks[createdLinks.length - 1];
 		expect(link?.href).toContain('data:image/png');
 		expect(link?.download).toBe('my-snapshot.png');
-
-		vi.restoreAllMocks();
 	});
 });

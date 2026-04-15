@@ -434,6 +434,8 @@ describe('signup default action', () => {
 
 			// Should still return 500 despite signOut throwing
 			expect(result).toMatchObject({ status: 500 });
+			// signOut must have been attempted before the throw
+			expect(signOutMock).toHaveBeenCalledTimes(1);
 			// deleteAuthUser should still be called after the signOut failure
 			expect(deleteAuthUserMock).toHaveBeenCalledTimes(1);
 			expect(deleteAuthUserMock).toHaveBeenCalledWith('new-user-id');

@@ -9,14 +9,14 @@ describe('InfoPanel', () => {
 
 	it('renders the DATA_LOG prefix with the title', () => {
 		render(InfoPanel, {
-			props: { title: 'LORENZ', description: 'A chaotic system.' }
+			props: { title: 'LORENZ_ATTRACTOR', description: 'A chaotic system.' }
 		});
-		expect(screen.getByText(/DATA_LOG: LORENZ/)).toBeInTheDocument();
+		expect(screen.getByText(/DATA_LOG: LORENZ_ATTRACTOR/)).toBeInTheDocument();
 	});
 
 	it('renders the description text', () => {
 		render(InfoPanel, {
-			props: { title: 'HENON', description: 'A 2D discrete-time dynamical system.' }
+			props: { title: 'HENON_MAP', description: 'A 2D discrete-time dynamical system.' }
 		});
 		expect(screen.getByText('A 2D discrete-time dynamical system.')).toBeInTheDocument();
 	});
@@ -30,8 +30,10 @@ describe('InfoPanel', () => {
 
 	it('renders the heading inside an h3 element', () => {
 		render(InfoPanel, {
-			props: { title: 'LYAPUNOV', description: 'Quantifying chaos.' }
+			props: { title: 'LYAPUNOV_EXPONENT', description: 'Quantifying chaos.' }
 		});
-		expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(/DATA_LOG: LYAPUNOV/);
+		expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(
+			/DATA_LOG: LYAPUNOV_EXPONENT/
+		);
 	});
 });
