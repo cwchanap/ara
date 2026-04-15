@@ -25,6 +25,8 @@ let mockDbSelectResult: { id: string }[] = [];
 // - mockTxInsertThrowNonUnique: throw a generic (non-23505) error on the next call
 let mockTxInsertThrowCount = 0;
 let mockTxInsertThrowNonUnique = false;
+// Tracks total number of insert returning() calls across the current test
+let mockTxInsertCallCount = 0;
 
 // Captures the most recently inserted payload via tx.insert().values(payload).
 let savedInsertPayload: Record<string, unknown> | null = null;
@@ -54,12 +56,13 @@ const createMockTx = () => {
 				savedInsertPayload = payload;
 				return {
 					returning: () => {
+						insertCallCount++;
+						mockTxInsertCallCount = insertCallCount;
 						if (mockTxInsertThrowNonUnique) {
 							mockTxInsertThrowNonUnique = false;
 							throw new Error('Database connection failed');
 						}
-						if (insertCallCount < mockTxInsertThrowCount) {
-							insertCallCount++;
+						if (insertCallCount <= mockTxInsertThrowCount) {
 							// Simulate PostgreSQL unique constraint violation with proper Error semantics
 							const uniqueViolation = new Error('unique_violation');
 							(uniqueViolation as NodeJS.ErrnoException).code = '23505';
@@ -141,6 +144,7 @@ beforeEach(() => {
 	mockTxShareCount = 0;
 	mockDbSelectResult = [];
 	mockTxInsertThrowCount = 0;
+	mockTxInsertCallCount = 0;
 	mockTxInsertThrowNonUnique = false;
 	savedInsertPayload = null;
 });
@@ -523,6 +527,8 @@ describe('createShareWithRateLimit (mocked db)', () => {
 				'2030-01-01T00:00:00.000Z'
 			)
 		).rejects.toThrow('unique_violation');
+		// Confirm the retry loop actually ran all SHARE_CODE_MAX_RETRIES attempts
+		expect(mockTxInsertCallCount).toBe(SHARE_CODE_MAX_RETRIES);
 	});
 });
 

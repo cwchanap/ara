@@ -58,8 +58,10 @@ describe('ConfigAlerts', () => {
 				}
 			});
 
+			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
 			await fireEvent.click(screen.getByRole('button', { name: 'Dismiss error' }));
 			expect(onDismissError).toHaveBeenCalledTimes(1);
+			expect(screen.queryByText('INVALID_CONFIGURATION')).not.toBeInTheDocument();
 		});
 
 		it('hides alert after dismiss without callback', async () => {

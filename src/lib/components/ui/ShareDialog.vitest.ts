@@ -7,11 +7,15 @@
  * Note: jsdom treats <dialog> as hidden by default (showModal() is a no-op).
  * All queries use { hidden: true } to reach elements inside the dialog element.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import ShareDialog from './ShareDialog.svelte';
 
 // jsdom does not implement HTMLDialogElement.showModal/close — stub them.
+// Save originals so they can be restored after the suite to prevent leaking
+// into other test files sharing the same worker runtime.
+const originalShowModal = HTMLDialogElement.prototype.showModal;
+const originalClose = HTMLDialogElement.prototype.close;
 HTMLDialogElement.prototype.showModal = vi.fn();
 HTMLDialogElement.prototype.close = vi.fn();
 
@@ -34,6 +38,11 @@ describe('ShareDialog', () => {
 	afterEach(() => {
 		cleanup();
 		vi.clearAllMocks();
+	});
+
+	afterAll(() => {
+		HTMLDialogElement.prototype.showModal = originalShowModal;
+		HTMLDialogElement.prototype.close = originalClose;
 	});
 
 	describe('unauthenticated state', () => {
@@ -173,20 +182,22 @@ describe('ShareDialog', () => {
 
 	describe('clipboard copy', () => {
 		function mockClipboard(resolveOrReject: 'resolve' | 'reject') {
+			const writeText =
+				resolveOrReject === 'resolve'
+					? vi.fn().mockResolvedValue(undefined)
+					: vi.fn().mockRejectedValue(new Error('Permission denied'));
+
 			Object.defineProperty(navigator, 'clipboard', {
-				value: {
-					writeText:
-						resolveOrReject === 'resolve'
-							? vi.fn().mockResolvedValue(undefined)
-							: vi.fn().mockRejectedValue(new Error('Permission denied'))
-				},
+				value: { writeText },
 				writable: true,
 				configurable: true
 			});
+
+			return writeText;
 		}
 
 		it('shows copied confirmation after copying', async () => {
-			mockClipboard('resolve');
+			const writeText = mockClipboard('resolve');
 			const onShare = vi.fn().mockResolvedValue({
 				shareUrl: 'https://example.com/s/ABCD1234',
 				expiresAt: '2030-01-01T00:00:00Z'
@@ -205,10 +216,11 @@ describe('ShareDialog', () => {
 			await waitFor(() => {
 				expect(screen.getByText('Copied to clipboard!')).toBeInTheDocument();
 			});
+			expect(writeText).toHaveBeenCalledWith('https://example.com/s/ABCD1234');
 		});
 
 		it('sets the error state internally when clipboard write fails', async () => {
-			mockClipboard('reject');
+			const writeText = mockClipboard('reject');
 			const onShare = vi.fn().mockResolvedValue({
 				shareUrl: 'https://example.com/s/ABCD1234',
 				expiresAt: '2030-01-01T00:00:00Z'
@@ -230,6 +242,7 @@ describe('ShareDialog', () => {
 			await waitFor(() => {
 				expect(screen.queryByText('Copied to clipboard!')).not.toBeInTheDocument();
 			});
+			expect(writeText).toHaveBeenCalledWith('https://example.com/s/ABCD1234');
 		});
 	});
 });
