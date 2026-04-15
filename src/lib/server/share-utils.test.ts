@@ -9,7 +9,8 @@ import {
 	SHARE_CODE_LENGTH,
 	SHARE_CODE_CHARSET,
 	SHARE_RATE_LIMIT_PER_HOUR,
-	SHARE_EXPIRATION_DAYS
+	SHARE_EXPIRATION_DAYS,
+	SHARE_CODE_MAX_RETRIES
 } from '$lib/constants';
 
 // Mutable state controlling mock tx behavior – mutated per test.
@@ -504,6 +505,24 @@ describe('createShareWithRateLimit (mocked db)', () => {
 		expect(result.success).toBe(true);
 		// remaining = SHARE_RATE_LIMIT_PER_HOUR - (SHARE_RATE_LIMIT_PER_HOUR - 1) - 1 = 0
 		expect(result.remaining).toBe(0);
+	});
+
+	test('throws after exhausting all unique constraint violation retries', async () => {
+		mockTxShareCount = 0;
+		// Set throw count to SHARE_CODE_MAX_RETRIES so every attempt throws
+		// a 23505 unique violation. The retry loop exercises `continue` on
+		// attempts 0–(MAX_RETRIES-2) and `throw error` on the final attempt.
+		mockTxInsertThrowCount = SHARE_CODE_MAX_RETRIES;
+
+		await expect(
+			createShareWithRateLimit(
+				'user-id',
+				'lorenz',
+				{ type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 },
+				'TESTCODE',
+				'2030-01-01T00:00:00.000Z'
+			)
+		).rejects.toThrow('unique_violation');
 	});
 });
 

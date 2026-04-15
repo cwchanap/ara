@@ -417,6 +417,27 @@ describe('signup default action', () => {
 			expect(deleteAuthUserMock).toHaveBeenCalledTimes(1);
 			expect(deleteAuthUserMock).toHaveBeenCalledWith('new-user-id');
 		});
+
+		test('continues cleanup even when signOut throws during profile creation failure', async () => {
+			selectQueue.push([]);
+			insertShouldThrow = new Error('DB connection refused');
+			// Make signOut throw instead of resolving — exercises the catch(signOutError) branch
+			signOutMock.mockImplementationOnce(async () => {
+				throw new Error('Network error during sign out');
+			});
+
+			const result = await actions.default({
+				locals: makeLocals(),
+				request: makeRequest(validFields),
+				url: new URL('http://localhost/signup')
+			} as unknown as Parameters<(typeof actions)['default']>[0]);
+
+			// Should still return 500 despite signOut throwing
+			expect(result).toMatchObject({ status: 500 });
+			// deleteAuthUser should still be called after the signOut failure
+			expect(deleteAuthUserMock).toHaveBeenCalledTimes(1);
+			expect(deleteAuthUserMock).toHaveBeenCalledWith('new-user-id');
+		});
 	});
 
 	describe('successful signup', () => {
