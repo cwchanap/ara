@@ -106,7 +106,9 @@ describe('captureContainer', () => {
 		canvas.height = 100;
 		container.appendChild(canvas);
 
-		// Mock getContext on the output canvas (created internally)
+		// Mock getContext on the output canvas (created internally).
+		// Use direct property assignment to avoid TypeScript overload resolution issues
+		// with the getContext spy.
 		const mockCtx = {
 			fillStyle: '',
 			fillRect: vi.fn(),
@@ -116,9 +118,8 @@ describe('captureContainer', () => {
 		vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
 			const el = originalCreate(tag);
 			if (tag === 'canvas') {
-				vi.spyOn(el as HTMLCanvasElement, 'getContext').mockReturnValue(
-					mockCtx as unknown as CanvasRenderingContext2D
-				);
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				(el as any).getContext = vi.fn().mockReturnValue(mockCtx);
 				vi.spyOn(el as HTMLCanvasElement, 'toDataURL').mockReturnValue(
 					'data:image/png;base64,mock'
 				);
@@ -148,9 +149,8 @@ describe('captureContainer', () => {
 		vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
 			const el = originalCreate(tag);
 			if (tag === 'canvas') {
-				vi.spyOn(el as HTMLCanvasElement, 'getContext').mockReturnValue(
-					mockCtx as unknown as CanvasRenderingContext2D
-				);
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				(el as any).getContext = vi.fn().mockReturnValue(mockCtx);
 				vi.spyOn(el as HTMLCanvasElement, 'toDataURL').mockReturnValue(
 					'data:image/png;base64,mock'
 				);
@@ -174,7 +174,8 @@ describe('captureContainer', () => {
 		vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
 			const el = originalCreate(tag);
 			if (tag === 'canvas') {
-				vi.spyOn(el as HTMLCanvasElement, 'getContext').mockReturnValue(null);
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				(el as any).getContext = vi.fn().mockReturnValue(null);
 			}
 			return el;
 		});
