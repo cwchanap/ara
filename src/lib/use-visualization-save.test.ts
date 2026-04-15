@@ -372,6 +372,27 @@ describe('createSaveHandler', () => {
 
 			cleanup();
 		});
+
+		test('uses fallback error message when error response JSON parsing fails', async () => {
+			const state = makeState();
+			globalThis.fetch = mock(async () => ({
+				ok: false,
+				status: 500,
+				json: async () => {
+					throw new Error('Invalid JSON response body');
+				}
+			})) as unknown as typeof fetch;
+
+			const { save, cleanup } = createSaveHandler('lorenz', state, getParams);
+			await save('My Config');
+
+			// The .catch(() => ({ error: 'Failed to save' })) fallback kicks in,
+			// producing errorData = { error: 'Failed to save' }, so saveError is that string.
+			expect(state.saveError).toBe('Failed to save');
+			expect(state.isSaving).toBe(false);
+
+			cleanup();
+		});
 	});
 
 	// ── concurrency guard ─────────────────────────────────────────────────────
