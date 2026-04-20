@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import type { Page } from '@sveltejs/kit';
 import BifurcationHenonPage from './bifurcation-henon/+page.svelte';
 import BifurcationLogisticPage from './bifurcation-logistic/+page.svelte';
@@ -88,12 +88,12 @@ vi.mock('$app/navigation', () => ({
 }));
 
 vi.mock('$lib/components/ui/SaveConfigDialog.svelte', async () => {
-	const module = await import('$lib/components/testing/StubComponent.svelte');
+	const module = await import('$lib/components/testing/DialogStub.svelte');
 	return { default: module.default };
 });
 
 vi.mock('$lib/components/ui/ShareDialog.svelte', async () => {
-	const module = await import('$lib/components/testing/StubComponent.svelte');
+	const module = await import('$lib/components/testing/DialogStub.svelte');
 	return { default: module.default };
 });
 
@@ -254,5 +254,128 @@ describe('visualization pages', () => {
 		render(StandardComparePage);
 		expect(screen.getByText('LEFT_PARAMETERS')).toBeInTheDocument();
 		expect(screen.getByText('RIGHT_PARAMETERS')).toBeInTheDocument();
+	});
+
+	it('opens and closes the save dialog on lorenz page', async () => {
+		setPageUrl('http://localhost/lorenz');
+		render(LorenzPage, { props: pageProps });
+		// Open the save dialog
+		const saveBtn = screen.getByRole('button', { name: /save/i });
+		await fireEvent.click(saveBtn);
+		// Dialog stub renders with close button when open
+		const closeBtn = await screen.findByTestId('dialog-close-lorenz');
+		// Close via the stub's close button (covers the onClose callback)
+		await fireEvent.click(closeBtn);
+		expect(screen.queryByTestId('dialog-close-lorenz')).not.toBeInTheDocument();
+	});
+
+	it('opens and closes the share dialog on lorenz page', async () => {
+		setPageUrl('http://localhost/lorenz');
+		render(LorenzPage, { props: pageProps });
+		const shareBtn = screen.getByRole('button', { name: /share/i });
+		await fireEvent.click(shareBtn);
+		const closeBtn = await screen.findByTestId('dialog-close-lorenz');
+		await fireEvent.click(closeBtn);
+		expect(screen.queryByTestId('dialog-close-lorenz')).not.toBeInTheDocument();
+	});
+
+	it('opens and closes save dialog on henon page', async () => {
+		setPageUrl('http://localhost/henon');
+		render(HenonPage, { props: pageProps });
+		const saveBtn = screen.getByRole('button', { name: /save/i });
+		await fireEvent.click(saveBtn);
+		const closeBtn = await screen.findByTestId('dialog-close-henon');
+		await fireEvent.click(closeBtn);
+		expect(screen.queryByTestId('dialog-close-henon')).not.toBeInTheDocument();
+	});
+
+	it('opens and closes save dialog on logistic page', async () => {
+		setPageUrl('http://localhost/logistic');
+		render(LogisticPage, { props: pageProps });
+		const saveBtn = screen.getByRole('button', { name: /save/i });
+		await fireEvent.click(saveBtn);
+		const closeBtn = await screen.findByTestId('dialog-close-logistic');
+		await fireEvent.click(closeBtn);
+		expect(screen.queryByTestId('dialog-close-logistic')).not.toBeInTheDocument();
+	});
+
+	it('opens and closes save dialog on rossler page', async () => {
+		setPageUrl('http://localhost/rossler');
+		render(RosslerPage, { props: pageProps });
+		const saveBtn = screen.getByRole('button', { name: /save/i });
+		await fireEvent.click(saveBtn);
+		const closeBtn = await screen.findByTestId('dialog-close-rossler');
+		await fireEvent.click(closeBtn);
+		expect(screen.queryByTestId('dialog-close-rossler')).not.toBeInTheDocument();
+	});
+
+	it('opens and closes save dialog on lozi page', async () => {
+		setPageUrl('http://localhost/lozi');
+		render(LoziPage, { props: pageProps });
+		const saveBtn = screen.getByRole('button', { name: /save/i });
+		await fireEvent.click(saveBtn);
+		const closeBtn = await screen.findByTestId('dialog-close-lozi');
+		await fireEvent.click(closeBtn);
+		expect(screen.queryByTestId('dialog-close-lozi')).not.toBeInTheDocument();
+	});
+
+	it('opens and closes save dialog on newton page', async () => {
+		setPageUrl('http://localhost/newton');
+		render(NewtonPage, { props: pageProps });
+		const saveBtn = screen.getByRole('button', { name: /save/i });
+		await fireEvent.click(saveBtn);
+		const closeBtn = await screen.findByTestId('dialog-close-newton');
+		await fireEvent.click(closeBtn);
+		expect(screen.queryByTestId('dialog-close-newton')).not.toBeInTheDocument();
+	});
+
+	it('opens and closes save dialog on standard page', async () => {
+		setPageUrl('http://localhost/standard');
+		render(StandardPage, { props: pageProps });
+		const saveBtn = screen.getByRole('button', { name: /save/i });
+		await fireEvent.click(saveBtn);
+		const closeBtn = await screen.findByTestId('dialog-close-standard');
+		await fireEvent.click(closeBtn);
+		expect(screen.queryByTestId('dialog-close-standard')).not.toBeInTheDocument();
+	});
+
+	it('opens and closes save dialog on lyapunov page', async () => {
+		setPageUrl('http://localhost/lyapunov');
+		render(LyapunovPage, { props: pageProps });
+		const saveBtn = screen.getByRole('button', { name: /save/i });
+		await fireEvent.click(saveBtn);
+		const closeBtn = await screen.findByTestId('dialog-close-lyapunov');
+		await fireEvent.click(closeBtn);
+		expect(screen.queryByTestId('dialog-close-lyapunov')).not.toBeInTheDocument();
+	});
+
+	it('opens and closes save dialog on chaos-esthetique page', async () => {
+		setPageUrl('http://localhost/chaos-esthetique');
+		render(ChaosEsthetiquePage, { props: pageProps });
+		const saveBtn = screen.getByRole('button', { name: /save/i });
+		await fireEvent.click(saveBtn);
+		const closeBtn = await screen.findByTestId('dialog-close-chaos-esthetique');
+		await fireEvent.click(closeBtn);
+		expect(screen.queryByTestId('dialog-close-chaos-esthetique')).not.toBeInTheDocument();
+	});
+
+	it('opens and closes save dialog on bifurcation-logistic page', async () => {
+		setPageUrl('http://localhost/bifurcation-logistic');
+		render(BifurcationLogisticPage, { props: pageProps });
+		const saveBtn = screen.getByRole('button', { name: /save/i });
+		await fireEvent.click(saveBtn);
+		const closeBtn = await screen.findByTestId('dialog-close-bifurcation-logistic');
+		await fireEvent.click(closeBtn);
+		expect(screen.queryByTestId('dialog-close-bifurcation-logistic')).not.toBeInTheDocument();
+	});
+
+	it('opens and closes save dialog on bifurcation-henon page', async () => {
+		setPageUrl('http://localhost/bifurcation-henon');
+		render(BifurcationHenonPage, { props: pageProps });
+		const saveBtn = screen.getByRole('button', { name: /save/i });
+		await fireEvent.click(saveBtn);
+		const closeBtn = await screen.findByTestId('dialog-close-bifurcation-henon');
+		await fireEvent.click(closeBtn);
+		expect(screen.queryByTestId('dialog-close-bifurcation-henon')).not.toBeInTheDocument();
 	});
 });

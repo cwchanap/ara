@@ -53,12 +53,12 @@ vi.mock('$app/navigation', () => ({
 }));
 
 vi.mock('$lib/components/ui/SaveConfigDialog.svelte', async () => {
-	const module = await import('$lib/components/testing/StubComponent.svelte');
+	const module = await import('$lib/components/testing/DialogStub.svelte');
 	return { default: module.default };
 });
 
 vi.mock('$lib/components/ui/ShareDialog.svelte', async () => {
-	const module = await import('$lib/components/testing/StubComponent.svelte');
+	const module = await import('$lib/components/testing/DialogStub.svelte');
 	return { default: module.default };
 });
 
