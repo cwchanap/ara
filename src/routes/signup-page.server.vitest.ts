@@ -344,23 +344,18 @@ describe('signup route server', () => {
 		insertBehaviors.push(new Error('DB insert error'));
 		signOutMock.mockRejectedValue(new Error('Sign out failed'));
 
-		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const result = await actions.default({
+			locals: makeLocals(),
+			request: makeRequest(validFields),
+			url: new URL('http://localhost/signup')
+		} as unknown as Parameters<(typeof actions)['default']>[0]);
 
-		try {
-			const result = await actions.default({
-				locals: makeLocals(),
-				request: makeRequest(validFields),
-				url: new URL('http://localhost/signup')
-			} as unknown as Parameters<(typeof actions)['default']>[0]);
-
-			expect(consoleErrorSpy).toHaveBeenCalledWith(
-				expect.stringContaining('Failed to sign out'),
-				expect.any(Error)
-			);
-			expect(result).toMatchObject({ status: 500 });
-		} finally {
-			warnSpy.mockRestore();
-		}
+		expect(consoleErrorSpy).toHaveBeenCalledWith(
+			expect.stringContaining('Failed to sign out'),
+			expect.any(Error)
+		);
+		expect(deleteAuthUserMock).toHaveBeenCalledWith('user-1');
+		expect(result).toMatchObject({ status: 500 });
 	});
 
 	it('warns when deleteAuthUser returns false after profile creation failure', async () => {

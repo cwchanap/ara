@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cameraSyncStore, createCameraState, applyCameraState } from './camera-sync';
 import type { CameraState } from './camera-sync';
+import { CAMERA_SYNC_DEBOUNCE_MS } from '$lib/constants';
 
 function makeCameraState(x = 0, y = 0, z = 0): CameraState {
 	return { position: { x, y, z }, target: { x: 0, y: 0, z: 0 } };
@@ -107,7 +108,7 @@ describe('cameraSyncStore', () => {
 			cameraSyncStore.updateFromSide('left', makeCameraState(1, 2, 3));
 			// Advance past the 120ms debounce but before the 50ms syncing-reset fires
 			// (debounce fires at 120ms, reset fires at 170ms)
-			vi.advanceTimersByTime(121);
+			vi.advanceTimersByTime(CAMERA_SYNC_DEBOUNCE_MS + 1);
 			// syncing is now true; a second call from right should be blocked
 			expect(getStoreState().syncing).toBe(true);
 			cameraSyncStore.updateFromSide('right', makeCameraState(7, 8, 9));
@@ -176,7 +177,7 @@ describe('cameraSyncStore', () => {
 
 		it('cancels pending syncing-reset timer', () => {
 			cameraSyncStore.updateFromSide('left', makeCameraState(1, 2, 3));
-			vi.advanceTimersByTime(121); // fires debounce (120ms), leaves syncing-reset pending
+			vi.advanceTimersByTime(CAMERA_SYNC_DEBOUNCE_MS + 1); // fires debounce (120ms), leaves syncing-reset pending
 			cameraSyncStore.reset(); // cancels syncing reset timer
 			vi.runAllTimers();
 			// After reset, syncing must be false (reset sets it) even if timer was pending
