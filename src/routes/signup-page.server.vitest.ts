@@ -233,6 +233,175 @@ describe('signup route server', () => {
 		});
 	});
 
+	it('returns a generic error for non-duplicate Supabase auth errors', async () => {
+		selectResults.push([]);
+		signUpMock.mockResolvedValue({
+			data: { user: null, session: null },
+			error: { message: 'Service temporarily unavailable', code: 'service_unavailable' }
+		});
+
+		const result = await actions.default({
+			locals: makeLocals(),
+			request: makeRequest(validFields),
+			url: new URL('http://localhost/signup')
+		} as unknown as Parameters<(typeof actions)['default']>[0]);
+
+		expect(result).toMatchObject({ status: 400 });
+	});
+
+	it('returns validation error for empty username', async () => {
+		const result = await actions.default({
+			locals: makeLocals(),
+			request: makeRequest({ ...validFields, username: '' }),
+			url: new URL('http://localhost/signup')
+		} as unknown as Parameters<(typeof actions)['default']>[0]);
+
+		expect(result).toMatchObject({
+			status: 400,
+			data: { error: 'Username is required' }
+		});
+	});
+
+	it('returns validation error for username exceeding 30 characters', async () => {
+		const result = await actions.default({
+			locals: makeLocals(),
+			request: makeRequest({ ...validFields, username: 'a'.repeat(31) }),
+			url: new URL('http://localhost/signup')
+		} as unknown as Parameters<(typeof actions)['default']>[0]);
+
+		expect(result).toMatchObject({
+			status: 400,
+			data: { error: 'Username must be at most 30 characters' }
+		});
+	});
+
+	it('returns validation error for username with invalid characters', async () => {
+		const result = await actions.default({
+			locals: makeLocals(),
+			request: makeRequest({ ...validFields, username: 'invalid-user!' }),
+			url: new URL('http://localhost/signup')
+		} as unknown as Parameters<(typeof actions)['default']>[0]);
+
+		expect(result).toMatchObject({
+			status: 400,
+			data: { error: 'Username can only contain letters, numbers, and underscores' }
+		});
+	});
+
+	it('returns validation error for empty password', async () => {
+		const result = await actions.default({
+			locals: makeLocals(),
+			request: makeRequest({ ...validFields, password: '', confirmPassword: '' }),
+			url: new URL('http://localhost/signup')
+		} as unknown as Parameters<(typeof actions)['default']>[0]);
+
+		expect(result).toMatchObject({
+			status: 400,
+			data: { error: 'Password is required' }
+		});
+	});
+
+	it('returns validation error for mismatched passwords', async () => {
+		const result = await actions.default({
+			locals: makeLocals(),
+			request: makeRequest({ ...validFields, confirmPassword: 'DifferentPass123' }),
+			url: new URL('http://localhost/signup')
+		} as unknown as Parameters<(typeof actions)['default']>[0]);
+
+		expect(result).toMatchObject({
+			status: 400,
+			data: { error: 'Passwords do not match' }
+		});
+	});
+
+	it('returns database error when username check fails', async () => {
+		selectMock.mockReturnValueOnce({
+			from: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({
+					limit: vi.fn().mockRejectedValue(new Error('DB connection error'))
+				})
+			})
+		});
+
+		const result = await actions.default({
+			locals: makeLocals(),
+			request: makeRequest(validFields),
+			url: new URL('http://localhost/signup')
+		} as unknown as Parameters<(typeof actions)['default']>[0]);
+
+		expect(result).toMatchObject({
+			status: 400,
+			data: { error: 'Database error. Please try again.' }
+		});
+	});
+
+	it('logs sign-out error and continues cleanup when sign-out fails after profile creation failure', async () => {
+		selectResults.push([]);
+		signUpMock.mockResolvedValue({
+			data: { user: { id: 'user-1' }, session: { access_token: 'token' } },
+			error: null
+		});
+		insertBehaviors.push(new Error('DB insert error'));
+		signOutMock.mockRejectedValue(new Error('Sign out failed'));
+
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+		const result = await actions.default({
+			locals: makeLocals(),
+			request: makeRequest(validFields),
+			url: new URL('http://localhost/signup')
+		} as unknown as Parameters<(typeof actions)['default']>[0]);
+
+		expect(consoleErrorSpy).toHaveBeenCalledWith(
+			expect.stringContaining('Failed to sign out'),
+			expect.any(Error)
+		);
+		expect(result).toMatchObject({ status: 500 });
+		warnSpy.mockRestore();
+	});
+
+	it('warns when deleteAuthUser returns false after profile creation failure', async () => {
+		selectResults.push([]);
+		signUpMock.mockResolvedValue({
+			data: { user: { id: 'user-2' }, session: { access_token: 'token' } },
+			error: null
+		});
+		insertBehaviors.push(new Error('general insert error'));
+		deleteAuthUserMock.mockResolvedValue(false);
+
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+		const result = await actions.default({
+			locals: makeLocals(),
+			request: makeRequest(validFields),
+			url: new URL('http://localhost/signup')
+		} as unknown as Parameters<(typeof actions)['default']>[0]);
+
+		expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Orphaned auth user'));
+		expect(result).toMatchObject({ status: 500 });
+		warnSpy.mockRestore();
+	});
+
+	it('returns 500 for non-unique DB insert errors', async () => {
+		selectResults.push([]);
+		signUpMock.mockResolvedValue({
+			data: { user: { id: 'user-3' }, session: { access_token: 'token' } },
+			error: null
+		});
+		insertBehaviors.push(new Error('connection timeout'));
+
+		const result = await actions.default({
+			locals: makeLocals(),
+			request: makeRequest(validFields),
+			url: new URL('http://localhost/signup')
+		} as unknown as Parameters<(typeof actions)['default']>[0]);
+
+		expect(result).toMatchObject({
+			status: 500,
+			data: { error: expect.stringContaining('Account setup failed') }
+		});
+	});
+
 	it('redirects to a safe return path after successful signup', async () => {
 		selectResults.push([]);
 		signUpMock.mockResolvedValue({

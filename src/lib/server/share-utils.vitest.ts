@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock the db module before importing share-utils to prevent DATABASE_URL error
 vi.mock('$lib/server/db', () => ({
@@ -31,11 +31,14 @@ vi.mock('drizzle-orm', () => ({
 
 import {
 	generateShortCode,
+	generateUniqueShortCode,
+	createShareWithRateLimit,
+	incrementViewCount,
 	isShareExpired,
 	getDaysUntilExpiration,
 	calculateExpirationDate
 } from './share-utils';
-import { SHARE_CODE_LENGTH, SHARE_CODE_CHARSET } from '$lib/constants';
+import { SHARE_CODE_LENGTH, SHARE_CODE_CHARSET, SHARE_RATE_LIMIT_PER_HOUR } from '$lib/constants';
 
 describe('generateShortCode', () => {
 	it('returns a string of exactly SHARE_CODE_LENGTH characters', () => {
@@ -158,5 +161,203 @@ describe('calculateExpirationDate', () => {
 		const result1 = calculateExpirationDate(1);
 		const result30 = calculateExpirationDate(30);
 		expect(result30.getTime()).toBeGreaterThan(result1.getTime());
+	});
+});
+
+describe('generateUniqueShortCode', () => {
+	beforeEach(async () => {
+		const { db } = await import('$lib/server/db');
+		vi.mocked(db.select).mockClear();
+	});
+
+	it('returns a code when the first attempt is unique', async () => {
+		const { db } = await import('$lib/server/db');
+		vi.mocked(db.select).mockReturnValueOnce({
+			from: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({
+					limit: vi.fn().mockResolvedValue([])
+				})
+			})
+		} as unknown as ReturnType<typeof db.select>);
+
+		const code = await generateUniqueShortCode();
+		expect(code).not.toBeNull();
+		expect(typeof code).toBe('string');
+		expect(code!.length).toBe(SHARE_CODE_LENGTH);
+	});
+
+	it('retries when first code already exists and succeeds on second attempt', async () => {
+		const { db } = await import('$lib/server/db');
+		const existingRow = [{ id: 'some-id' }];
+
+		vi.mocked(db.select)
+			.mockReturnValueOnce({
+				from: vi.fn().mockReturnValue({
+					where: vi.fn().mockReturnValue({
+						limit: vi.fn().mockResolvedValue(existingRow)
+					})
+				})
+			} as unknown as ReturnType<typeof db.select>)
+			.mockReturnValueOnce({
+				from: vi.fn().mockReturnValue({
+					where: vi.fn().mockReturnValue({
+						limit: vi.fn().mockResolvedValue([])
+					})
+				})
+			} as unknown as ReturnType<typeof db.select>);
+
+		const code = await generateUniqueShortCode();
+		expect(code).not.toBeNull();
+		expect(db.select).toHaveBeenCalledTimes(2);
+	});
+
+	it('returns null when all retries are exhausted', async () => {
+		const { db } = await import('$lib/server/db');
+		const existingRow = [{ id: 'existing' }];
+		const alwaysExists = {
+			from: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({
+					limit: vi.fn().mockResolvedValue(existingRow)
+				})
+			})
+		} as unknown as ReturnType<typeof db.select>;
+
+		vi.mocked(db.select).mockReturnValue(alwaysExists);
+		const code = await generateUniqueShortCode();
+		expect(code).toBeNull();
+	});
+});
+
+describe('createShareWithRateLimit', () => {
+	const userId = 'user-uuid';
+	const mapType = 'lorenz' as const;
+	const parameters = { type: 'lorenz' as const, sigma: 10, rho: 28, beta: 2.667 };
+	const shortCode = 'ABCD1234';
+	const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+	it('creates a share when under the rate limit', async () => {
+		const { db } = await import('$lib/server/db');
+		const newShare = { id: 'share-id', shortCode, expiresAt };
+
+		vi.mocked(db.transaction).mockImplementation(async (fn) => {
+			const tx = {
+				select: vi.fn().mockReturnValue({
+					from: vi.fn().mockReturnValue({
+						where: vi.fn().mockReturnValue({
+							orderBy: vi.fn().mockResolvedValue([])
+						})
+					})
+				}),
+				insert: vi.fn().mockReturnValue({
+					values: vi.fn().mockReturnValue({
+						returning: vi.fn().mockResolvedValue([newShare])
+					})
+				})
+			};
+			return fn(tx as unknown as Parameters<typeof fn>[0]);
+		});
+
+		const result = await createShareWithRateLimit(
+			userId,
+			mapType,
+			parameters,
+			shortCode,
+			expiresAt
+		);
+		expect(result.success).toBe(true);
+		expect(result.share).toEqual(newShare);
+		expect(result.remaining).toBe(SHARE_RATE_LIMIT_PER_HOUR - 1);
+	});
+
+	it('returns rate limit error when at or over the limit', async () => {
+		const { db } = await import('$lib/server/db');
+		const oldestCreatedAt = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+		const existingShares = Array.from({ length: SHARE_RATE_LIMIT_PER_HOUR }, () => ({
+			createdAt: oldestCreatedAt
+		}));
+
+		vi.mocked(db.transaction).mockImplementation(async (fn) => {
+			const tx = {
+				select: vi.fn().mockReturnValue({
+					from: vi.fn().mockReturnValue({
+						where: vi.fn().mockReturnValue({
+							orderBy: vi.fn().mockResolvedValue(existingShares)
+						})
+					})
+				})
+			};
+			return fn(tx as unknown as Parameters<typeof fn>[0]);
+		});
+
+		const result = await createShareWithRateLimit(
+			userId,
+			mapType,
+			parameters,
+			shortCode,
+			expiresAt
+		);
+		expect(result.success).toBe(false);
+		expect(result.remaining).toBe(0);
+		expect(result.error).toContain('Rate limit exceeded');
+	});
+
+	it('retries on unique constraint violation and succeeds', async () => {
+		const { db } = await import('$lib/server/db');
+		const newShare = { id: 'share-id-2', shortCode: 'NEWCODE1', expiresAt };
+		let insertCallCount = 0;
+
+		vi.mocked(db.transaction).mockImplementation(async (fn) => {
+			const tx = {
+				select: vi.fn().mockReturnValue({
+					from: vi.fn().mockReturnValue({
+						where: vi.fn().mockReturnValue({
+							orderBy: vi.fn().mockResolvedValue([])
+						})
+					})
+				}),
+				insert: vi.fn().mockReturnValue({
+					values: vi.fn().mockReturnValue({
+						returning: vi.fn().mockImplementation(async () => {
+							insertCallCount++;
+							if (insertCallCount === 1) {
+								throw Object.assign(new Error('unique violation'), {
+									code: '23505'
+								});
+							}
+							return [newShare];
+						})
+					})
+				})
+			};
+			return fn(tx as unknown as Parameters<typeof fn>[0]);
+		});
+
+		const result = await createShareWithRateLimit(
+			userId,
+			mapType,
+			parameters,
+			shortCode,
+			expiresAt
+		);
+		expect(result.success).toBe(true);
+		expect(insertCallCount).toBe(2);
+	});
+});
+
+describe('incrementViewCount', () => {
+	it('calls db.update with the correct share id', async () => {
+		const { db } = await import('$lib/server/db');
+		const executeMock = vi.fn().mockResolvedValue(undefined);
+		vi.mocked(db.update).mockReturnValue({
+			set: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({
+					execute: executeMock
+				})
+			})
+		} as unknown as ReturnType<typeof db.update>);
+
+		await incrementViewCount('share-id-123');
+		expect(db.update).toHaveBeenCalledTimes(1);
+		expect(executeMock).toHaveBeenCalledTimes(1);
 	});
 });
