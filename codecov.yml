@@ -1,0 +1,3 @@
+ignore:
+  # Test utility components are not production code and don't need branch coverage
+  - "src/lib/components/testing/**"
