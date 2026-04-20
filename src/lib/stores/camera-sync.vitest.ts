@@ -154,9 +154,9 @@ describe('cameraSyncStore', () => {
 
 	describe('reset', () => {
 		it('clears all state back to defaults', () => {
-			cameraSyncStore.setEnabled(false);
 			cameraSyncStore.updateFromSide('left', makeCameraState(1, 2, 3));
 			vi.runAllTimers();
+			cameraSyncStore.setEnabled(false);
 			cameraSyncStore.reset();
 
 			const state = getStoreState();
@@ -176,7 +176,7 @@ describe('cameraSyncStore', () => {
 
 		it('cancels pending syncing-reset timer', () => {
 			cameraSyncStore.updateFromSide('left', makeCameraState(1, 2, 3));
-			vi.advanceTimersByTime(200); // fires debounce, syncing=true
+			vi.advanceTimersByTime(121); // fires debounce (120ms), leaves syncing-reset pending
 			cameraSyncStore.reset(); // cancels syncing reset timer
 			vi.runAllTimers();
 			// After reset, syncing must be false (reset sets it) even if timer was pending

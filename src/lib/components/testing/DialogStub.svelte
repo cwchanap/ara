@@ -5,21 +5,12 @@
 		isAuthenticated?: boolean;
 		currentPath?: string;
 		onClose?: () => void;
-		onSave?: (name: string) => void;
-		onShare?: () => void;
+		onSave?: (name: string) => Promise<void>;
+		onShare?: () => Promise<void>;
 		name?: string;
 	};
 
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	let {
-		open = false,
-		onClose,
-		onSave,
-		onShare,
-		mapType = '',
-		currentPath = '',
-		isAuthenticated = false
-	}: Props = $props();
+	let { open = false, onClose, onSave, onShare, mapType = '' }: Props = $props();
 </script>
 
 {#if open}

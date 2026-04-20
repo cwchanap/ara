@@ -47,6 +47,7 @@ describe('createSaveHandler', () => {
 
 	afterEach(() => {
 		vi.useRealTimers();
+		vi.unstubAllGlobals();
 	});
 
 	it('returns save and cleanup functions', () => {

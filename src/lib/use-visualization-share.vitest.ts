@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { createInitialShareState, createShareHandler } from './use-visualization-share';
 import type { ShareState } from './use-visualization-share';
 
@@ -24,6 +24,10 @@ describe('createInitialShareState', () => {
 describe('createShareHandler', () => {
 	beforeEach(() => {
 		vi.resetAllMocks();
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
 	});
 
 	it('returns share and cleanup functions', () => {
