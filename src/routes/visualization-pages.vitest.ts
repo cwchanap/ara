@@ -256,8 +256,10 @@ describe('visualization pages', () => {
 		expect(screen.getByText('RIGHT_PARAMETERS')).toBeInTheDocument();
 	});
 
+	type DialogAction = 'save' | 'share';
+
 	const dialogTestCases: Array<{
-		action: string;
+		action: DialogAction;
 		pageName: string;
 		url: string;
 		dialogTestId: string;
@@ -356,6 +358,8 @@ describe('visualization pages', () => {
 			renderPage();
 			const actionBtn = screen.getByRole('button', { name: new RegExp(action, 'i') });
 			await fireEvent.click(actionBtn);
+			const dialogActionTestId = dialogTestId.replace('dialog-close-', `dialog-${action}-`);
+			expect(await screen.findByTestId(dialogActionTestId)).toBeInTheDocument();
 			const closeBtn = await screen.findByTestId(dialogTestId);
 			await fireEvent.click(closeBtn);
 			expect(screen.queryByTestId(dialogTestId)).not.toBeInTheDocument();
