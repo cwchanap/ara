@@ -171,16 +171,20 @@ describe('profile page', () => {
 		).toBeInTheDocument();
 	});
 
-	it('shows password warning when only passwordWarning is set (no passwordSuccess)', () => {
+	it('shows password warning independently of the success message', () => {
 		render(ProfilePage, {
 			props: {
 				data: makeProfileData(),
-				form: { passwordWarning: 'Password change may not have fully propagated' }
+				form: {
+					passwordSuccess: false,
+					passwordWarning: 'Password change may not have fully propagated'
+				}
 			}
 		});
 		expect(
 			screen.getByText('Password change may not have fully propagated')
 		).toBeInTheDocument();
+		expect(screen.queryByText('Password changed successfully!')).not.toBeInTheDocument();
 	});
 
 	it('shows username validation error for invalid username', async () => {
