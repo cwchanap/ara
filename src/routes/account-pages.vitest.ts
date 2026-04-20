@@ -171,6 +171,18 @@ describe('profile page', () => {
 		).toBeInTheDocument();
 	});
 
+	it('shows password warning when only passwordWarning is set (no passwordSuccess)', () => {
+		render(ProfilePage, {
+			props: {
+				data: makeProfileData(),
+				form: { passwordWarning: 'Password change may not have fully propagated' }
+			}
+		});
+		expect(
+			screen.getByText('Password change may not have fully propagated')
+		).toBeInTheDocument();
+	});
+
 	it('shows username validation error for invalid username', async () => {
 		render(ProfilePage, { props: { data: makeProfileData(), form: null } });
 		const usernameInput = screen.getByDisplayValue('chaos_user');
