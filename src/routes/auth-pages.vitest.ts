@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import type { ChaosMapType } from '$lib/types';
 import LoginPage from './login/+page.svelte';
 import ShareViewPage from './s/[code]/+page.svelte';
 
@@ -35,7 +36,7 @@ describe('login page', () => {
 	});
 
 	it('shows server error message when form has error', () => {
-		render(LoginPage, { props: { form: { error: 'Invalid credentials' } } });
+		render(LoginPage, { props: { form: { error: 'Invalid credentials', email: '' } } });
 		expect(screen.getByText('Invalid credentials')).toBeInTheDocument();
 	});
 
@@ -65,13 +66,15 @@ describe('login page', () => {
 // ── Share view page (s/[code]) ────────────────────────────────────────────────
 
 const defaultShareData = {
-	mapType: 'lorenz',
+	session: null,
+	user: null,
+	mapType: 'lorenz' as const,
 	username: 'chaos_user',
 	shortCode: 'ABCD1234',
 	createdAt: '2026-04-01T12:00:00.000Z',
 	expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
 	daysRemaining: 7,
-	parameters: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 },
+	parameters: { type: 'lorenz' as const, sigma: 10, rho: 28, beta: 2.667 },
 	viewCount: 42
 };
 
@@ -136,7 +139,9 @@ describe('share view page', () => {
 
 	it('handles unknown map type gracefully', () => {
 		render(ShareViewPage, {
-			props: { data: { ...defaultShareData, mapType: 'unknown-type' } }
+			props: {
+				data: { ...defaultShareData, mapType: 'unknown-type' as unknown as ChaosMapType }
+			}
 		});
 		expect(screen.getByText('UNKNOWN-TYPE')).toBeInTheDocument();
 	});

@@ -346,18 +346,21 @@ describe('signup route server', () => {
 
 		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-		const result = await actions.default({
-			locals: makeLocals(),
-			request: makeRequest(validFields),
-			url: new URL('http://localhost/signup')
-		} as unknown as Parameters<(typeof actions)['default']>[0]);
+		try {
+			const result = await actions.default({
+				locals: makeLocals(),
+				request: makeRequest(validFields),
+				url: new URL('http://localhost/signup')
+			} as unknown as Parameters<(typeof actions)['default']>[0]);
 
-		expect(consoleErrorSpy).toHaveBeenCalledWith(
-			expect.stringContaining('Failed to sign out'),
-			expect.any(Error)
-		);
-		expect(result).toMatchObject({ status: 500 });
-		warnSpy.mockRestore();
+			expect(consoleErrorSpy).toHaveBeenCalledWith(
+				expect.stringContaining('Failed to sign out'),
+				expect.any(Error)
+			);
+			expect(result).toMatchObject({ status: 500 });
+		} finally {
+			warnSpy.mockRestore();
+		}
 	});
 
 	it('warns when deleteAuthUser returns false after profile creation failure', async () => {
@@ -371,15 +374,18 @@ describe('signup route server', () => {
 
 		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-		const result = await actions.default({
-			locals: makeLocals(),
-			request: makeRequest(validFields),
-			url: new URL('http://localhost/signup')
-		} as unknown as Parameters<(typeof actions)['default']>[0]);
+		try {
+			const result = await actions.default({
+				locals: makeLocals(),
+				request: makeRequest(validFields),
+				url: new URL('http://localhost/signup')
+			} as unknown as Parameters<(typeof actions)['default']>[0]);
 
-		expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Orphaned auth user'));
-		expect(result).toMatchObject({ status: 500 });
-		warnSpy.mockRestore();
+			expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Orphaned auth user'));
+			expect(result).toMatchObject({ status: 500 });
+		} finally {
+			warnSpy.mockRestore();
+		}
 	});
 
 	it('returns 500 for non-unique DB insert errors', async () => {

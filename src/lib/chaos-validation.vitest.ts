@@ -23,6 +23,7 @@ describe('checkParameterStability', () => {
 				b: 0.3,
 				maxIterations: 1000
 			});
+			expect(result.isStable).toBe(false);
 			expect(result.warnings).toContain('aMin must be less than aMax');
 		});
 
@@ -34,6 +35,7 @@ describe('checkParameterStability', () => {
 				b: 0.3,
 				maxIterations: 1000
 			});
+			expect(result.isStable).toBe(false);
 			expect(result.warnings).toContain('aMin must be less than aMax');
 		});
 	});
@@ -59,6 +61,7 @@ describe('checkParameterStability', () => {
 				transientIterations: 100,
 				iterations: 500
 			});
+			expect(result.isStable).toBe(false);
 			expect(result.warnings).toContain('rMin must be less than rMax');
 		});
 
@@ -70,6 +73,7 @@ describe('checkParameterStability', () => {
 				transientIterations: 600,
 				iterations: 500
 			});
+			expect(result.isStable).toBe(false);
 			expect(result.warnings).toContain('transientIterations must be <= iterations');
 		});
 
@@ -81,6 +85,7 @@ describe('checkParameterStability', () => {
 				transientIterations: 600,
 				iterations: 500
 			});
+			expect(result.isStable).toBe(false);
 			expect(result.warnings).toContain('rMin must be less than rMax');
 			expect(result.warnings).toContain('transientIterations must be <= iterations');
 		});

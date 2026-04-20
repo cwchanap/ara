@@ -78,16 +78,21 @@ describe('signup page', () => {
 
 // ── Profile page ──────────────────────────────────────────────────────────────
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 function makeProfileData(overrides?: {
 	profile?: { id: string; username: string } | null;
 	user?: { id: string; email: string } | null;
-}) {
+}): any {
+	const profile = overrides?.profile
+		? { createdAt: '', updatedAt: '', ...overrides.profile }
+		: { id: 'user-1', username: 'chaos_user', createdAt: '', updatedAt: '' };
 	return {
 		session: { access_token: 'token' },
 		user: overrides?.user ?? { id: 'user-1', email: 'user@example.com' },
-		profile: overrides?.profile ?? { id: 'user-1', username: 'chaos_user' }
+		profile
 	};
 }
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 describe('profile page', () => {
 	it('renders the profile heading', () => {
@@ -114,12 +119,15 @@ describe('profile page', () => {
 
 	it('shows success message when form has updateSuccess', () => {
 		render(ProfilePage, {
-			props: { data: makeProfileData(), form: { updateSuccess: true } }
+			props: {
+				data: makeProfileData(),
+				form: { updateSuccess: true, username: 'chaos_user' }
+			}
 		});
 		expect(screen.getByText('Username updated successfully!')).toBeInTheDocument();
 	});
 
-	it('shows usernameError when form has updateError via username input validation', async () => {
+	it('shows client-side username validation error when typing invalid characters', async () => {
 		render(ProfilePage, { props: { data: makeProfileData(), form: null } });
 		const usernameInput = screen.getByDisplayValue('chaos_user');
 		await fireEvent.input(usernameInput, { target: { value: 'x!invalid' } });
@@ -149,7 +157,10 @@ describe('profile page', () => {
 		render(ProfilePage, {
 			props: {
 				data: makeProfileData(),
-				form: { passwordWarning: 'Password change may not have fully propagated' }
+				form: {
+					passwordSuccess: true,
+					passwordWarning: 'Password change may not have fully propagated'
+				}
 			}
 		});
 		expect(

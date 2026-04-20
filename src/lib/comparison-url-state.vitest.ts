@@ -154,9 +154,7 @@ describe('decodeComparisonState', () => {
 	});
 
 	it('falls back to defaults when left param is invalid', () => {
-		const url = new URL(
-			'http://localhost/lorenz/compare?compare=true&left=INVALID_BASE64&right=INVALID'
-		);
+		const url = new URL('http://localhost/lorenz/compare?compare=true&left=!!!@@@&right=%%%');
 		const state = decodeComparisonState(url, 'lorenz');
 		expect(state).not.toBeNull();
 		// Falls back to defaults
