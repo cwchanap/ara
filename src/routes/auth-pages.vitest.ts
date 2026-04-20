@@ -140,10 +140,10 @@ describe('share view page', () => {
 	it('handles unknown map type gracefully', () => {
 		render(ShareViewPage, {
 			props: {
-				data: { ...defaultShareData, mapType: 'unknown-type' as unknown as ChaosMapType }
+				data: { ...defaultShareData, mapType: 'unknown_type' as unknown as ChaosMapType }
 			}
 		});
-		expect(screen.getByText('UNKNOWN-TYPE')).toBeInTheDocument();
+		expect(screen.getByText('UNKNOWN_TYPE')).toBeInTheDocument();
 	});
 
 	it('renders 0 for invalid viewCount', () => {

@@ -83,9 +83,12 @@ function makeProfileData(overrides?: {
 	profile?: { id: string; username: string } | null;
 	user?: { id: string; email: string } | null;
 }): any {
-	const profile = overrides?.profile
-		? { createdAt: '', updatedAt: '', ...overrides.profile }
-		: { id: 'user-1', username: 'chaos_user', createdAt: '', updatedAt: '' };
+	const profile =
+		overrides !== undefined && 'profile' in overrides
+			? overrides.profile === null
+				? null
+				: { createdAt: '', updatedAt: '', ...overrides.profile }
+			: { id: 'user-1', username: 'chaos_user', createdAt: '', updatedAt: '' };
 	return {
 		session: { access_token: 'token' },
 		user: overrides?.user ?? { id: 'user-1', email: 'user@example.com' },
