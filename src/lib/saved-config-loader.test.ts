@@ -935,3 +935,229 @@ describe('loadSharedConfigParameters', () => {
 		});
 	});
 });
+
+// ── Additional parseConfigParam: depth checker edge cases ────────────────────
+
+describe('parseConfigParam – getMaxJsonNestingDepth edge cases', () => {
+	test('brackets inside a JSON string value do not count as nesting depth', () => {
+		// The value of "_extra" contains many braces but actual JSON depth is 1.
+		// Without the inString guard the depth checker would reject this input.
+		const manyBraces = '{'.repeat(MAX_JSON_NESTING_DEPTH + 5);
+		const json = `{"type":"lorenz","sigma":10,"rho":28,"beta":2.667,"_extra":"${manyBraces}"}`;
+		const result = parseConfigParam({
+			mapType: 'lorenz',
+			configParam: encodeURIComponent(json)
+		});
+		// Must fail validation (unexpected "_extra" field), NOT nesting guard.
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.errors[0]).not.toContain('too deeply nested');
+		}
+	});
+
+	test('escaped double-quote inside a string does not prematurely close the string', () => {
+		// The \" sequence inside a string should not end the string context.
+		const json = `{"type":"lorenz","sigma":10,"rho":28,"beta":2.667,"_note":"value \\"with\\" quotes"}`;
+		const result = parseConfigParam({
+			mapType: 'lorenz',
+			configParam: encodeURIComponent(json)
+		});
+		// Fails validation for "_note" field, NOT for nesting or decoding errors.
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.errors[0]).not.toContain('too deeply nested');
+			expect(result.errors[0]).not.toContain('Failed to parse');
+		}
+	});
+
+	test('double-escaped backslash (\\\\) before a closing quote is handled correctly', () => {
+		// "value\\" – the pair \\ is an escaped backslash, NOT escaping the quote.
+		const json = `{"type":"lorenz","sigma":10,"rho":28,"beta":2.667,"_x":"trail\\\\"}`;
+		const result = parseConfigParam({
+			mapType: 'lorenz',
+			configParam: encodeURIComponent(json)
+		});
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.errors[0]).not.toContain('too deeply nested');
+			expect(result.errors[0]).not.toContain('Failed to parse');
+		}
+	});
+
+	test('array brackets count toward nesting depth', () => {
+		let nested = '1';
+		for (let i = 0; i < MAX_JSON_NESTING_DEPTH + 2; i++) {
+			nested = `[${nested}]`;
+		}
+		const result = parseConfigParam({
+			mapType: 'lorenz',
+			configParam: encodeURIComponent(nested)
+		});
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.errors[0]).toContain('too deeply nested');
+		}
+	});
+
+	test('mixed object/array nesting counts correctly', () => {
+		let nested = '"leaf"';
+		for (let i = 0; i < MAX_JSON_NESTING_DEPTH + 2; i++) {
+			nested = i % 2 === 0 ? `{"k":${nested}}` : `[${nested}]`;
+		}
+		const result = parseConfigParam({
+			mapType: 'lorenz',
+			configParam: encodeURIComponent(nested)
+		});
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.errors[0]).toContain('too deeply nested');
+		}
+	});
+
+	test('brackets and braces inside strings are not counted even when interleaved with real depth', () => {
+		// Actual depth = 1; all visible nesting is inside string values.
+		const falseDepth =
+			'{"k1":"{{{","k2":"[[[","type":"lorenz","sigma":10,"rho":28,"beta":2.667,"_x":"extra"}';
+		const result = parseConfigParam({
+			mapType: 'lorenz',
+			configParam: encodeURIComponent(falseDepth)
+		});
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.errors[0]).not.toContain('too deeply nested');
+		}
+	});
+
+	test('rejects input one byte over the decoded size limit', () => {
+		const over = 'A'.repeat(MAX_DECODED_CONFIG_PARAM_LENGTH + 1);
+		const result = parseConfigParam({
+			mapType: 'lorenz',
+			configParam: encodeURIComponent(over)
+		});
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.errors[0]).toContain('too large');
+		}
+	});
+});
+
+// ── Additional loadSavedConfigParameters: sessionStorage cleanup edge cases ──
+
+describe('loadSavedConfigParameters – sessionStorage.removeItem throws silently', () => {
+	test('returns ok:false and does not throw when removeItem throws after validation fails', async () => {
+		const invalidParams = JSON.stringify({ type: 'lorenz', sigma: 'bad', rho: 28, beta: 2.667 });
+		const storageKey = 'saved-config:test-id-remove-throws';
+
+		const originalSS = globalThis.sessionStorage;
+		Object.defineProperty(globalThis, 'sessionStorage', {
+			configurable: true,
+			value: {
+				getItem: (key: string) => (key === storageKey ? invalidParams : null),
+				removeItem: () => {
+					throw new Error('Storage quota exceeded');
+				},
+				setItem: () => {}
+			}
+		});
+
+		try {
+			const result = await loadSavedConfigParameters({
+				configId: 'test-id-remove-throws',
+				mapType: 'lorenz',
+				base: '',
+				fetchFn: async () => ({ ok: false, status: 404 }) as unknown as Response
+			});
+			expect(result.ok).toBe(false);
+		} finally {
+			Object.defineProperty(globalThis, 'sessionStorage', {
+				configurable: true,
+				value: originalSS
+			});
+		}
+	});
+
+	test('succeeds and swallows removeItem error when params are valid', async () => {
+		const validParams = JSON.stringify({ type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 });
+		const storageKey = 'saved-config:test-id-remove-ok';
+
+		const originalSS = globalThis.sessionStorage;
+		Object.defineProperty(globalThis, 'sessionStorage', {
+			configurable: true,
+			value: {
+				getItem: (key: string) => (key === storageKey ? validParams : null),
+				removeItem: () => {
+					throw new Error('Storage quota exceeded');
+				},
+				setItem: () => {}
+			}
+		});
+
+		try {
+			const result = await loadSavedConfigParameters({
+				configId: 'test-id-remove-ok',
+				mapType: 'lorenz',
+				base: '',
+				fetchFn: async () => ({ ok: false, status: 404 }) as unknown as Response
+			});
+			expect(result.ok).toBe(true);
+			if (result.ok) {
+				expect(result.source).toBe('sessionStorage');
+			}
+		} finally {
+			Object.defineProperty(globalThis, 'sessionStorage', {
+				configurable: true,
+				value: originalSS
+			});
+		}
+	});
+});
+
+// ── Additional loadSavedConfigParameters: API fall-through edge case ─────────
+
+describe('loadSavedConfigParameters – API response missing mapType', () => {
+	test('falls through when API response has no mapType field', async () => {
+		const result = await loadSavedConfigParameters({
+			configId: 'no-maptype',
+			mapType: 'lorenz',
+			base: '',
+			fetchFn: async () =>
+				({
+					ok: true,
+					status: 200,
+					json: async () => ({
+						parameters: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 }
+					})
+				}) as unknown as Response
+		});
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.errors[0]).toContain('Failed to load');
+		}
+	});
+});
+
+// ── Additional loadSharedConfigParameters: parameters normalisation ───────────
+
+describe('loadSharedConfigParameters – standard map K→k normalisation', () => {
+	test('normalises legacy uppercase K parameter to lowercase k', async () => {
+		const result = await loadSharedConfigParameters({
+			shareCode: 'ABC12345',
+			mapType: 'standard',
+			base: '',
+			fetchFn: async () =>
+				({
+					ok: true,
+					status: 200,
+					json: async () => ({
+						mapType: 'standard',
+						parameters: { type: 'standard', K: 1.0, numP: 20, numQ: 20, iterations: 1000 }
+					})
+				}) as unknown as Response
+		});
+		expect(result.ok).toBe(true);
+		if (result.ok) {
+			expect((result.parameters as Record<string, unknown>).k).toBe(1.0);
+			expect((result.parameters as Record<string, unknown>).K).toBeUndefined();
+		}
+	});
+});

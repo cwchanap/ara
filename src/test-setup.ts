@@ -96,5 +96,120 @@ export { stub as count, stub as sum, stub as avg, stub as min, stub as max };
 `,
 			loader: 'js'
 		}));
+
+		// Stub for svelte/store: provides minimal writable/readable/get
+		// implementations used by camera-sync.ts and test helper code.
+		// The real package requires the full Svelte runtime; this lightweight
+		// version is sufficient for unit-testing store logic in isolation.
+		build.module('svelte/store', () => ({
+			contents: `
+export function writable(value) {
+  const subscribers = new Set();
+  return {
+    subscribe(fn) {
+      subscribers.add(fn);
+      fn(value);
+      return () => subscribers.delete(fn);
+    },
+    set(v) { value = v; subscribers.forEach(fn => fn(value)); },
+    update(fn) { const v = fn(value); value = v; subscribers.forEach(sub => sub(value)); }
+  };
+}
+export function readable(value, start) {
+  const store = writable(value);
+  if (start) {
+    let stop;
+    const origSubscribe = store.subscribe;
+    store.subscribe = (fn) => {
+      if (!stop) stop = start(store.set) || (() => {});
+      const unsub = origSubscribe(fn);
+      return () => { unsub(); if (stop) { stop(); stop = null; } };
+    };
+  }
+  return { subscribe: store.subscribe };
+}
+export function get(store) {
+  let val;
+  const unsub = store.subscribe(v => { val = v; });
+  if (typeof unsub === 'function') unsub();
+  return val;
+}
+export function derived(stores, fn) {
+  const arr = Array.isArray(stores) ? stores : [stores];
+  let value;
+  const store = writable(undefined);
+  arr.forEach(s => s.subscribe(() => {
+    const vals = arr.map(a => { let v; a.subscribe(x => v = x)(); return v; });
+    value = Array.isArray(stores) ? fn(vals) : fn(vals[0]);
+    store.set(value);
+  }));
+  return { subscribe: store.subscribe };
+}
+`,
+			loader: 'js'
+		}));
+
+		// Stub for clsx: joins truthy class name inputs into a single string.
+		// The real clsx package is a runtime dependency not available without
+		// node_modules; this stub handles the string/object/array forms used
+		// by the cn() utility in src/lib/utils.ts.
+		build.module('clsx', () => ({
+			contents: `
+export function clsx(...inputs) {
+  const result = [];
+  for (const input of inputs) {
+    if (!input) continue;
+    if (typeof input === 'string' || typeof input === 'number') {
+      result.push(String(input));
+    } else if (Array.isArray(input)) {
+      const inner = clsx(...input);
+      if (inner) result.push(inner);
+    } else if (typeof input === 'object') {
+      for (const [k, v] of Object.entries(input)) {
+        if (v) result.push(k);
+      }
+    }
+  }
+  return result.join(' ');
+}
+export default clsx;
+`,
+			loader: 'js'
+		}));
+
+		// Stub for tailwind-merge: resolves conflicting Tailwind utilities so
+		// that the last class in each "prefix group" wins (e.g. p-2 p-4 → p-4).
+		// The real package uses a full class-group registry; this stub derives
+		// the group key from the first hyphen-separated segment, which is
+		// sufficient for the Tailwind classes used in this project's tests.
+		build.module('tailwind-merge', () => ({
+			contents: `
+export function twMerge(...inputs) {
+  const allClasses = inputs
+    .filter(Boolean)
+    .join(' ')
+    .trim()
+    .split(/\\s+/)
+    .filter(Boolean);
+
+  const result = [];          // ordered [prefix, class] pairs
+  const prefixIndex = {};     // prefix -> index in result
+
+  for (const cls of allClasses) {
+    const prefix = cls.split('-')[0];
+    if (prefixIndex[prefix] !== undefined) {
+      result[prefixIndex[prefix]] = [prefix, cls];
+    } else {
+      prefixIndex[prefix] = result.length;
+      result.push([prefix, cls]);
+    }
+  }
+
+  return result.map(([, cls]) => cls).join(' ');
+}
+export default twMerge;
+`,
+			loader: 'js'
+		}));
 	}
 });
