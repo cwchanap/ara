@@ -6,7 +6,7 @@
  * graceful fallback when the increment fails.
  */
 
-import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 
 // ── DB mock state ─────────────────────────────────────────────────────────────
 
@@ -108,6 +108,13 @@ beforeEach(() => {
 	incrementViewCountShouldThrow = false;
 	selectMock.mockClear();
 	deleteMock.mockClear();
+});
+
+// Reset per-test overrides after every test so the mock closure doesn't leak
+// a stale `mockIsShareExpiredOverride = true` into subsequent test files.
+afterEach(() => {
+	mockIsShareExpiredOverride = null;
+	incrementViewCountShouldThrow = false;
 });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

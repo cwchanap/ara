@@ -464,21 +464,39 @@ describe('chaos map: negative parameter values', () => {
 	test('handles negative a value and returns finite points', () => {
 		responses.length = 0;
 		selfMock.onmessage?.({
-			data: { type: 'chaos', id: 200, a: -1.4, b: 0.3, x0: 0.5, y0: 0.5, iterations: 20, maxPoints: 20 }
+			data: {
+				type: 'chaos',
+				id: 200,
+				a: -1.4,
+				b: 0.3,
+				x0: 0.5,
+				y0: 0.5,
+				iterations: 20,
+				maxPoints: 20
+			}
 		});
 		expect(responses).toHaveLength(1);
 		expect(responses[0]?.type).toBe('chaosResult');
 		expect(responses[0]?.points).toHaveLength(20);
 		for (const [x, y] of responses[0]?.points ?? []) {
-			expect(typeof x).toBe('number');
-			expect(typeof y).toBe('number');
+			expect(Number.isFinite(x)).toBe(true);
+			expect(Number.isFinite(y)).toBe(true);
 		}
 	});
 
 	test('handles negative b value and returns finite points', () => {
 		responses.length = 0;
 		selfMock.onmessage?.({
-			data: { type: 'chaos', id: 201, a: 1.4, b: -0.3, x0: 0, y0: 0, iterations: 15, maxPoints: 15 }
+			data: {
+				type: 'chaos',
+				id: 201,
+				a: 1.4,
+				b: -0.3,
+				x0: 0,
+				y0: 0,
+				iterations: 15,
+				maxPoints: 15
+			}
 		});
 		expect(responses).toHaveLength(1);
 		expect(responses[0]?.points).toHaveLength(15);
@@ -487,7 +505,16 @@ describe('chaos map: negative parameter values', () => {
 	test('handles a = 0 (degenerate case) without error', () => {
 		responses.length = 0;
 		selfMock.onmessage?.({
-			data: { type: 'chaos', id: 202, a: 0, b: 0.3, x0: 1, y0: 1, iterations: 10, maxPoints: 10 }
+			data: {
+				type: 'chaos',
+				id: 202,
+				a: 0,
+				b: 0.3,
+				x0: 1,
+				y0: 1,
+				iterations: 10,
+				maxPoints: 10
+			}
 		});
 		expect(responses[0]?.type).toBe('chaosResult');
 		expect(responses[0]?.points).toHaveLength(10);
@@ -500,7 +527,15 @@ describe('standard map: large k values', () => {
 	test('large k (100) still produces normalised points in [0, 2π)', () => {
 		responses.length = 0;
 		selfMock.onmessage?.({
-			data: { type: 'standard', id: 300, numP: 2, numQ: 2, iterations: 5, k: 100, maxPoints: 1000 }
+			data: {
+				type: 'standard',
+				id: 300,
+				numP: 2,
+				numQ: 2,
+				iterations: 5,
+				k: 100,
+				maxPoints: 1000
+			}
 		});
 		expect(responses[0]?.type).toBe('standardResult');
 		const TWO_PI = 2 * Math.PI;
@@ -515,7 +550,15 @@ describe('standard map: large k values', () => {
 	test('negative k value produces normalised output', () => {
 		responses.length = 0;
 		selfMock.onmessage?.({
-			data: { type: 'standard', id: 301, numP: 1, numQ: 1, iterations: 3, k: -1, maxPoints: 100 }
+			data: {
+				type: 'standard',
+				id: 301,
+				numP: 1,
+				numQ: 1,
+				iterations: 3,
+				k: -1,
+				maxPoints: 100
+			}
 		});
 		expect(responses[0]?.type).toBe('standardResult');
 		expect(responses[0]?.points).toHaveLength(3);
@@ -535,7 +578,16 @@ describe('chaos map: negative initial conditions', () => {
 	test('handles x0 = -1 and y0 = -1', () => {
 		responses.length = 0;
 		selfMock.onmessage?.({
-			data: { type: 'chaos', id: 400, a: 1.5, b: 0.5, x0: -1, y0: -1, iterations: 30, maxPoints: 30 }
+			data: {
+				type: 'chaos',
+				id: 400,
+				a: 1.5,
+				b: 0.5,
+				x0: -1,
+				y0: -1,
+				iterations: 30,
+				maxPoints: 30
+			}
 		});
 		expect(responses[0]?.type).toBe('chaosResult');
 		expect(responses[0]?.points).toHaveLength(30);
@@ -544,13 +596,31 @@ describe('chaos map: negative initial conditions', () => {
 	test('trajectory from negative x0 differs from positive x0', () => {
 		responses.length = 0;
 		selfMock.onmessage?.({
-			data: { type: 'chaos', id: 401, a: 1.5, b: 0.5, x0: 1, y0: 1, iterations: 10, maxPoints: 10 }
+			data: {
+				type: 'chaos',
+				id: 401,
+				a: 1.5,
+				b: 0.5,
+				x0: 1,
+				y0: 1,
+				iterations: 10,
+				maxPoints: 10
+			}
 		});
 		const lastPos = responses[0]?.points?.at(-1)?.[0] ?? 0;
 
 		responses.length = 0;
 		selfMock.onmessage?.({
-			data: { type: 'chaos', id: 402, a: 1.5, b: 0.5, x0: -1, y0: -1, iterations: 10, maxPoints: 10 }
+			data: {
+				type: 'chaos',
+				id: 402,
+				a: 1.5,
+				b: 0.5,
+				x0: -1,
+				y0: -1,
+				iterations: 10,
+				maxPoints: 10
+			}
 		});
 		const lastNeg = responses[0]?.points?.at(-1)?.[0] ?? 0;
 
@@ -564,7 +634,15 @@ describe('standard map: single iteration per initial condition', () => {
 	test('numP=3 numQ=3 iterations=1 produces exactly 9 points', () => {
 		responses.length = 0;
 		selfMock.onmessage?.({
-			data: { type: 'standard', id: 500, numP: 3, numQ: 3, iterations: 1, k: 0.5, maxPoints: 1000 }
+			data: {
+				type: 'standard',
+				id: 500,
+				numP: 3,
+				numQ: 3,
+				iterations: 1,
+				k: 0.5,
+				maxPoints: 1000
+			}
 		});
 		expect(responses[0]?.points).toHaveLength(9);
 	});
