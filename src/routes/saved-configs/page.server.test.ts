@@ -558,7 +558,11 @@ describe('saved-configs load – all configs invalid', () => {
 		// Two configs both have invalid parameters — both must be filtered out.
 		selectQueue.push([
 			makeDbConfig({ mapType: 'lorenz', parameters: { type: 'lorenz', sigma: 'bad' } }),
-			makeDbConfig({ id: 'config-2', mapType: 'henon', parameters: { type: 'henon', a: 'x' } })
+			makeDbConfig({
+				id: 'config-2',
+				mapType: 'henon',
+				parameters: { type: 'henon', a: 'x' }
+			})
 		]);
 		const result = await load({
 			locals: makeLocals(),
