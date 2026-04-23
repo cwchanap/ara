@@ -386,3 +386,72 @@ describe('applyCameraState', () => {
 		expect(updateCalled).toBe(true);
 	});
 });
+
+// ── Additional edge cases ─────────────────────────────────────────────────────
+
+describe('cameraSyncStore – additional edge cases', () => {
+	beforeEach(() => {
+		cameraSyncStore.reset();
+	});
+
+	describe('getStateForSide with lastUpdate === null (initial state)', () => {
+		test('returns null for left when neither side has ever updated', () => {
+			// lastUpdate is null → null !== 'left' → does not short-circuit;
+			// falls through to return state.right which is also null.
+			expect(cameraSyncStore.getStateForSide('left')).toBeNull();
+		});
+
+		test('returns null for right when neither side has ever updated', () => {
+			expect(cameraSyncStore.getStateForSide('right')).toBeNull();
+		});
+	});
+
+	describe('getStateForSide – right side was last to update', () => {
+		test('returns null when asking right after right was last to update', async () => {
+			// Right updates → lastUpdate = 'right' → querying right returns null (no self-feedback).
+			cameraSyncStore.updateFromSide('right', makeCameraState(10, 20, 30));
+			await waitForDebounce();
+			expect(cameraSyncStore.getStateForSide('right')).toBeNull();
+		});
+
+		test('returns left state when asking left after right was last to update', async () => {
+			cameraSyncStore.updateFromSide('left', makeCameraState(1, 2, 3));
+			await waitForDebounce();
+			cameraSyncStore.updateFromSide('right', makeCameraState(7, 8, 9));
+			await waitForDebounce();
+			// Now lastUpdate = 'right'; left should get right's state
+			const result = cameraSyncStore.getStateForSide('left');
+			expect(result?.position).toEqual({ x: 7, y: 8, z: 9 });
+		});
+	});
+
+	describe('toggle – multiple cycles', () => {
+		test('three consecutive toggles end up disabled', () => {
+			// true → false → true → false
+			cameraSyncStore.toggle();
+			cameraSyncStore.toggle();
+			cameraSyncStore.toggle();
+			expect(getStoreState().enabled).toBe(false);
+		});
+
+		test('four consecutive toggles return to enabled', () => {
+			for (let i = 0; i < 4; i++) cameraSyncStore.toggle();
+			expect(getStoreState().enabled).toBe(true);
+		});
+	});
+
+	describe('setEnabled – idempotent calls', () => {
+		test('calling setEnabled(false) twice leaves sync disabled', () => {
+			cameraSyncStore.setEnabled(false);
+			cameraSyncStore.setEnabled(false);
+			expect(getStoreState().enabled).toBe(false);
+		});
+
+		test('calling setEnabled(true) after setEnabled(true) stays enabled', () => {
+			cameraSyncStore.setEnabled(false);
+			cameraSyncStore.setEnabled(true);
+			cameraSyncStore.setEnabled(true);
+			expect(getStoreState().enabled).toBe(true);
+		});
+	});
+});
