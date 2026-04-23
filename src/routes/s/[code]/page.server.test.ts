@@ -206,4 +206,33 @@ describe('share viewer page load', () => {
 		await load({ params: { code: 'ABCD1234' } } as unknown as Parameters<typeof load>[0]);
 		expect(deleteCalled).toBe(false);
 	});
+
+	test('uses optimistic view count when second select returns empty array', async () => {
+		// After incrementViewCount, the second db.select for fresh viewCount returns [].
+		// freshShare is undefined → finalViewCount stays at share.viewCount + 1.
+		selectQueue.push([makeShareRow({ viewCount: 7 })]); // first select
+		selectQueue.push([]); // second select → empty → freshShare is undefined
+		const result = await load({ params: { code: 'ABCD1234' } } as unknown as Parameters<
+			typeof load
+		>[0]);
+		// Falls back to optimistic: 7 + 1 = 8
+		expect(result.viewCount).toBe(8);
+	});
+
+	test('still returns 410 when lazy deletion throws on expired share', async () => {
+		// Covers the catch block: delete throws → error logged → 410 still thrown.
+		mockIsShareExpiredOverride = true;
+		selectQueue.push([makeShareRow()]);
+
+		// Override delete mock to throw
+		deleteMock.mockImplementationOnce(() => ({
+			where: async () => {
+				throw new Error('DB delete failed');
+			}
+		}));
+
+		await expect(
+			load({ params: { code: 'ABCD1234' } } as unknown as Parameters<typeof load>[0])
+		).rejects.toMatchObject({ status: 410 });
+	});
 });

@@ -295,4 +295,24 @@ describe('POST /api/save-config', () => {
 			await expect(POST(event as never)).rejects.toMatchObject({ status: 500 });
 		});
 	});
+
+	describe('body structure validation', () => {
+		test('returns 400 when body is a JSON number (not an object)', async () => {
+			// JSON.parse("42") succeeds but typeof 42 !== 'object' → 400.
+			const event = makeEvent(42);
+			await expect(POST(event as never)).rejects.toMatchObject({ status: 400 });
+		});
+
+		test('returns 400 when body is a JSON string (not an object)', async () => {
+			const event = makeEvent('just a string');
+			await expect(POST(event as never)).rejects.toMatchObject({ status: 400 });
+		});
+
+		test('returns 400 when body is a JSON array (treated as non-plain-object)', async () => {
+			// Arrays are typeof 'object' but have no name/mapType/parameters keys,
+			// so validation fails at the name-required check.
+			const event = makeEvent(['lorenz', 10, 28]);
+			await expect(POST(event as never)).rejects.toMatchObject({ status: 400 });
+		});
+	});
 });

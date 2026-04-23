@@ -550,3 +550,65 @@ describe('saved-configs rename action', () => {
 		expect(result).toMatchObject({ renameSuccess: true });
 	});
 });
+
+// ── Additional edge cases ─────────────────────────────────────────────────────
+
+describe('saved-configs load – all configs invalid', () => {
+	test('returns empty array when every DB config fails parameter validation', async () => {
+		// Two configs both have invalid parameters — both must be filtered out.
+		selectQueue.push([
+			makeDbConfig({ mapType: 'lorenz', parameters: { type: 'lorenz', sigma: 'bad' } }),
+			makeDbConfig({ id: 'config-2', mapType: 'henon', parameters: { type: 'henon', a: 'x' } })
+		]);
+		const result = await load({
+			locals: makeLocals(),
+			url: makeUrl()
+		} as unknown as Parameters<typeof load>[0]);
+		expect(result.configurations).toHaveLength(0);
+	});
+});
+
+describe('saved-configs save action – parametersJson not a string', () => {
+	test('returns 400 when parametersJson is null (FormData missing value)', async () => {
+		// FormData.get() returns null for missing fields; typeof null !== 'string' → 400.
+		const fd = new FormData();
+		fd.set('name', 'My Config');
+		fd.set('mapType', 'lorenz');
+		// deliberately omit 'parameters' so fd.get('parameters') returns null
+		const result = await actions.save({
+			locals: makeLocals(),
+			request: { formData: async () => fd }
+		} as unknown as Parameters<typeof load>[0]);
+		expect(result).toMatchObject({ status: 400 });
+		if ('data' in result) {
+			expect(result.data.saveError).toBeDefined();
+		}
+	});
+});
+
+describe('saved-configs rename action – name not a string from FormData', () => {
+	test('returns 400 when name is null (FormData missing value)', async () => {
+		// FormData.get('name') returns null when the field is missing.
+		selectQueue.push([makeDbConfig()]); // ownership check passes
+		const fd = new FormData();
+		fd.set('configurationId', 'config-1');
+		// omit name → fd.get('name') === null → typeof null !== 'string' → 400
+		const result = await actions.rename({
+			locals: makeLocals(),
+			request: { formData: async () => fd }
+		} as unknown as Parameters<typeof load>[0]);
+		expect(result).toMatchObject({ status: 400 });
+	});
+});
+
+describe('saved-configs delete action – configurationId not a string', () => {
+	test('returns 400 when configurationId is null (FormData missing value)', async () => {
+		const fd = new FormData();
+		// omit configurationId → fd.get('configurationId') === null
+		const result = await actions.delete({
+			locals: makeLocals(),
+			request: { formData: async () => fd }
+		} as unknown as Parameters<typeof load>[0]);
+		expect(result).toMatchObject({ status: 400 });
+	});
+});
