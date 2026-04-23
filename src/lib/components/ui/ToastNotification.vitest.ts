@@ -71,4 +71,53 @@ describe('ToastNotification', () => {
 		});
 		expect(screen.getByText('Be careful')).toBeInTheDocument();
 	});
+
+	it('auto-dismisses after the success duration and calls onDismiss', () => {
+		vi.useFakeTimers();
+		const onDismiss = vi.fn();
+		render(ToastNotification, {
+			props: {
+				variant: 'success',
+				message: 'Saved!',
+				show: true,
+				autoDismiss: true,
+				onDismiss
+			}
+		});
+		vi.advanceTimersByTime(3001); // TOAST_SUCCESS_DURATION_MS is 3000
+		expect(onDismiss).toHaveBeenCalledTimes(1);
+	});
+
+	it('auto-dismisses after the error duration and calls onDismiss', () => {
+		vi.useFakeTimers();
+		const onDismiss = vi.fn();
+		render(ToastNotification, {
+			props: {
+				variant: 'error',
+				message: 'Failed!',
+				show: true,
+				autoDismiss: true,
+				onDismiss
+			}
+		});
+		vi.advanceTimersByTime(5001); // TOAST_ERROR_DURATION_MS is 5000
+		expect(onDismiss).toHaveBeenCalledTimes(1);
+	});
+
+	it('does not auto-dismiss when autoDismiss is false', () => {
+		vi.useFakeTimers();
+		const onDismiss = vi.fn();
+		render(ToastNotification, {
+			props: {
+				variant: 'success',
+				message: 'Persistent',
+				show: true,
+				autoDismiss: false,
+				onDismiss
+			}
+		});
+		vi.advanceTimersByTime(10000);
+		expect(onDismiss).not.toHaveBeenCalled();
+		expect(screen.getByText('Persistent')).toBeInTheDocument();
+	});
 });

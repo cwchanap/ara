@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import SaveConfigDialog from './SaveConfigDialog.svelte';
 
 vi.mock('$app/paths', () => ({ base: '' }));
@@ -80,5 +80,64 @@ describe('SaveConfigDialog', () => {
 	it('displays the map type in uppercase', () => {
 		render(SaveConfigDialog, { props: { ...defaultProps, mapType: 'chaos-esthetique' } });
 		expect(screen.getByText('CHAOS_ESTHETIQUE')).toBeInTheDocument();
+	});
+
+	it('shows the error message when onSave rejects with an Error', async () => {
+		const onSave = vi.fn(async () => {
+			throw new Error('Server unavailable');
+		});
+		render(SaveConfigDialog, { props: { ...defaultProps, onSave } });
+		const input = screen.getByLabelText(/configuration name/i, { selector: 'input' });
+		await fireEvent.input(input, { target: { value: 'My Config' } });
+		const form = screen.getByRole('button', { name: /^SAVE$/i, hidden: true }).closest('form')!;
+		await fireEvent.submit(form);
+		await waitFor(() => {
+			expect(screen.getByText('Server unavailable')).toBeInTheDocument();
+		});
+	});
+
+	it('shows fallback error message when onSave rejects with a non-Error value', async () => {
+		const onSave = vi.fn(async () => {
+			throw 'unexpected failure';
+		});
+		render(SaveConfigDialog, { props: { ...defaultProps, onSave } });
+		const input = screen.getByLabelText(/configuration name/i, { selector: 'input' });
+		await fireEvent.input(input, { target: { value: 'My Config' } });
+		const form = screen.getByRole('button', { name: /^SAVE$/i, hidden: true }).closest('form')!;
+		await fireEvent.submit(form);
+		await waitFor(() => {
+			expect(screen.getByText('Failed to save configuration')).toBeInTheDocument();
+		});
+	});
+
+	it('shows validation error when name is whitespace-only', async () => {
+		render(SaveConfigDialog, { props: defaultProps });
+		const input = screen.getByLabelText(/configuration name/i, { selector: 'input' });
+		await fireEvent.input(input, { target: { value: '   ' } });
+		const form = input.closest('form')!;
+		await fireEvent.submit(form);
+		await waitFor(() => {
+			expect(screen.getByText(/please enter a configuration name/i)).toBeInTheDocument();
+		});
+	});
+
+	it('disables both buttons while saving is in progress', async () => {
+		let resolveOnSave!: () => void;
+		const onSave = vi.fn(
+			() =>
+				new Promise<void>((res) => {
+					resolveOnSave = res;
+				})
+		);
+		render(SaveConfigDialog, { props: { ...defaultProps, onSave } });
+		const input = screen.getByLabelText(/configuration name/i, { selector: 'input' });
+		await fireEvent.input(input, { target: { value: 'My Config' } });
+		const form = input.closest('form')!;
+		await fireEvent.submit(form);
+		await waitFor(() => {
+			const buttons = screen.getAllByRole('button', { hidden: true });
+			buttons.forEach((btn) => expect(btn).toBeDisabled());
+		});
+		resolveOnSave();
 	});
 });

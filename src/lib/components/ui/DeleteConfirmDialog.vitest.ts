@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import DeleteConfirmDialog from './DeleteConfirmDialog.svelte';
 
 beforeEach(() => {
@@ -65,5 +65,43 @@ describe('DeleteConfirmDialog', () => {
 	it('does not show error when error prop is empty', () => {
 		render(DeleteConfirmDialog, { props: defaultProps });
 		expect(screen.queryByText('Delete failed')).not.toBeInTheDocument();
+	});
+
+	it('displays the error message when onConfirm rejects', async () => {
+		const onConfirm = vi.fn(async () => {
+			throw new Error('Network error');
+		});
+		render(DeleteConfirmDialog, { props: { ...defaultProps, onConfirm } });
+		await fireEvent.click(screen.getByRole('button', { name: /^DELETE$/i, hidden: true }));
+		await waitFor(() => {
+			expect(screen.getByText('Network error')).toBeInTheDocument();
+		});
+	});
+
+	it('shows generic error when onConfirm rejects with a non-Error value', async () => {
+		const onConfirm = vi.fn(async () => {
+			throw 'plain string rejection';
+		});
+		render(DeleteConfirmDialog, { props: { ...defaultProps, onConfirm } });
+		await fireEvent.click(screen.getByRole('button', { name: /^DELETE$/i, hidden: true }));
+		await waitFor(() => {
+			expect(screen.getByText('An error occurred')).toBeInTheDocument();
+		});
+	});
+
+	it('shows DELETING text on the button while deletion is in progress', async () => {
+		let resolveConfirm!: () => void;
+		const onConfirm = vi.fn(
+			() =>
+				new Promise<void>((res) => {
+					resolveConfirm = res;
+				})
+		);
+		render(DeleteConfirmDialog, { props: { ...defaultProps, onConfirm } });
+		await fireEvent.click(screen.getByRole('button', { name: /^DELETE$/i, hidden: true }));
+		await waitFor(() => {
+			expect(screen.getByText('DELETING...')).toBeInTheDocument();
+		});
+		resolveConfirm();
 	});
 });
