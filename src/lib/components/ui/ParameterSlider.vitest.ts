@@ -65,4 +65,42 @@ describe('ParameterSlider', () => {
 		// onchange should not be called yet (debounce pending)
 		expect(onchange).not.toHaveBeenCalled();
 	});
+
+	it('calls onchange with the final value after the debounce period', async () => {
+		vi.useFakeTimers();
+		const onchange = vi.fn();
+		render(ParameterSlider, { props: { ...defaultProps, debounce: true, onchange } });
+		const input = screen.getByRole('slider');
+		await fireEvent.input(input, { target: { value: '25' } });
+		vi.advanceTimersByTime(51); // SLIDER_DEBOUNCE_MS is 50
+		expect(onchange).toHaveBeenCalledWith(25);
+		expect(onchange).toHaveBeenCalledTimes(1);
+	});
+
+	it('debounces rapid inputs — only the last value triggers onchange', async () => {
+		vi.useFakeTimers();
+		const onchange = vi.fn();
+		render(ParameterSlider, { props: { ...defaultProps, debounce: true, onchange } });
+		const input = screen.getByRole('slider');
+		await fireEvent.input(input, { target: { value: '10' } });
+		await fireEvent.input(input, { target: { value: '20' } });
+		await fireEvent.input(input, { target: { value: '30' } });
+		vi.advanceTimersByTime(51);
+		expect(onchange).toHaveBeenCalledTimes(1);
+		expect(onchange).toHaveBeenCalledWith(30);
+	});
+
+	it('respects a custom debounceMs value', async () => {
+		vi.useFakeTimers();
+		const onchange = vi.fn();
+		render(ParameterSlider, {
+			props: { ...defaultProps, debounce: true, debounceMs: 200, onchange }
+		});
+		const input = screen.getByRole('slider');
+		await fireEvent.input(input, { target: { value: '15' } });
+		vi.advanceTimersByTime(100); // less than custom 200ms → not yet fired
+		expect(onchange).not.toHaveBeenCalled();
+		vi.advanceTimersByTime(101); // now past 200ms total
+		expect(onchange).toHaveBeenCalledWith(15);
+	});
 });

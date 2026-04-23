@@ -69,6 +69,26 @@ describe('ComparisonLayout', () => {
 		expect(screen.getByText('🔓')).toHaveAttribute('aria-hidden', 'true');
 	});
 
+	it('renders left and right panel content', () => {
+		renderLayout();
+		expect(screen.getByTestId('left-panel')).toBeInTheDocument();
+		expect(screen.getByTestId('right-panel')).toBeInTheDocument();
+	});
+
+	it('does not render the camera sync toggle when showCameraSync is false', () => {
+		render(ComparisonLayout, {
+			props: {
+				mapType: 'lorenz',
+				leftParams: defaultLeftParams,
+				rightParams: defaultRightParams,
+				showCameraSync: false,
+				leftPanel,
+				rightPanel
+			}
+		});
+		expect(screen.queryByRole('button', { name: /camera sync/i })).not.toBeInTheDocument();
+	});
+
 	it('swaps parameters and updates the URL', async () => {
 		const onLeftParamsChange = vi.fn();
 		const onRightParamsChange = vi.fn();
