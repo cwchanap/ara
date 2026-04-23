@@ -1045,7 +1045,12 @@ describe('parseConfigParam – getMaxJsonNestingDepth edge cases', () => {
 
 describe('loadSavedConfigParameters – sessionStorage.removeItem throws silently', () => {
 	test('returns ok:false and does not throw when removeItem throws after validation fails', async () => {
-		const invalidParams = JSON.stringify({ type: 'lorenz', sigma: 'bad', rho: 28, beta: 2.667 });
+		const invalidParams = JSON.stringify({
+			type: 'lorenz',
+			sigma: 'bad',
+			rho: 28,
+			beta: 2.667
+		});
 		const storageKey = 'saved-config:test-id-remove-throws';
 
 		const originalSS = globalThis.sessionStorage;
@@ -1150,7 +1155,13 @@ describe('loadSharedConfigParameters – standard map K→k normalisation', () =
 					status: 200,
 					json: async () => ({
 						mapType: 'standard',
-						parameters: { type: 'standard', K: 1.0, numP: 20, numQ: 20, iterations: 1000 }
+						parameters: {
+							type: 'standard',
+							K: 1.0,
+							numP: 20,
+							numQ: 20,
+							iterations: 1000
+						}
 					})
 				}) as unknown as Response
 		});
