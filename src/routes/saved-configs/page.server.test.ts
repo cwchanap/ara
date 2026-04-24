@@ -568,7 +568,7 @@ describe('saved-configs load – all configs invalid', () => {
 			locals: makeLocals(),
 			url: makeUrl()
 		} as unknown as Parameters<typeof load>[0]);
-		expect(result.configurations).toHaveLength(0);
+		expect(result).toMatchObject({ configurations: [] });
 	});
 });
 
@@ -584,7 +584,7 @@ describe('saved-configs save action – parametersJson not a string', () => {
 			request: { formData: async () => fd }
 		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({ status: 400 });
-		if ('data' in result) {
+		if (result && 'data' in result) {
 			expect(result.data.saveError).toBeDefined();
 		}
 	});

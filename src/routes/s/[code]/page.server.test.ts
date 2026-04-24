@@ -223,7 +223,7 @@ describe('share viewer page load', () => {
 			typeof load
 		>[0]);
 		// Falls back to optimistic: 7 + 1 = 8
-		expect(result.viewCount).toBe(8);
+		expect(result).toMatchObject({ viewCount: 8 });
 	});
 
 	test('still returns 410 when lazy deletion throws on expired share', async () => {
@@ -232,11 +232,14 @@ describe('share viewer page load', () => {
 		selectQueue.push([makeShareRow()]);
 
 		// Override delete mock to throw
-		deleteMock.mockImplementationOnce(() => ({
-			where: async () => {
-				throw new Error('DB delete failed');
-			}
-		}));
+		deleteMock.mockImplementationOnce(
+			() =>
+				({
+					where: async () => {
+						throw new Error('DB delete failed');
+					}
+				}) as never
+		);
 
 		await expect(
 			load({ params: { code: 'ABCD1234' } } as unknown as Parameters<typeof load>[0])
