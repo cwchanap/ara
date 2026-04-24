@@ -583,10 +583,7 @@ describe('saved-configs save action – parametersJson not a string', () => {
 			locals: makeLocals(),
 			request: { formData: async () => fd }
 		} as unknown as Parameters<typeof load>[0]);
-		expect(result).toMatchObject({ status: 400 });
-		if (result && 'data' in result) {
-			expect(result.data.saveError).toBeDefined();
-		}
+		expect(result).toMatchObject({ status: 400, data: { saveError: expect.any(String) } });
 	});
 });
 

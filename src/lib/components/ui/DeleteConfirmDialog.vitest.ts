@@ -103,5 +103,8 @@ describe('DeleteConfirmDialog', () => {
 			expect(screen.getByText('DELETING...')).toBeInTheDocument();
 		});
 		resolveConfirm();
+		await waitFor(() => {
+			expect(screen.queryByText('DELETING...')).not.toBeInTheDocument();
+		});
 	});
 });

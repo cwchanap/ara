@@ -139,5 +139,10 @@ describe('SaveConfigDialog', () => {
 			buttons.forEach((btn) => expect(btn).toBeDisabled());
 		});
 		resolveOnSave();
+		await waitFor(() => {
+			expect(
+				screen.getByRole('button', { name: /cancel/i, hidden: true })
+			).not.toBeDisabled();
+		});
 	});
 });
