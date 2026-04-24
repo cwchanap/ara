@@ -1070,7 +1070,8 @@ describe('loadSavedConfigParameters – sessionStorage.removeItem throws silentl
 				configId: 'test-id-remove-throws',
 				mapType: 'lorenz',
 				base: '',
-				fetchFn: async () => ({ ok: false, status: 404 }) as unknown as Response
+				fetchFn: (async () =>
+					({ ok: false, status: 404 }) as unknown as Response) as unknown as typeof fetch
 			});
 			expect(result.ok).toBe(false);
 		} finally {
@@ -1102,7 +1103,8 @@ describe('loadSavedConfigParameters – sessionStorage.removeItem throws silentl
 				configId: 'test-id-remove-ok',
 				mapType: 'lorenz',
 				base: '',
-				fetchFn: async () => ({ ok: false, status: 404 }) as unknown as Response
+				fetchFn: (async () =>
+					({ ok: false, status: 404 }) as unknown as Response) as unknown as typeof fetch
 			});
 			expect(result.ok).toBe(true);
 			if (result.ok) {
@@ -1125,14 +1127,14 @@ describe('loadSavedConfigParameters – API response missing mapType', () => {
 			configId: 'no-maptype',
 			mapType: 'lorenz',
 			base: '',
-			fetchFn: async () =>
+			fetchFn: (async () =>
 				({
 					ok: true,
 					status: 200,
 					json: async () => ({
 						parameters: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 }
 					})
-				}) as unknown as Response
+				}) as unknown as Response) as unknown as typeof fetch
 		});
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
@@ -1149,7 +1151,7 @@ describe('loadSharedConfigParameters – standard map K→k normalisation', () =
 			shareCode: 'ABC12345',
 			mapType: 'standard',
 			base: '',
-			fetchFn: async () =>
+			fetchFn: (async () =>
 				({
 					ok: true,
 					status: 200,
@@ -1163,12 +1165,12 @@ describe('loadSharedConfigParameters – standard map K→k normalisation', () =
 							iterations: 1000
 						}
 					})
-				}) as unknown as Response
+				}) as unknown as Response) as unknown as typeof fetch
 		});
 		expect(result.ok).toBe(true);
 		if (result.ok) {
-			expect((result.parameters as Record<string, unknown>).k).toBe(1.0);
-			expect((result.parameters as Record<string, unknown>).K).toBeUndefined();
+			expect((result.parameters as unknown as Record<string, unknown>).k).toBe(1.0);
+			expect((result.parameters as unknown as Record<string, unknown>).K).toBeUndefined();
 		}
 	});
 });
