@@ -103,7 +103,7 @@ describe('saved-configs rename interactions', () => {
 			renameError: 'Name already taken',
 			configurationId: 'cfg-rename-1',
 			name: 'My Lorenz Config'
-		} as ActionData);
+		} as unknown as ActionData);
 
 		// The page must show the rename form (renamingConfigId set via effect? No — renameError shown inline)
 		// The renameError is only shown inside the rename form when the configurationId matches
