@@ -6,7 +6,7 @@ export default defineConfig({
 	plugins: [sveltekit()],
 	test: {
 		// Only include vitest component tests (use .vitest.ts extension to avoid bun:test conflicts)
-		include: ['src/lib/**/*.vitest.ts', 'src/routes/**/*.vitest.ts'],
+		include: ['src/**/*.vitest.ts'],
 		globals: true,
 		environment: 'jsdom',
 		setupFiles: ['./vitest.setup.ts'],

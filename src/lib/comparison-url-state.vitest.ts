@@ -198,4 +198,17 @@ describe('decodeComparisonState', () => {
 		expect(decoded!.left).toMatchObject({ k: 0.97 });
 		expect(decoded!.right).toMatchObject({ k: 1.5 });
 	});
+
+	it('normalizes legacy uppercase K to lowercase k for standard map', () => {
+		const legacyPayload = base64Encode(
+			JSON.stringify({ K: 0.97, numP: 20, numQ: 20, iterations: 20000 })
+		);
+		const url = new URL(
+			`http://localhost/standard/compare?compare=true&left=${legacyPayload}&right=${legacyPayload}`
+		);
+		const decoded = decodeComparisonState(url, 'standard');
+		expect(decoded).not.toBeNull();
+		expect((decoded!.left as Record<string, unknown>).k).toBe(0.97);
+		expect((decoded!.left as Record<string, unknown>).K).toBeUndefined();
+	});
 });

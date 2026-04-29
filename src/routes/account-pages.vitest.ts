@@ -198,4 +198,40 @@ describe('profile page', () => {
 		render(ProfilePage, { props: { data: makeProfileData(), form: null } });
 		expect(screen.getByRole('button', { name: /update username/i })).toBeInTheDocument();
 	});
+
+	it('shows new password validation error when new password is too short', async () => {
+		render(ProfilePage, { props: { data: makeProfileData(), form: null } });
+		const newPasswordInput = screen.getByLabelText('New Password');
+		await fireEvent.input(newPasswordInput, { target: { value: 'short' } });
+		expect(screen.getByText('Password must be at least 8 characters')).toBeInTheDocument();
+	});
+
+	it('shows passwords do not match when confirm password differs', async () => {
+		render(ProfilePage, { props: { data: makeProfileData(), form: null } });
+		const newPasswordInput = screen.getByLabelText('New Password');
+		await fireEvent.input(newPasswordInput, { target: { value: 'validpassword123' } });
+		const confirmInput = screen.getByLabelText('Confirm New Password');
+		await fireEvent.input(confirmInput, { target: { value: 'differentpassword' } });
+		expect(screen.getByText('Passwords do not match')).toBeInTheDocument();
+	});
+});
+
+describe('signup page – password validation', () => {
+	it('shows password validation error when password is too short', async () => {
+		render(SignupPage, { props: { form: null } });
+		const passwordInput = screen.getByLabelText('Password');
+		await fireEvent.input(passwordInput, { target: { value: 'short' } });
+		expect(screen.getByText('Password must be at least 8 characters')).toBeInTheDocument();
+	});
+
+	it('shows confirm password error when passwords do not match', async () => {
+		render(SignupPage, { props: { form: null } });
+		await fireEvent.input(screen.getByLabelText('Password'), {
+			target: { value: 'validpassword123' }
+		});
+		await fireEvent.input(screen.getByLabelText('Confirm Password'), {
+			target: { value: 'differentpassword' }
+		});
+		expect(screen.getByText('Passwords do not match')).toBeInTheDocument();
+	});
 });
