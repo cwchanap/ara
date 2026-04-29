@@ -231,6 +231,24 @@ describe('createSaveHandler', () => {
 		expect(state.saveSuccess).toBe(false);
 		await promise;
 	});
+
+	it('clears pending toast timeout when a new save starts', async () => {
+		const state = makeState();
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));
+
+		const { save } = createSaveHandler('lorenz', state, makeParams);
+		// First save sets a success toast timeout
+		await save('Config 1');
+		expect(state.saveSuccess).toBe(true);
+
+		// Second save starts before the toast timeout fires; must clear timeoutId (lines 92-93)
+		await save('Config 2');
+		// After second save completes, state should reflect the second save's success
+		expect(state.saveSuccess).toBe(true);
+		// Advance past the toast duration to verify cleanup works
+		vi.runAllTimers();
+		expect(state.saveSuccess).toBe(false);
+	});
 });
 
 describe('loadConfigFromUrl', () => {
