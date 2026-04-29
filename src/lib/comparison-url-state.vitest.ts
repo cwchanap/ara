@@ -208,7 +208,7 @@ describe('decodeComparisonState', () => {
 		);
 		const decoded = decodeComparisonState(url, 'standard');
 		expect(decoded).not.toBeNull();
-		expect((decoded!.left as unknown as Record<string, unknown>).k).toBe(0.97);
-		expect((decoded!.left as unknown as Record<string, unknown>).K).toBeUndefined();
+		expect(decoded!.left).toMatchObject({ k: 0.97 });
+		expect(decoded!.left).not.toHaveProperty('K');
 	});
 });

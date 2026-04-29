@@ -97,10 +97,13 @@ describe('downloadSnapshot – document.body is null', () => {
 	});
 
 	it('calls link.click() directly when document.body is null (fallback path)', () => {
-		// Temporarily replace document.body with null
-		const originalBody = document.body;
+		// Save the original descriptor so we can fully restore it (not just the value)
+		const originalBodyDescriptor =
+			Object.getOwnPropertyDescriptor(document, 'body') ??
+			Object.getOwnPropertyDescriptor(Object.getPrototypeOf(document), 'body');
 		Object.defineProperty(document, 'body', {
-			get: () => null,
+			value: null,
+			writable: true,
 			configurable: true
 		});
 
@@ -118,10 +121,9 @@ describe('downloadSnapshot – document.body is null', () => {
 			downloadSnapshot('data:image/png;base64,abc', 'test.png');
 			expect(clickSpy).toHaveBeenCalledTimes(1);
 		} finally {
-			Object.defineProperty(document, 'body', {
-				get: () => originalBody,
-				configurable: true
-			});
+			if (originalBodyDescriptor) {
+				Object.defineProperty(document, 'body', originalBodyDescriptor);
+			}
 		}
 	});
 });
@@ -157,5 +159,6 @@ describe('captureContainer – jpeg format', () => {
 
 		const result = await captureContainer(container, { format: 'jpeg', quality: 0.8 });
 		expect(result.success).toBe(true);
+		expect(result.dataUrl).toBe('data:image/jpeg;base64,mock');
 	});
 });
