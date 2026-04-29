@@ -235,6 +235,7 @@ describe('createSaveHandler', () => {
 	it('clears pending toast timeout when a new save starts', async () => {
 		const state = makeState();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));
+		const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout');
 
 		const { save } = createSaveHandler('lorenz', state, makeParams);
 		// First save sets a success toast timeout
@@ -243,6 +244,7 @@ describe('createSaveHandler', () => {
 
 		// Second save starts before the toast timeout fires; must clear timeoutId (lines 92-93)
 		await save('Config 2');
+		expect(clearTimeoutSpy).toHaveBeenCalledTimes(1);
 		// After second save completes, state should reflect the second save's success
 		expect(state.saveSuccess).toBe(true);
 		// Advance past the toast duration to verify cleanup works

@@ -98,17 +98,30 @@ describe('saved-configs rename interactions', () => {
 		});
 	});
 
-	it('shows rename error from form results for matching configurationId', () => {
-		renderPage([defaultConfig], {
-			renameError: 'Name already taken',
-			configurationId: 'cfg-rename-1',
-			name: 'My Lorenz Config'
-		} as unknown as ActionData);
+	it('shows rename error from form results for matching configurationId', async () => {
+		// Simulate the post-form-submission state: user was in rename mode when the action
+		// returned an error, so renamingConfigId is already set (not cleared by startRename).
+		const data: PageData = {
+			configurations: [defaultConfig],
+			session: null,
+			user: null
+		};
+		const { rerender } = render(SavedConfigsPage, { props: { data, form: null } });
 
-		// The page must show the rename form (renamingConfigId set via effect? No — renameError shown inline)
-		// The renameError is only shown inside the rename form when the configurationId matches
-		// So we need to open rename first
-		expect(screen.getByText('My Lorenz Config')).toBeInTheDocument();
+		// Enter rename mode (startRename clears renameError)
+		await fireEvent.click(screen.getByTitle('Rename'));
+		expect(screen.getByDisplayValue('My Lorenz Config')).toBeInTheDocument();
+
+		// Now simulate the form returning an error (as happens after a failed rename submit)
+		await rerender({
+			data,
+			form: {
+				renameError: 'Name already taken',
+				configurationId: 'cfg-rename-1'
+			} as unknown as ActionData
+		});
+
+		expect(screen.getByText('Name already taken')).toBeInTheDocument();
 	});
 
 	it('shows rename success toast when form returns renameSuccess', () => {
