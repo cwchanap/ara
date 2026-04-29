@@ -36,7 +36,7 @@ const pageStore = vi.hoisted(() => {
 		route: { id: null },
 		status: 200,
 		error: null,
-		data: {},
+		data: { session: null, user: null },
 		form: null,
 		state: {}
 	};
@@ -75,9 +75,19 @@ vi.mock('$lib/assets/favicon.svg', () => ({ default: '/favicon.svg' }));
 import LayoutComponent from './+layout.svelte';
 
 // --- Helpers -------------------------------------------------------------
-function makeData(authenticated = false) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function makeData(authenticated = false): any {
 	return {
-		session: authenticated ? { access_token: 'tok', expires_at: 9999999999 } : null,
+		session: authenticated
+			? {
+					access_token: 'tok',
+					refresh_token: 'ref',
+					expires_in: 3600,
+					expires_at: 9999999999,
+					token_type: 'bearer',
+					user: { id: 'user-1', email: 'user@example.com' }
+				}
+			: null,
 		user: authenticated ? { id: 'user-1', email: 'user@example.com' } : null,
 		profile: null
 	};
@@ -223,7 +233,7 @@ describe('layout – auth state change handling', () => {
 			route: { id: null },
 			status: 200,
 			error: null,
-			data: {},
+			data: { session: null, user: null },
 			form: null,
 			state: {}
 		});
@@ -250,7 +260,7 @@ describe('layout – auth state change handling', () => {
 			route: { id: null },
 			status: 200,
 			error: null,
-			data: {},
+			data: { session: null, user: null },
 			form: null,
 			state: {}
 		});
