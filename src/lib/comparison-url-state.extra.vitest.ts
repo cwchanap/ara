@@ -18,16 +18,16 @@ describe('base64Decode – Buffer fallback path', () => {
 
 	it('throws when neither atob nor Buffer is available', () => {
 		vi.stubGlobal('atob', undefined);
-		const originalBuffer = global.Buffer;
+		const originalBuffer = globalThis.Buffer;
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		(global as any).Buffer = undefined;
+		(globalThis as any).Buffer = undefined;
 
 		try {
 			expect(() => base64Decode('dGVzdA==')).toThrow(
 				'No base64 decoding method available in current environment'
 			);
 		} finally {
-			global.Buffer = originalBuffer;
+			globalThis.Buffer = originalBuffer;
 		}
 	});
 });
@@ -49,16 +49,16 @@ describe('base64Encode – Buffer fallback path', () => {
 
 	it('throws when neither btoa nor Buffer is available', () => {
 		vi.stubGlobal('btoa', undefined);
-		const originalBuffer = global.Buffer;
+		const originalBuffer = globalThis.Buffer;
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		(global as any).Buffer = undefined;
+		(globalThis as any).Buffer = undefined;
 
 		try {
 			expect(() => base64Encode('test')).toThrow(
 				'No base64 encoding method available in current environment'
 			);
 		} finally {
-			global.Buffer = originalBuffer;
+			globalThis.Buffer = originalBuffer;
 		}
 	});
 });
