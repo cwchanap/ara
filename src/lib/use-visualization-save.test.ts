@@ -188,6 +188,19 @@ describe('createSaveHandler', () => {
 			cleanup();
 		});
 
+		test('clears previous saveSuccess at start of new save', async () => {
+			const state = makeState({ saveSuccess: true });
+			globalThis.fetch = makeFetch({ ok: true });
+
+			const { save, cleanup } = createSaveHandler('lorenz', state, getParams);
+			const promise = save('My Config');
+
+			expect(state.saveSuccess).toBe(false);
+
+			await promise;
+			cleanup();
+		});
+
 		test('auto-clears saveSuccess when success timeout callback runs', async () => {
 			const state = makeState();
 			globalThis.fetch = makeFetch({ ok: true });

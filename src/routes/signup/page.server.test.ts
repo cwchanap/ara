@@ -212,9 +212,49 @@ describe('signup default action', () => {
 			} as unknown as Parameters<(typeof actions)['default']>[0]);
 			expect(result).toMatchObject({ status: 400 });
 		});
+
+		test('returns 400 for username exceeding 30 characters', async () => {
+			const result = await actions.default({
+				locals: makeLocals(),
+				request: makeRequest({ ...validFields, username: 'a'.repeat(31) }),
+				url: new URL('http://localhost/signup')
+			} as unknown as Parameters<(typeof actions)['default']>[0]);
+			expect(result).toMatchObject({
+				status: 400,
+				data: { error: 'Username must be at most 30 characters' }
+			});
+		});
+
+		test('returns 400 for username with invalid characters', async () => {
+			const result = await actions.default({
+				locals: makeLocals(),
+				request: makeRequest({ ...validFields, username: 'invalid-user!' }),
+				url: new URL('http://localhost/signup')
+			} as unknown as Parameters<(typeof actions)['default']>[0]);
+			expect(result).toMatchObject({
+				status: 400,
+				data: { error: 'Username can only contain letters, numbers, and underscores' }
+			});
+		});
 	});
 
 	describe('password validation', () => {
+		test('returns 400 for empty password', async () => {
+			const result = await actions.default({
+				locals: makeLocals(),
+				request: makeRequest({
+					...validFields,
+					password: '',
+					confirmPassword: ''
+				}),
+				url: new URL('http://localhost/signup')
+			} as unknown as Parameters<(typeof actions)['default']>[0]);
+			expect(result).toMatchObject({
+				status: 400,
+				data: { error: 'Password is required' }
+			});
+		});
+
 		test('returns 400 for password that is too short', async () => {
 			const result = await actions.default({
 				locals: makeLocals(),

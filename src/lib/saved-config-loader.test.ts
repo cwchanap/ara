@@ -386,6 +386,86 @@ describe('parseConfigParam', () => {
 			const result = parseConfigParam({ mapType: 'henon', configParam });
 			expect(result.ok).toBe(true);
 		});
+
+		test('returns ok:true for all supported map types', () => {
+			const allMapTypeCases: Array<{
+				mapType: ChaosMapType;
+				params: Record<string, unknown>;
+			}> = [
+				{ mapType: 'lorenz', params: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 } },
+				{ mapType: 'rossler', params: { type: 'rossler', a: 0.2, b: 0.2, c: 5.7 } },
+				{ mapType: 'henon', params: { type: 'henon', a: 1.4, b: 0.3, iterations: 2000 } },
+				{
+					mapType: 'lozi',
+					params: { type: 'lozi', a: 0.5, b: 0.3, x0: 0, y0: 0, iterations: 2000 }
+				},
+				{
+					mapType: 'logistic',
+					params: { type: 'logistic', r: 3.5, x0: 0.5, iterations: 100 }
+				},
+				{
+					mapType: 'newton',
+					params: {
+						type: 'newton',
+						xMin: -2,
+						xMax: 2,
+						yMin: -2,
+						yMax: 2,
+						maxIterations: 50
+					}
+				},
+				{
+					mapType: 'standard',
+					params: { type: 'standard', k: 1, numP: 50, numQ: 50, iterations: 1000 }
+				},
+				{
+					mapType: 'bifurcation-logistic',
+					params: {
+						type: 'bifurcation-logistic',
+						rMin: 2.5,
+						rMax: 4,
+						maxIterations: 1000
+					}
+				},
+				{
+					mapType: 'bifurcation-henon',
+					params: {
+						type: 'bifurcation-henon',
+						aMin: 0.5,
+						aMax: 1.5,
+						b: 0.3,
+						maxIterations: 1000
+					}
+				},
+				{
+					mapType: 'chaos-esthetique',
+					params: {
+						type: 'chaos-esthetique',
+						a: 1.5,
+						b: 0.5,
+						x0: 0,
+						y0: 0,
+						iterations: 5000
+					}
+				},
+				{
+					mapType: 'lyapunov',
+					params: {
+						type: 'lyapunov',
+						rMin: 2,
+						rMax: 4,
+						iterations: 1000,
+						transientIterations: 100
+					}
+				}
+			];
+
+			for (const { mapType, params } of allMapTypeCases) {
+				const configParam = encodeURIComponent(JSON.stringify(params));
+				const result = parseConfigParam({ mapType, configParam });
+				expect(result.ok).toBe(true);
+			}
+		});
 	});
 
 	describe('URI decoding failure', () => {
