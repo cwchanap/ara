@@ -572,17 +572,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('$app/paths', () => ({ base: '' }));
 
-import {
-	createInitialShareState,
-	createShareHandler
-} from './use-visualization-share';
+import { createInitialShareState, createShareHandler } from './use-visualization-share';
 
 describe('createInitialShareState', () => {
 	it('returns correct initial state', () => {
 		const state = createInitialShareState();
 		expect(state.isSharing).toBe(false);
 		expect(state.shareUrl).toBeNull();
-		expect(state.shareError).toBeNull());
+		expect(state.shareError).toBeNull();
 	});
 });
 

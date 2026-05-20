@@ -171,7 +171,7 @@ describe('LorenzRenderer compare mode', () => {
 		cleanup();
 	});
 
-	it('renders in compare mode with left and right sides', () => {
+	it('renders in compare mode with left side', () => {
 		expect(() =>
 			render(LorenzRenderer, {
 				props: {
@@ -184,9 +184,9 @@ describe('LorenzRenderer compare mode', () => {
 				}
 			})
 		).not.toThrow();
+	});
 
-		cleanup();
-
+	it('renders in compare mode with right side', () => {
 		expect(() =>
 			render(LorenzRenderer, {
 				props: {
