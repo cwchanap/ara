@@ -205,4 +205,117 @@ describe('SnapshotButton', () => {
 			expect(captureCanvas).toHaveBeenCalledWith(mockCanvas, { format: 'jpeg', quality: 0.8 })
 		);
 	});
+
+	it('shows type mismatch error when targetType is canvas but target is a div', async () => {
+		const mockDiv = document.createElement('div');
+
+		render(SnapshotButton, {
+			props: {
+				target: mockDiv,
+				targetType: 'canvas',
+				mapType: 'henon'
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button'));
+
+		await screen.findByText(/Type mismatch/);
+		expect(screen.getByTitle(/Type mismatch/)).toHaveTextContent('HTMLDivElement');
+	});
+
+	it('shows type mismatch error when targetType is container but target is not an HTMLElement', async () => {
+		const textNode = document.createTextNode('not an element');
+
+		render(SnapshotButton, {
+			props: {
+				target: textNode as unknown as HTMLElement,
+				targetType: 'container',
+				mapType: 'henon'
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button'));
+
+		await screen.findByText(/Type mismatch/);
+	});
+
+	it('shows unexpected error when captureCanvas throws an exception', async () => {
+		const mockCanvas = document.createElement('canvas');
+		vi.mocked(captureCanvas).mockRejectedValue(new Error('out of memory'));
+
+		render(SnapshotButton, {
+			props: {
+				target: mockCanvas,
+				targetType: 'canvas',
+				mapType: 'henon'
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button'));
+
+		await screen.findByText('✗ out of memory');
+	});
+
+	it('shows generic error when catch block receives non-Error', async () => {
+		const mockCanvas = document.createElement('canvas');
+		vi.mocked(captureCanvas).mockRejectedValue('string error');
+
+		render(SnapshotButton, {
+			props: {
+				target: mockCanvas,
+				targetType: 'canvas',
+				mapType: 'henon'
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button'));
+
+		await screen.findByText('✗ Unexpected error');
+	});
+
+	it('shows unexpected error when captureContainer throws', async () => {
+		const mockContainer = document.createElement('div');
+		vi.mocked(captureContainer).mockRejectedValue(new Error('render failure'));
+
+		render(SnapshotButton, {
+			props: {
+				target: mockContainer,
+				targetType: 'container',
+				mapType: 'lorenz'
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button'));
+
+		await screen.findByText('✗ render failure');
+	});
+
+	it('prevents duplicate captures when isCapturing is true', async () => {
+		const mockCanvas = document.createElement('canvas');
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		let resolveCapture: (value: any) => void;
+		const capturePromise = new Promise((resolve) => {
+			resolveCapture = resolve;
+		});
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		vi.mocked(captureCanvas).mockReturnValue(capturePromise as any);
+
+		render(SnapshotButton, {
+			props: {
+				target: mockCanvas,
+				targetType: 'canvas',
+				mapType: 'henon'
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button'));
+		expect(screen.getByText('Capturing...')).toBeInTheDocument();
+
+		await fireEvent.click(screen.getByRole('button'));
+
+		expect(captureCanvas).toHaveBeenCalledTimes(1);
+
+		resolveCapture!({ success: true, dataUrl: 'data:image/png;base64,test' });
+		await waitFor(() => expect(screen.queryByText('Capturing...')).not.toBeInTheDocument());
+	});
 });

@@ -136,3 +136,95 @@ describe('LorenzRenderer (smoke)', () => {
 		expect(container.querySelector('div')).not.toBeNull();
 	});
 });
+
+describe('LorenzRenderer with different props', () => {
+	afterEach(() => {
+		cleanup();
+	});
+
+	it('renders with custom sigma, rho, beta values', () => {
+		expect(() =>
+			render(LorenzRenderer, {
+				props: { sigma: 15, rho: 35, beta: 1.5, height: 200 }
+			})
+		).not.toThrow();
+	});
+
+	it('renders with different height', () => {
+		const { container } = render(LorenzRenderer, {
+			props: { sigma: 10, rho: 28, beta: 2.667, height: 400 }
+		});
+		const wrapper = container.querySelector('div');
+		expect(wrapper?.getAttribute('style')).toContain('400px');
+	});
+
+	it('displays LIVE_RENDER label', () => {
+		const { container } = render(LorenzRenderer, {
+			props: { sigma: 10, rho: 28, beta: 2.667, height: 200 }
+		});
+		expect(container.textContent).toContain('LIVE_RENDER');
+	});
+});
+
+describe('LorenzRenderer compare mode', () => {
+	afterEach(() => {
+		cleanup();
+	});
+
+	it('renders in compare mode with left and right sides', () => {
+		expect(() =>
+			render(LorenzRenderer, {
+				props: {
+					sigma: 10,
+					rho: 28,
+					beta: 2.667,
+					height: 200,
+					compareMode: true,
+					compareSide: 'left'
+				}
+			})
+		).not.toThrow();
+
+		cleanup();
+
+		expect(() =>
+			render(LorenzRenderer, {
+				props: {
+					sigma: 10,
+					rho: 28,
+					beta: 2.667,
+					height: 200,
+					compareMode: true,
+					compareSide: 'right'
+				}
+			})
+		).not.toThrow();
+	});
+});
+
+describe('LorenzRenderer Three.js integration', () => {
+	afterEach(() => {
+		cleanup();
+	});
+
+	it('creates Three.js scene objects', async () => {
+		const THREE = await import('three');
+		render(LorenzRenderer, {
+			props: { sigma: 10, rho: 28, beta: 2.667, height: 200 }
+		});
+		expect(THREE.WebGLRenderer).toHaveBeenCalled();
+		expect(THREE.Scene).toHaveBeenCalled();
+		expect(THREE.PerspectiveCamera).toHaveBeenCalled();
+		expect(THREE.GridHelper).toHaveBeenCalled();
+	});
+
+	it('creates OrbitControls and Line2', async () => {
+		const { OrbitControls } = await import('three/examples/jsm/controls/OrbitControls.js');
+		const { Line2 } = await import('three/examples/jsm/lines/Line2.js');
+		render(LorenzRenderer, {
+			props: { sigma: 10, rho: 28, beta: 2.667, height: 200 }
+		});
+		expect(OrbitControls).toHaveBeenCalled();
+		expect(Line2).toHaveBeenCalled();
+	});
+});
