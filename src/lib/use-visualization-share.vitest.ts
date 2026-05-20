@@ -207,9 +207,9 @@ describe('createShareHandler', () => {
 				resolveFetch = resolve;
 			});
 
-			vi.spyOn(globalThis, 'fetch').mockImplementationOnce(
-				() => pendingPromise as Promise<Response>
-			);
+			const fetchSpy = vi
+				.spyOn(globalThis, 'fetch')
+				.mockImplementationOnce(() => pendingPromise as Promise<Response>);
 
 			const { share, cleanup } = createShareHandler(
 				'lorenz' as ChaosMapType,
@@ -218,7 +218,15 @@ describe('createShareHandler', () => {
 			);
 
 			const sharePromise = share();
+
+			// Verify fetch was called with an AbortSignal
+			const fetchSignal = fetchSpy.mock.calls[0][1].signal as AbortSignal;
+			expect(fetchSignal.aborted).toBe(false);
+
 			cleanup();
+
+			// Verify the signal was aborted after cleanup
+			expect(fetchSignal.aborted).toBe(true);
 
 			resolveFetch!(
 				new Response(JSON.stringify({ shareUrl: '/s/x', expiresAt: '2026-01-01' }), {

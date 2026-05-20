@@ -215,7 +215,7 @@ describe('createSaveHandler', () => {
 		expect(state.saveError).toBeNull();
 	});
 
-	it('cleanup clears timeout and aborts controller', async () => {
+	it('cleanup clears timeout after completed save', async () => {
 		vi.useFakeTimers();
 		const mockFetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
 		vi.stubGlobal('fetch', mockFetch);
@@ -229,7 +229,14 @@ describe('createSaveHandler', () => {
 		await handler.save('test');
 
 		expect(state.saveSuccess).toBe(true);
+
+		// Verify the fetch was called with an AbortSignal
+		const fetchSignal = mockFetch.mock.calls[0][1].signal as AbortSignal;
+		expect(fetchSignal).toBeInstanceOf(AbortSignal);
+
 		handler.cleanup();
+
+		// After cleanup, timeout is cleared so saveSuccess should remain true
 		vi.advanceTimersByTime(3000);
 		expect(state.saveSuccess).toBe(true);
 	});
@@ -265,7 +272,16 @@ describe('createSaveHandler', () => {
 		}));
 
 		const save1 = handler.save('first');
+
+		// Verify fetch was called with an AbortSignal
+		const fetchSignal = mockFetch.mock.calls[0][1].signal as AbortSignal;
+		expect(fetchSignal.aborted).toBe(false);
+
 		handler.cleanup();
+
+		// Verify the signal was aborted
+		expect(fetchSignal.aborted).toBe(true);
+
 		resolveSave!({ ok: true, json: () => Promise.resolve({}) });
 		await save1;
 

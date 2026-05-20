@@ -27,19 +27,25 @@ describe('generateFilename', () => {
 	it('pads single-digit month/day/hour/minute/second with zeros', () => {
 		const date = new Date(2025, 0, 5, 3, 7, 9);
 		vi.useFakeTimers();
-		vi.setSystemTime(date);
-		const result = generateFilename('test');
-		expect(result).toBe('test_2025-01-05_03-07-09.png');
-		vi.useRealTimers();
+		try {
+			vi.setSystemTime(date);
+			const result = generateFilename('test');
+			expect(result).toBe('test_2025-01-05_03-07-09.png');
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it('handles double-digit values without extra padding', () => {
 		const date = new Date(2025, 10, 12, 14, 30, 45);
 		vi.useFakeTimers();
-		vi.setSystemTime(date);
-		const result = generateFilename('test');
-		expect(result).toBe('test_2025-11-12_14-30-45.png');
-		vi.useRealTimers();
+		try {
+			vi.setSystemTime(date);
+			const result = generateFilename('test');
+			expect(result).toBe('test_2025-11-12_14-30-45.png');
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });
 
