@@ -220,7 +220,11 @@ describe('createShareHandler', () => {
 			const sharePromise = share();
 
 			// Verify fetch was called with an AbortSignal
-			const fetchSignal = fetchSpy.mock.calls[0][1].signal as AbortSignal;
+			const fetchCall = fetchSpy.mock.calls[0];
+			expect(fetchCall).toBeDefined();
+			const fetchOptions = fetchCall![1];
+			expect(fetchOptions).toBeDefined();
+			const fetchSignal = fetchOptions!.signal as AbortSignal;
 			expect(fetchSignal.aborted).toBe(false);
 
 			cleanup();
