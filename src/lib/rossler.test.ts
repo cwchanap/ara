@@ -284,6 +284,23 @@ describe('calculateRossler', () => {
 		}
 	});
 
+	test('larger dt produces more change per step', () => {
+		const params = { x0: 1, y0: 0, z0: 0, steps: 1, dt: 0.01, a: 0.2, b: 0.2, c: 5.7 };
+		const smallDt = calculateRossler({ ...params, dt: 0.001 });
+		const largeDt = calculateRossler({ ...params, dt: 0.1 });
+		const distSmall = Math.sqrt(
+			(smallDt[0].x - params.x0) ** 2 +
+				(smallDt[0].y - params.y0) ** 2 +
+				(smallDt[0].z - params.z0) ** 2
+		);
+		const distLarge = Math.sqrt(
+			(largeDt[0].x - params.x0) ** 2 +
+				(largeDt[0].y - params.y0) ** 2 +
+				(largeDt[0].z - params.z0) ** 2
+		);
+		expect(distLarge).toBeGreaterThan(distSmall);
+	});
+
 	test('single step with non-zero z0 matches RK4 formula', () => {
 		const x0 = 0,
 			y0 = 0,

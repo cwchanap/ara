@@ -289,6 +289,20 @@ describe('checkParameterStability for lyapunov', () => {
 		const result = checkParameterStability('lyapunov', params);
 		expect(result.isStable).toBe(true);
 	});
+
+	test('warns on both rMin >= rMax and transientIterations > iterations simultaneously', () => {
+		const params = {
+			type: 'lyapunov' as const,
+			rMin: 3.5,
+			rMax: 2.0,
+			iterations: 500,
+			transientIterations: 600
+		};
+		const result = checkParameterStability('lyapunov', params);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings).toContain('rMin must be less than rMax');
+		expect(result.warnings).toContain('transientIterations must be <= iterations');
+	});
 });
 
 describe('isValidMapType for lyapunov', () => {

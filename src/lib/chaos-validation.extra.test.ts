@@ -310,6 +310,20 @@ describe('checkParameterStability for newton – additional cases', () => {
 		});
 		expect(result.isStable).toBe(false);
 	});
+
+	test('warns for both xMin >= xMax and yMin >= yMax simultaneously', () => {
+		const result = checkParameterStability('newton', {
+			type: 'newton',
+			xMin: 1,
+			xMax: -1,
+			yMin: 1,
+			yMax: -1,
+			maxIterations: 50
+		});
+		expect(result.isStable).toBe(false);
+		expect(result.warnings).toContain('xMin must be less than xMax');
+		expect(result.warnings).toContain('yMin must be less than yMax');
+	});
 });
 
 // ── checkParameterStability for standard ─────────────────────────────────────
@@ -589,5 +603,16 @@ describe('isValidMapType – edge cases', () => {
 	test('returns false for lorenz with wrong casing', () => {
 		expect(isValidMapType('Lorenz')).toBe(false);
 		expect(isValidMapType('LORENZ')).toBe(false);
+	});
+});
+
+describe('validateParameters with non-object input', () => {
+	test('returns invalid for params that are not an object', () => {
+		const result = validateParameters(
+			'lorenz',
+			'not-an-object' as unknown as Record<string, unknown>
+		);
+		expect(result.isValid).toBe(false);
+		expect(result.errors).toContain('Parameters must be an object');
 	});
 });
