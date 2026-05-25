@@ -16,8 +16,14 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 };
 
 export const actions: Actions = {
-	default: async ({ cookies, request, url }) => {
+	default: async ({ cookies, locals, request, url }) => {
 		const redirectTo = getSafeRedirectPath(url.searchParams.get('redirect'), base || '/');
+		const { session } = await locals.safeGetSession();
+
+		if (session) {
+			throw redirect(303, redirectTo);
+		}
+
 		const result = await startGoogleOAuth({ request, callbackURL: redirectTo });
 
 		applyNeonSetCookieHeaders(cookies, result.setCookieHeaders);
