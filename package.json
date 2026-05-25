@@ -56,8 +56,6 @@
 	"dependencies": {
 		"@neondatabase/auth": "^0.4.1-beta",
 		"@neondatabase/serverless": "^1.0.2",
-		"@supabase/ssr": "^0.8.0",
-		"@supabase/supabase-js": "^2.86.0",
 		"d3": "^7.9.0",
 		"drizzle-orm": "^0.44.7",
 		"three": "^0.181.2"

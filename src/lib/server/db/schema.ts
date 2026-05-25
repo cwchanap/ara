@@ -10,9 +10,9 @@ import {
 } from 'drizzle-orm/pg-core';
 
 // Profiles table - stores user profile data
-// Links to Supabase auth.users via the id (UUID from Supabase)
+// Links to Neon Auth users via the id (UUID from the auth session user)
 export const profiles = pgTable('profiles', {
-	id: uuid('id').primaryKey(), // Matches Supabase auth.users.id
+	id: uuid('id').primaryKey(), // Matches Neon Auth user.id
 	username: text('username').unique().notNull(),
 	createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
 		.defaultNow()

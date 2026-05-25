@@ -55,7 +55,7 @@ export const actions: Actions = {
 		}
 
 		// Update or create profile in Neon DB (upsert pattern)
-		// This handles the case where a profile might be missing due to a failed signup
+		// This handles sessions that exist before the matching profile row is provisioned.
 		try {
 			const result = await db
 				.update(profiles)

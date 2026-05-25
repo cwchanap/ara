@@ -83,12 +83,11 @@ export function json(data, init) {
 			loader: 'js'
 		}));
 
-		// Stub for $env/static/public: used by supabase-admin and browser Supabase
-		// client. In tests we return placeholder values so imports don't crash.
+		// Stub for $env/static/public: used by Neon Auth browser redirects.
+		// In tests we return placeholder values so imports don't crash.
 		build.module('$env/static/public', () => ({
 			contents: `
-export const PUBLIC_SUPABASE_URL = process.env.PUBLIC_SUPABASE_URL ?? 'http://localhost:54321';
-export const PUBLIC_SUPABASE_ANON_KEY = process.env.PUBLIC_SUPABASE_ANON_KEY ?? 'test-anon-key';
+export const PUBLIC_NEON_AUTH_URL = process.env.PUBLIC_NEON_AUTH_URL ?? 'https://auth.example.test/auth';
 `,
 			loader: 'js'
 		}));

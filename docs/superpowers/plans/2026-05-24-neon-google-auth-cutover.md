@@ -1253,7 +1253,7 @@ Expected:
 - Modify: `package.json`
 - Modify: `bun.lock`
 
-- [ ] **Step 1: Remove Supabase source and tests**
+- [x] **Step 1: Remove Supabase source and tests**
 
 Run:
 
@@ -1265,7 +1265,7 @@ Expected:
 
 - Supabase client/admin files are removed.
 
-- [ ] **Step 2: Remove Supabase env stubs from Bun setup**
+- [x] **Step 2: Remove Supabase env stubs from Bun setup**
 
 In `src/test-setup.ts`, replace the `$env/static/public` stub contents with:
 
@@ -1278,7 +1278,7 @@ export const PUBLIC_NEON_AUTH_URL = process.env.PUBLIC_NEON_AUTH_URL ?? 'https:/
 }));
 ```
 
-- [ ] **Step 3: Update repository docs**
+- [x] **Step 3: Update repository docs**
 
 In `AGENTS.md` and `CLAUDE.md`, replace the auth/database sections with this content:
 
@@ -1304,7 +1304,7 @@ Replace protected route guidance with:
 
 Remove password-change guidance.
 
-- [ ] **Step 4: Verify no Supabase references remain in source**
+- [x] **Step 4: Verify no Supabase references remain in source**
 
 Run:
 
@@ -1329,7 +1329,7 @@ Expected:
 - No matches.
 - If matches remain in historical comments or tests, update the copy or delete the obsolete test.
 
-- [ ] **Step 5: Run docs/source cleanup tests**
+- [x] **Step 5: Run docs/source cleanup tests**
 
 Run:
 
@@ -1339,7 +1339,7 @@ bun test src/lib/auth/neon-contract.test.ts src/lib/auth/neon.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit cleanup**
+- [x] **Step 6: Commit cleanup**
 
 Run:
 
