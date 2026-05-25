@@ -102,8 +102,11 @@
 				isUpdatingUsername = true;
 				usernameSuccess = '';
 				return async ({ update }) => {
-					await update();
-					isUpdatingUsername = false;
+					try {
+						await update();
+					} finally {
+						isUpdatingUsername = false;
+					}
 				};
 			}}
 		>

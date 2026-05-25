@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 
 	type LoginForm = { error?: string } | null | undefined;
-	let { form, data }: { form?: LoginForm; data?: { redirectTo?: string } } = $props();
+	let { form }: { form?: LoginForm } = $props();
 	let isLoading = $state(false);
 </script>
 
@@ -38,12 +38,14 @@
 				use:enhance={() => {
 					isLoading = true;
 					return async ({ update }) => {
-						await update();
-						isLoading = false;
+						try {
+							await update();
+						} finally {
+							isLoading = false;
+						}
 					};
 				}}
 			>
-				<input type="hidden" name="redirectTo" value={data?.redirectTo ?? '/'} />
 				<button
 					type="submit"
 					disabled={isLoading}
