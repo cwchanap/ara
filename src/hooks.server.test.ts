@@ -99,7 +99,11 @@ describe('hooks.server', () => {
 	});
 
 	test('sets neonAuth and safeGetSession on locals', async () => {
-		const request = new Request('http://localhost', { headers: { cookie: 'auth=value' } });
+		const request = new Request('http://localhost', {
+			headers: {
+				cookie: 'auth=value; __Secure-neon-auth.session=session-value; analytics=tracking-value'
+			}
+		});
 		const event = { locals: {}, request } as RequestEvent;
 		const resolve = mock(async () => new Response('ok'));
 
@@ -108,7 +112,7 @@ describe('hooks.server', () => {
 		expect(createNeonAuthClient).toHaveBeenCalledWith('https://auth.example.test/auth', {
 			fetchOptions: {
 				headers: {
-					cookie: 'auth=value'
+					cookie: '__Secure-neon-auth.session=session-value'
 				}
 			}
 		});
