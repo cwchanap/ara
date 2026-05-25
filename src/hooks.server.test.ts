@@ -12,39 +12,31 @@ const createNeonAuthClient = mock((options: unknown) => {
 	return { getSession };
 });
 
-mock.module('$lib/auth/neon.server', () => ({
-	createNeonAuthClient,
-	createNeonAuthClientWithFactory: (
-		factory: (url: string, config: unknown) => unknown,
-		options: {
-			authUrl?: string;
-			headers?: HeadersInit;
-		} = {}
-	) =>
-		factory(options.authUrl ?? 'https://auth.example.test/auth', {
-			fetchOptions: {
-				headers: options.headers
-					? Object.fromEntries(
-							['authorization', 'cookie', 'origin']
-								.map((name) => [name, new Headers(options.headers).get(name)])
-								.filter(([, value]) => value)
-						)
-					: undefined
-			}
-		}),
-	resolveNeonAuthUrl: (env: {
-		NEON_AUTH_BASE_URL?: string;
-		VITE_NEON_AUTH_URL?: string;
-		PUBLIC_NEON_AUTH_URL?: string;
-	}) => {
-		const url = env.NEON_AUTH_BASE_URL || env.VITE_NEON_AUTH_URL || env.PUBLIC_NEON_AUTH_URL;
-		if (!url) {
-			throw new Error(
-				'NEON_AUTH_BASE_URL, VITE_NEON_AUTH_URL, or PUBLIC_NEON_AUTH_URL is required'
-			);
+const upstreamFetch = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+	void init;
+	const url = new URL(String(input));
+	expect(url.origin + url.pathname).toBe('https://auth.example.test/auth/get-session');
+	expect(url.searchParams.get('neon_auth_session_verifier')).toBe('verifier-123');
+
+	return new Response('{}', {
+		status: 200,
+		headers: {
+			'set-cookie':
+				'__Secure-neon-auth.session=session-value; Path=/; HttpOnly; Secure; SameSite=Lax'
 		}
-		return url;
-	}
+	});
+});
+
+mock.module('@neondatabase/auth', () => ({
+	createAuthClient: createNeonAuthClient
+}));
+
+mock.module('$env/dynamic/private', () => ({
+	env: { NEON_AUTH_BASE_URL: 'https://auth.example.test/auth' }
+}));
+
+mock.module('$env/dynamic/public', () => ({
+	env: {}
 }));
 
 mock.module('$lib/auth/neon', () => ({
@@ -64,6 +56,46 @@ describe('hooks.server', () => {
 		};
 		getSession.mockClear();
 		createNeonAuthClient.mockClear();
+		upstreamFetch.mockClear();
+		globalThis.fetch = upstreamFetch as unknown as typeof fetch;
+	});
+
+	test('exchanges OAuth verifier before resolving protected routes', async () => {
+		const request = new Request(
+			'http://localhost/profile?neon_auth_session_verifier=verifier-123&redirect=%2Fsaved-configs',
+			{ headers: { cookie: '__Secure-neon-auth.challenge=abc' } }
+		);
+		const event = { locals: {}, request, url: new URL(request.url) } as RequestEvent;
+		const resolve = mock(async () => new Response('should not resolve'));
+
+		const response = await handle({ event, resolve });
+
+		expect(upstreamFetch).toHaveBeenCalled();
+		expect(resolve).not.toHaveBeenCalled();
+		expect(response.status).toBe(303);
+		expect(response.headers.get('location')).toBe(
+			'http://localhost/profile?redirect=%2Fsaved-configs'
+		);
+		expect(response.headers.get('set-cookie')).toBe(
+			'__Secure-neon-auth.session=session-value; Path=/; HttpOnly; Secure; SameSite=Lax'
+		);
+	});
+
+	test('continues normal setup when no OAuth verifier is present', async () => {
+		const request = new Request('http://localhost/profile');
+		const event = { locals: {}, request, url: new URL(request.url) } as RequestEvent;
+		const resolve = mock(async () => new Response('ok'));
+
+		const response = await handle({ event, resolve });
+
+		expect(upstreamFetch).not.toHaveBeenCalled();
+		expect(createNeonAuthClient).toHaveBeenCalledWith('https://auth.example.test/auth', {
+			fetchOptions: {
+				headers: undefined
+			}
+		});
+		expect(resolve).toHaveBeenCalledWith(event);
+		expect(await response.text()).toBe('ok');
 	});
 
 	test('sets neonAuth and safeGetSession on locals', async () => {
@@ -73,7 +105,13 @@ describe('hooks.server', () => {
 
 		await handle({ event, resolve });
 
-		expect(createNeonAuthClient).toHaveBeenCalledWith({ headers: request.headers });
+		expect(createNeonAuthClient).toHaveBeenCalledWith('https://auth.example.test/auth', {
+			fetchOptions: {
+				headers: {
+					cookie: 'auth=value'
+				}
+			}
+		});
 		expect(event.locals.neonAuth).toBeDefined();
 		expect(resolve).toHaveBeenCalledWith(event);
 

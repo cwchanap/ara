@@ -54,19 +54,34 @@ mock.module('drizzle-orm', () => ({
 	eq: (a: unknown, b: unknown) => ({ eq: [a, b] })
 }));
 
-const { actions, load } = await import('./+page.server');
+const upstreamFetch = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+	void input;
+	void init;
+	return new Response('{}', {
+		status: 204,
+		headers: {
+			'set-cookie':
+				'__Secure-neon-auth.session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax'
+		}
+	});
+});
 
-const signOutMock = mock(async () => ({ error: null as Error | null }));
+mock.module('$env/dynamic/private', () => ({
+	env: { NEON_AUTH_BASE_URL: 'https://auth.example.test/auth' }
+}));
+
+mock.module('$env/dynamic/public', () => ({
+	env: {}
+}));
+
+const { actions, load } = await import('./+page.server');
 
 function makeLocals({ hasSession = true }: { hasSession?: boolean } = {}) {
 	return {
 		safeGetSession: async () => ({
 			session: hasSession ? { user: { id: 'user-1' } } : null,
 			user: hasSession ? { id: 'user-1', email: 'user@example.com' } : null
-		}),
-		neonAuth: {
-			signOut: signOutMock
-		}
+		})
 	};
 }
 
@@ -84,8 +99,17 @@ beforeEach(() => {
 	selectMock.mockClear();
 	updateMock.mockClear();
 	insertMock.mockClear();
-	signOutMock.mockClear();
-	signOutMock.mockResolvedValue({ error: null });
+	upstreamFetch.mockClear();
+	upstreamFetch.mockResolvedValue(
+		new Response('{}', {
+			status: 204,
+			headers: {
+				'set-cookie':
+					'__Secure-neon-auth.session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax'
+			}
+		})
+	);
+	globalThis.fetch = upstreamFetch as unknown as typeof fetch;
 });
 
 describe('profile page load', () => {
@@ -200,27 +224,59 @@ describe('profile update action', () => {
 });
 
 describe('profile signout action', () => {
-	test('calls Neon Auth signOut and redirects to login', async () => {
+	test('calls direct Neon Auth signout, applies clearing cookies, and redirects to login', async () => {
+		const request = new Request('http://localhost/profile', { method: 'POST' });
+		const cookies = { set: mock(() => {}) };
+
 		await expect(
 			actions.signout({
-				locals: makeLocals()
+				locals: makeLocals(),
+				cookies,
+				request
 			} as unknown as Parameters<(typeof actions)['signout']>[0])
 		).rejects.toMatchObject({ status: 303, location: '/login' });
 
-		expect(signOutMock).toHaveBeenCalled();
+		expect(upstreamFetch).toHaveBeenCalledWith('https://auth.example.test/auth/sign-out', {
+			method: 'POST',
+			headers: expect.any(Headers)
+		});
+		expect(cookies.set).toHaveBeenCalledWith(
+			'__Secure-neon-auth.session',
+			'',
+			expect.objectContaining({
+				path: '/',
+				maxAge: 0,
+				httpOnly: true,
+				secure: true,
+				sameSite: 'lax'
+			})
+		);
 	});
 
-	test('still redirects when Neon Auth signOut returns an error', async () => {
-		signOutMock.mockResolvedValueOnce({ error: new Error('Network error') });
+	test('still redirects when direct Neon Auth signout returns an error', async () => {
+		upstreamFetch.mockResolvedValueOnce(
+			new Response(JSON.stringify({ error: 'Network error' }), {
+				status: 502,
+				headers: {
+					'set-cookie':
+						'__Secure-neon-auth.session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax'
+				}
+			})
+		);
 		const originalConsoleError = console.error;
 		console.error = mock(() => {});
 
 		try {
 			await expect(
 				actions.signout({
-					locals: makeLocals()
+					locals: makeLocals(),
+					cookies: { set: mock(() => {}) },
+					request: new Request('http://localhost/profile', { method: 'POST' })
 				} as unknown as Parameters<(typeof actions)['signout']>[0])
 			).rejects.toMatchObject({ status: 303, location: '/login' });
+			expect(console.error).toHaveBeenCalledWith('Error signing out:', {
+				error: 'Network error'
+			});
 		} finally {
 			console.error = originalConsoleError;
 		}

@@ -1,39 +1,54 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
+const upstreamFetch = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+	void input;
+	void init;
+	return new Response(
+		JSON.stringify({ redirect: true, url: 'https://accounts.google.example/oauth' }),
+		{
+			status: 200,
+			headers: {
+				'set-cookie':
+					'__Secure-neon-auth.challenge=abc; Path=/; HttpOnly; Secure; SameSite=Lax'
+			}
+		}
+	);
+});
+
+mock.module('$env/dynamic/private', () => ({
+	env: { NEON_AUTH_BASE_URL: 'https://auth.example.test/auth' }
+}));
+
+mock.module('$env/dynamic/public', () => ({
+	env: {}
+}));
+
 const { actions, load } = await import('./+page.server');
-
-type SignInSocialResult = {
-	data?: { url?: string } | null;
-	error: Error | null;
-};
-
-const signInSocial = mock(
-	async (): Promise<SignInSocialResult> => ({
-		data: { url: 'https://accounts.google.example/oauth' },
-		error: null as Error | null
-	})
-);
 
 function makeLocals({ hasSession = false }: { hasSession?: boolean } = {}) {
 	return {
 		safeGetSession: async () => ({
 			session: hasSession ? { user: { id: 'user-1' } } : null,
 			user: hasSession ? { id: 'user-1', email: 'user@example.com' } : null
-		}),
-		neonAuth: {
-			signIn: {
-				social: signInSocial
-			}
-		}
+		})
 	};
 }
 
 beforeEach(() => {
-	signInSocial.mockClear();
-	signInSocial.mockResolvedValue({
-		data: { url: 'https://accounts.google.example/oauth' },
-		error: null
-	});
+	upstreamFetch.mockClear();
+	upstreamFetch.mockResolvedValue(
+		new Response(
+			JSON.stringify({ redirect: true, url: 'https://accounts.google.example/oauth' }),
+			{
+				status: 200,
+				headers: {
+					'set-cookie':
+						'__Secure-neon-auth.challenge=abc; Path=/; HttpOnly; Secure; SameSite=Lax'
+				}
+			}
+		)
+	);
+	globalThis.fetch = upstreamFetch as unknown as typeof fetch;
 });
 
 describe('login page load', () => {
@@ -67,13 +82,17 @@ describe('login page load', () => {
 
 describe('login default action', () => {
 	test('starts Google OAuth and redirects to the provider URL', async () => {
+		const request = new Request('http://localhost/login?redirect=%2Fsaved-configs', {
+			method: 'POST',
+			body: new FormData()
+		});
+		const cookies = { set: mock(() => {}) };
+
 		await expect(
 			actions.default({
 				locals: makeLocals(),
-				request: new Request('http://localhost/login?redirect=%2Fsaved-configs', {
-					method: 'POST',
-					body: new FormData()
-				}),
+				cookies,
+				request,
 				url: new URL('http://localhost/login?redirect=%2Fsaved-configs')
 			} as unknown as Parameters<(typeof actions)['default']>[0])
 		).rejects.toMatchObject({
@@ -81,21 +100,41 @@ describe('login default action', () => {
 			location: 'https://accounts.google.example/oauth'
 		});
 
-		expect(signInSocial).toHaveBeenCalledWith({
-			provider: 'google',
-			callbackURL: '/saved-configs',
-			disableRedirect: true
-		});
+		expect(upstreamFetch).toHaveBeenCalledWith(
+			'https://auth.example.test/auth/sign-in/social',
+			{
+				method: 'POST',
+				headers: expect.any(Headers),
+				body: JSON.stringify({
+					provider: 'google',
+					callbackURL: '/saved-configs',
+					disableRedirect: true
+				})
+			}
+		);
+		expect(cookies.set).toHaveBeenCalledWith(
+			'__Secure-neon-auth.challenge',
+			'abc',
+			expect.objectContaining({
+				path: '/',
+				httpOnly: true,
+				secure: true,
+				sameSite: 'lax'
+			})
+		);
 	});
 
 	test('falls back to base path for unsafe redirect params', async () => {
+		const request = new Request('http://localhost/login?redirect=%2F%2Fevil.example', {
+			method: 'POST',
+			body: new FormData()
+		});
+
 		await expect(
 			actions.default({
 				locals: makeLocals(),
-				request: new Request('http://localhost/login?redirect=%2F%2Fevil.example', {
-					method: 'POST',
-					body: new FormData()
-				}),
+				cookies: { set: mock(() => {}) },
+				request,
 				url: new URL('http://localhost/login?redirect=%2F%2Fevil.example')
 			} as unknown as Parameters<(typeof actions)['default']>[0])
 		).rejects.toMatchObject({
@@ -103,18 +142,19 @@ describe('login default action', () => {
 			location: 'https://accounts.google.example/oauth'
 		});
 
-		expect(signInSocial).toHaveBeenCalledWith({
-			provider: 'google',
-			callbackURL: '/',
-			disableRedirect: true
+		expect(JSON.parse(String(upstreamFetch.mock.calls[0][1]?.body))).toMatchObject({
+			callbackURL: '/'
 		});
 	});
 
 	test('returns 400 when Google OAuth start fails', async () => {
-		signInSocial.mockResolvedValueOnce({ error: new Error('OAuth unavailable') });
+		upstreamFetch.mockResolvedValueOnce(
+			new Response(JSON.stringify({ error: 'unavailable' }), { status: 503 })
+		);
 
 		const result = await actions.default({
 			locals: makeLocals(),
+			cookies: { set: mock(() => {}) },
 			request: new Request('http://localhost/login', {
 				method: 'POST',
 				body: new FormData()
@@ -129,10 +169,13 @@ describe('login default action', () => {
 	});
 
 	test('returns 400 when Google OAuth start returns no provider URL', async () => {
-		signInSocial.mockResolvedValueOnce({ data: {}, error: null });
+		upstreamFetch.mockResolvedValueOnce(
+			new Response(JSON.stringify({ redirect: true }), { status: 200 })
+		);
 
 		const result = await actions.default({
 			locals: makeLocals(),
+			cookies: { set: mock(() => {}) },
 			request: new Request('http://localhost/login', {
 				method: 'POST',
 				body: new FormData()
