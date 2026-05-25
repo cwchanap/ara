@@ -101,6 +101,7 @@ describe('hooks.server', () => {
 	test('sets neonAuth and safeGetSession on locals', async () => {
 		const request = new Request('http://localhost', {
 			headers: {
+				authorization: 'Bearer app-token',
 				cookie: 'auth=value; __Secure-neon-auth.session=session-value; analytics=tracking-value'
 			}
 		});

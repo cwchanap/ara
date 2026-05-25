@@ -57,7 +57,6 @@ describe('neon auth wrapper', () => {
 		expect(createAuthClient).toHaveBeenCalledWith('https://auth.example.test/auth', {
 			fetchOptions: {
 				headers: {
-					authorization: 'Bearer test-token',
 					cookie: '__Secure-neon-auth.session=auth-session; __Secure-neon-auth.challenge=auth-challenge',
 					origin: 'https://app.example.test'
 				}
@@ -98,7 +97,7 @@ describe('neon auth wrapper', () => {
 			expect(headers.get('origin')).toBe('https://app.example.test');
 			expect(headers.get('user-agent')).toBe('bun-test');
 			expect(headers.get('referer')).toBe('https://app.example.test/login');
-			expect(headers.get('authorization')).toBe('Bearer test-token');
+			expect(headers.has('authorization')).toBe(false);
 			expect(headers.has('host')).toBe(false);
 			expect(headers.has('x-forwarded-for')).toBe(false);
 

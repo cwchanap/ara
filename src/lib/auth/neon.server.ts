@@ -44,8 +44,8 @@ export type CreateNeonAuthClientOptions = {
 	authUrl?: string;
 };
 
-const SAFE_AUTH_HEADER_NAMES = ['cookie', 'authorization', 'origin'] as const;
-const SAFE_PROXY_HEADER_NAMES = ['authorization', 'origin', 'referer', 'user-agent'] as const;
+const SAFE_AUTH_HEADER_NAMES = ['cookie', 'origin'] as const;
+const SAFE_PROXY_HEADER_NAMES = ['origin', 'referer', 'user-agent'] as const;
 const SECURE_NEON_AUTH_COOKIE_PREFIX = '__Secure-neon-auth';
 
 export const NEON_AUTH_SESSION_VERIFIER_PARAM = 'neon_auth_session_verifier';

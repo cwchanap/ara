@@ -34,8 +34,6 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 		throw error(HTTP_STATUS.UNAUTHORIZED, 'Please log in to share configurations');
 	}
 
-	await ensureProfileForUser(user);
-
 	// Parse request body
 	let body: { mapType?: unknown; parameters?: unknown };
 	try {
@@ -66,6 +64,8 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 
 	// Calculate expiration
 	const expiresAt = calculateExpirationDate(SHARE_EXPIRATION_DAYS).toISOString();
+
+	await ensureProfileForUser(user);
 
 	// Perform rate limit check and share creation atomically in a single transaction
 	const result = await createShareWithRateLimit(
