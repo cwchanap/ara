@@ -1,7 +1,7 @@
 /**
  * Tests for the root layout server load function.
  *
- * The layout load is intentionally minimal: it registers a Supabase auth
+ * The layout load is intentionally minimal: it registers a Neon auth
  * dependency and passes the session/user from safeGetSession to the page.
  */
 
@@ -43,9 +43,9 @@ describe('layout server load', () => {
 		expect(result).toMatchObject({ session, user });
 	});
 
-	test('calls depends with "supabase:auth" to register invalidation key', async () => {
+	test('calls depends with "neon:auth" to register invalidation key', async () => {
 		const event = makeEvent();
 		await load(event as unknown as Parameters<typeof load>[0]);
-		expect(event.depends).toHaveBeenCalledWith('supabase:auth');
+		expect(event.depends).toHaveBeenCalledWith('neon:auth');
 	});
 });
