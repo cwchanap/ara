@@ -72,9 +72,9 @@ bunx drizzle-kit studio
 
 **Environment variables required**:
 
-- `PUBLIC_SUPABASE_URL`: Supabase project URL
-- `PUBLIC_SUPABASE_ANON_KEY`: Supabase anonymous/public key
-- `DATABASE_URL`: Neon PostgreSQL connection string (pooled connection recommended)
+- `NEON_AUTH_BASE_URL`: Neon Auth server URL
+- `VITE_NEON_AUTH_URL` or `PUBLIC_NEON_AUTH_URL`: public Neon Auth URL for browser OAuth start
+- `DATABASE_URL`: Neon PostgreSQL connection string
 - `NETLIFY_DATABASE_URL`: Alternative to DATABASE_URL when deployed to Netlify
 
 ## Architecture
@@ -85,7 +85,7 @@ bunx drizzle-kit studio
 - **Framework**: SvelteKit (Svelte 5 with runes)
 - **Language**: TypeScript (strict mode enabled)
 - **Styling**: TailwindCSS v4 with custom utility classes
-- **Authentication**: Supabase Auth (email/password)
+- **Authentication**: Neon Auth with Google OAuth only
 - **Database**: Neon PostgreSQL with Drizzle ORM
 - **Visualizations**:
   - Three.js (3D - Lorenz attractor)
@@ -142,15 +142,15 @@ $effect(() => {
 
 The app uses a **dual-database architecture**:
 
-- **Supabase**: Handles authentication only (JWT sessions, email/password)
-- **Neon PostgreSQL**: Stores application data (user profiles)
+- **Neon Auth**: Handles Google-only OAuth sessions
+- **Neon PostgreSQL**: Stores application data (user profiles and saved configurations)
 
 **Key components**:
 
-- `src/hooks.server.ts`: Creates Supabase client in `event.locals.supabase` and provides `event.locals.safeGetSession()` which validates JWT tokens by calling `getUser()` (not just `getSession()`)
-- `src/app.d.ts`: Type definitions for `App.Locals` (Supabase client and safeGetSession) and `App.PageData` (session, user, profile)
+- `src/hooks.server.ts`: Creates the Neon Auth client in `event.locals.neonAuth`, exchanges OAuth verifier callbacks, and provides `event.locals.safeGetSession()`
+- `src/app.d.ts`: Type definitions for `App.Locals` (Neon Auth client and safeGetSession) and `App.PageData` (session, user, profile)
 - `src/lib/server/db/`: Drizzle ORM setup with schema and database connection
-- `src/lib/server/db/schema.ts`: Profiles table with `id` (UUID from Supabase auth.users), `username`, timestamps
+- `src/lib/server/db/schema.ts`: Profiles table with `id` (UUID from Neon Auth user), `username`, timestamps
 
 **Authentication pattern**:
 
@@ -168,7 +168,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 import { db, profiles } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
 
-// Query profile by Supabase user ID
+// Query profile by Neon Auth user ID
 const profile = await db.select().from(profiles).where(eq(profiles.id, user.id)).limit(1);
 ```
 
@@ -176,7 +176,7 @@ const profile = await db.select().from(profiles).where(eq(profiles.id, user.id))
 
 ### Key Files
 
-- `src/hooks.server.ts` - Supabase client setup, `safeGetSession()` for JWT validation
+- `src/hooks.server.ts` - Neon Auth client setup, OAuth callback exchange, `safeGetSession()`
 - `src/app.d.ts` - App-wide type definitions for `App.Locals` and `App.PageData`
 - `src/lib/server/db/schema.ts` - Drizzle schema: `profiles` and `savedConfigurations` tables
 - `src/lib/server/db/index.ts` - Drizzle database instance
@@ -232,11 +232,9 @@ The app uses a **sci-fi chaos theory aesthetic**:
 
 ### Working with Authentication
 
-**Protected routes**: Use the `locals.safeGetSession()` pattern shown in "Authentication & Authorization" above, and redirect unauthenticated users to `/login?redirect={currentPath}`.
+**Protected routes**: Use `locals.safeGetSession()` and redirect unauthenticated users to `/login?redirect={currentPath}`.
 
-**Form actions**: Always validate inputs using `$lib/auth-errors.ts` utilities (`validateUsername`, `validatePassword`, `validateEmail`, `getErrorMessage`).
-
-**Password changes**: Use the pattern in `src/routes/profile/+page.server.ts` which verifies current password via `signInWithPassword` before updating (Supabase has no verify-only API).
+**Form actions**: Validate profile inputs using `$lib/auth-errors.ts` utilities (`validateUsername`, `getErrorMessage`). Password sign-in, signup, and password changes are not part of the current Google-only auth flow.
 
 ## Save Configuration Feature
 

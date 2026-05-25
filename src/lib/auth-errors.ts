@@ -1,5 +1,5 @@
 /**
- * Maps Supabase error codes to user-friendly messages.
+ * Maps auth and profile error codes to user-friendly messages.
  * Per FR-015: System MUST display user-friendly error messages (not technical errors)
  */
 
@@ -29,12 +29,12 @@ const errorMessages: Record<string, string> = {
 };
 
 /**
- * Gets a user-friendly error message from a Supabase error
+ * Gets a user-friendly error message from an auth, validation, or database error.
  */
 export function getErrorMessage(error: unknown): string {
 	if (!error) return errorMessages.default;
 
-	// Handle Supabase AuthError
+	// Handle structured auth or database errors.
 	if (typeof error === 'object' && error !== null) {
 		const err = error as { message?: string; code?: string; status?: number };
 
@@ -43,10 +43,7 @@ export function getErrorMessage(error: unknown): string {
 			return errorMessages[err.code];
 		}
 
-		// Check for error message patterns
-		// NOTE: String matching is fragile and may break if Supabase changes error messages.
-		// We prefer error codes above when available. These patterns are based on
-		// Supabase JS v2.x behavior as of November 2025.
+		// Check for error message patterns. Prefer error codes above when available.
 		if (err.message) {
 			const msg = err.message.toLowerCase();
 
