@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import { db, profiles } from '$lib/server/db';
 import type { NeonAuthUser } from '$lib/auth/types';
 import type { Profile } from '$lib/types';
+import type { Profile as DbProfile } from '$lib/server/db/schema';
 
 const FALLBACK_USERNAME = 'chaos_user';
 const MAX_USERNAME_LENGTH = 30;
@@ -61,38 +62,61 @@ function profileFallback(id: string, username: string): Profile {
 	};
 }
 
-async function findProfileById(id: string): Promise<Profile | null> {
+function toProfile(profile: DbProfile): Profile {
+	return profile;
+}
+
+async function findProfileById(id: string): Promise<DbProfile | null> {
 	const rows = await db.select().from(profiles).where(eq(profiles.id, id)).limit(1);
-	return (rows[0] as Profile | undefined) ?? null;
+	return rows[0] ?? null;
 }
 
-async function isUsernameAvailable(username: string, userId: string): Promise<boolean> {
-	const rows = await db.select().from(profiles).where(eq(profiles.username, username)).limit(1);
-	const existing = rows[0] as Profile | undefined;
-	return !existing || existing.id === userId;
-}
+function isUniqueViolation(error: unknown): boolean {
+	if (!error || typeof error !== 'object') return false;
 
-async function getUniqueUsername(base: string, userId: string): Promise<string> {
-	for (let suffix = 0; suffix < MAX_USERNAME_ATTEMPTS; suffix++) {
-		const candidate = usernameWithSuffix(base, suffix);
-		if (await isUsernameAvailable(candidate, userId)) {
-			return candidate;
-		}
-	}
+	const { code, constraint, name, message } = error as {
+		code?: unknown;
+		constraint?: unknown;
+		name?: unknown;
+		message?: unknown;
+	};
 
-	throw new Error('Unable to provision a unique username');
+	if (code === '23505') return true;
+
+	return [constraint, name, message].some((value) => {
+		if (typeof value !== 'string') return false;
+		const normalized = value.toLowerCase();
+		return normalized.includes('duplicate') || normalized.includes('unique');
+	});
 }
 
 export async function ensureProfileForUser(user: NeonAuthUser): Promise<Profile> {
 	const existingProfile = await findProfileById(user.id);
 	if (existingProfile) {
-		return existingProfile;
+		return toProfile(existingProfile);
 	}
 
-	const username = await getUniqueUsername(getBaseUsername(user), user.id);
+	const baseUsername = getBaseUsername(user);
 
-	await db.insert(profiles).values({ id: user.id, username });
+	for (let suffix = 0; suffix < MAX_USERNAME_ATTEMPTS; suffix++) {
+		const username = usernameWithSuffix(baseUsername, suffix);
 
-	const createdProfile = await findProfileById(user.id);
-	return createdProfile ?? profileFallback(user.id, username);
+		try {
+			await db.insert(profiles).values({ id: user.id, username });
+
+			const createdProfile = await findProfileById(user.id);
+			return createdProfile ? toProfile(createdProfile) : profileFallback(user.id, username);
+		} catch (error) {
+			if (!isUniqueViolation(error)) {
+				throw error;
+			}
+
+			const concurrentProfile = await findProfileById(user.id);
+			if (concurrentProfile) {
+				return toProfile(concurrentProfile);
+			}
+		}
+	}
+
+	throw new Error('Unable to provision a unique username');
 }
