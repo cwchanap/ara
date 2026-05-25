@@ -51,8 +51,17 @@ describe('neon auth wrapper', () => {
 		expect(client).toHaveProperty('getSession');
 	});
 
-	test('passes request headers to the auth client fetch options', async () => {
-		const headers = new Headers({ cookie: 'session=test-session' });
+	test('passes only safe auth headers to the auth client fetch options', async () => {
+		const headers = new Headers({
+			authorization: 'Bearer test-token',
+			'accept-encoding': 'gzip',
+			'content-length': '123',
+			'content-type': 'application/json',
+			cookie: 'session=test-session',
+			host: 'app.example.test',
+			origin: 'https://app.example.test',
+			'x-custom': 'internal-value'
+		});
 
 		const { createNeonAuthClient } = await import('./neon.server');
 		createNeonAuthClient({ headers });
@@ -60,7 +69,9 @@ describe('neon auth wrapper', () => {
 		expect(createAuthClient).toHaveBeenCalledWith('https://auth.example.test/auth', {
 			fetchOptions: {
 				headers: {
-					cookie: 'session=test-session'
+					authorization: 'Bearer test-token',
+					cookie: 'session=test-session',
+					origin: 'https://app.example.test'
 				}
 			}
 		});

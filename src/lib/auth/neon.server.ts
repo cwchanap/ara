@@ -8,9 +8,22 @@ export type CreateNeonAuthClientOptions = {
 	headers?: HeadersInit;
 };
 
+const SAFE_AUTH_HEADER_NAMES = ['cookie', 'authorization', 'origin'] as const;
+
 function normalizeHeaders(headers: HeadersInit | undefined): Record<string, string> | undefined {
 	if (!headers) return undefined;
-	return Object.fromEntries(new Headers(headers).entries());
+
+	const inputHeaders = new Headers(headers);
+	const safeHeaders: Record<string, string> = {};
+
+	for (const headerName of SAFE_AUTH_HEADER_NAMES) {
+		const value = inputHeaders.get(headerName);
+		if (value) {
+			safeHeaders[headerName] = value;
+		}
+	}
+
+	return Object.keys(safeHeaders).length > 0 ? safeHeaders : undefined;
 }
 
 export function getNeonAuthUrl(): string {
