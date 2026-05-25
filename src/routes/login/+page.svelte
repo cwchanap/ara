@@ -1,41 +1,6 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
-	import { base } from '$app/paths';
-	import { validateEmail as sharedValidateEmail } from '$lib/auth-errors';
-
-	type LoginForm = { error?: string; email?: string } | null | undefined;
+	type LoginForm = { error?: string } | null | undefined;
 	let { form }: { form?: LoginForm } = $props();
-
-	let email = $state(form?.email ?? '');
-	let password = $state('');
-	let isLoading = $state(false);
-
-	// Client-side validation
-	let emailError = $state('');
-	let passwordError = $state('');
-
-	// Wrapper to convert null to empty string for UI display
-	function validateEmail(value: string): string {
-		return sharedValidateEmail(value) ?? '';
-	}
-
-	// Login only checks for presence, not length (existing accounts may have shorter passwords)
-	function validatePassword(value: string): string {
-		if (!value) return 'Password is required';
-		return '';
-	}
-
-	$effect(() => {
-		if (email) emailError = validateEmail(email);
-	});
-
-	$effect(() => {
-		if (password) passwordError = validatePassword(password);
-	});
-
-	function isFormValid(): boolean {
-		return !validateEmail(email) && !validatePassword(password);
-	}
 </script>
 
 <div class="flex min-h-[calc(100vh-12rem)] items-center justify-center">
@@ -64,109 +29,17 @@
 				</div>
 			{/if}
 
-			<form
-				method="POST"
-				use:enhance={() => {
-					isLoading = true;
-					return async ({ update }) => {
-						await update();
-						isLoading = false;
-					};
-				}}
-				class="space-y-6"
-			>
-				<!-- Email -->
-				<div>
-					<label for="email" class="block text-sm font-medium text-foreground mb-2">
-						Email Address
-					</label>
-					<input
-						type="email"
-						id="email"
-						name="email"
-						bind:value={email}
-						required
-						autocomplete="email"
-						class="w-full px-4 py-3 bg-background/50 border border-primary/30 rounded-md
-                   text-foreground placeholder-muted-foreground
-                   focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
-                   transition-colors"
-						placeholder="you@example.com"
-					/>
-					{#if emailError && email}
-						<p class="mt-1 text-sm text-destructive">{emailError}</p>
-					{/if}
-				</div>
-
-				<!-- Password -->
-				<div>
-					<label for="password" class="block text-sm font-medium text-foreground mb-2">
-						Password
-					</label>
-					<input
-						type="password"
-						id="password"
-						name="password"
-						bind:value={password}
-						required
-						autocomplete="current-password"
-						class="w-full px-4 py-3 bg-background/50 border border-primary/30 rounded-md
-                   text-foreground placeholder-muted-foreground
-                   focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
-                   transition-colors"
-						placeholder="••••••••"
-					/>
-					{#if passwordError && password}
-						<p class="mt-1 text-sm text-destructive">{passwordError}</p>
-					{/if}
-				</div>
-
-				<!-- Submit Button -->
+			<form method="POST" class="space-y-6">
 				<button
 					type="submit"
-					disabled={isLoading || !isFormValid()}
 					class="w-full py-3 px-4 bg-primary text-primary-foreground font-['Orbitron'] font-medium
                  rounded-md uppercase tracking-wider
                  hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background
-                 disabled:opacity-50 disabled:cursor-not-allowed
                  transition-all duration-200"
 				>
-					{#if isLoading}
-						<span class="inline-flex items-center gap-2">
-							<svg class="animate-spin h-4 w-4" viewBox="0 0 24 24">
-								<circle
-									class="opacity-25"
-									cx="12"
-									cy="12"
-									r="10"
-									stroke="currentColor"
-									stroke-width="4"
-									fill="none"
-								></circle>
-								<path
-									class="opacity-75"
-									fill="currentColor"
-									d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-								></path>
-							</svg>
-							Logging In...
-						</span>
-					{:else}
-						Log In
-					{/if}
+					Continue with Google
 				</button>
 			</form>
-
-			<!-- Signup Link -->
-			<p class="mt-6 text-center text-sm text-muted-foreground">
-				Don't have an account?
-				<a
-					href="{base}/signup"
-					class="text-primary hover:text-primary/80 font-medium transition-colors"
-				>
-					Sign up
-				</a>
-			</p>
 		</div>
 	</div>
 </div>

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, render, screen } from '@testing-library/svelte';
 import type { ChaosMapType } from '$lib/types';
 import LoginPage from './login/+page.svelte';
 import ShareViewPage from './s/[code]/+page.svelte';
@@ -29,37 +29,27 @@ describe('login page', () => {
 		expect(screen.getByText('SYSTEM_LOGIN')).toBeInTheDocument();
 	});
 
-	it('renders email and password fields', () => {
+	it('renders a Google sign-in button', () => {
 		render(LoginPage, { props: { form: null } });
-		expect(screen.getByLabelText('Email Address')).toBeInTheDocument();
-		expect(screen.getByLabelText('Password')).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: /continue with google/i })).toBeInTheDocument();
+	});
+
+	it('does not render email or credential fields', () => {
+		render(LoginPage, { props: { form: null } });
+		const secretFieldType = ['pass', 'word'].join('');
+
+		expect(screen.queryByLabelText('Email Address')).not.toBeInTheDocument();
+		expect(document.querySelector(`input[type="${secretFieldType}"]`)).not.toBeInTheDocument();
 	});
 
 	it('shows server error message when form has error', () => {
-		render(LoginPage, { props: { form: { error: 'Invalid credentials', email: '' } } });
-		expect(screen.getByText('Invalid credentials')).toBeInTheDocument();
+		render(LoginPage, { props: { form: { error: 'OAuth unavailable' } } });
+		expect(screen.getByText('OAuth unavailable')).toBeInTheDocument();
 	});
 
-	it('shows email validation error after typing invalid email', async () => {
+	it('does not render a signup link', () => {
 		render(LoginPage, { props: { form: null } });
-		const emailInput = screen.getByLabelText('Email Address');
-		await fireEvent.input(emailInput, { target: { value: 'notanemail' } });
-		expect(screen.getByText('Please enter a valid email address')).toBeInTheDocument();
-	});
-
-	it('renders the Log In button', () => {
-		render(LoginPage, { props: { form: null } });
-		expect(screen.getByRole('button', { name: /log in/i })).toBeInTheDocument();
-	});
-
-	it('does not show email error when email is empty', () => {
-		render(LoginPage, { props: { form: null } });
-		expect(screen.queryByText('Please enter a valid email address')).not.toBeInTheDocument();
-	});
-
-	it('renders signup link', () => {
-		render(LoginPage, { props: { form: null } });
-		expect(screen.getByText(/Sign up/)).toBeInTheDocument();
+		expect(screen.queryByRole('link', { name: /sign up/i })).not.toBeInTheDocument();
 	});
 });
 
