@@ -10,9 +10,9 @@ import {
 } from 'drizzle-orm/pg-core';
 
 // Profiles table - stores user profile data
-// Links to Neon Auth users via the id (UUID from the auth session user)
+// Links to Neon Auth users via the string id from the auth session user.
 export const profiles = pgTable('profiles', {
-	id: uuid('id').primaryKey(), // Matches Neon Auth user.id
+	id: text('id').primaryKey(),
 	username: text('username').unique().notNull(),
 	createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
 		.defaultNow()
@@ -33,7 +33,7 @@ export const savedConfigurations = pgTable(
 	'saved_configurations',
 	{
 		id: uuid('id').defaultRandom().primaryKey(),
-		userId: uuid('user_id')
+		userId: text('user_id')
 			.notNull()
 			.references(() => profiles.id, { onDelete: 'cascade' }),
 		name: text('name').notNull(),
@@ -64,7 +64,7 @@ export const sharedConfigurations = pgTable(
 	{
 		id: uuid('id').defaultRandom().primaryKey(),
 		shortCode: varchar('short_code', { length: 8 }).unique().notNull(),
-		userId: uuid('user_id')
+		userId: text('user_id')
 			.references(() => profiles.id, { onDelete: 'cascade' })
 			.notNull(),
 		mapType: text('map_type').notNull(),

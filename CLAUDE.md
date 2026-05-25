@@ -150,7 +150,7 @@ The app uses a **dual-database architecture**:
 - `src/hooks.server.ts`: Creates the Neon Auth client in `event.locals.neonAuth`, exchanges OAuth verifier callbacks, and provides `event.locals.safeGetSession()`
 - `src/app.d.ts`: Type definitions for `App.Locals` (Neon Auth client and safeGetSession) and `App.PageData` (session, user, profile)
 - `src/lib/server/db/`: Drizzle ORM setup with schema and database connection
-- `src/lib/server/db/schema.ts`: Profiles table with `id` (UUID from Neon Auth user), `username`, timestamps
+- `src/lib/server/db/schema.ts`: Profiles table with `id` (opaque Neon Auth user string), `username`, timestamps
 
 **Authentication pattern**:
 

@@ -605,6 +605,13 @@ Correction applied after Task 3 review:
   remaining work focused on the browser/UI route files, profile provisioning,
   share-route provisioning, and tests that are not covered by the Task 3 fix.
 
+Final review correction:
+
+- Neon Auth user ids are opaque strings, not guaranteed UUIDs. The final
+  implementation stores auth-owned ids as `text` in `profiles.id`,
+  `saved_configurations.user_id`, and `shared_configurations.user_id`, while
+  keeping app-generated configuration ids as UUIDs.
+
 ---
 
 ### Task 4: Add Profile Auto-Provisioning

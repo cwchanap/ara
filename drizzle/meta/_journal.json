@@ -36,6 +36,13 @@
 			"when": 1765330000002,
 			"tag": "0004_create_shared_configurations",
 			"breakpoints": true
+		},
+		{
+			"idx": 5,
+			"version": "7",
+			"when": 1779699600000,
+			"tag": "0005_auth_user_ids_text",
+			"breakpoints": true
 		}
 	]
 }

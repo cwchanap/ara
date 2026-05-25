@@ -72,7 +72,7 @@ export async function generateUniqueShortCode(): Promise<string | null> {
  * This prevents race conditions where concurrent requests could bypass the limit.
  * Also handles short code collision by retrying generation within the transaction.
  *
- * @param userId - The user's UUID
+ * @param userId - The authenticated user's Neon Auth id
  * @param mapType - The chaos map type
  * @param parameters - The map parameters
  * @param shortCode - The generated short code (will be regenerated on collision)
