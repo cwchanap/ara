@@ -124,6 +124,7 @@ describe('POST /api/share', () => {
 		test('returns 400 for invalid JSON', async () => {
 			const event = makeBrokenJsonEvent();
 			await expect(POST(event as never)).rejects.toMatchObject({ status: 400 });
+			expect(ensureProfileForUser).not.toHaveBeenCalled();
 		});
 	});
 
@@ -141,6 +142,7 @@ describe('POST /api/share', () => {
 				parameters: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 }
 			});
 			await expect(POST(event as never)).rejects.toMatchObject({ status: 400 });
+			expect(ensureProfileForUser).not.toHaveBeenCalled();
 		});
 
 		test('returns 400 for numeric mapType', async () => {
@@ -169,6 +171,7 @@ describe('POST /api/share', () => {
 				parameters: { type: 'lorenz', sigma: 10 } // missing rho and beta
 			});
 			await expect(POST(event as never)).rejects.toMatchObject({ status: 400 });
+			expect(ensureProfileForUser).not.toHaveBeenCalled();
 		});
 
 		test('returns 400 for non-numeric parameter values', async () => {
