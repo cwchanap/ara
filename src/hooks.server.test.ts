@@ -13,7 +13,38 @@ const createNeonAuthClient = mock((options: unknown) => {
 });
 
 mock.module('$lib/auth/neon.server', () => ({
-	createNeonAuthClient
+	createNeonAuthClient,
+	createNeonAuthClientWithFactory: (
+		factory: (url: string, config: unknown) => unknown,
+		options: {
+			authUrl?: string;
+			headers?: HeadersInit;
+		} = {}
+	) =>
+		factory(options.authUrl ?? 'https://auth.example.test/auth', {
+			fetchOptions: {
+				headers: options.headers
+					? Object.fromEntries(
+							['authorization', 'cookie', 'origin']
+								.map((name) => [name, new Headers(options.headers).get(name)])
+								.filter(([, value]) => value)
+						)
+					: undefined
+			}
+		}),
+	resolveNeonAuthUrl: (env: {
+		NEON_AUTH_BASE_URL?: string;
+		VITE_NEON_AUTH_URL?: string;
+		PUBLIC_NEON_AUTH_URL?: string;
+	}) => {
+		const url = env.NEON_AUTH_BASE_URL || env.VITE_NEON_AUTH_URL || env.PUBLIC_NEON_AUTH_URL;
+		if (!url) {
+			throw new Error(
+				'NEON_AUTH_BASE_URL, VITE_NEON_AUTH_URL, or PUBLIC_NEON_AUTH_URL is required'
+			);
+		}
+		return url;
+	}
 }));
 
 mock.module('$lib/auth/neon', () => ({

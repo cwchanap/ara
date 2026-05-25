@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
+import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import { normalizeSession } from './types';
 
 const createAuthClient = mock((url: string, config?: unknown) => ({
@@ -12,32 +12,15 @@ const createAuthClient = mock((url: string, config?: unknown) => ({
 }));
 
 describe('neon auth wrapper', () => {
-	const originalEnv = {
-		NEON_AUTH_BASE_URL: process.env.NEON_AUTH_BASE_URL,
-		VITE_NEON_AUTH_URL: process.env.VITE_NEON_AUTH_URL,
-		PUBLIC_NEON_AUTH_URL: process.env.PUBLIC_NEON_AUTH_URL
-	};
-
 	beforeEach(() => {
 		createAuthClient.mockClear();
-		delete process.env.VITE_NEON_AUTH_URL;
-		delete process.env.PUBLIC_NEON_AUTH_URL;
-		process.env.NEON_AUTH_BASE_URL = 'https://auth.example.test/auth';
-	});
-
-	afterEach(() => {
-		for (const [key, value] of Object.entries(originalEnv)) {
-			if (value === undefined) {
-				delete process.env[key];
-			} else {
-				process.env[key] = value;
-			}
-		}
 	});
 
 	test('creates an auth client from NEON_AUTH_BASE_URL', async () => {
 		const { createNeonAuthClientWithFactory } = await import('./neon.server');
-		const client = createNeonAuthClientWithFactory(createAuthClient);
+		const client = createNeonAuthClientWithFactory(createAuthClient, {
+			authUrl: 'https://auth.example.test/auth'
+		});
 
 		expect(createAuthClient).toHaveBeenCalledWith('https://auth.example.test/auth', {
 			fetchOptions: {
@@ -60,7 +43,10 @@ describe('neon auth wrapper', () => {
 		});
 
 		const { createNeonAuthClientWithFactory } = await import('./neon.server');
-		createNeonAuthClientWithFactory(createAuthClient, { headers });
+		createNeonAuthClientWithFactory(createAuthClient, {
+			authUrl: 'https://auth.example.test/auth',
+			headers
+		});
 
 		expect(createAuthClient).toHaveBeenCalledWith('https://auth.example.test/auth', {
 			fetchOptions: {
@@ -74,20 +60,17 @@ describe('neon auth wrapper', () => {
 	});
 
 	test('uses PUBLIC_NEON_AUTH_URL as public fallback', async () => {
-		delete process.env.NEON_AUTH_BASE_URL;
-		process.env.PUBLIC_NEON_AUTH_URL = 'https://public.example.test/auth';
-
-		const { getNeonAuthUrl } = await import('./neon.server');
-		expect(getNeonAuthUrl()).toBe('https://public.example.test/auth');
+		const { resolveNeonAuthUrl } = await import('./neon.server');
+		expect(
+			resolveNeonAuthUrl({
+				PUBLIC_NEON_AUTH_URL: 'https://public.example.test/auth'
+			})
+		).toBe('https://public.example.test/auth');
 	});
 
 	test('throws when auth URL is missing', async () => {
-		delete process.env.NEON_AUTH_BASE_URL;
-		delete process.env.VITE_NEON_AUTH_URL;
-		delete process.env.PUBLIC_NEON_AUTH_URL;
-
-		const { getNeonAuthUrl } = await import('./neon.server');
-		expect(() => getNeonAuthUrl()).toThrow(
+		const { resolveNeonAuthUrl } = await import('./neon.server');
+		expect(() => resolveNeonAuthUrl({})).toThrow(
 			'NEON_AUTH_BASE_URL, VITE_NEON_AUTH_URL, or PUBLIC_NEON_AUTH_URL is required'
 		);
 	});

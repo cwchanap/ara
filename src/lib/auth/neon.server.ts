@@ -40,6 +40,7 @@ export type NeonAuthClientFactory = (
 
 export type CreateNeonAuthClientOptions = {
 	headers?: HeadersInit;
+	authUrl?: string;
 };
 
 const SAFE_AUTH_HEADER_NAMES = ['cookie', 'authorization', 'origin'] as const;
@@ -60,11 +61,12 @@ function normalizeHeaders(headers: HeadersInit | undefined): Record<string, stri
 	return Object.keys(safeHeaders).length > 0 ? safeHeaders : undefined;
 }
 
-export function getNeonAuthUrl(): string {
-	const url =
-		privateEnv.NEON_AUTH_BASE_URL ||
-		privateEnv.VITE_NEON_AUTH_URL ||
-		publicEnv.PUBLIC_NEON_AUTH_URL;
+export function resolveNeonAuthUrl(env: {
+	NEON_AUTH_BASE_URL?: string;
+	VITE_NEON_AUTH_URL?: string;
+	PUBLIC_NEON_AUTH_URL?: string;
+}): string {
+	const url = env.NEON_AUTH_BASE_URL || env.VITE_NEON_AUTH_URL || env.PUBLIC_NEON_AUTH_URL;
 
 	if (!url) {
 		throw new Error(
@@ -73,6 +75,14 @@ export function getNeonAuthUrl(): string {
 	}
 
 	return url;
+}
+
+export function getNeonAuthUrl(): string {
+	return resolveNeonAuthUrl({
+		NEON_AUTH_BASE_URL: privateEnv.NEON_AUTH_BASE_URL,
+		VITE_NEON_AUTH_URL: privateEnv.VITE_NEON_AUTH_URL,
+		PUBLIC_NEON_AUTH_URL: publicEnv.PUBLIC_NEON_AUTH_URL
+	});
 }
 
 export function createNeonAuthClientWithFactory(
@@ -85,7 +95,7 @@ export function createNeonAuthClientWithFactory(
 		}
 	} as unknown as Parameters<typeof createAuthClient>[1];
 
-	return factory(getNeonAuthUrl(), config) as NeonAuthClient;
+	return factory(options.authUrl ?? getNeonAuthUrl(), config) as NeonAuthClient;
 }
 
 export function createNeonAuthClient(options: CreateNeonAuthClientOptions = {}): NeonAuthClient {
