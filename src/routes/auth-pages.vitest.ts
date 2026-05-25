@@ -36,10 +36,9 @@ describe('login page', () => {
 
 	it('does not render email or credential fields', () => {
 		render(LoginPage, { props: { form: null } });
-		const secretFieldType = ['pass', 'word'].join('');
 
 		expect(screen.queryByLabelText('Email Address')).not.toBeInTheDocument();
-		expect(document.querySelector(`input[type="${secretFieldType}"]`)).not.toBeInTheDocument();
+		expect(document.querySelector('input[type="password"]')).not.toBeInTheDocument();
 	});
 
 	it('shows server error message when form has error', () => {

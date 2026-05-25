@@ -50,20 +50,11 @@ describe('profile page', () => {
 
 	it('does not render credential-change controls', () => {
 		render(ProfilePage, { props: { data: makeProfileData(), form: null } });
-		const secretTerm = ['pass', 'word'].join('');
-		expect(
-			screen.queryByRole('heading', { name: new RegExp(`change ${secretTerm}`, 'i') })
-		).not.toBeInTheDocument();
-		expect(
-			screen.queryByLabelText(new RegExp(`current ${secretTerm}`, 'i'))
-		).not.toBeInTheDocument();
-		expect(
-			screen.queryByLabelText(new RegExp(`new ${secretTerm}`, 'i'))
-		).not.toBeInTheDocument();
-		expect(
-			screen.queryByRole('button', { name: new RegExp(`change ${secretTerm}`, 'i') })
-		).not.toBeInTheDocument();
-		expect(document.querySelector(`input[type="${secretTerm}"]`)).not.toBeInTheDocument();
+		expect(screen.queryByRole('heading', { name: /change password/i })).not.toBeInTheDocument();
+		expect(screen.queryByLabelText(/current password/i)).not.toBeInTheDocument();
+		expect(screen.queryByLabelText(/new password/i)).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: /change password/i })).not.toBeInTheDocument();
+		expect(document.querySelector('input[type="password"]')).not.toBeInTheDocument();
 	});
 
 	it('shows success message when form has updateSuccess', () => {
