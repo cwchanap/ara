@@ -4,6 +4,15 @@ import { env as publicEnv } from '$env/dynamic/public';
 
 export type NeonAuthClient = ReturnType<typeof createAuthClient>;
 
+export type CreateNeonAuthClientOptions = {
+	headers?: HeadersInit;
+};
+
+function normalizeHeaders(headers: HeadersInit | undefined): Record<string, string> | undefined {
+	if (!headers) return undefined;
+	return Object.fromEntries(new Headers(headers).entries());
+}
+
 export function getNeonAuthUrl(): string {
 	const url =
 		privateEnv.NEON_AUTH_BASE_URL ||
@@ -11,12 +20,20 @@ export function getNeonAuthUrl(): string {
 		publicEnv.PUBLIC_NEON_AUTH_URL;
 
 	if (!url) {
-		throw new Error('NEON_AUTH_BASE_URL or VITE_NEON_AUTH_URL is required');
+		throw new Error(
+			'NEON_AUTH_BASE_URL, VITE_NEON_AUTH_URL, or PUBLIC_NEON_AUTH_URL is required'
+		);
 	}
 
 	return url;
 }
 
-export function createNeonAuthClient(): NeonAuthClient {
-	return createAuthClient(getNeonAuthUrl());
+export function createNeonAuthClient(options: CreateNeonAuthClientOptions = {}): NeonAuthClient {
+	const config = {
+		fetchOptions: {
+			headers: normalizeHeaders(options.headers)
+		}
+	} as unknown as Parameters<typeof createAuthClient>[1];
+
+	return createAuthClient(getNeonAuthUrl(), config);
 }
