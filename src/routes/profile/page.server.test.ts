@@ -287,4 +287,44 @@ describe('profile signout action', () => {
 			console.error = originalConsoleError;
 		}
 	});
+
+	test('clears incoming Neon auth cookies and redirects when direct Neon Auth signout throws', async () => {
+		const error = new Error('Network error');
+		upstreamFetch.mockImplementationOnce(async () => {
+			throw error;
+		});
+		const cookies = { set: mock(() => {}) };
+		const originalConsoleError = console.error;
+		console.error = mock(() => {});
+
+		try {
+			await expect(
+				actions.signout({
+					locals: makeLocals(),
+					cookies,
+					request: new Request('http://localhost/profile', {
+						method: 'POST',
+						headers: {
+							cookie: '__Secure-neon-auth.session=abc; other=value'
+						}
+					})
+				} as unknown as Parameters<(typeof actions)['signout']>[0])
+			).rejects.toMatchObject({ status: 303, location: '/login' });
+
+			expect(cookies.set).toHaveBeenCalledWith(
+				'__Secure-neon-auth.session',
+				'',
+				expect.objectContaining({
+					path: '/',
+					maxAge: 0,
+					httpOnly: true,
+					secure: true,
+					sameSite: 'lax'
+				})
+			);
+			expect(console.error).toHaveBeenCalledWith('Error signing out:', error);
+		} finally {
+			console.error = originalConsoleError;
+		}
+	});
 });

@@ -116,6 +116,26 @@ function getSecureNeonAuthCookies(headers: Headers): string | undefined {
 	return secureCookies.length > 0 ? secureCookies.join('; ') : undefined;
 }
 
+function getFallbackSignOutSetCookieHeaders(request: Request): string[] {
+	const secureCookies = getSecureNeonAuthCookies(request.headers);
+	if (!secureCookies) return [];
+
+	const cookieNames = new Set(
+		secureCookies
+			.split(';')
+			.map((cookie) => cookie.trim())
+			.map((cookie) => {
+				const separatorIndex = cookie.indexOf('=');
+				return separatorIndex > 0 ? cookie.slice(0, separatorIndex) : '';
+			})
+			.filter((name) => name.startsWith(SECURE_NEON_AUTH_COOKIE_PREFIX))
+	);
+
+	return [...cookieNames].map(
+		(name) => `${name}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`
+	);
+}
+
 function getProxyRequestHeaders(request: Request): Headers {
 	const incomingHeaders = request.headers;
 	const headers = new Headers();
@@ -332,17 +352,23 @@ export async function signOutWithNeonAuth({
 	authUrl = getNeonAuthUrl(),
 	fetch: fetcher = fetch
 }: NeonAuthProxyOptions): Promise<NeonSignOutResult> {
+	const fallbackSetCookieHeaders = getFallbackSignOutSetCookieHeaders(request);
+
 	try {
 		const response = await fetcher(buildAuthEndpoint(authUrl, '/sign-out'), {
 			method: 'POST',
 			headers: getProxyRequestHeaders(request)
 		});
 		const data = response.ok ? null : await readJsonResponse(response);
+		const setCookieHeaders = getSetCookieHeaders(response.headers);
 
 		return {
 			ok: response.ok,
 			status: response.status,
-			setCookieHeaders: getSetCookieHeaders(response.headers),
+			setCookieHeaders:
+				setCookieHeaders.length > 0 || response.ok
+					? setCookieHeaders
+					: fallbackSetCookieHeaders,
 			...(response.ok ? {} : { error: data })
 		};
 	} catch (error) {
@@ -350,7 +376,7 @@ export async function signOutWithNeonAuth({
 			ok: false,
 			status: 0,
 			error,
-			setCookieHeaders: []
+			setCookieHeaders: fallbackSetCookieHeaders
 		};
 	}
 }

@@ -237,6 +237,58 @@ describe('neon auth wrapper', () => {
 		});
 	});
 
+	test('returns defensive clearing cookies when direct Better Auth signout fetch throws', async () => {
+		const error = new Error('upstream unavailable');
+		const fetcher = mock(async () => {
+			throw error;
+		});
+
+		const { signOutWithNeonAuth } = await import('./neon.server');
+		const result = await signOutWithNeonAuth({
+			authUrl: 'https://auth.example.test/auth',
+			fetch: fetcher,
+			request: new Request('https://app.example.test/profile', {
+				headers: {
+					cookie: '__Secure-neon-auth.session=abc; other=value; __Secure-neon-auth.refresh=def'
+				}
+			})
+		});
+
+		expect(result).toEqual({
+			ok: false,
+			status: 0,
+			error,
+			setCookieHeaders: [
+				'__Secure-neon-auth.session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax',
+				'__Secure-neon-auth.refresh=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax'
+			]
+		});
+	});
+
+	test('uses defensive clearing cookies when direct Better Auth signout fails without Set-Cookie', async () => {
+		const fetcher = mock(async () => {
+			return new Response(JSON.stringify({ error: 'unavailable' }), { status: 502 });
+		});
+
+		const { signOutWithNeonAuth } = await import('./neon.server');
+		const result = await signOutWithNeonAuth({
+			authUrl: 'https://auth.example.test/auth',
+			fetch: fetcher,
+			request: new Request('https://app.example.test/profile', {
+				headers: { cookie: '__Secure-neon-auth.session=abc; other=value' }
+			})
+		});
+
+		expect(result).toEqual({
+			ok: false,
+			status: 502,
+			error: { error: 'unavailable' },
+			setCookieHeaders: [
+				'__Secure-neon-auth.session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax'
+			]
+		});
+	});
+
 	test('applies parsed Set-Cookie headers to SvelteKit cookies using raw value encoding', async () => {
 		const setCalls: unknown[][] = [];
 		const cookies = {
