@@ -78,19 +78,17 @@ Expected:
 - `bun.lock` updates.
 - No application code is changed yet.
 
-- [ ] **Step 2: Remove Supabase SDK packages**
+- [ ] **Step 2: Keep Supabase SDK packages until Supabase imports are removed**
 
-Run:
-
-```bash
-bun remove @supabase/ssr @supabase/supabase-js
-```
+Do not remove `@supabase/ssr` or `@supabase/supabase-js` in this task. Existing
+production code still imports them until the server hook, browser layout, signup,
+and Supabase admin cleanup tasks land.
 
 Expected:
 
-- `package.json` no longer includes `@supabase/ssr` or `@supabase/supabase-js`.
-- `bun.lock` updates.
-- TypeScript will fail until later tasks replace imports.
+- `package.json` still includes `@supabase/ssr` and `@supabase/supabase-js`.
+- The checkout remains type-checkable between tasks.
+- Task 7 removes Supabase packages after the importing source files are gone.
 
 - [ ] **Step 3: Add an SDK contract test**
 
