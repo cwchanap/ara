@@ -594,6 +594,17 @@ Expected:
 
 - Commit contains only type, hook, and layout server boundary changes.
 
+Correction applied after Task 3 review:
+
+- Task 3 also moved the server-route auth boundary off `locals.supabase` for
+  `src/routes/login/+page.server.ts`, `src/routes/signup/+page.server.ts`, and
+  `src/routes/profile/+page.server.ts` because `src/hooks.server.ts` no longer
+  initializes a Supabase local. `src/app.d.ts` must reflect runtime and expose
+  only `neonAuth` and `safeGetSession` for auth locals.
+- Task 5 must skip or reconcile those already migrated server files and keep its
+  remaining work focused on the browser/UI route files, profile provisioning,
+  share-route provisioning, and tests that are not covered by the Task 3 fix.
+
 ---
 
 ### Task 4: Add Profile Auto-Provisioning

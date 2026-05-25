@@ -4,10 +4,22 @@
 	import type { Profile } from '$lib/types';
 	import { validateUsername as sharedValidateUsername } from '$lib/auth-errors';
 
-	let { data, form } = $props();
+	type ProfileForm =
+		| {
+				updateSuccess?: boolean;
+				updateError?: string;
+				username?: string;
+				passwordSuccess?: boolean;
+				passwordError?: string;
+				passwordWarning?: string;
+		  }
+		| null
+		| undefined;
+
+	let { data, form }: { data: App.PageData; form?: ProfileForm } = $props();
 
 	// Get profile from page data
-	let profile: Profile | null = $derived(data.profile);
+	let profile: Profile | null = $derived(data.profile ?? null);
 	let user = $derived(data.user);
 
 	// Username form state - initialize from profile when available
