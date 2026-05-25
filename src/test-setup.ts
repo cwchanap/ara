@@ -31,6 +31,11 @@ plugin({
 			loader: 'js'
 		}));
 
+		build.module('$env/dynamic/public', () => ({
+			contents: `export const env = process.env;`,
+			loader: 'js'
+		}));
+
 		// Stub for $app/paths: the real module is provided by SvelteKit's Vite
 		// plugin and exposes the app base path. In tests there is no base path,
 		// so we export an empty string which is the correct default value.
