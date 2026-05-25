@@ -19,6 +19,17 @@ let updateShouldThrow: Error | null = null;
 let insertShouldThrow: Error | null = null;
 let lastInsertedValues: Record<string, unknown> | null = null;
 let lastUpdatedValues: Record<string, unknown> | null = null;
+let operationLog: string[] = [];
+
+const ensureProfileForUser = mock(async () => {
+	operationLog.push('provision');
+	return {
+		id: 'user-1',
+		username: 'user_1',
+		createdAt: '2026-01-01T00:00:00.000Z',
+		updatedAt: '2026-01-01T00:00:00.000Z'
+	};
+});
 
 const selectMock = mock(() => {
 	const chain: Record<string, unknown> = {
@@ -32,6 +43,7 @@ const selectMock = mock(() => {
 
 const insertMock = mock(() => ({
 	values: (vals: Record<string, unknown>) => {
+		operationLog.push('insert');
 		lastInsertedValues = vals;
 		return {
 			returning: mock(async () => {
@@ -88,6 +100,10 @@ mock.module('$lib/server/db', () => ({
 	},
 	sharedConfigurations: {},
 	profiles: {}
+}));
+
+mock.module('$lib/server/profile-provisioning', () => ({
+	ensureProfileForUser
 }));
 
 mock.module('drizzle-orm', () => ({
@@ -147,10 +163,12 @@ beforeEach(() => {
 	insertShouldThrow = null;
 	lastInsertedValues = null;
 	lastUpdatedValues = null;
+	operationLog = [];
 	selectMock.mockClear();
 	insertMock.mockClear();
 	updateMock.mockClear();
 	deleteMock.mockClear();
+	ensureProfileForUser.mockClear();
 });
 
 // ── load ──────────────────────────────────────────────────────────────────────
@@ -240,6 +258,8 @@ describe('saved-configs save action', () => {
 			request: makeRequest({ name: 'Test', mapType: 'lorenz', parameters: '{}' })
 		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({ status: 401 });
+		expect(ensureProfileForUser).not.toHaveBeenCalled();
+		expect(operationLog).toEqual([]);
 	});
 
 	test('returns 400 when name is missing', async () => {
@@ -248,6 +268,8 @@ describe('saved-configs save action', () => {
 			request: makeRequest({ name: '', mapType: 'lorenz', parameters: '{}' })
 		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({ status: 400, data: { saveError: expect.any(String) } });
+		expect(ensureProfileForUser).not.toHaveBeenCalled();
+		expect(operationLog).toEqual([]);
 	});
 
 	test('returns 400 when name is only whitespace', async () => {
@@ -295,6 +317,8 @@ describe('saved-configs save action', () => {
 			status: 400,
 			data: { saveError: expect.stringContaining('Invalid map type') }
 		});
+		expect(ensureProfileForUser).not.toHaveBeenCalled();
+		expect(operationLog).toEqual([]);
 	});
 
 	test('returns 400 when parameters field is missing', async () => {
@@ -329,6 +353,8 @@ describe('saved-configs save action', () => {
 			status: 400,
 			data: { saveError: expect.stringContaining('Invalid parameters') }
 		});
+		expect(ensureProfileForUser).not.toHaveBeenCalled();
+		expect(operationLog).toEqual([]);
 	});
 
 	test('returns 201 with configurationId on successful save', async () => {
@@ -342,6 +368,22 @@ describe('saved-configs save action', () => {
 			})
 		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({ success: true, configurationId: 'saved-config-id' });
+	});
+
+	test('ensures the authenticated user has a profile before inserting', async () => {
+		insertQueue.push([{ id: 'saved-config-id' }]);
+		const result = await actions.save({
+			locals: makeLocals({ userId: 'first-google-user' }),
+			request: makeRequest({
+				name: 'My Lorenz Config',
+				mapType: 'lorenz',
+				parameters: JSON.stringify({ type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 })
+			})
+		} as unknown as Parameters<typeof load>[0]);
+
+		expect(result).toMatchObject({ success: true });
+		expect(ensureProfileForUser).toHaveBeenCalledWith({ id: 'first-google-user' });
+		expect(operationLog).toEqual(['provision', 'insert']);
 	});
 
 	test('trims whitespace from name before saving', async () => {

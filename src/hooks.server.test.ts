@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import type { RequestEvent } from '@sveltejs/kit';
+import { createNeonAuthClientWithFactory } from '$lib/auth/neon.server';
 
 let getSessionResult: { data: unknown; error: unknown } = {
 	data: { user: { id: 'user-1', email: 'ada@example.com', name: 'Ada' } },
@@ -7,37 +8,31 @@ let getSessionResult: { data: unknown; error: unknown } = {
 };
 
 const getSession = mock(async () => getSessionResult);
-const createNeonAuthClient = mock((options: unknown) => {
-	void options;
-	return { getSession };
-});
+const authClientFactory = mock(() => ({ getSession }));
 
-const upstreamFetch = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-	void init;
-	const url = new URL(String(input));
-	expect(url.origin + url.pathname).toBe('https://auth.example.test/auth/get-session');
-	expect(url.searchParams.get('neon_auth_session_verifier')).toBe('verifier-123');
+const createNeonAuthClient = mock((options: { headers?: HeadersInit } = {}) =>
+	createNeonAuthClientWithFactory(authClientFactory, {
+		...options,
+		authUrl: 'https://auth.example.test/auth'
+	})
+);
 
-	return new Response('{}', {
+const exchangeOAuthVerifier = mock(async ({ request }: { request: Request }) => {
+	const requestUrl = new URL(request.url);
+	expect(requestUrl.searchParams.get('neon_auth_session_verifier')).toBe('verifier-123');
+
+	const redirectUrl = new URL(request.url);
+	redirectUrl.searchParams.delete('neon_auth_session_verifier');
+
+	return {
+		ok: true,
 		status: 200,
-		headers: {
-			'set-cookie':
-				'__Secure-neon-auth.session=session-value; Path=/; HttpOnly; Secure; SameSite=Lax'
-		}
-	});
+		redirectUrl: redirectUrl.toString(),
+		setCookieHeaders: [
+			'__Secure-neon-auth.session=session-value; Path=/; HttpOnly; Secure; SameSite=Lax'
+		]
+	};
 });
-
-mock.module('@neondatabase/auth', () => ({
-	createAuthClient: createNeonAuthClient
-}));
-
-mock.module('$env/dynamic/private', () => ({
-	env: { NEON_AUTH_BASE_URL: 'https://auth.example.test/auth' }
-}));
-
-mock.module('$env/dynamic/public', () => ({
-	env: {}
-}));
 
 mock.module('$lib/auth/neon', () => ({
 	normalizeSession: (data: unknown) => {
@@ -46,7 +41,8 @@ mock.module('$lib/auth/neon', () => ({
 	}
 }));
 
-const { handle } = await import('./hooks.server');
+const { createHandle } = await import('./hooks.server');
+const handle = createHandle({ createNeonAuthClient, exchangeOAuthVerifier });
 
 describe('hooks.server', () => {
 	beforeEach(() => {
@@ -56,8 +52,8 @@ describe('hooks.server', () => {
 		};
 		getSession.mockClear();
 		createNeonAuthClient.mockClear();
-		upstreamFetch.mockClear();
-		globalThis.fetch = upstreamFetch as unknown as typeof fetch;
+		authClientFactory.mockClear();
+		exchangeOAuthVerifier.mockClear();
 	});
 
 	test('exchanges OAuth verifier before resolving protected routes', async () => {
@@ -70,7 +66,7 @@ describe('hooks.server', () => {
 
 		const response = await handle({ event, resolve });
 
-		expect(upstreamFetch).toHaveBeenCalled();
+		expect(exchangeOAuthVerifier).toHaveBeenCalledWith({ request });
 		expect(resolve).not.toHaveBeenCalled();
 		expect(response.status).toBe(303);
 		expect(response.headers.get('location')).toBe(
@@ -88,8 +84,8 @@ describe('hooks.server', () => {
 
 		const response = await handle({ event, resolve });
 
-		expect(upstreamFetch).not.toHaveBeenCalled();
-		expect(createNeonAuthClient).toHaveBeenCalledWith('https://auth.example.test/auth', {
+		expect(exchangeOAuthVerifier).not.toHaveBeenCalled();
+		expect(authClientFactory).toHaveBeenCalledWith('https://auth.example.test/auth', {
 			fetchOptions: {
 				headers: undefined
 			}
@@ -110,7 +106,7 @@ describe('hooks.server', () => {
 
 		await handle({ event, resolve });
 
-		expect(createNeonAuthClient).toHaveBeenCalledWith('https://auth.example.test/auth', {
+		expect(authClientFactory).toHaveBeenCalledWith('https://auth.example.test/auth', {
 			fetchOptions: {
 				headers: {
 					cookie: '__Secure-neon-auth.session=session-value'
