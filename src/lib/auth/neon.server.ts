@@ -2,25 +2,41 @@ import { createAuthClient } from '@neondatabase/auth';
 import { env as privateEnv } from '$env/dynamic/private';
 import { env as publicEnv } from '$env/dynamic/public';
 
-type NeonAuthResult = {
+type NeonAuthErrorResult = {
+	error?: unknown;
+};
+
+export type NeonAuthSocialSignInOptions = {
+	provider: 'google';
+	callbackURL: string;
+	disableRedirect?: boolean;
+};
+
+export type NeonAuthSocialSignInResult = {
 	data?: {
-		url?: string;
+		url?: string | null;
 		redirect?: boolean;
 	} | null;
 	error?: unknown;
 };
 
+export type NeonAuthSessionResult = {
+	data?: unknown;
+	error?: unknown;
+};
+
 export type NeonAuthClient = {
 	signIn: {
-		social: (options: {
-			provider: 'google';
-			callbackURL: string;
-			disableRedirect?: boolean;
-		}) => Promise<NeonAuthResult>;
+		social: (options: NeonAuthSocialSignInOptions) => Promise<NeonAuthSocialSignInResult>;
 	};
-	signOut: () => Promise<NeonAuthResult>;
-	getSession: () => Promise<NeonAuthResult>;
+	signOut: () => Promise<NeonAuthErrorResult>;
+	getSession: () => Promise<NeonAuthSessionResult>;
 };
+
+export type NeonAuthClientFactory = (
+	url: string,
+	config: Parameters<typeof createAuthClient>[1]
+) => unknown;
 
 export type CreateNeonAuthClientOptions = {
 	headers?: HeadersInit;
@@ -59,12 +75,19 @@ export function getNeonAuthUrl(): string {
 	return url;
 }
 
-export function createNeonAuthClient(options: CreateNeonAuthClientOptions = {}): NeonAuthClient {
+export function createNeonAuthClientWithFactory(
+	factory: NeonAuthClientFactory,
+	options: CreateNeonAuthClientOptions = {}
+): NeonAuthClient {
 	const config = {
 		fetchOptions: {
 			headers: normalizeHeaders(options.headers)
 		}
 	} as unknown as Parameters<typeof createAuthClient>[1];
 
-	return createAuthClient(getNeonAuthUrl(), config) as unknown as NeonAuthClient;
+	return factory(getNeonAuthUrl(), config) as NeonAuthClient;
+}
+
+export function createNeonAuthClient(options: CreateNeonAuthClientOptions = {}): NeonAuthClient {
+	return createNeonAuthClientWithFactory(createAuthClient, options);
 }
