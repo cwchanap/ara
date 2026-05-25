@@ -1,9 +1,9 @@
-import { pgTable, unique, uuid, text, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, unique, text, timestamp } from 'drizzle-orm/pg-core';
 
 export const profiles = pgTable(
 	'profiles',
 	{
-		id: uuid().primaryKey().notNull(),
+		id: text().primaryKey().notNull(),
 		username: text().notNull(),
 		createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
 			.defaultNow()
