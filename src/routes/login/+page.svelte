@@ -1,6 +1,9 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
+
 	type LoginForm = { error?: string } | null | undefined;
-	let { form }: { form?: LoginForm } = $props();
+	let { form, data }: { form?: LoginForm; data?: { redirectTo?: string } } = $props();
+	let isLoading = $state(false);
 </script>
 
 <div class="flex min-h-[calc(100vh-12rem)] items-center justify-center">
@@ -8,9 +11,9 @@
 		<!-- Header -->
 		<div class="mb-8 text-center">
 			<h1 class="font-['Orbitron'] text-3xl font-bold tracking-wider text-primary mb-2">
-				SYSTEM_LOGIN
+				SYSTEM_SIGN_IN
 			</h1>
-			<p class="text-muted-foreground">Access your chaos visualizations</p>
+			<p class="text-muted-foreground">Access your chaos visualizations with Google</p>
 		</div>
 
 		<!-- Form Card -->
@@ -29,15 +32,27 @@
 				</div>
 			{/if}
 
-			<form method="POST" class="space-y-6">
+			<form
+				method="POST"
+				class="space-y-6"
+				use:enhance={() => {
+					isLoading = true;
+					return async ({ update }) => {
+						await update();
+						isLoading = false;
+					};
+				}}
+			>
+				<input type="hidden" name="redirectTo" value={data?.redirectTo ?? '/'} />
 				<button
 					type="submit"
+					disabled={isLoading}
 					class="w-full py-3 px-4 bg-primary text-primary-foreground font-['Orbitron'] font-medium
                  rounded-md uppercase tracking-wider
                  hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background
-                 transition-all duration-200"
+                 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
 				>
-					Continue with Google
+					{isLoading ? 'Connecting...' : 'Continue with Google'}
 				</button>
 			</form>
 		</div>

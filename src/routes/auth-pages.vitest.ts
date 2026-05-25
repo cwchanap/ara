@@ -26,7 +26,7 @@ afterEach(() => {
 describe('login page', () => {
 	it('renders the login heading', () => {
 		render(LoginPage, { props: { form: null } });
-		expect(screen.getByText('SYSTEM_LOGIN')).toBeInTheDocument();
+		expect(screen.getByText('SYSTEM_SIGN_IN')).toBeInTheDocument();
 	});
 
 	it('renders a Google sign-in button', () => {
