@@ -147,6 +147,22 @@ describe('login default action', () => {
 		});
 	});
 
+	test('redirects authenticated POSTs to the safe redirect target without starting OAuth', async () => {
+		await expect(
+			actions.default({
+				locals: makeLocals({ hasSession: true }),
+				cookies: { set: mock(() => {}) },
+				request: new Request('http://localhost/login?redirect=%2Fsaved-configs', {
+					method: 'POST',
+					body: new FormData()
+				}),
+				url: new URL('http://localhost/login?redirect=%2Fsaved-configs')
+			} as unknown as Parameters<(typeof actions)['default']>[0])
+		).rejects.toMatchObject({ status: 303, location: '/saved-configs' });
+
+		expect(upstreamFetch).not.toHaveBeenCalled();
+	});
+
 	test('returns 400 when Google OAuth start fails', async () => {
 		upstreamFetch.mockResolvedValueOnce(
 			new Response(JSON.stringify({ error: 'unavailable' }), { status: 503 })
