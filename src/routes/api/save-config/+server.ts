@@ -4,6 +4,7 @@ import { db, savedConfigurations } from '$lib/server/db';
 import { VALID_MAP_TYPES } from '$lib/types';
 import type { ChaosMapType, ChaosMapParameters } from '$lib/types';
 import { validateParameters } from '$lib/chaos-validation';
+import { ensureProfileForUser } from '$lib/server/profile-provisioning';
 
 /**
  * POST /api/save-config
@@ -72,6 +73,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	try {
+		await ensureProfileForUser(user);
+
 		// Insert new configuration
 		const [newConfig] = await db
 			.insert(savedConfigurations)

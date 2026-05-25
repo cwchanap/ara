@@ -5,41 +5,64 @@ import {
 	createNeonAuthClient,
 	exchangeOAuthVerifier
 } from '$lib/auth/neon.server';
+import type {
+	CreateNeonAuthClientOptions,
+	NeonAuthClient,
+	NeonOAuthExchangeResult
+} from '$lib/auth/neon.server';
 
-export const handle: Handle = async ({ event, resolve }) => {
-	const requestUrl = new URL(event.request.url);
-	if (requestUrl.searchParams.has(NEON_AUTH_SESSION_VERIFIER_PARAM)) {
-		const exchangeResult = await exchangeOAuthVerifier({ request: event.request });
+type CreateNeonAuthClient = (options?: CreateNeonAuthClientOptions) => NeonAuthClient;
+type ExchangeOAuthVerifier = (options: { request: Request }) => Promise<NeonOAuthExchangeResult>;
 
-		if (exchangeResult.ok) {
-			const response = new Response(null, {
-				status: 303,
-				headers: {
-					location: exchangeResult.redirectUrl
+type CreateHandleDependencies = {
+	createNeonAuthClient: CreateNeonAuthClient;
+	exchangeOAuthVerifier: ExchangeOAuthVerifier;
+};
+
+export function createHandle({
+	createNeonAuthClient,
+	exchangeOAuthVerifier
+}: CreateHandleDependencies): Handle {
+	return async ({ event, resolve }) => {
+		const requestUrl = new URL(event.request.url);
+		if (requestUrl.searchParams.has(NEON_AUTH_SESSION_VERIFIER_PARAM)) {
+			const exchangeResult = await exchangeOAuthVerifier({ request: event.request });
+
+			if (exchangeResult.ok) {
+				const response = new Response(null, {
+					status: 303,
+					headers: {
+						location: exchangeResult.redirectUrl
+					}
+				});
+
+				for (const setCookieHeader of exchangeResult.setCookieHeaders) {
+					response.headers.append('set-cookie', setCookieHeader);
 				}
-			});
 
-			for (const setCookieHeader of exchangeResult.setCookieHeaders) {
-				response.headers.append('set-cookie', setCookieHeader);
+				return response;
 			}
 
-			return response;
+			console.error('Error exchanging Neon Auth OAuth verifier:', exchangeResult.error);
 		}
 
-		console.error('Error exchanging Neon Auth OAuth verifier:', exchangeResult.error);
-	}
+		event.locals.neonAuth = createNeonAuthClient({ headers: event.request.headers });
 
-	event.locals.neonAuth = createNeonAuthClient({ headers: event.request.headers });
+		event.locals.safeGetSession = async () => {
+			const { data, error } = await event.locals.neonAuth.getSession();
 
-	event.locals.safeGetSession = async () => {
-		const { data, error } = await event.locals.neonAuth.getSession();
+			if (error) {
+				return { session: null, user: null };
+			}
 
-		if (error) {
-			return { session: null, user: null };
-		}
+			return normalizeSession(data);
+		};
 
-		return normalizeSession(data);
+		return resolve(event);
 	};
+}
 
-	return resolve(event);
-};
+export const handle: Handle = createHandle({
+	createNeonAuthClient,
+	exchangeOAuthVerifier
+});

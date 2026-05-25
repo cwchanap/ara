@@ -7,6 +7,7 @@ import { VALID_MAP_TYPES } from '$lib/types';
 import type { ChaosMapType, ChaosMapParameters, SavedConfiguration } from '$lib/types';
 import { fail } from '@sveltejs/kit';
 import { validateParameters } from '$lib/chaos-validation';
+import { ensureProfileForUser } from '$lib/server/profile-provisioning';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const { session, user } = await locals.safeGetSession();
@@ -114,6 +115,8 @@ export const actions: Actions = {
 		const typedParameters = parameters as ChaosMapParameters;
 
 		try {
+			await ensureProfileForUser(user);
+
 			const [newConfig] = await db
 				.insert(savedConfigurations)
 				.values({

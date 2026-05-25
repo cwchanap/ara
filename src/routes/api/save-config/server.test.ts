@@ -11,6 +11,17 @@ import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 let mockDbInsertShouldThrow = false;
 let lastInsertedValues: Record<string, unknown> | null = null;
+let operationLog: string[] = [];
+
+const ensureProfileForUser = mock(async () => {
+	operationLog.push('provision');
+	return {
+		id: 'user-123',
+		username: 'user_123',
+		createdAt: '2026-01-01T00:00:00.000Z',
+		updatedAt: '2026-01-01T00:00:00.000Z'
+	};
+});
 
 const mockReturning = async () => {
 	if (mockDbInsertShouldThrow) {
@@ -30,6 +41,7 @@ mock.module('$lib/server/db', () => ({
 	db: {
 		insert: () => ({
 			values: (vals: Record<string, unknown>) => {
+				operationLog.push('insert');
 				lastInsertedValues = vals;
 				return { returning: mockReturning };
 			}
@@ -55,6 +67,10 @@ mock.module('$lib/server/db', () => ({
 		expiresAt: {}
 	},
 	profiles: { id: {}, username: {} }
+}));
+
+mock.module('$lib/server/profile-provisioning', () => ({
+	ensureProfileForUser
 }));
 
 // Dynamic import AFTER mock registration
@@ -99,6 +115,8 @@ function makeBrokenJsonEvent() {
 beforeEach(() => {
 	mockDbInsertShouldThrow = false;
 	lastInsertedValues = null;
+	operationLog = [];
+	ensureProfileForUser.mockClear();
 });
 
 describe('POST /api/save-config', () => {
@@ -110,6 +128,8 @@ describe('POST /api/save-config', () => {
 				false
 			);
 			await expect(POST(event as never)).rejects.toMatchObject({ status: 401 });
+			expect(ensureProfileForUser).not.toHaveBeenCalled();
+			expect(operationLog).toEqual([]);
 		});
 	});
 
@@ -117,6 +137,8 @@ describe('POST /api/save-config', () => {
 		test('returns 400 for invalid JSON', async () => {
 			const event = makeBrokenJsonEvent();
 			await expect(POST(event as never)).rejects.toMatchObject({ status: 400 });
+			expect(ensureProfileForUser).not.toHaveBeenCalled();
+			expect(operationLog).toEqual([]);
 		});
 	});
 
@@ -182,6 +204,8 @@ describe('POST /api/save-config', () => {
 				parameters: {}
 			});
 			await expect(POST(event as never)).rejects.toMatchObject({ status: 400 });
+			expect(ensureProfileForUser).not.toHaveBeenCalled();
+			expect(operationLog).toEqual([]);
 		});
 	});
 
@@ -193,6 +217,8 @@ describe('POST /api/save-config', () => {
 				parameters: { type: 'lorenz', sigma: 10 } // missing rho and beta
 			});
 			await expect(POST(event as never)).rejects.toMatchObject({ status: 400 });
+			expect(ensureProfileForUser).not.toHaveBeenCalled();
+			expect(operationLog).toEqual([]);
 		});
 
 		test('returns 400 for non-numeric parameter values', async () => {
@@ -251,6 +277,22 @@ describe('POST /api/save-config', () => {
 			);
 			await POST(event as never);
 			expect(lastInsertedValues?.userId).toBe('specific-user-id');
+		});
+
+		test('ensures the authenticated user has a profile before inserting', async () => {
+			const event = makeEvent(
+				{
+					name: 'Test',
+					mapType: 'lorenz',
+					parameters: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 }
+				},
+				'specific-user-id'
+			);
+
+			await POST(event as never);
+
+			expect(ensureProfileForUser).toHaveBeenCalledWith({ id: 'specific-user-id' });
+			expect(operationLog).toEqual(['provision', 'insert']);
 		});
 
 		test('saves valid rossler parameters', async () => {
