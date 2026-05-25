@@ -2,7 +2,18 @@ import { createAuthClient } from '@neondatabase/auth';
 import { env as privateEnv } from '$env/dynamic/private';
 import { env as publicEnv } from '$env/dynamic/public';
 
-export type NeonAuthClient = ReturnType<typeof createAuthClient>;
+type NeonAuthResult = {
+	data?: unknown;
+	error?: unknown;
+};
+
+export type NeonAuthClient = {
+	signIn: {
+		social: (options: { provider: 'google'; callbackURL: string }) => Promise<NeonAuthResult>;
+	};
+	signOut: () => Promise<NeonAuthResult>;
+	getSession: () => Promise<NeonAuthResult>;
+};
 
 export type CreateNeonAuthClientOptions = {
 	headers?: HeadersInit;
@@ -48,5 +59,5 @@ export function createNeonAuthClient(options: CreateNeonAuthClientOptions = {}):
 		}
 	} as unknown as Parameters<typeof createAuthClient>[1];
 
-	return createAuthClient(getNeonAuthUrl(), config);
+	return createAuthClient(getNeonAuthUrl(), config) as unknown as NeonAuthClient;
 }

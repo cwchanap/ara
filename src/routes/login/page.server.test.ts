@@ -1,70 +1,36 @@
-/**
- * Tests for the login page server (load + default action).
- *
- * Exercises redirect-safety (open-redirect prevention), input validation,
- * Supabase auth error handling, and successful sign-in redirect.
- */
+import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
-import { beforeEach, describe, expect, test } from 'bun:test';
-
-// ── Supabase auth mock state ──────────────────────────────────────────────────
-
-let mockSignInError: Error | null = null;
-
-// Dynamic import AFTER mock registration so the server module resolves the
-// $lib/* virtual modules through the build plugin stubs in test-setup.ts.
 const { actions, load } = await import('./+page.server');
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+const signInSocial = mock(async () => ({ error: null as Error | null }));
 
-function makeLocals({
-	hasSession = false
-}: {
-	hasSession?: boolean;
-} = {}) {
+function makeLocals({ hasSession = false }: { hasSession?: boolean } = {}) {
 	return {
 		safeGetSession: async () => ({
-			session: hasSession ? { access_token: 'tok' } : null,
+			session: hasSession ? { user: { id: 'user-1' } } : null,
 			user: hasSession ? { id: 'user-1', email: 'user@example.com' } : null
 		}),
-		supabase: {
-			auth: {
-				signInWithPassword: async () => ({
-					error: mockSignInError
-				})
+		neonAuth: {
+			signIn: {
+				social: signInSocial
 			}
 		}
 	};
 }
 
-function makeRequest(fields: Record<string, string>) {
-	const fd = new FormData();
-	for (const [k, v] of Object.entries(fields)) fd.set(k, v);
-	return { formData: async () => fd };
-}
-
 beforeEach(() => {
-	mockSignInError = null;
+	signInSocial.mockClear();
+	signInSocial.mockResolvedValue({ error: null });
 });
 
-// ── load ──────────────────────────────────────────────────────────────────────
-
 describe('login page load', () => {
-	test('returns empty object for unauthenticated users', async () => {
+	test('returns safe redirect target for unauthenticated users', async () => {
 		const result = await load({
-			locals: makeLocals({ hasSession: false }),
-			url: new URL('http://localhost/login')
+			locals: makeLocals(),
+			url: new URL('http://localhost/login?redirect=%2Fsaved-configs')
 		} as unknown as Parameters<typeof load>[0]);
-		expect(result).toEqual({});
-	});
 
-	test('redirects authenticated user to base path when no redirect param', async () => {
-		await expect(
-			load({
-				locals: makeLocals({ hasSession: true }),
-				url: new URL('http://localhost/login')
-			} as unknown as Parameters<typeof load>[0])
-		).rejects.toMatchObject({ status: 303, location: '/' });
+		expect(result).toEqual({ redirectTo: '/saved-configs' });
 	});
 
 	test('redirects authenticated user to safe redirect path', async () => {
@@ -76,7 +42,7 @@ describe('login page load', () => {
 		).rejects.toMatchObject({ status: 303, location: '/lorenz' });
 	});
 
-	test('blocks open redirect (absolute URL) for authenticated user', async () => {
+	test('blocks open redirect for authenticated user', async () => {
 		await expect(
 			load({
 				locals: makeLocals({ hasSession: true }),
@@ -84,96 +50,60 @@ describe('login page load', () => {
 			} as unknown as Parameters<typeof load>[0])
 		).rejects.toMatchObject({ status: 303, location: '/' });
 	});
-
-	test('blocks open redirect (protocol-relative URL) for authenticated user', async () => {
-		await expect(
-			load({
-				locals: makeLocals({ hasSession: true }),
-				url: new URL('http://localhost/login?redirect=%2F%2Fattacker.example')
-			} as unknown as Parameters<typeof load>[0])
-		).rejects.toMatchObject({ status: 303, location: '/' });
-	});
 });
 
-// ── default action ────────────────────────────────────────────────────────────
-
 describe('login default action', () => {
-	describe('input validation', () => {
-		test('returns 400 for missing email', async () => {
-			const result = await actions.default({
+	test('starts Google OAuth with safe redirect path', async () => {
+		await expect(
+			actions.default({
 				locals: makeLocals(),
-				request: makeRequest({ email: '', password: 'Pass123!' }),
-				url: new URL('http://localhost/login')
-			} as unknown as Parameters<(typeof actions)['default']>[0]);
-			expect(result).toMatchObject({ status: 400 });
-		});
+				request: new Request('http://localhost/login?redirect=%2Fsaved-configs', {
+					method: 'POST',
+					body: new FormData()
+				}),
+				url: new URL('http://localhost/login?redirect=%2Fsaved-configs')
+			} as unknown as Parameters<(typeof actions)['default']>[0])
+		).rejects.toMatchObject({ status: 303, location: '/saved-configs' });
 
-		test('returns 400 for malformed email', async () => {
-			const result = await actions.default({
-				locals: makeLocals(),
-				request: makeRequest({ email: 'not-an-email', password: 'Pass123!' }),
-				url: new URL('http://localhost/login')
-			} as unknown as Parameters<(typeof actions)['default']>[0]);
-			expect(result).toMatchObject({ status: 400, data: { error: expect.any(String) } });
-		});
-
-		test('returns 400 when password is missing', async () => {
-			const result = await actions.default({
-				locals: makeLocals(),
-				request: makeRequest({ email: 'user@example.com', password: '' }),
-				url: new URL('http://localhost/login')
-			} as unknown as Parameters<(typeof actions)['default']>[0]);
-			expect(result).toMatchObject({
-				status: 400,
-				data: { error: 'Password is required', email: 'user@example.com' }
-			});
+		expect(signInSocial).toHaveBeenCalledWith({
+			provider: 'google',
+			callbackURL: '/saved-configs'
 		});
 	});
 
-	describe('auth errors', () => {
-		test('returns 400 and preserves email on Supabase sign-in error', async () => {
-			mockSignInError = new Error('Invalid login credentials');
-			const result = await actions.default({
+	test('falls back to base path for unsafe redirect params', async () => {
+		await expect(
+			actions.default({
 				locals: makeLocals(),
-				request: makeRequest({ email: 'user@example.com', password: 'wrongpass' }),
-				url: new URL('http://localhost/login')
-			} as unknown as Parameters<(typeof actions)['default']>[0]);
-			expect(result).toMatchObject({
-				status: 400,
-				data: { error: expect.any(String), email: 'user@example.com' }
-			});
+				request: new Request('http://localhost/login?redirect=%2F%2Fevil.example', {
+					method: 'POST',
+					body: new FormData()
+				}),
+				url: new URL('http://localhost/login?redirect=%2F%2Fevil.example')
+			} as unknown as Parameters<(typeof actions)['default']>[0])
+		).rejects.toMatchObject({ status: 303, location: '/' });
+
+		expect(signInSocial).toHaveBeenCalledWith({
+			provider: 'google',
+			callbackURL: '/'
 		});
 	});
 
-	describe('successful login', () => {
-		test('redirects to base path when no redirect param', async () => {
-			await expect(
-				actions.default({
-					locals: makeLocals(),
-					request: makeRequest({ email: 'user@example.com', password: 'correct' }),
-					url: new URL('http://localhost/login')
-				} as unknown as Parameters<(typeof actions)['default']>[0])
-			).rejects.toMatchObject({ status: 303, location: '/' });
-		});
+	test('returns 400 when Google OAuth start fails', async () => {
+		signInSocial.mockResolvedValueOnce({ error: new Error('OAuth unavailable') });
 
-		test('redirects to safe redirect path after login', async () => {
-			await expect(
-				actions.default({
-					locals: makeLocals(),
-					request: makeRequest({ email: 'user@example.com', password: 'correct' }),
-					url: new URL('http://localhost/login?redirect=%2Fsaved-configs')
-				} as unknown as Parameters<(typeof actions)['default']>[0])
-			).rejects.toMatchObject({ status: 303, location: '/saved-configs' });
-		});
+		const result = await actions.default({
+			locals: makeLocals(),
+			request: new Request('http://localhost/login', {
+				method: 'POST',
+				body: new FormData()
+			}),
+			url: new URL('http://localhost/login')
+		} as unknown as Parameters<(typeof actions)['default']>[0]);
 
-		test('blocks open redirect after successful login', async () => {
-			await expect(
-				actions.default({
-					locals: makeLocals(),
-					request: makeRequest({ email: 'user@example.com', password: 'correct' }),
-					url: new URL('http://localhost/login?redirect=%2F%2Fattacker.example')
-				} as unknown as Parameters<(typeof actions)['default']>[0])
-			).rejects.toMatchObject({ status: 303, location: '/' });
+		expect(result).toMatchObject({
+			status: 400,
+			data: { error: 'Google sign-in failed. Please try again.' }
 		});
 	});
 });

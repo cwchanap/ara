@@ -7,7 +7,8 @@
 		validatePassword as sharedValidatePassword
 	} from '$lib/auth-errors';
 
-	let { form } = $props();
+	type SignupForm = { error?: string; email?: string; username?: string } | null | undefined;
+	let { form }: { form?: SignupForm } = $props();
 
 	let email = $state(form?.email ?? '');
 	let username = $state(form?.username ?? '');

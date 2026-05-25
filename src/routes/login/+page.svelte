@@ -3,7 +3,8 @@
 	import { base } from '$app/paths';
 	import { validateEmail as sharedValidateEmail } from '$lib/auth-errors';
 
-	let { form } = $props();
+	type LoginForm = { error?: string; email?: string } | null | undefined;
+	let { form }: { form?: LoginForm } = $props();
 
 	let email = $state(form?.email ?? '');
 	let password = $state('');
