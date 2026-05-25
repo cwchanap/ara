@@ -2,7 +2,17 @@ import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 const { actions, load } = await import('./+page.server');
 
-const signInSocial = mock(async () => ({ error: null as Error | null }));
+type SignInSocialResult = {
+	data?: { url?: string } | null;
+	error: Error | null;
+};
+
+const signInSocial = mock(
+	async (): Promise<SignInSocialResult> => ({
+		data: { url: 'https://accounts.google.example/oauth' },
+		error: null as Error | null
+	})
+);
 
 function makeLocals({ hasSession = false }: { hasSession?: boolean } = {}) {
 	return {
@@ -20,7 +30,10 @@ function makeLocals({ hasSession = false }: { hasSession?: boolean } = {}) {
 
 beforeEach(() => {
 	signInSocial.mockClear();
-	signInSocial.mockResolvedValue({ error: null });
+	signInSocial.mockResolvedValue({
+		data: { url: 'https://accounts.google.example/oauth' },
+		error: null
+	});
 });
 
 describe('login page load', () => {
@@ -53,7 +66,7 @@ describe('login page load', () => {
 });
 
 describe('login default action', () => {
-	test('starts Google OAuth with safe redirect path', async () => {
+	test('starts Google OAuth and redirects to the provider URL', async () => {
 		await expect(
 			actions.default({
 				locals: makeLocals(),
@@ -63,11 +76,15 @@ describe('login default action', () => {
 				}),
 				url: new URL('http://localhost/login?redirect=%2Fsaved-configs')
 			} as unknown as Parameters<(typeof actions)['default']>[0])
-		).rejects.toMatchObject({ status: 303, location: '/saved-configs' });
+		).rejects.toMatchObject({
+			status: 303,
+			location: 'https://accounts.google.example/oauth'
+		});
 
 		expect(signInSocial).toHaveBeenCalledWith({
 			provider: 'google',
-			callbackURL: '/saved-configs'
+			callbackURL: '/saved-configs',
+			disableRedirect: true
 		});
 	});
 
@@ -81,16 +98,38 @@ describe('login default action', () => {
 				}),
 				url: new URL('http://localhost/login?redirect=%2F%2Fevil.example')
 			} as unknown as Parameters<(typeof actions)['default']>[0])
-		).rejects.toMatchObject({ status: 303, location: '/' });
+		).rejects.toMatchObject({
+			status: 303,
+			location: 'https://accounts.google.example/oauth'
+		});
 
 		expect(signInSocial).toHaveBeenCalledWith({
 			provider: 'google',
-			callbackURL: '/'
+			callbackURL: '/',
+			disableRedirect: true
 		});
 	});
 
 	test('returns 400 when Google OAuth start fails', async () => {
 		signInSocial.mockResolvedValueOnce({ error: new Error('OAuth unavailable') });
+
+		const result = await actions.default({
+			locals: makeLocals(),
+			request: new Request('http://localhost/login', {
+				method: 'POST',
+				body: new FormData()
+			}),
+			url: new URL('http://localhost/login')
+		} as unknown as Parameters<(typeof actions)['default']>[0]);
+
+		expect(result).toMatchObject({
+			status: 400,
+			data: { error: 'Google sign-in failed. Please try again.' }
+		});
+	});
+
+	test('returns 400 when Google OAuth start returns no provider URL', async () => {
+		signInSocial.mockResolvedValueOnce({ data: {}, error: null });
 
 		const result = await actions.default({
 			locals: makeLocals(),
