@@ -32,7 +32,21 @@ plugin({
 		}));
 
 		build.module('$env/dynamic/public', () => ({
-			contents: `export const env = process.env;`,
+			contents: `
+export const env = new Proxy({}, {
+  get(_target, key) {
+    if (typeof key !== 'string' || !key.startsWith('PUBLIC_')) return undefined;
+    return process.env[key];
+  },
+  ownKeys() {
+    return Object.keys(process.env).filter((key) => key.startsWith('PUBLIC_'));
+  },
+  getOwnPropertyDescriptor(_target, key) {
+    if (typeof key !== 'string' || !key.startsWith('PUBLIC_')) return undefined;
+    return { enumerable: true, configurable: true };
+  }
+});
+`,
 			loader: 'js'
 		}));
 
