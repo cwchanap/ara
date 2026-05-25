@@ -88,7 +88,10 @@ function normalizeHeaders(headers: HeadersInit | undefined): Record<string, stri
 	const safeHeaders: Record<string, string> = {};
 
 	for (const headerName of SAFE_AUTH_HEADER_NAMES) {
-		const value = inputHeaders.get(headerName);
+		const value =
+			headerName === 'cookie'
+				? getSecureNeonAuthCookies(inputHeaders)
+				: inputHeaders.get(headerName);
 		if (value) {
 			safeHeaders[headerName] = value;
 		}

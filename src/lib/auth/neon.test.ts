@@ -36,7 +36,13 @@ describe('neon auth wrapper', () => {
 			'accept-encoding': 'gzip',
 			'content-length': '123',
 			'content-type': 'application/json',
-			cookie: 'session=test-session',
+			cookie: [
+				'session=test-session',
+				'__Secure-neon-auth.session=auth-session',
+				'analytics=tracking-value',
+				'__Secure-neon-auth.challenge=auth-challenge',
+				'neon-auth-insecure=ignored'
+			].join('; '),
 			host: 'app.example.test',
 			origin: 'https://app.example.test',
 			'x-custom': 'internal-value'
@@ -52,7 +58,7 @@ describe('neon auth wrapper', () => {
 			fetchOptions: {
 				headers: {
 					authorization: 'Bearer test-token',
-					cookie: 'session=test-session',
+					cookie: '__Secure-neon-auth.session=auth-session; __Secure-neon-auth.challenge=auth-challenge',
 					origin: 'https://app.example.test'
 				}
 			}
