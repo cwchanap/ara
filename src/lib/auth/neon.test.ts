@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import { normalizeSession } from './types';
 
-const createAuthClient = mock((url: string) => ({
+const createAuthClient = mock((url: string, config?: unknown) => ({
 	url,
+	config,
 	signIn: {
 		social: mock(async () => ({ data: null, error: null }))
 	},
@@ -42,8 +43,27 @@ describe('neon auth wrapper', () => {
 		const { createNeonAuthClient } = await import('./neon.server');
 		const client = createNeonAuthClient();
 
-		expect(createAuthClient).toHaveBeenCalledWith('https://auth.example.test/auth');
+		expect(createAuthClient).toHaveBeenCalledWith('https://auth.example.test/auth', {
+			fetchOptions: {
+				headers: undefined
+			}
+		});
 		expect(client).toHaveProperty('getSession');
+	});
+
+	test('passes request headers to the auth client fetch options', async () => {
+		const headers = new Headers({ cookie: 'session=test-session' });
+
+		const { createNeonAuthClient } = await import('./neon.server');
+		createNeonAuthClient({ headers });
+
+		expect(createAuthClient).toHaveBeenCalledWith('https://auth.example.test/auth', {
+			fetchOptions: {
+				headers: {
+					cookie: 'session=test-session'
+				}
+			}
+		});
 	});
 
 	test('uses PUBLIC_NEON_AUTH_URL as public fallback', async () => {
@@ -61,7 +81,7 @@ describe('neon auth wrapper', () => {
 
 		const { getNeonAuthUrl } = await import('./neon.server');
 		expect(() => getNeonAuthUrl()).toThrow(
-			'NEON_AUTH_BASE_URL or VITE_NEON_AUTH_URL is required'
+			'NEON_AUTH_BASE_URL, VITE_NEON_AUTH_URL, or PUBLIC_NEON_AUTH_URL is required'
 		);
 	});
 });

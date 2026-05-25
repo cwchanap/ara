@@ -34,7 +34,9 @@
 ## File Structure
 
 - Create `src/lib/auth/redirects.ts`: shared safe redirect parsing for login/signup/auth callback paths.
-- Create `src/lib/auth/neon.ts`: the thin Neon Auth adapter wrapper used by client and server code.
+- Create `src/lib/auth/types.ts`: shared Neon Auth user/session types and session normalization.
+- Create `src/lib/auth/neon.ts`: client-safe re-export of shared Neon Auth types/helpers.
+- Create `src/lib/auth/neon.server.ts`: server-only Neon Auth client factory and auth URL resolution.
 - Create `src/lib/server/profile-provisioning.ts`: profile auto-create and username generation logic.
 - Modify `src/hooks.server.ts`: replace Supabase client setup with Neon Auth session setup.
 - Modify `src/app.d.ts`: replace Supabase `Session`/`User`/client local types with local Neon session/user shapes.
@@ -152,6 +154,8 @@ Expected:
 - Create: `src/lib/auth/redirects.ts`
 - Create: `src/lib/auth/redirects.test.ts`
 - Create: `src/lib/auth/neon.ts`
+- Create: `src/lib/auth/types.ts`
+- Create: `src/lib/auth/neon.server.ts`
 - Create: `src/lib/auth/neon.test.ts`
 - Modify: `src/test-setup.ts`
 
@@ -233,10 +237,11 @@ Create `src/lib/auth/neon.test.ts`:
 ```typescript
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
-const createAuthClient = mock((url: string) => ({
+const createAuthClient = mock((url: string, config?: unknown) => ({
 	url,
+	config,
 	signIn: {
-		social: mock(async (_args: unknown) => ({ data: null, error: null }))
+		social: mock(async () => ({ data: null, error: null }))
 	},
 	signOut: mock(async () => ({ data: null, error: null })),
 	getSession: mock(async () => ({ data: null, error: null }))
@@ -253,32 +258,50 @@ describe('neon auth wrapper', () => {
 	});
 
 	test('creates an auth client from NEON_AUTH_BASE_URL', async () => {
-		const { createNeonAuthClient } = await import('./neon');
+		const { createNeonAuthClient } = await import('./neon.server');
 		const client = createNeonAuthClient();
 
-		expect(createAuthClient).toHaveBeenCalledWith('https://auth.example.test/auth');
+		expect(createAuthClient).toHaveBeenCalledWith('https://auth.example.test/auth', {
+			fetchOptions: {
+				headers: undefined
+			}
+		});
 		expect(client).toHaveProperty('getSession');
+	});
+
+	test('passes request headers to the auth client fetch options', async () => {
+		const headers = new Headers({ cookie: 'session=test-session' });
+
+		const { createNeonAuthClient } = await import('./neon.server');
+		createNeonAuthClient({ headers });
+
+		expect(createAuthClient).toHaveBeenCalledWith('https://auth.example.test/auth', {
+			fetchOptions: {
+				headers: {
+					cookie: 'session=test-session'
+				}
+			}
+		});
 	});
 
 	test('throws when auth URL is missing', async () => {
 		delete process.env.NEON_AUTH_BASE_URL;
 		delete process.env.VITE_NEON_AUTH_URL;
+		delete process.env.PUBLIC_NEON_AUTH_URL;
 
-		const { getNeonAuthUrl } = await import('./neon');
-		expect(() => getNeonAuthUrl()).toThrow('NEON_AUTH_BASE_URL or VITE_NEON_AUTH_URL is required');
+		const { getNeonAuthUrl } = await import('./neon.server');
+		expect(() => getNeonAuthUrl()).toThrow(
+			'NEON_AUTH_BASE_URL, VITE_NEON_AUTH_URL, or PUBLIC_NEON_AUTH_URL is required'
+		);
 	});
 });
 ```
 
 - [ ] **Step 5: Implement Neon auth wrapper**
 
-Create `src/lib/auth/neon.ts`:
+Create `src/lib/auth/types.ts` and keep `src/lib/auth/neon.ts` as a client-safe re-export:
 
 ```typescript
-import { createAuthClient } from '@neondatabase/auth';
-import { env as privateEnv } from '$env/dynamic/private';
-import { env as publicEnv } from '$env/dynamic/public';
-
 export interface NeonAuthUser {
 	id: string;
 	email?: string | null;
@@ -299,26 +322,6 @@ export type SafeSessionResult = {
 	user: NeonAuthUser | null;
 };
 
-export type NeonAuthClient = ReturnType<typeof createAuthClient>;
-
-export function getNeonAuthUrl(): string {
-	const url =
-		privateEnv.NEON_AUTH_BASE_URL ||
-		privateEnv.VITE_NEON_AUTH_URL ||
-		publicEnv.PUBLIC_NEON_AUTH_URL ||
-		publicEnv.VITE_NEON_AUTH_URL;
-
-	if (!url) {
-		throw new Error('NEON_AUTH_BASE_URL or VITE_NEON_AUTH_URL is required');
-	}
-
-	return url;
-}
-
-export function createNeonAuthClient(): NeonAuthClient {
-	return createAuthClient(getNeonAuthUrl());
-}
-
 export function normalizeSession(rawSession: unknown): SafeSessionResult {
 	if (!rawSession || typeof rawSession !== 'object') {
 		return { session: null, user: null };
@@ -334,13 +337,64 @@ export function normalizeSession(rawSession: unknown): SafeSessionResult {
 }
 ```
 
+```typescript
+export * from './types';
+```
+
+Create `src/lib/auth/neon.server.ts` for server-only client creation:
+
+```typescript
+import { createAuthClient } from '@neondatabase/auth';
+import { env as privateEnv } from '$env/dynamic/private';
+import { env as publicEnv } from '$env/dynamic/public';
+
+export type NeonAuthClient = ReturnType<typeof createAuthClient>;
+
+export type CreateNeonAuthClientOptions = {
+	headers?: HeadersInit;
+};
+
+function normalizeHeaders(headers: HeadersInit | undefined): Record<string, string> | undefined {
+	if (!headers) return undefined;
+	return Object.fromEntries(new Headers(headers).entries());
+}
+
+export function getNeonAuthUrl(): string {
+	const url =
+		privateEnv.NEON_AUTH_BASE_URL ||
+		privateEnv.VITE_NEON_AUTH_URL ||
+		publicEnv.PUBLIC_NEON_AUTH_URL;
+
+	if (!url) {
+		throw new Error('NEON_AUTH_BASE_URL, VITE_NEON_AUTH_URL, or PUBLIC_NEON_AUTH_URL is required');
+	}
+
+	return url;
+}
+
+export function createNeonAuthClient(options: CreateNeonAuthClientOptions = {}): NeonAuthClient {
+	return createAuthClient(getNeonAuthUrl(), {
+		fetchOptions: {
+			headers: normalizeHeaders(options.headers)
+		}
+	} as unknown as Parameters<typeof createAuthClient>[1]);
+}
+```
+
 - [ ] **Step 6: Add dynamic public env test stub**
 
-Modify `src/test-setup.ts` by adding this virtual module near the existing `$env/dynamic/private` stub:
+Modify `src/test-setup.ts` by adding this virtual module near the existing `$env/dynamic/private` stub. The public stub must expose only `PUBLIC_*` variables:
 
 ```typescript
 build.module('$env/dynamic/public', () => ({
-	contents: `export const env = process.env;`,
+	contents: `
+export const env = new Proxy({}, {
+  get(_target, key) {
+    if (typeof key !== 'string' || !key.startsWith('PUBLIC_')) return undefined;
+    return process.env[key];
+  }
+});
+`,
 	loader: 'js'
 }));
 ```
@@ -360,7 +414,7 @@ Expected: PASS.
 Run:
 
 ```bash
-git add src/lib/auth/redirects.ts src/lib/auth/redirects.test.ts src/lib/auth/neon.ts src/lib/auth/neon.test.ts src/test-setup.ts
+git add src/lib/auth/redirects.ts src/lib/auth/redirects.test.ts src/lib/auth/neon.ts src/lib/auth/types.ts src/lib/auth/neon.server.ts src/lib/auth/neon.test.ts src/test-setup.ts
 git commit -m "feat: add neon auth helpers"
 ```
 
@@ -387,12 +441,8 @@ Replace the Supabase imports and locals in `src/app.d.ts` with:
 ```typescript
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
-import type {
-	NeonAuthClient,
-	NeonAuthSession,
-	NeonAuthUser,
-	SafeSessionResult
-} from '$lib/auth/neon';
+import type { NeonAuthSession, NeonAuthUser, SafeSessionResult } from '$lib/auth/neon';
+import type { NeonAuthClient } from '$lib/auth/neon.server';
 import type { Profile } from '$lib/types';
 
 declare global {
@@ -419,10 +469,11 @@ Replace `src/hooks.server.ts` with:
 
 ```typescript
 import { type Handle } from '@sveltejs/kit';
-import { createNeonAuthClient, normalizeSession } from '$lib/auth/neon';
+import { normalizeSession } from '$lib/auth/neon';
+import { createNeonAuthClient } from '$lib/auth/neon.server';
 
 export const handle: Handle = async ({ event, resolve }) => {
-	event.locals.neonAuth = createNeonAuthClient();
+	event.locals.neonAuth = createNeonAuthClient({ headers: event.request.headers });
 
 	event.locals.safeGetSession = async () => {
 		const { data, error } = await event.locals.neonAuth.getSession();
@@ -451,11 +502,14 @@ const getSession = mock(async () => ({
 }));
 
 mock.module('$lib/auth/neon', () => ({
-	createNeonAuthClient: () => ({ getSession }),
 	normalizeSession: (data: unknown) => {
 		const session = data as { user?: { id: string; email?: string; name?: string } };
 		return session?.user?.id ? { session, user: session.user } : { session: null, user: null };
 	}
+}));
+
+mock.module('$lib/auth/neon.server', () => ({
+	createNeonAuthClient: ({ headers }: { headers?: HeadersInit } = {}) => ({ getSession, headers })
 }));
 
 describe('hooks.server', () => {
