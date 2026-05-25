@@ -5,14 +5,10 @@ const createAuthClient = mock((url: string, config?: unknown) => ({
 	url,
 	config,
 	signIn: {
-		social: mock(async () => ({ data: null, error: null }))
+		social: mock(async () => ({ data: { url: 'https://oauth.example.test' }, error: null }))
 	},
 	signOut: mock(async () => ({ data: null, error: null })),
 	getSession: mock(async () => ({ data: null, error: null }))
-}));
-
-mock.module('@neondatabase/auth', () => ({
-	createAuthClient
 }));
 
 describe('neon auth wrapper', () => {
@@ -40,8 +36,8 @@ describe('neon auth wrapper', () => {
 	});
 
 	test('creates an auth client from NEON_AUTH_BASE_URL', async () => {
-		const { createNeonAuthClient } = await import('./neon.server');
-		const client = createNeonAuthClient();
+		const { createNeonAuthClientWithFactory } = await import('./neon.server');
+		const client = createNeonAuthClientWithFactory(createAuthClient);
 
 		expect(createAuthClient).toHaveBeenCalledWith('https://auth.example.test/auth', {
 			fetchOptions: {
@@ -63,8 +59,8 @@ describe('neon auth wrapper', () => {
 			'x-custom': 'internal-value'
 		});
 
-		const { createNeonAuthClient } = await import('./neon.server');
-		createNeonAuthClient({ headers });
+		const { createNeonAuthClientWithFactory } = await import('./neon.server');
+		createNeonAuthClientWithFactory(createAuthClient, { headers });
 
 		expect(createAuthClient).toHaveBeenCalledWith('https://auth.example.test/auth', {
 			fetchOptions: {
