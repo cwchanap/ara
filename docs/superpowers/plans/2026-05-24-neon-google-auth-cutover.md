@@ -352,9 +352,22 @@ export type CreateNeonAuthClientOptions = {
 	headers?: HeadersInit;
 };
 
+const SAFE_AUTH_HEADER_NAMES = ['cookie', 'authorization', 'origin'] as const;
+
 function normalizeHeaders(headers: HeadersInit | undefined): Record<string, string> | undefined {
 	if (!headers) return undefined;
-	return Object.fromEntries(new Headers(headers).entries());
+
+	const inputHeaders = new Headers(headers);
+	const safeHeaders: Record<string, string> = {};
+
+	for (const headerName of SAFE_AUTH_HEADER_NAMES) {
+		const value = inputHeaders.get(headerName);
+		if (value) {
+			safeHeaders[headerName] = value;
+		}
+	}
+
+	return Object.keys(safeHeaders).length > 0 ? safeHeaders : undefined;
 }
 
 export function getNeonAuthUrl(): string {
@@ -371,11 +384,13 @@ export function getNeonAuthUrl(): string {
 }
 
 export function createNeonAuthClient(options: CreateNeonAuthClientOptions = {}): NeonAuthClient {
-	return createAuthClient(getNeonAuthUrl(), {
+	const config = {
 		fetchOptions: {
 			headers: normalizeHeaders(options.headers)
 		}
-	} as unknown as Parameters<typeof createAuthClient>[1]);
+	} as unknown as Parameters<typeof createAuthClient>[1];
+
+	return createAuthClient(getNeonAuthUrl(), config);
 }
 ```
 
@@ -1279,6 +1294,18 @@ Replace protected route guidance with:
 Remove password-change guidance.
 
 - [ ] **Step 4: Verify no Supabase references remain in source**
+
+Run:
+
+```bash
+bun remove @supabase/ssr @supabase/supabase-js
+```
+
+Expected:
+
+- `package.json` no longer includes `@supabase/ssr` or `@supabase/supabase-js`.
+- `bun.lock` updates.
+- This happens only after the importing Supabase source files have been removed.
 
 Run:
 
