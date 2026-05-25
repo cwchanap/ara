@@ -3,13 +3,20 @@ import { env as privateEnv } from '$env/dynamic/private';
 import { env as publicEnv } from '$env/dynamic/public';
 
 type NeonAuthResult = {
-	data?: unknown;
+	data?: {
+		url?: string;
+		redirect?: boolean;
+	} | null;
 	error?: unknown;
 };
 
 export type NeonAuthClient = {
 	signIn: {
-		social: (options: { provider: 'google'; callbackURL: string }) => Promise<NeonAuthResult>;
+		social: (options: {
+			provider: 'google';
+			callbackURL: string;
+			disableRedirect?: boolean;
+		}) => Promise<NeonAuthResult>;
 	};
 	signOut: () => Promise<NeonAuthResult>;
 	getSession: () => Promise<NeonAuthResult>;

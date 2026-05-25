@@ -19,13 +19,16 @@ export const actions: Actions = {
 		const redirectTo = getSafeRedirectPath(url.searchParams.get('redirect'), base || '/');
 		const result = await locals.neonAuth.signIn.social({
 			provider: 'google',
-			callbackURL: redirectTo
+			callbackURL: redirectTo,
+			disableRedirect: true
 		});
 
-		if (result && typeof result === 'object' && 'error' in result && result.error) {
+		const providerUrl = result.data?.url;
+
+		if (result.error || !providerUrl) {
 			return fail(400, { error: 'Google sign-in failed. Please try again.' });
 		}
 
-		throw redirect(303, redirectTo);
+		throw redirect(303, providerUrl);
 	}
 };
