@@ -4,6 +4,7 @@ import { getErrorMessage, validateUsername } from '$lib/auth-errors';
 import { db, profiles } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
 import { base } from '$app/paths';
+import { applyNeonSetCookieHeaders, signOutWithNeonAuth } from '$lib/auth/neon.server';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const { session, user } = await locals.safeGetSession();
@@ -83,10 +84,11 @@ export const actions: Actions = {
 	},
 
 	// Sign out action
-	signout: async ({ locals }) => {
-		const result = await locals.neonAuth.signOut();
+	signout: async ({ cookies, request }) => {
+		const result = await signOutWithNeonAuth({ request });
+		applyNeonSetCookieHeaders(cookies, result.setCookieHeaders);
 
-		if (result && typeof result === 'object' && 'error' in result && result.error) {
+		if (!result.ok && result.error) {
 			console.error('Error signing out:', result.error);
 		}
 

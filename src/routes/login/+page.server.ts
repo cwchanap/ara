@@ -2,6 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { base } from '$app/paths';
 import { getSafeRedirectPath } from '$lib/auth/redirects';
+import { applyNeonSetCookieHeaders, startGoogleOAuth } from '$lib/auth/neon.server';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const { session } = await locals.safeGetSession();
@@ -15,17 +16,14 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 };
 
 export const actions: Actions = {
-	default: async ({ locals, url }) => {
+	default: async ({ cookies, request, url }) => {
 		const redirectTo = getSafeRedirectPath(url.searchParams.get('redirect'), base || '/');
-		const result = await locals.neonAuth.signIn.social({
-			provider: 'google',
-			callbackURL: redirectTo,
-			disableRedirect: true
-		});
+		const result = await startGoogleOAuth({ request, callbackURL: redirectTo });
 
-		const providerUrl = result.data?.url;
+		applyNeonSetCookieHeaders(cookies, result.setCookieHeaders);
+		const providerUrl = result.providerUrl;
 
-		if (result.error || !providerUrl) {
+		if (!result.ok || !providerUrl) {
 			return fail(400, { error: 'Google sign-in failed. Please try again.' });
 		}
 
