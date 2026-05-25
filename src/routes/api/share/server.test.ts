@@ -22,6 +22,13 @@ let mockRateLimitResult: {
 	resetAt: new Date(Date.now() + 3600000)
 };
 
+const ensureProfileForUser = mock(async () => ({
+	id: 'user-123',
+	username: 'user_123',
+	createdAt: '2026-01-01T00:00:00.000Z',
+	updatedAt: '2026-01-01T00:00:00.000Z'
+}));
+
 mock.module('$lib/server/db', () => ({
 	db: {},
 	sharedConfigurations: {},
@@ -40,6 +47,10 @@ mock.module('$lib/server/share-utils', () => ({
 	},
 	generateUniqueShortCode: async () => 'UNIQUE12',
 	incrementViewCount: async () => {}
+}));
+
+mock.module('$lib/server/profile-provisioning', () => ({
+	ensureProfileForUser
 }));
 
 // Dynamic import AFTER mock registration
@@ -84,6 +95,7 @@ function makeBrokenJsonEvent() {
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
+	ensureProfileForUser.mockClear();
 	mockRateLimitResult = {
 		success: true,
 		share: { id: 'share-id', shortCode: 'ABCD1234', expiresAt: '2030-01-01T00:00:00Z' },
@@ -104,6 +116,7 @@ describe('POST /api/share', () => {
 				false
 			);
 			await expect(POST(event as never)).rejects.toMatchObject({ status: 401 });
+			expect(ensureProfileForUser).not.toHaveBeenCalled();
 		});
 	});
 
@@ -198,6 +211,20 @@ describe('POST /api/share', () => {
 	});
 
 	describe('successful share creation', () => {
+		test('ensures the authenticated user has a profile row before creating a share', async () => {
+			const event = makeEvent(
+				{
+					mapType: 'lorenz',
+					parameters: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 }
+				},
+				'user-456'
+			);
+
+			await POST(event as never);
+
+			expect(ensureProfileForUser).toHaveBeenCalledWith({ id: 'user-456' });
+		});
+
 		test('returns 201 with share data', async () => {
 			const event = makeEvent({
 				mapType: 'lorenz',

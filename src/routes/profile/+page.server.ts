@@ -2,6 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { getErrorMessage, validateUsername } from '$lib/auth-errors';
 import { db, profiles } from '$lib/server/db';
+import { ensureProfileForUser } from '$lib/server/profile-provisioning';
 import { eq } from 'drizzle-orm';
 import { base } from '$app/paths';
 import { applyNeonSetCookieHeaders, signOutWithNeonAuth } from '$lib/auth/neon.server';
@@ -15,14 +16,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		throw redirect(303, redirectUrl);
 	}
 
-	// Fetch user's profile from Neon DB
-	const profileResults = await db
-		.select()
-		.from(profiles)
-		.where(eq(profiles.id, user.id))
-		.limit(1);
-
-	const profile = profileResults[0] || null;
+	const profile = await ensureProfileForUser(user);
 
 	return {
 		session,

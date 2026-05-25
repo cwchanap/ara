@@ -137,7 +137,7 @@ describe('profile page load', () => {
 		});
 	});
 
-	test('returns null profile when not found in database', async () => {
+	test('auto-provisions a profile when not found in database', async () => {
 		selectQueue.push([]);
 
 		const result = await load({
@@ -145,7 +145,13 @@ describe('profile page load', () => {
 			url: new URL('http://localhost/profile')
 		} as unknown as Parameters<typeof load>[0]);
 
-		expect(result).toMatchObject({ profile: null });
+		expect(insertMock).toHaveBeenCalled();
+		expect(result).toMatchObject({
+			profile: {
+				id: 'user-1',
+				username: 'user'
+			}
+		});
 	});
 });
 

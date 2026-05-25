@@ -25,6 +25,7 @@ import {
 	createShareWithRateLimit,
 	calculateExpirationDate
 } from '$lib/server/share-utils';
+import { ensureProfileForUser } from '$lib/server/profile-provisioning';
 
 export const POST: RequestHandler = async ({ request, locals, url }) => {
 	// Require authentication
@@ -32,6 +33,8 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 	if (!session || !user) {
 		throw error(HTTP_STATUS.UNAUTHORIZED, 'Please log in to share configurations');
 	}
+
+	await ensureProfileForUser(user);
 
 	// Parse request body
 	let body: { mapType?: unknown; parameters?: unknown };
