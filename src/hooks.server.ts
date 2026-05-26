@@ -2,8 +2,11 @@ import { type Handle } from '@sveltejs/kit';
 import { normalizeSession } from '$lib/auth/neon';
 import {
 	NEON_AUTH_SESSION_VERIFIER_PARAM,
+	buildAuthEndpoint,
 	createNeonAuthClient,
-	exchangeOAuthVerifier
+	exchangeOAuthVerifier,
+	getNeonAuthUrl,
+	getProxyRequestHeaders
 } from '$lib/auth/neon.server';
 import type {
 	CreateNeonAuthClientOptions,
@@ -13,15 +16,37 @@ import type {
 
 type CreateNeonAuthClient = (options?: CreateNeonAuthClientOptions) => NeonAuthClient;
 type ExchangeOAuthVerifier = (options: { request: Request }) => Promise<NeonOAuthExchangeResult>;
+type ServerSessionFetcher = (request: Request) => Promise<{ data: unknown; ok: boolean }>;
 
 type CreateHandleDependencies = {
 	createNeonAuthClient: CreateNeonAuthClient;
 	exchangeOAuthVerifier: ExchangeOAuthVerifier;
+	fetchServerSession: ServerSessionFetcher;
 };
+
+export async function fetchServerSession(
+	request: Request
+): Promise<{ data: unknown; ok: boolean }> {
+	const authUrl = getNeonAuthUrl();
+	const headers = getProxyRequestHeaders(request);
+
+	const response = await fetch(buildAuthEndpoint(authUrl, '/get-session'), {
+		method: 'GET',
+		headers
+	});
+
+	if (!response.ok) {
+		return { data: null, ok: false };
+	}
+
+	const data = await response.json();
+	return { data, ok: true };
+}
 
 export function createHandle({
 	createNeonAuthClient,
-	exchangeOAuthVerifier
+	exchangeOAuthVerifier,
+	fetchServerSession: fetchSession
 }: CreateHandleDependencies): Handle {
 	return async ({ event, resolve }) => {
 		const requestUrl = new URL(event.request.url);
@@ -49,13 +74,17 @@ export function createHandle({
 		event.locals.neonAuth = createNeonAuthClient({ headers: event.request.headers });
 
 		event.locals.safeGetSession = async () => {
-			const { data, error } = await event.locals.neonAuth.getSession();
+			try {
+				const { data, ok } = await fetchSession(event.request);
 
-			if (error) {
+				if (!ok) {
+					return { session: null, user: null };
+				}
+
+				return normalizeSession(data);
+			} catch {
 				return { session: null, user: null };
 			}
-
-			return normalizeSession(data);
 		};
 
 		return resolve(event);
@@ -64,5 +93,6 @@ export function createHandle({
 
 export const handle: Handle = createHandle({
 	createNeonAuthClient,
-	exchangeOAuthVerifier
+	exchangeOAuthVerifier,
+	fetchServerSession
 });
