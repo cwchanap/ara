@@ -233,6 +233,34 @@ describe('profile update action', () => {
 
 		expect(result).toMatchObject({ status: 400, data: { updateError: expect.any(String) } });
 	});
+
+	test('returns 400 when username field is missing (null)', async () => {
+		const fd = new FormData();
+		// Intentionally do NOT set 'username' key
+		const result = await actions.update({
+			locals: makeLocals(),
+			request: { formData: async () => fd }
+		} as unknown as Parameters<(typeof actions)['update']>[0]);
+
+		expect(result).toMatchObject({
+			status: 400,
+			data: { updateError: 'Username is required', username: '' }
+		});
+	});
+
+	test('returns 400 when username field is a File', async () => {
+		const fd = new FormData();
+		fd.set('username', new File(['x'], 'evil.txt'), 'evil.txt');
+		const result = await actions.update({
+			locals: makeLocals(),
+			request: { formData: async () => fd }
+		} as unknown as Parameters<(typeof actions)['update']>[0]);
+
+		expect(result).toMatchObject({
+			status: 400,
+			data: { updateError: 'Username is required', username: '' }
+		});
+	});
 });
 
 describe('profile signout action', () => {

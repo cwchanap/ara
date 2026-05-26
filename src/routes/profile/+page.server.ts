@@ -35,7 +35,8 @@ export const actions: Actions = {
 		}
 
 		const formData = await request.formData();
-		const username = formData.get('username') as string;
+		const rawUsername = formData.get('username');
+		const username = typeof rawUsername === 'string' ? rawUsername : '';
 
 		// Validate username
 		const usernameError = validateUsername(username);
