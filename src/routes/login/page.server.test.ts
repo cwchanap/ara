@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 
 const upstreamFetch = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
 	void input;
@@ -34,6 +34,8 @@ function makeLocals({ hasSession = false }: { hasSession?: boolean } = {}) {
 	};
 }
 
+const originalFetch = globalThis.fetch;
+
 beforeEach(() => {
 	upstreamFetch.mockClear();
 	upstreamFetch.mockResolvedValue(
@@ -49,6 +51,10 @@ beforeEach(() => {
 		)
 	);
 	globalThis.fetch = upstreamFetch as unknown as typeof fetch;
+});
+
+afterEach(() => {
+	globalThis.fetch = originalFetch;
 });
 
 describe('login page load', () => {
