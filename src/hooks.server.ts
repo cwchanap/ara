@@ -74,6 +74,14 @@ export function createHandle({
 		event.locals.neonAuth = createNeonAuthClient({ headers: event.request.headers });
 
 		event.locals.safeGetSession = async () => {
+			const cookieHeader = event.request.headers.get('cookie');
+			const hasNeonSessionCookie =
+				cookieHeader !== null && cookieHeader.includes('__Secure-neon-auth');
+
+			if (!hasNeonSessionCookie) {
+				return { session: null, user: null };
+			}
+
 			try {
 				const { data, ok } = await fetchSession(event.request);
 
