@@ -100,7 +100,7 @@ function normalizeHeaders(headers: HeadersInit | undefined): Record<string, stri
 	return Object.keys(safeHeaders).length > 0 ? safeHeaders : undefined;
 }
 
-function buildAuthEndpoint(authUrl: string, path: string): string {
+export function buildAuthEndpoint(authUrl: string, path: string): string {
 	return `${authUrl.replace(/\/+$/, '')}${path}`;
 }
 
@@ -136,7 +136,7 @@ function getFallbackSignOutSetCookieHeaders(request: Request): string[] {
 	);
 }
 
-function getProxyRequestHeaders(request: Request): Headers {
+export function getProxyRequestHeaders(request: Request): Headers {
 	const incomingHeaders = request.headers;
 	const headers = new Headers();
 	const cookie = getSecureNeonAuthCookies(incomingHeaders);

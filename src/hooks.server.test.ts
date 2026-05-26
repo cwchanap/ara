@@ -2,12 +2,7 @@ import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import type { RequestEvent } from '@sveltejs/kit';
 import { createNeonAuthClientWithFactory } from '$lib/auth/neon.server';
 
-let getSessionResult: { data: unknown; error: unknown } = {
-	data: { user: { id: 'user-1', email: 'ada@example.com', name: 'Ada' } },
-	error: null
-};
-
-const getSession = mock(async () => getSessionResult);
+const getSession = mock(async () => ({ data: null, error: null }));
 const authClientFactory = mock(() => ({ getSession }));
 
 const createNeonAuthClient = mock((options: { headers?: HeadersInit } = {}) =>
@@ -34,6 +29,16 @@ const exchangeOAuthVerifier = mock(async ({ request }: { request: Request }) => 
 	};
 });
 
+let fetchSessionResult: { data: unknown; ok: boolean } = {
+	data: { user: { id: 'user-1', email: 'ada@example.com', name: 'Ada' } },
+	ok: true
+};
+
+const fetchServerSession = mock(async (request: Request) => {
+	void request;
+	return fetchSessionResult;
+});
+
 mock.module('$lib/auth/neon', () => ({
 	normalizeSession: (data: unknown) => {
 		const session = data as { user?: { id: string; email?: string; name?: string } };
@@ -42,18 +47,19 @@ mock.module('$lib/auth/neon', () => ({
 }));
 
 const { createHandle } = await import('./hooks.server');
-const handle = createHandle({ createNeonAuthClient, exchangeOAuthVerifier });
+const handle = createHandle({ createNeonAuthClient, exchangeOAuthVerifier, fetchServerSession });
 
 describe('hooks.server', () => {
 	beforeEach(() => {
-		getSessionResult = {
+		fetchSessionResult = {
 			data: { user: { id: 'user-1', email: 'ada@example.com', name: 'Ada' } },
-			error: null
+			ok: true
 		};
 		getSession.mockClear();
 		createNeonAuthClient.mockClear();
 		authClientFactory.mockClear();
 		exchangeOAuthVerifier.mockClear();
+		fetchServerSession.mockClear();
 	});
 
 	test('exchanges OAuth verifier before resolving protected routes', async () => {
@@ -117,7 +123,7 @@ describe('hooks.server', () => {
 		expect(resolve).toHaveBeenCalledWith(event);
 
 		const result = await event.locals.safeGetSession();
-		expect(getSession).toHaveBeenCalled();
+		expect(fetchServerSession).toHaveBeenCalledWith(request);
 		expect(result.user?.id).toBe('user-1');
 		expect(result.session).toEqual({
 			user: { id: 'user-1', email: 'ada@example.com', name: 'Ada' }
@@ -125,7 +131,23 @@ describe('hooks.server', () => {
 	});
 
 	test('safeGetSession returns null session and user when Neon Auth returns an error', async () => {
-		getSessionResult = { data: null, error: { message: 'Invalid session' } };
+		fetchSessionResult = { data: null, ok: false };
+		const request = new Request('http://localhost');
+		const event = { locals: {}, request } as RequestEvent;
+		const resolve = mock(async () => new Response('ok'));
+
+		await handle({ event, resolve });
+
+		await expect(event.locals.safeGetSession()).resolves.toEqual({
+			session: null,
+			user: null
+		});
+	});
+
+	test('safeGetSession returns null when direct fetch throws', async () => {
+		fetchServerSession.mockImplementationOnce(async () => {
+			throw new Error('Network error');
+		});
 		const request = new Request('http://localhost');
 		const event = { locals: {}, request } as RequestEvent;
 		const resolve = mock(async () => new Response('ok'));
