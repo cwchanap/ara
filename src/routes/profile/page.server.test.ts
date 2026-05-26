@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 
 const selectQueue: unknown[][] = [];
 const updateReturnQueue: unknown[][] = [];
@@ -91,6 +91,8 @@ function makeRequest(fields: Record<string, string>) {
 	return { formData: async () => fd };
 }
 
+const originalFetch = globalThis.fetch;
+
 beforeEach(() => {
 	selectQueue.length = 0;
 	updateReturnQueue.length = 0;
@@ -110,6 +112,10 @@ beforeEach(() => {
 		})
 	);
 	globalThis.fetch = upstreamFetch as unknown as typeof fetch;
+});
+
+afterEach(() => {
+	globalThis.fetch = originalFetch;
 });
 
 describe('profile page load', () => {
