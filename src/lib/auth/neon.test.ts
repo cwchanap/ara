@@ -209,6 +209,8 @@ describe('neon auth wrapper', () => {
 			expect(String(input)).toBe('https://auth.example.test/auth/sign-out');
 			expect(init?.method).toBe('POST');
 			expect(new Headers(init?.headers).get('cookie')).toBe('__Secure-neon-auth.session=abc');
+			expect(new Headers(init?.headers).get('content-type')).toBe('application/json');
+			expect(init?.body).toBe('{}');
 
 			return new Response('{}', {
 				status: 204,

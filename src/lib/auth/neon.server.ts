@@ -355,9 +355,13 @@ export async function signOutWithNeonAuth({
 	const fallbackSetCookieHeaders = getFallbackSignOutSetCookieHeaders(request);
 
 	try {
+		const headers = getProxyRequestHeaders(request);
+		headers.set('content-type', 'application/json');
+
 		const response = await fetcher(buildAuthEndpoint(authUrl, '/sign-out'), {
 			method: 'POST',
-			headers: getProxyRequestHeaders(request)
+			headers,
+			body: '{}'
 		});
 		const data = response.ok ? null : await readJsonResponse(response);
 		const setCookieHeaders = getSetCookieHeaders(response.headers);

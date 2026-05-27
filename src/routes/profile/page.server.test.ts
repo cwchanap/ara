@@ -278,8 +278,12 @@ describe('profile signout action', () => {
 
 		expect(upstreamFetch).toHaveBeenCalledWith('https://auth.example.test/auth/sign-out', {
 			method: 'POST',
-			headers: expect.any(Headers)
+			headers: expect.any(Headers),
+			body: '{}'
 		});
+		expect(
+			new Headers((upstreamFetch.mock.calls[0][1] as RequestInit).headers).get('content-type')
+		).toBe('application/json');
 		expect(cookies.set).toHaveBeenCalledWith(
 			'__Secure-neon-auth.session',
 			'',
