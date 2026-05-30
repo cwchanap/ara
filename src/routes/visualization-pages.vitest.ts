@@ -4,6 +4,7 @@ import type { Page } from '@sveltejs/kit';
 import BifurcationHenonPage from './bifurcation-henon/+page.svelte';
 import BifurcationLogisticPage from './bifurcation-logistic/+page.svelte';
 import ChaosEsthetiquePage from './chaos-esthetique/+page.svelte';
+import ChuaPage from './chua/+page.svelte';
 import HenonPage from './henon/+page.svelte';
 import LogisticPage from './logistic/+page.svelte';
 import LorenzPage from './lorenz/+page.svelte';
@@ -157,6 +158,11 @@ vi.mock('$lib/components/visualizations/StandardRenderer.svelte', async () => {
 	return { default: module.default };
 });
 
+vi.mock('$lib/components/visualizations/ChuaRenderer.svelte', async () => {
+	const module = await import('$lib/components/testing/StubComponent.svelte');
+	return { default: module.default };
+});
+
 function setPageUrl(url: string) {
 	pageStore.set(createPage(url));
 }
@@ -218,6 +224,12 @@ describe('visualization pages', () => {
 		setPageUrl('http://localhost/chaos-esthetique');
 		render(ChaosEsthetiquePage, { props: pageProps });
 		expect(screen.getByText('CHAOS_ESTHETIQUE')).toBeInTheDocument();
+	});
+
+	it('renders chua page', () => {
+		setPageUrl('http://localhost/chua');
+		render(ChuaPage, { props: pageProps });
+		expect(screen.getByText('CHUA_CIRCUIT')).toBeInTheDocument();
 	});
 
 	it('renders bifurcation logistic page', () => {
@@ -348,6 +360,20 @@ describe('visualization pages', () => {
 			url: 'http://localhost/bifurcation-henon',
 			dialogTestId: 'dialog-close-bifurcation-henon',
 			renderPage: () => render(BifurcationHenonPage, { props: pageProps })
+		},
+		{
+			action: 'save',
+			pageName: 'chua',
+			url: 'http://localhost/chua',
+			dialogTestId: 'dialog-close-chua',
+			renderPage: () => render(ChuaPage, { props: pageProps })
+		},
+		{
+			action: 'share',
+			pageName: 'chua',
+			url: 'http://localhost/chua',
+			dialogTestId: 'dialog-close-chua',
+			renderPage: () => render(ChuaPage, { props: pageProps })
 		}
 	];
 
