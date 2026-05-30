@@ -82,6 +82,13 @@ const STABLE_RANGES: Record<ChaosMapType, StableRanges<Record<string, number>>> 
 		rMax: { min: 0, max: 4 },
 		iterations: { min: 100, max: 10000 },
 		transientIterations: { min: 50, max: 5000 }
+	},
+	chua: {
+		alpha: { min: 8, max: 20 },
+		beta: { min: 20, max: 53 },
+		gamma: { min: -1, max: 1 },
+		a: { min: -2, max: -0.5 },
+		b: { min: -1.5, max: -0.3 }
 	}
 };
 

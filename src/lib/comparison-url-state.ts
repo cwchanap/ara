@@ -67,6 +67,8 @@ export function getDefaultParameters(mapType: ChaosMapType): ChaosMapParameters 
 				iterations: 100,
 				transientIterations: 100
 			};
+		case 'chua':
+			return { type: 'chua', alpha: 15.6, beta: 28, gamma: 0, a: -8 / 7, b: -5 / 7 };
 	}
 }
 
