@@ -10,7 +10,8 @@ import type {
 	BifurcationLogisticParameters,
 	BifurcationHenonParameters,
 	ChaosEsthetiqueParameters,
-	LyapunovParameters
+	LyapunovParameters,
+	ChuaParameters
 } from '$lib/types';
 
 /**
@@ -110,6 +111,15 @@ export function isLyapunovParameters(
 	params: ChaosMapParameters | null | undefined
 ): params is LyapunovParameters {
 	return params?.type === 'lyapunov';
+}
+
+/**
+ * Type guard for Chua parameters.
+ */
+export function isChuaParameters(
+	params: ChaosMapParameters | null | undefined
+): params is ChuaParameters {
+	return params?.type === 'chua';
 }
 
 /**

@@ -20,12 +20,13 @@ const EXPECTED_MAP_TYPES: ChaosMapType[] = [
 	'bifurcation-logistic',
 	'bifurcation-henon',
 	'chaos-esthetique',
-	'lyapunov'
+	'lyapunov',
+	'chua'
 ];
 
 describe('VALID_MAP_TYPES', () => {
-	test('contains exactly 11 map types', () => {
-		expect(VALID_MAP_TYPES).toHaveLength(11);
+	test('contains exactly 12 map types', () => {
+		expect(VALID_MAP_TYPES).toHaveLength(12);
 	});
 
 	test('contains all expected map types', () => {
@@ -59,8 +60,8 @@ describe('CHAOS_MAP_DISPLAY_NAMES', () => {
 		}
 	});
 
-	test('has exactly 11 entries', () => {
-		expect(Object.keys(CHAOS_MAP_DISPLAY_NAMES)).toHaveLength(11);
+	test('has exactly 12 entries', () => {
+		expect(Object.keys(CHAOS_MAP_DISPLAY_NAMES)).toHaveLength(12);
 	});
 
 	test('all display names are non-empty strings', () => {
@@ -92,6 +93,7 @@ describe('CHAOS_MAP_DISPLAY_NAMES', () => {
 		expect(CHAOS_MAP_DISPLAY_NAMES['standard']).toBe('STANDARD_MAP');
 		expect(CHAOS_MAP_DISPLAY_NAMES['bifurcation-logistic']).toBe('BIFURCATION_LOGISTIC');
 		expect(CHAOS_MAP_DISPLAY_NAMES['lyapunov']).toBe('LYAPUNOV_EXPONENTS');
+		expect(CHAOS_MAP_DISPLAY_NAMES['chua']).toBe('CHUA_CIRCUIT');
 	});
 
 	test('display names for all map types are consistent with VALID_MAP_TYPES', () => {
