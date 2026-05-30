@@ -5,6 +5,7 @@ import BifurcationHenonPage from './bifurcation-henon/+page.svelte';
 import BifurcationLogisticPage from './bifurcation-logistic/+page.svelte';
 import ChaosEsthetiquePage from './chaos-esthetique/+page.svelte';
 import ChuaPage from './chua/+page.svelte';
+import ChuaComparePage from './chua/compare/+page.svelte';
 import HenonPage from './henon/+page.svelte';
 import LogisticPage from './logistic/+page.svelte';
 import LorenzPage from './lorenz/+page.svelte';
@@ -264,6 +265,13 @@ describe('visualization pages', () => {
 	it('renders standard compare page', () => {
 		setPageUrl('http://localhost/standard/compare?compare=true');
 		render(StandardComparePage);
+		expect(screen.getByText('LEFT_PARAMETERS')).toBeInTheDocument();
+		expect(screen.getByText('RIGHT_PARAMETERS')).toBeInTheDocument();
+	});
+
+	it('renders chua compare page', () => {
+		setPageUrl('http://localhost/chua/compare?compare=true');
+		render(ChuaComparePage);
 		expect(screen.getByText('LEFT_PARAMETERS')).toBeInTheDocument();
 		expect(screen.getByText('RIGHT_PARAMETERS')).toBeInTheDocument();
 	});
