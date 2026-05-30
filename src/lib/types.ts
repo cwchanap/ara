@@ -8,7 +8,7 @@ export interface Profile {
 	updatedAt: string;
 }
 
-// Chaos Map Types - the 11 supported visualization types
+// Chaos Map Types - the 12 supported visualization types
 export type ChaosMapType =
 	| 'lorenz'
 	| 'rossler'
@@ -20,7 +20,8 @@ export type ChaosMapType =
 	| 'bifurcation-logistic'
 	| 'bifurcation-henon'
 	| 'chaos-esthetique'
-	| 'lyapunov';
+	| 'lyapunov'
+	| 'chua';
 
 // Parameter interfaces for each chaos map type
 export interface LorenzParameters {
@@ -109,6 +110,15 @@ export interface LyapunovParameters {
 	transientIterations: number;
 }
 
+export interface ChuaParameters {
+	type: 'chua';
+	alpha: number;
+	beta: number;
+	gamma: number;
+	a: number;
+	b: number;
+}
+
 // Union type for all chaos map parameters
 export type ChaosMapParameters =
 	| LorenzParameters
@@ -121,7 +131,8 @@ export type ChaosMapParameters =
 	| BifurcationLogisticParameters
 	| BifurcationHenonParameters
 	| ChaosEsthetiqueParameters
-	| LyapunovParameters;
+	| LyapunovParameters
+	| ChuaParameters;
 
 // Display names for chaos map types (UPPERCASE_SNAKE_CASE per constitution)
 export const CHAOS_MAP_DISPLAY_NAMES: Record<ChaosMapType, string> = {
@@ -135,7 +146,8 @@ export const CHAOS_MAP_DISPLAY_NAMES: Record<ChaosMapType, string> = {
 	'bifurcation-logistic': 'BIFURCATION_LOGISTIC',
 	'bifurcation-henon': 'BIFURCATION_HÉNON',
 	'chaos-esthetique': 'CHAOS_ESTHÉTIQUE',
-	lyapunov: 'LYAPUNOV_EXPONENTS'
+	lyapunov: 'LYAPUNOV_EXPONENTS',
+	chua: 'CHUA_CIRCUIT'
 };
 
 // Valid chaos map types array for validation
@@ -150,7 +162,8 @@ export const VALID_MAP_TYPES: ChaosMapType[] = [
 	'bifurcation-logistic',
 	'bifurcation-henon',
 	'chaos-esthetique',
-	'lyapunov'
+	'lyapunov',
+	'chua'
 ];
 
 // Saved configuration discriminated union (matches Drizzle schema)
@@ -204,5 +217,9 @@ export type SavedConfiguration = {
 	| {
 			mapType: 'lyapunov';
 			parameters: LyapunovParameters;
+	  }
+	| {
+			mapType: 'chua';
+			parameters: ChuaParameters;
 	  }
 );
