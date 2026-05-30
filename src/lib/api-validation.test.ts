@@ -286,7 +286,8 @@ describe('API Validation Logic', () => {
 				'bifurcation-logistic',
 				'bifurcation-henon',
 				'chaos-esthetique',
-				'lyapunov'
+				'lyapunov',
+				'chua'
 			];
 
 			for (const type of expectedTypes) {

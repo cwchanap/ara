@@ -286,10 +286,10 @@
 			let halfV = (maxV - minV || 1) * 0.55;
 			if (halfU / halfV < aspect) halfU = halfV * aspect;
 			else halfV = halfU / aspect;
-			ortho.left = cx - halfU;
-			ortho.right = cx + halfU;
-			ortho.top = cy + halfV;
-			ortho.bottom = cy - halfV;
+			ortho.left = -halfU;
+			ortho.right = halfU;
+			ortho.top = halfV;
+			ortho.bottom = -halfV;
 			ortho.near = 0.1;
 			ortho.far = 2000;
 			ortho.updateProjectionMatrix();
