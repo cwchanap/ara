@@ -132,3 +132,52 @@ export function calculateChua(params: ChuaParams): ChuaPoint[] {
 	}
 	return points;
 }
+
+export type PoincarePlane = 'x=0' | 'y=0' | 'z=0';
+
+export interface PoincarePoint {
+	/** First in-plane coordinate. */
+	u: number;
+	/** Second in-plane coordinate. */
+	v: number;
+}
+
+/**
+ * Collect points where the trajectory crosses the chosen plane in the
+ * positive direction (the normal coordinate goes from negative to >= 0).
+ * In-plane coordinate mapping:
+ *   x=0 -> (y, z)
+ *   y=0 -> (x, z)
+ *   z=0 -> (x, y)
+ */
+export function computePoincareSection(points: ChuaPoint[], plane: PoincarePlane): PoincarePoint[] {
+	const section: PoincarePoint[] = [];
+	if (points.length < 2) return section;
+
+	const normal = (p: ChuaPoint): number => (plane === 'x=0' ? p.x : plane === 'y=0' ? p.y : p.z);
+	const inPlane = (p: ChuaPoint): PoincarePoint =>
+		plane === 'x=0'
+			? { u: p.y, v: p.z }
+			: plane === 'y=0'
+				? { u: p.x, v: p.z }
+				: { u: p.x, v: p.y };
+
+	for (let i = 1; i < points.length; i++) {
+		const prev = points[i - 1];
+		const curr = points[i];
+		const nPrev = normal(prev);
+		const nCurr = normal(curr);
+		// Upward crossing only.
+		if (nPrev < 0 && nCurr >= 0) {
+			const denom = nCurr - nPrev;
+			const t = denom === 0 ? 0 : -nPrev / denom;
+			const a = inPlane(prev);
+			const b = inPlane(curr);
+			section.push({
+				u: a.u + (b.u - a.u) * t,
+				v: a.v + (b.v - a.v) * t
+			});
+		}
+	}
+	return section;
+}
