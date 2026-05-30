@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'bun:test';
-import { chuaDiode, calculateChua, computePoincareSection } from './chua';
+import {
+	chuaDiode,
+	calculateChua,
+	computePoincareSection,
+	estimateLargestLyapunov,
+	classifyLyapunov
+} from './chua';
 
 describe('chuaDiode', () => {
 	const a = -8 / 7;
@@ -150,5 +156,50 @@ describe('computePoincareSection', () => {
 	test('returns empty array for fewer than 2 points', () => {
 		expect(computePoincareSection([], 'y=0')).toHaveLength(0);
 		expect(computePoincareSection([{ x: 0, y: 0, z: 0 }], 'y=0')).toHaveLength(0);
+	});
+});
+
+describe('classifyLyapunov', () => {
+	test('positive values are chaotic', () => {
+		expect(classifyLyapunov(0.5)).toBe('chaotic');
+	});
+	test('near-zero values are marginal', () => {
+		expect(classifyLyapunov(0)).toBe('marginal');
+		expect(classifyLyapunov(0.005)).toBe('marginal');
+	});
+	test('clearly negative values are stable', () => {
+		expect(classifyLyapunov(-0.5)).toBe('stable');
+	});
+});
+
+describe('estimateLargestLyapunov', () => {
+	const base = {
+		x0: 0.1,
+		y0: 0,
+		z0: 0,
+		steps: 8000,
+		dt: 0.005,
+		alpha: 15.6,
+		beta: 28,
+		gamma: 0,
+		a: -8 / 7,
+		b: -5 / 7
+	};
+
+	test('classic double scroll is chaotic (positive exponent)', () => {
+		const est = estimateLargestLyapunov(base);
+		expect(Number.isFinite(est.value)).toBe(true);
+		expect(est.value).toBeGreaterThan(0);
+		expect(est.classification).toBe('chaotic');
+	});
+
+	test('is deterministic', () => {
+		expect(estimateLargestLyapunov(base).value).toBe(estimateLargestLyapunov(base).value);
+	});
+
+	test('strong damping lowers the exponent', () => {
+		const damped = estimateLargestLyapunov({ ...base, gamma: 5 });
+		const classic = estimateLargestLyapunov(base);
+		expect(damped.value).toBeLessThan(classic.value);
 	});
 });

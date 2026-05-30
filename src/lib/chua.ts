@@ -181,3 +181,70 @@ export function computePoincareSection(points: ChuaPoint[], plane: PoincarePlane
 	}
 	return section;
 }
+
+export type LyapunovClassification = 'chaotic' | 'marginal' | 'stable';
+
+export interface LyapunovEstimate {
+	value: number;
+	classification: LyapunovClassification;
+}
+
+const LYAPUNOV_MARGINAL_THRESHOLD = 0.01;
+
+export function classifyLyapunov(value: number): LyapunovClassification {
+	if (value > LYAPUNOV_MARGINAL_THRESHOLD) return 'chaotic';
+	if (value < -LYAPUNOV_MARGINAL_THRESHOLD) return 'stable';
+	return 'marginal';
+}
+
+/**
+ * Estimate the largest Lyapunov exponent using the Benettin two-trajectory
+ * method: integrate a nearby trajectory, periodically measure separation
+ * growth, renormalize, and average log growth over time.
+ */
+export function estimateLargestLyapunov(params: ChuaParams): LyapunovEstimate {
+	const { x0, y0, z0, steps, dt, alpha, beta, gamma, a, b } = params;
+	const d0 = 1e-8;
+
+	let bx = x0;
+	let by = y0;
+	let bz = z0;
+	// Perturb along x.
+	let px = x0 + d0;
+	let py = y0;
+	let pz = z0;
+
+	const transient = Math.min(2000, Math.floor(steps * 0.1));
+	let sumLog = 0;
+	let count = 0;
+
+	for (let i = 0; i < steps; i++) {
+		const nb = rk4Step(bx, by, bz, dt, alpha, beta, gamma, a, b);
+		const np = rk4Step(px, py, pz, dt, alpha, beta, gamma, a, b);
+		bx = nb.x;
+		by = nb.y;
+		bz = nb.z;
+		px = np.x;
+		py = np.y;
+		pz = np.z;
+
+		if (i >= transient) {
+			const dx = px - bx;
+			const dy = py - by;
+			const dz = pz - bz;
+			const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+			if (dist > 0) {
+				sumLog += Math.log(dist / d0);
+				count++;
+				// Renormalize the perturbed trajectory back to distance d0.
+				const factor = d0 / dist;
+				px = bx + dx * factor;
+				py = by + dy * factor;
+				pz = bz + dz * factor;
+			}
+		}
+	}
+
+	const value = count > 0 ? sumLog / (count * dt) : 0;
+	return { value, classification: classifyLyapunov(value) };
+}
