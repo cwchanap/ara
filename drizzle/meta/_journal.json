@@ -43,6 +43,13 @@
 			"when": 1779699600000,
 			"tag": "0005_auth_user_ids_text",
 			"breakpoints": true
+		},
+		{
+			"idx": 6,
+			"version": "7",
+			"when": 1779699600001,
+			"tag": "0006_add_chua_map_type",
+			"breakpoints": true
 		}
 	]
 }
