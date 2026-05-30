@@ -37,7 +37,7 @@
 
 	// Lyapunov readout.
 	let lyapunovValue = $state(0);
-	let lyapunovClass = $state<'chaotic' | 'marginal' | 'stable'>('chaotic');
+	let lyapunovClass = $state<'chaotic' | 'marginal' | 'stable'>('marginal');
 
 	const saveState = $state(createInitialSaveState());
 	const shareState = $state(createInitialShareState());

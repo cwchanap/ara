@@ -6,7 +6,7 @@
   plus a Poincaré section. Supports comparison mode with camera sync.
 -->
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import * as THREE from 'three';
 	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 	import {
@@ -82,7 +82,10 @@
 		void transientRemoval;
 		void poincarePlane;
 		rebuild?.();
-		applyView?.();
+		// Reframe the camera for the new geometry without tracking viewMode here —
+		// view-mode switches are handled by the dedicated effect below, so we must
+		// not let them trigger a full trajectory rebuild.
+		untrack(() => applyView?.());
 	});
 
 	// Reapply camera/visibility when the view mode changes.
