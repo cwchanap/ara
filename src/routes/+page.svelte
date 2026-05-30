@@ -67,6 +67,13 @@
 			description: 'Quantifying chaos through trajectory divergence rates',
 			url: '/lyapunov',
 			color: 'from-cyan-400 to-teal-600'
+		},
+		{
+			name: 'Chua Circuit',
+			description:
+				'A nonlinear circuit model whose state spirals between two lobes, producing the classic double-scroll attractor',
+			url: '/chua',
+			color: 'from-red-500 to-amber-600'
 		}
 	];
 </script>
