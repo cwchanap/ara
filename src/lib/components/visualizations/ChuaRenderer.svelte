@@ -100,9 +100,10 @@
 		const c = controls;
 		const cam = perspectiveCamera;
 		if (!c || !cam) return;
+		const side = compareSide;
 		const unsubscribe = cameraSyncStore.subscribe((state) => {
-			if (!state.enabled || state.lastUpdate === compareSide) return;
-			const other = compareSide === 'left' ? state.right : state.left;
+			if (!state.enabled || state.lastUpdate === side) return;
+			const other = side === 'left' ? state.right : state.left;
 			if (other) applyCameraState(other, cam, c);
 		});
 		return unsubscribe;
