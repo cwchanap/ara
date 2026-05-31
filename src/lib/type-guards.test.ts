@@ -11,6 +11,7 @@ import {
 	isBifurcationHenonParameters,
 	isChaosEsthetiqueParameters,
 	isLyapunovParameters,
+	isChuaParameters,
 	isParametersOfType
 } from './type-guards';
 import type { ChaosMapParameters } from './types';
@@ -283,5 +284,28 @@ describe('Type Guards', () => {
 		expect(isLyapunovParameters(lorenzParams)).toBe(false);
 		expect(isLyapunovParameters(null)).toBe(false);
 		expect(isLyapunovParameters(undefined)).toBe(false);
+	});
+
+	test('isChuaParameters correctly identifies Chua parameters', () => {
+		const chuaParams: ChaosMapParameters = {
+			type: 'chua',
+			alpha: 15.6,
+			beta: 28,
+			gamma: 0,
+			a: -8 / 7,
+			b: -5 / 7
+		};
+		const lorenzParams: ChaosMapParameters = {
+			type: 'lorenz',
+			sigma: 10,
+			rho: 28,
+			beta: 2.667
+		};
+
+		expect(isChuaParameters(chuaParams)).toBe(true);
+		expect(isChuaParameters(lorenzParams)).toBe(false);
+		expect(isChuaParameters(null)).toBe(false);
+		expect(isChuaParameters(undefined)).toBe(false);
+		expect(isChuaParameters({} as ChaosMapParameters)).toBe(false);
 	});
 });

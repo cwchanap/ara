@@ -38,6 +38,10 @@
 	// Lyapunov readout.
 	let lyapunovValue = $state(0);
 	let lyapunovClass = $state<'chaotic' | 'marginal' | 'stable'>('marginal');
+	let lyapunovDiverged = $state(false);
+
+	// Renderer divergence state.
+	let rendererDiverged = $state(false);
 
 	const saveState = $state(createInitialSaveState());
 	const shareState = $state(createInitialShareState());
@@ -85,6 +89,7 @@
 			a,
 			b
 		});
+		lyapunovDiverged = est.diverged;
 		lyapunovValue = est.value;
 		lyapunovClass = est.classification;
 	}, DEBOUNCE_MS);
@@ -450,6 +455,7 @@
 		{colorMode}
 		{transientRemoval}
 		{poincarePlane}
+		bind:diverged={rendererDiverged}
 		height={VIZ_CONTAINER_HEIGHT}
 	/>
 
@@ -458,16 +464,23 @@
 		class="flex items-center gap-6 bg-card/30 backdrop-blur-md border border-primary/20 rounded-sm px-6 py-3 font-mono text-sm"
 	>
 		<span class="text-primary/80 uppercase tracking-widest text-xs font-bold">Analysis</span>
-		<span class="text-accent">λₘₐₓ ≈ {lyapunovValue.toFixed(3)}</span>
-		<span
-			class="uppercase tracking-wider text-xs {lyapunovClass === 'chaotic'
-				? 'text-fuchsia-400'
-				: lyapunovClass === 'stable'
-					? 'text-emerald-400'
-					: 'text-yellow-400'}"
-		>
-			{lyapunovClass}
-		</span>
+		{#if lyapunovDiverged}
+			<span class="text-fuchsia-400">λₘₐₓ ≈ DIVERGED</span>
+			<span class="uppercase tracking-wider text-xs text-fuchsia-400">
+				reduce dt or adjust parameters
+			</span>
+		{:else}
+			<span class="text-accent">λₘₐₓ ≈ {lyapunovValue.toFixed(3)}</span>
+			<span
+				class="uppercase tracking-wider text-xs {lyapunovClass === 'chaotic'
+					? 'text-fuchsia-400'
+					: lyapunovClass === 'stable'
+						? 'text-emerald-400'
+						: 'text-yellow-400'}"
+			>
+				{lyapunovClass}
+			</span>
+		{/if}
 	</div>
 
 	<!-- Info Panel -->

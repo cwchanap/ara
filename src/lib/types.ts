@@ -110,6 +110,14 @@ export interface LyapunovParameters {
 	transientIterations: number;
 }
 
+/**
+ * Chua parameters shared/saved between sessions.
+ *
+ * Note: The solver (ChuaParams in chua.ts) also includes integration settings
+ * (dt, steps, x0/y0/z0) that are session-local and NOT persisted. Loading a
+ * saved Chua config restores the math parameters but uses the page's current
+ * dt and trailLength, so the trajectory may differ from the original session.
+ */
 export interface ChuaParameters {
 	type: 'chua';
 	alpha: number;
