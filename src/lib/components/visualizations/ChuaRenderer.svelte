@@ -37,6 +37,7 @@
 		compareMode?: boolean;
 		compareSide?: 'left' | 'right';
 		containerElement?: HTMLDivElement;
+		diverged?: boolean;
 	}
 
 	let {
@@ -54,7 +55,8 @@
 		height = 600,
 		compareMode = false,
 		compareSide = 'left',
-		containerElement = $bindable()
+		containerElement = $bindable(),
+		diverged = $bindable(false)
 	}: Props = $props();
 
 	let container = $state<HTMLDivElement>();
@@ -219,7 +221,7 @@
 		rebuild = () => {
 			disposeObjects();
 
-			const raw = calculateChua({
+			const result = calculateChua({
 				x0: 0.1,
 				y0: 0,
 				z0: 0,
@@ -231,6 +233,8 @@
 				a,
 				b
 			});
+			diverged = result.diverged;
+			const raw = result.points;
 			const cut = transientRemoval ? Math.floor(raw.length * 0.05) : 0;
 			trajectory = raw.slice(cut);
 
@@ -417,4 +421,14 @@
 	>
 		CHUA_RENDERER
 	</div>
+	{#if diverged}
+		<div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+			<div class="bg-black/80 border border-fuchsia-500/60 rounded-sm px-6 py-3 text-center">
+				<p class="text-fuchsia-400 font-['Orbitron'] text-sm tracking-widest uppercase">
+					⚠ TRAJECTORY DIVERGED
+				</p>
+				<p class="text-fuchsia-300/70 text-xs mt-1">Reduce dt or adjust parameters</p>
+			</div>
+		</div>
+	{/if}
 </div>

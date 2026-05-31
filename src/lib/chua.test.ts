@@ -51,18 +51,22 @@ describe('calculateChua', () => {
 		b: -5 / 7
 	};
 
-	test('returns array of the requested length', () => {
-		const points = calculateChua({ ...base, steps: 100 });
-		expect(points).toHaveLength(100);
+	test('returns array of the requested length when not diverged', () => {
+		const result = calculateChua({ ...base, steps: 100 });
+		expect(result.diverged).toBe(false);
+		expect(result.points).toHaveLength(100);
 	});
 
 	test('handles zero steps', () => {
-		expect(calculateChua({ ...base, steps: 0 })).toHaveLength(0);
+		const result = calculateChua({ ...base, steps: 0 });
+		expect(result.diverged).toBe(false);
+		expect(result.points).toHaveLength(0);
 	});
 
 	test('all points are finite', () => {
-		const points = calculateChua({ ...base, steps: 500 });
-		for (const p of points) {
+		const result = calculateChua({ ...base, steps: 500 });
+		expect(result.diverged).toBe(false);
+		for (const p of result.points) {
 			expect(Number.isFinite(p.x)).toBe(true);
 			expect(Number.isFinite(p.y)).toBe(true);
 			expect(Number.isFinite(p.z)).toBe(true);
@@ -87,15 +91,16 @@ describe('calculateChua', () => {
 		const expectedY = y0 + (dt / 6) * (k1.dy + 2 * k2.dy + 2 * k3.dy + k4.dy);
 		const expectedZ = z0 + (dt / 6) * (k1.dz + 2 * k2.dz + 2 * k3.dz + k4.dz);
 
-		const points = calculateChua({ ...base, steps: 1 });
-		expect(points[0].x).toBeCloseTo(expectedX, 10);
-		expect(points[0].y).toBeCloseTo(expectedY, 10);
-		expect(points[0].z).toBeCloseTo(expectedZ, 10);
+		const result = calculateChua({ ...base, steps: 1 });
+		expect(result.points[0].x).toBeCloseTo(expectedX, 10);
+		expect(result.points[0].y).toBeCloseTo(expectedY, 10);
+		expect(result.points[0].z).toBeCloseTo(expectedZ, 10);
 	});
 
 	test('classic parameters stay bounded (double-scroll attractor)', () => {
-		const points = calculateChua({ ...base, steps: 20000 });
-		for (const p of points) {
+		const result = calculateChua({ ...base, steps: 20000 });
+		expect(result.diverged).toBe(false);
+		for (const p of result.points) {
 			expect(Math.abs(p.x)).toBeLessThan(50);
 			expect(Math.abs(p.y)).toBeLessThan(50);
 			expect(Math.abs(p.z)).toBeLessThan(50);
@@ -103,9 +108,55 @@ describe('calculateChua', () => {
 	});
 
 	test('is deterministic for identical input', () => {
-		const a1 = calculateChua({ ...base, steps: 300 });
-		const a2 = calculateChua({ ...base, steps: 300 });
-		expect(a1[299]).toEqual(a2[299]);
+		const r1 = calculateChua({ ...base, steps: 300 });
+		const r2 = calculateChua({ ...base, steps: 300 });
+		expect(r1.points[299]).toEqual(r2.points[299]);
+	});
+
+	test('detects divergence and returns partial finite trajectory', () => {
+		// Slider-reachable parameters that cause blow-up: large alpha, zero beta,
+		// negative gamma, extreme slopes, and large dt.
+		const result = calculateChua({
+			x0: 0.1,
+			y0: 0,
+			z0: 0,
+			steps: 50000,
+			dt: 0.02,
+			alpha: 25,
+			beta: 0,
+			gamma: -1,
+			a: -2,
+			b: -1.5
+		});
+		expect(result.diverged).toBe(true);
+		// Partial trajectory should contain only finite points
+		expect(result.points.length).toBeGreaterThan(0);
+		expect(result.points.length).toBeLessThan(50000);
+		for (const p of result.points) {
+			expect(Number.isFinite(p.x)).toBe(true);
+			expect(Number.isFinite(p.y)).toBe(true);
+			expect(Number.isFinite(p.z)).toBe(true);
+		}
+	});
+
+	test('diverged result never contains NaN or Infinity', () => {
+		const result = calculateChua({
+			x0: 0.1,
+			y0: 0,
+			z0: 0,
+			steps: 100000,
+			dt: 0.02,
+			alpha: 25,
+			beta: 0.1,
+			gamma: 0,
+			a: -2,
+			b: -1.5
+		});
+		for (const p of result.points) {
+			expect(Number.isFinite(p.x)).toBe(true);
+			expect(Number.isFinite(p.y)).toBe(true);
+			expect(Number.isFinite(p.z)).toBe(true);
+		}
 	});
 });
 
@@ -157,6 +208,38 @@ describe('computePoincareSection', () => {
 		expect(computePoincareSection([], 'y=0')).toHaveLength(0);
 		expect(computePoincareSection([{ x: 0, y: 0, z: 0 }], 'y=0')).toHaveLength(0);
 	});
+
+	test('asymmetric crossing interpolates at correct t (not always 0.5)', () => {
+		// y goes from -3 to +1: crossing at t = 3/4, not 0.5.
+		// In-plane coords for y=0 are (x, z).
+		const pts = [
+			{ x: 0, y: -3, z: 0 },
+			{ x: 4, y: 1, z: 8 }
+		];
+		const section = computePoincareSection(pts, 'y=0');
+		expect(section).toHaveLength(1);
+		expect(section[0].u).toBeCloseTo(3, 10); // x = 0 + (4-0) * 0.75 = 3
+		expect(section[0].v).toBeCloseTo(6, 10); // z = 0 + (8-0) * 0.75 = 6
+	});
+
+	test('skips crossings with non-finite normal values', () => {
+		const pts = [
+			{ x: 0, y: -1, z: 0 },
+			{ x: 2, y: NaN, z: 0 },
+			{ x: 4, y: 1, z: 0 }
+		];
+		// The NaN point should not produce a crossing; the -1 -> 1 pair is valid
+		// but they are not consecutive (NaN sits between them).
+		expect(computePoincareSection(pts, 'y=0')).toHaveLength(0);
+	});
+
+	test('skips crossings with NaN/Infinity denominator', () => {
+		const pts = [
+			{ x: 0, y: -1, z: 0 },
+			{ x: 2, y: Infinity, z: 0 }
+		];
+		expect(computePoincareSection(pts, 'y=0')).toHaveLength(0);
+	});
 });
 
 describe('classifyLyapunov', () => {
@@ -191,15 +274,53 @@ describe('estimateLargestLyapunov', () => {
 		expect(Number.isFinite(est.value)).toBe(true);
 		expect(est.value).toBeGreaterThan(0);
 		expect(est.classification).toBe('chaotic');
+		expect(est.diverged).toBe(false);
 	});
 
 	test('is deterministic', () => {
-		expect(estimateLargestLyapunov(base).value).toBe(estimateLargestLyapunov(base).value);
+		const a = estimateLargestLyapunov(base);
+		const b = estimateLargestLyapunov(base);
+		expect(a.value).toBe(b.value);
 	});
 
 	test('strong damping lowers the exponent', () => {
 		const damped = estimateLargestLyapunov({ ...base, gamma: 5 });
 		const classic = estimateLargestLyapunov(base);
 		expect(damped.value).toBeLessThan(classic.value);
+	});
+
+	test('returns diverged=true for divergent parameters', () => {
+		const est = estimateLargestLyapunov({
+			x0: 0.1,
+			y0: 0,
+			z0: 0,
+			steps: 50000,
+			dt: 0.02,
+			alpha: 25,
+			beta: 0,
+			gamma: -1,
+			a: -2,
+			b: -1.5
+		});
+		expect(est.diverged).toBe(true);
+		expect(Number.isNaN(est.value)).toBe(true);
+		expect(est.classification).toBe('marginal');
+	});
+
+	test('handles very few steps without crashing', () => {
+		const est = estimateLargestLyapunov({
+			x0: 0.1,
+			y0: 0,
+			z0: 0,
+			steps: 1,
+			dt: 0.005,
+			alpha: 15.6,
+			beta: 28,
+			gamma: 0,
+			a: -8 / 7,
+			b: -5 / 7
+		});
+		expect(est.diverged).toBe(false);
+		expect(typeof est.value === 'number').toBe(true);
 	});
 });

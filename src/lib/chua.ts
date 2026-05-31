@@ -9,6 +9,10 @@
  *
  * Classic double-scroll parameters: alpha = 15.6, beta = 28, gamma = 0,
  * a = -8/7, b = -5/7.
+ *
+ * Note: gamma is a non-standard damping extension; the classic textbook
+ * system has gamma = 0 (no z-damping). Non-zero gamma modifies the
+ * dissipation rate of the z-component.
  */
 
 /**
@@ -115,9 +119,20 @@ function rk4Step(
 }
 
 /**
- * Calculate the Chua trajectory using 4th-order Runge–Kutta integration.
+ * Result of a Chua trajectory computation.
+ * `points` contains only finite values; `diverged` is true if the
+ * trajectory escaped to Infinity/NaN before completing all steps.
  */
-export function calculateChua(params: ChuaParams): ChuaPoint[] {
+export interface ChuaResult {
+	points: ChuaPoint[];
+	diverged: boolean;
+}
+
+/**
+ * Calculate the Chua trajectory using 4th-order Runge–Kutta integration.
+ * Stops early and sets `diverged = true` if any component becomes non-finite.
+ */
+export function calculateChua(params: ChuaParams): ChuaResult {
 	const { x0, y0, z0, steps, dt, alpha, beta, gamma, a, b } = params;
 	const points: ChuaPoint[] = [];
 	let x = x0;
@@ -125,12 +140,15 @@ export function calculateChua(params: ChuaParams): ChuaPoint[] {
 	let z = z0;
 	for (let i = 0; i < steps; i++) {
 		const next = rk4Step(x, y, z, dt, alpha, beta, gamma, a, b);
+		if (!Number.isFinite(next.x) || !Number.isFinite(next.y) || !Number.isFinite(next.z)) {
+			return { points, diverged: true };
+		}
 		x = next.x;
 		y = next.y;
 		z = next.z;
 		points.push({ x, y, z });
 	}
-	return points;
+	return { points, diverged: false };
 }
 
 export type PoincarePlane = 'x=0' | 'y=0' | 'z=0';
@@ -167,10 +185,11 @@ export function computePoincareSection(points: ChuaPoint[], plane: PoincarePlane
 		const curr = points[i];
 		const nPrev = normal(prev);
 		const nCurr = normal(curr);
-		// Upward crossing only.
-		if (nPrev < 0 && nCurr >= 0) {
+		// Upward crossing only; skip when normals or denominator are non-finite.
+		if (Number.isFinite(nPrev) && Number.isFinite(nCurr) && nPrev < 0 && nCurr >= 0) {
 			const denom = nCurr - nPrev;
-			const t = denom === 0 ? 0 : -nPrev / denom;
+			if (!Number.isFinite(denom) || denom === 0) continue;
+			const t = -nPrev / denom;
 			const a = inPlane(prev);
 			const b = inPlane(curr);
 			section.push({
@@ -187,6 +206,7 @@ export type LyapunovClassification = 'chaotic' | 'marginal' | 'stable';
 export interface LyapunovEstimate {
 	value: number;
 	classification: LyapunovClassification;
+	diverged: boolean;
 }
 
 const LYAPUNOV_MARGINAL_THRESHOLD = 0.01;
@@ -201,6 +221,10 @@ export function classifyLyapunov(value: number): LyapunovClassification {
  * Estimate the largest Lyapunov exponent using the Benettin two-trajectory
  * method: integrate a nearby trajectory, periodically measure separation
  * growth, renormalize, and average log growth over time.
+ *
+ * Note: This uses a 10% transient fraction (vs 5% in the renderer).
+ * The Lyapunov estimator needs more transient time for the two trajectories
+ * to settle onto the attractor before measuring divergence rates.
  */
 export function estimateLargestLyapunov(params: ChuaParams): LyapunovEstimate {
 	const { x0, y0, z0, steps, dt, alpha, beta, gamma, a, b } = params;
@@ -221,6 +245,19 @@ export function estimateLargestLyapunov(params: ChuaParams): LyapunovEstimate {
 	for (let i = 0; i < steps; i++) {
 		const nb = rk4Step(bx, by, bz, dt, alpha, beta, gamma, a, b);
 		const np = rk4Step(px, py, pz, dt, alpha, beta, gamma, a, b);
+
+		// Detect divergence in either trajectory.
+		if (
+			!Number.isFinite(nb.x) ||
+			!Number.isFinite(nb.y) ||
+			!Number.isFinite(nb.z) ||
+			!Number.isFinite(np.x) ||
+			!Number.isFinite(np.y) ||
+			!Number.isFinite(np.z)
+		) {
+			return { value: NaN, classification: 'marginal', diverged: true };
+		}
+
 		bx = nb.x;
 		by = nb.y;
 		bz = nb.z;
@@ -233,7 +270,7 @@ export function estimateLargestLyapunov(params: ChuaParams): LyapunovEstimate {
 			const dy = py - by;
 			const dz = pz - bz;
 			const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-			if (dist > 0) {
+			if (Number.isFinite(dist) && dist > 0) {
 				sumLog += Math.log(dist / d0);
 				count++;
 				// Renormalize the perturbed trajectory back to distance d0.
@@ -246,5 +283,5 @@ export function estimateLargestLyapunov(params: ChuaParams): LyapunovEstimate {
 	}
 
 	const value = count > 0 ? sumLog / (count * dt) : 0;
-	return { value, classification: classifyLyapunov(value) };
+	return { value, classification: classifyLyapunov(value), diverged: false };
 }
