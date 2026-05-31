@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a SvelteKit-based interactive web application that visualizes 12 different chaos theory mathematical systems (Lorenz, Rössler, Hénon, Lozi, Logistic, Newton, Standard, Bifurcation-Logistic, Bifurcation-Hénon, Chaos Esthetique, Lyapunov, Chua). The project reproduces Python-based chaos visualizations using modern web technologies, featuring real-time parameter manipulation and beautiful sci-fi themed UI.
+This is a SvelteKit-based interactive web application that visualizes 12 different chaos theory mathematical systems (Lorenz, Rössler, Hénon, Lozi, Logistic, Newton, Standard, Bifurcation-Logistic, Bifurcation-Hénon, Chaos Esthetique, Lyapunov, Chua). The project reproduces Python-based chaos visualizations using modern web technologies, featuring real-time parameter manipulation and beautiful sci-fi-themed UI.
 
 ## Development Commands
 
