@@ -238,3 +238,47 @@ describe('LorenzRenderer Three.js integration', () => {
 		expect(Line2).toHaveBeenCalled();
 	});
 });
+
+describe('LorenzRenderer engine behavior', () => {
+	afterEach(() => {
+		cleanup();
+	});
+
+	it('constructs an OrthographicCamera for projection support', async () => {
+		const THREE = await import('three');
+		render(LorenzRenderer, {
+			props: {
+				params: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667, viewMode: 'xy' },
+				height: 200
+			}
+		});
+		expect(THREE.OrthographicCamera).toHaveBeenCalled();
+	});
+
+	it('creates two Line2 instances (main + ghost) when ghost is enabled', async () => {
+		const { Line2 } = await import('three/examples/jsm/lines/Line2.js');
+		(Line2 as unknown as { mockClear: () => void }).mockClear?.();
+		render(LorenzRenderer, {
+			props: {
+				params: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667, showGhost: true },
+				height: 200
+			}
+		});
+		expect(
+			(Line2 as unknown as { mock: { calls: unknown[] } }).mock.calls.length
+		).toBeGreaterThanOrEqual(2);
+	});
+
+	it('renders in compare mode without throwing', () => {
+		expect(() =>
+			render(LorenzRenderer, {
+				props: {
+					params: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 },
+					height: 200,
+					compareMode: true,
+					compareSide: 'left'
+				}
+			})
+		).not.toThrow();
+	});
+});
