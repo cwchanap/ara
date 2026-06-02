@@ -197,9 +197,7 @@
 			</ComparisonParameterPanel>
 
 			<LorenzRenderer
-				bind:sigma={leftSigma}
-				bind:rho={leftRho}
-				bind:beta={leftBeta}
+				params={{ type: 'lorenz', sigma: leftSigma, rho: leftRho, beta: leftBeta }}
 				height={400}
 				compareMode={true}
 				compareSide="left"
@@ -282,9 +280,7 @@
 			</ComparisonParameterPanel>
 
 			<LorenzRenderer
-				bind:sigma={rightSigma}
-				bind:rho={rightRho}
-				bind:beta={rightBeta}
+				params={{ type: 'lorenz', sigma: rightSigma, rho: rightRho, beta: rightBeta }}
 				height={400}
 				compareMode={true}
 				compareSide="right"

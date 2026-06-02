@@ -1,234 +1,173 @@
 <!--
   LorenzRenderer Component
 
-  Encapsulates the Three.js Lorenz attractor visualization.
-  Can be used standalone or in comparison mode.
+  Three.js renderer for the Lorenz attractor. Precomputes the trajectory on
+  math-affecting changes (Approach A) and animates a `head` index across it.
+  Supports comet vs cumulative trails, color modes, a ghost (perturbed) orbit,
+  perspective 3D + orthographic XY/XZ/YZ projections, playback (play/pause/step/
+  reset/speed), and comparison mode with camera sync.
 -->
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import * as THREE from 'three';
 	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 	import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 	import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
 	import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 	import { cameraSyncStore, createCameraState, applyCameraState } from '$lib/stores/camera-sync';
+	import { COMET_WINDOW } from '$lib/constants';
+	import { integrate, type LorenzResult } from '$lib/lorenz/integrators';
+	import { computeColors } from '$lib/lorenz/colors';
+	import { withLorenzDefaults } from '$lib/lorenz/defaults';
+	import type { LorenzParameters } from '$lib/types';
 
 	interface Props {
-		sigma?: number;
-		rho?: number;
-		beta?: number;
+		params: LorenzParameters;
 		height?: number;
 		compareMode?: boolean;
 		compareSide?: 'left' | 'right';
 		containerElement?: HTMLDivElement;
+		// Runtime playback (main page only).
+		isPlaying?: boolean;
+		stepNonce?: number;
+		resetNonce?: number;
+		// Outputs.
+		head?: number;
+		diverged?: boolean;
 	}
 
 	let {
-		sigma = $bindable(10),
-		rho = $bindable(28),
-		beta = $bindable(8.0 / 3),
-		height = 500,
+		params,
+		height = 600,
 		compareMode = false,
 		compareSide = 'left',
-		containerElement = $bindable()
+		containerElement = $bindable(),
+		isPlaying = true,
+		stepNonce = 0,
+		resetNonce = 0,
+		head = $bindable(0),
+		diverged = $bindable(false)
 	}: Props = $props();
 
-	let container = $state<HTMLDivElement | undefined>(undefined);
-
-	// Sync internal container ref to bindable prop
-	// container is reactive so bind:this updates trigger the effect
+	let container = $state<HTMLDivElement>();
 	$effect(() => {
 		containerElement = container;
 	});
-	let isAnimating = $state(true);
-	let recreate: () => void;
+
+	const resolved = $derived(withLorenzDefaults(params));
+
+	let isAnimating = true;
 	let animationFrameId: number | null = null;
+	let rebuild: (() => void) | null = null;
+	let applyView: (() => void) | null = null;
+	let applyColors: (() => void) | null = null;
 
-	// For camera sync in compare mode
 	let controls = $state<OrbitControls | null>(null);
-	let camera = $state<THREE.PerspectiveCamera | null>(null);
-	let cameraChangeHandler: (() => void) | null = null;
+	let perspectiveCamera = $state<THREE.PerspectiveCamera | null>(null);
 
+	// Recompute geometry when math-affecting params change.
 	$effect(() => {
-		void sigma;
-		void rho;
-		void beta;
-		if (recreate) recreate();
+		void resolved.sigma;
+		void resolved.rho;
+		void resolved.beta;
+		void resolved.x0;
+		void resolved.y0;
+		void resolved.z0;
+		void resolved.epsilon;
+		void resolved.showGhost;
+		void resolved.solver;
+		void resolved.dt;
+		void resolved.trailLength;
+		void resolved.trailStyle;
+		rebuild?.();
+		untrack(() => applyView?.());
 	});
 
-	// Camera sync effect for comparison mode
+	// Recompute colors only (cheap) when colorMode changes.
 	$effect(() => {
-		if (!compareMode || !controls || !camera) return;
+		void resolved.colorMode;
+		applyColors?.();
+	});
 
+	// Reapply camera/visibility when the view mode / rotation / zoom change.
+	$effect(() => {
+		void resolved.viewMode;
+		void resolved.autoRotate;
+		void resolved.rotationSpeed;
+		void resolved.zoom;
+		applyView?.();
+	});
+
+	// Reset playback head on resetNonce change.
+	$effect(() => {
+		void resetNonce;
+		head = 0;
+	});
+
+	// Single-step on stepNonce change.
+	let lastStepNonce = stepNonce;
+	$effect(() => {
+		if (stepNonce !== lastStepNonce) {
+			lastStepNonce = stepNonce;
+			advanceHead(true);
+		}
+	});
+
+	function advanceHead(forceOneFrame = false): void {
+		const total = resolved.trailLength;
+		const perFrame = Math.max(1, Math.round(resolved.stepsPerFrame * resolved.speed));
+		if (forceOneFrame || isPlaying) {
+			head = Math.min(total, head + perFrame);
+		}
+	}
+
+	// Camera sync (perspective / 3D only).
+	$effect(() => {
+		if (!compareMode) return;
+		const c = controls;
+		const cam = perspectiveCamera;
+		if (!c || !cam) return;
+		const side = compareSide;
 		const unsubscribe = cameraSyncStore.subscribe((state) => {
-			if (!state.enabled || state.lastUpdate === compareSide) return;
-
-			const otherState = compareSide === 'left' ? state.right : state.left;
-			if (otherState && camera && controls) {
-				applyCameraState(otherState, camera, controls);
-			}
+			if (!state.enabled || state.lastUpdate === side) return;
+			const other = side === 'left' ? state.right : state.left;
+			if (other) applyCameraState(other, cam, c);
 		});
-
 		return unsubscribe;
 	});
 
 	onMount(() => {
+		if (!container) return;
+		const el = container;
+
 		const scene = new THREE.Scene();
 		scene.background = null;
 
-		camera = new THREE.PerspectiveCamera(
-			75,
-			container!.clientWidth / container!.clientHeight,
-			0.1,
-			1000
-		);
-		camera.position.set(40, 40, 40);
+		const persp = new THREE.PerspectiveCamera(75, el.clientWidth / el.clientHeight, 0.1, 1000);
+		persp.position.set(40, 40, 40);
+		perspectiveCamera = persp;
+
+		const ortho = new THREE.OrthographicCamera(-40, 40, 40, -40, 0.1, 2000);
+		let activeCamera: THREE.Camera = persp;
 
 		const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-		renderer.setSize(container!.clientWidth, container!.clientHeight);
+		renderer.setSize(el.clientWidth, el.clientHeight);
 		renderer.setPixelRatio(window.devicePixelRatio);
+		el.appendChild(renderer.domElement);
 
-		container!.appendChild(renderer.domElement);
+		const orbit = new OrbitControls(persp, renderer.domElement);
+		orbit.enableDamping = true;
+		orbit.autoRotate = !compareMode && resolved.autoRotate;
+		orbit.autoRotateSpeed = resolved.rotationSpeed;
+		controls = orbit;
 
-		controls = new OrbitControls(camera, renderer.domElement);
-		controls.enableDamping = true;
-		controls.autoRotate = !compareMode; // Disable auto-rotate in compare mode
-		controls.autoRotateSpeed = 0.5;
-
-		// Camera sync for comparison mode
+		let cameraChangeHandler: (() => void) | null = null;
 		if (compareMode) {
 			cameraChangeHandler = () => {
-				const cameraState = createCameraState(camera!, controls!);
-				cameraSyncStore.updateFromSide(compareSide, cameraState);
+				cameraSyncStore.updateFromSide(compareSide, createCameraState(persp, orbit));
 			};
-			controls.addEventListener('change', cameraChangeHandler);
+			orbit.addEventListener('change', cameraChangeHandler);
 		}
-
-		function calculateLorenz(
-			x0: number,
-			y0: number,
-			z0: number,
-			steps: number,
-			dt: number
-		): THREE.Vector3[] {
-			const points: THREE.Vector3[] = [];
-			let x = x0;
-			let y = y0;
-			let z = z0;
-
-			for (let i = 0; i < steps; i++) {
-				const dx = sigma * (y - x);
-				const dy = x * (rho - z) - y;
-				const dz = x * y - beta * z;
-
-				x += dx * dt;
-				y += dy * dt;
-				z += dz * dt;
-
-				points.push(new THREE.Vector3(x, y, z));
-			}
-
-			return points;
-		}
-
-		function createLorenzLine() {
-			const points = calculateLorenz(0.1, 0, 0, 15000, 0.005);
-			const geometry = new LineGeometry();
-
-			const positions: number[] = [];
-			const colors: number[] = [];
-			const color1 = new THREE.Color(0x00f3ff);
-			const color2 = new THREE.Color(0xbc13fe);
-
-			for (let i = 0; i < points.length; i++) {
-				const point = points[i];
-				positions.push(point.x, point.y, point.z);
-				const t = i / points.length;
-				const color = new THREE.Color().copy(color1).lerp(color2, t);
-				colors.push(color.r, color.g, color.b);
-			}
-
-			geometry.setPositions(positions);
-			geometry.setColors(colors);
-
-			const material = new LineMaterial({
-				vertexColors: true,
-				linewidth: 2,
-				blending: THREE.AdditiveBlending,
-				transparent: true,
-				opacity: 0.8
-			});
-			material.resolution.set(container!.clientWidth, container!.clientHeight);
-
-			const line = new Line2(geometry, material);
-			line.computeLineDistances();
-			return line;
-		}
-
-		const disposeMaterial = (material: THREE.Material) => {
-			const mat = material as unknown as Record<string, unknown>;
-			const textureKeys = [
-				'map',
-				'alphaMap',
-				'aoMap',
-				'bumpMap',
-				'displacementMap',
-				'emissiveMap',
-				'envMap',
-				'lightMap',
-				'metalnessMap',
-				'normalMap',
-				'roughnessMap',
-				'specularMap',
-				'gradientMap',
-				'clearcoatMap',
-				'clearcoatNormalMap',
-				'clearcoatRoughnessMap',
-				'sheenColorMap',
-				'sheenRoughnessMap',
-				'transmissionMap',
-				'thicknessMap',
-				'iridescenceMap',
-				'iridescenceThicknessMap'
-			];
-
-			for (const key of textureKeys) {
-				const texture = mat[key];
-				if (texture && typeof (texture as { dispose?: unknown }).dispose === 'function') {
-					(texture as { dispose: () => void }).dispose();
-					mat[key] = null;
-				}
-			}
-
-			material.dispose();
-		};
-
-		const disposeLine = (line: Line2) => {
-			line.geometry.dispose();
-			if (Array.isArray(line.material)) {
-				line.material.forEach(disposeMaterial);
-			} else {
-				disposeMaterial(line.material);
-			}
-		};
-
-		const updateLineMaterialResolution = (line: Line2) => {
-			const { material } = line;
-			if (Array.isArray(material)) {
-				material.forEach((mat) => {
-					if (mat instanceof LineMaterial) {
-						mat.resolution.set(container!.clientWidth, container!.clientHeight);
-					}
-				});
-				return;
-			}
-			if (material instanceof LineMaterial) {
-				material.resolution.set(container!.clientWidth, container!.clientHeight);
-			}
-		};
-
-		let lorenzLine = createLorenzLine();
-		scene.add(lorenzLine);
 
 		const gridHelper = new THREE.GridHelper(100, 20, 0x00f3ff, 0x2d1b69);
 		gridHelper.position.y = -30;
@@ -236,72 +175,185 @@
 		(gridHelper.material as THREE.Material).opacity = 0.2;
 		scene.add(gridHelper);
 
+		// Trajectory state.
+		let main: LorenzResult | null = null;
+		let ghost: LorenzResult | null = null;
+		let mainColors: Float32Array = new Float32Array(0);
+
+		function makeLine(): Line2 {
+			const geometry = new LineGeometry();
+			const material = new LineMaterial({
+				vertexColors: true,
+				linewidth: 2,
+				blending: THREE.AdditiveBlending,
+				transparent: true,
+				opacity: 0.8
+			});
+			material.resolution.set(el.clientWidth, el.clientHeight);
+			const line = new Line2(geometry, material);
+			line.computeLineDistances();
+			return line;
+		}
+
+		const mainLine = makeLine();
+		const ghostLine = makeLine();
+		scene.add(mainLine);
+		scene.add(ghostLine);
+
+		function disposeLineGeometry(line: Line2) {
+			line.geometry.dispose();
+		}
+
+		rebuild = () => {
+			const r = resolved;
+			main = integrate({
+				sigma: r.sigma,
+				rho: r.rho,
+				beta: r.beta,
+				x0: r.x0,
+				y0: r.y0,
+				z0: r.z0,
+				solver: r.solver,
+				dt: r.dt,
+				steps: r.trailLength
+			});
+			ghost = r.showGhost
+				? integrate({
+						sigma: r.sigma,
+						rho: r.rho,
+						beta: r.beta,
+						x0: r.x0 + r.epsilon,
+						y0: r.y0,
+						z0: r.z0,
+						solver: r.solver,
+						dt: r.dt,
+						steps: r.trailLength
+					})
+				: null;
+			diverged = main.diverged || (ghost?.diverged ?? false);
+			ghostLine.visible = !!ghost;
+			// In compare mode show the full static attractor.
+			if (compareMode) head = r.trailLength;
+			else if (head > r.trailLength) head = r.trailLength;
+			applyColors?.();
+		};
+
+		applyColors = () => {
+			if (!main) return;
+			mainColors = computeColors(main, resolved.colorMode, { ghost: ghost ?? undefined });
+		};
+
+		function setLineSlice(
+			line: Line2,
+			result: LorenzResult,
+			colors: Float32Array,
+			from: number,
+			to: number
+		) {
+			const count = Math.max(0, to - from);
+			if (count < 2) {
+				line.visible = false;
+				return;
+			}
+			line.visible = true;
+			const pos = result.positions.subarray(from * 3, to * 3);
+			const col = colors.subarray(from * 3, to * 3);
+			line.geometry.setPositions(Array.from(pos));
+			line.geometry.setColors(Array.from(col));
+			line.computeLineDistances();
+		}
+
+		function updateDraw() {
+			if (!main) return;
+			const total = resolved.trailLength;
+			const h = Math.min(head, total);
+			if (resolved.trailStyle === 'comet') {
+				const from = Math.max(0, h - COMET_WINDOW);
+				setLineSlice(mainLine, main, mainColors, from, h);
+				if (ghost) {
+					const gColors = computeColors(ghost, resolved.colorMode, { ghost: main });
+					setLineSlice(ghostLine, ghost, gColors, from, h);
+				}
+			} else {
+				setLineSlice(mainLine, main, mainColors, 0, h);
+				if (ghost) {
+					const gColors = computeColors(ghost, resolved.colorMode, { ghost: main });
+					setLineSlice(ghostLine, ghost, gColors, 0, h);
+				}
+			}
+		}
+
+		applyView = () => {
+			const r = resolved;
+			if (r.viewMode === '3d') {
+				activeCamera = persp;
+				orbit.enabled = true;
+				orbit.autoRotate = !compareMode && r.autoRotate;
+				orbit.autoRotateSpeed = r.rotationSpeed;
+				persp.position.set(40 / r.zoom, 40 / r.zoom, 40 / r.zoom);
+			} else {
+				activeCamera = ortho;
+				orbit.autoRotate = false;
+				const d = 80 / r.zoom;
+				if (r.viewMode === 'xy') ortho.position.set(0, 0, d);
+				else if (r.viewMode === 'xz') ortho.position.set(0, d, 0);
+				else ortho.position.set(d, 0, 0); // yz
+				ortho.lookAt(0, 0, 0);
+				ortho.updateProjectionMatrix();
+			}
+		};
+
+		rebuild();
+		applyView();
+
 		function animate() {
 			if (!isAnimating) return;
 			animationFrameId = requestAnimationFrame(animate);
-			if (controls) controls.update();
-			if (camera) renderer.render(scene, camera);
+			if (!compareMode) advanceHead(false);
+			updateDraw();
+			if (controls && activeCamera === persp) controls.update();
+			renderer.render(scene, activeCamera);
 		}
-
 		animate();
 
 		const handleResize = () => {
-			if (!container || !camera) return;
-			camera.aspect = container.clientWidth / container.clientHeight;
-			camera.updateProjectionMatrix();
+			if (!container) return;
+			persp.aspect = container.clientWidth / container.clientHeight;
+			persp.updateProjectionMatrix();
 			renderer.setSize(container.clientWidth, container.clientHeight);
-			updateLineMaterialResolution(lorenzLine);
+			(mainLine.material as LineMaterial).resolution.set(
+				container.clientWidth,
+				container.clientHeight
+			);
+			(ghostLine.material as LineMaterial).resolution.set(
+				container.clientWidth,
+				container.clientHeight
+			);
 		};
 		window.addEventListener('resize', handleResize);
-
-		const resizeObserver = new ResizeObserver(() => {
-			if (!container) return;
-			handleResize();
-		});
-		if (container) {
-			resizeObserver.observe(container);
-			handleResize();
-		}
-
-		recreate = () => {
-			scene.remove(lorenzLine);
-			disposeLine(lorenzLine);
-			lorenzLine = createLorenzLine();
-			scene.add(lorenzLine);
-		};
+		const resizeObserver = new ResizeObserver(() => handleResize());
+		resizeObserver.observe(el);
+		handleResize();
 
 		return () => {
 			window.removeEventListener('resize', handleResize);
 			resizeObserver.disconnect();
 			isAnimating = false;
-
-			// Cancel any pending animation frame
-			if (animationFrameId !== null) {
-				cancelAnimationFrame(animationFrameId);
-				animationFrameId = null;
-			}
-
-			if (controls && cameraChangeHandler) {
-				controls.removeEventListener('change', cameraChangeHandler);
-			}
-			if (controls) controls.dispose();
-
+			if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
+			if (cameraChangeHandler) orbit.removeEventListener('change', cameraChangeHandler);
+			orbit.dispose();
 			scene.remove(gridHelper);
 			gridHelper.geometry.dispose();
-			if (Array.isArray(gridHelper.material)) {
-				gridHelper.material.forEach(disposeMaterial);
-			} else {
-				disposeMaterial(gridHelper.material);
-			}
-
-			scene.remove(lorenzLine);
-			disposeLine(lorenzLine);
-
+			(gridHelper.material as THREE.Material).dispose();
+			scene.remove(mainLine);
+			scene.remove(ghostLine);
+			disposeLineGeometry(mainLine);
+			disposeLineGeometry(ghostLine);
+			(mainLine.material as LineMaterial).dispose();
+			(ghostLine.material as LineMaterial).dispose();
 			renderer.dispose();
-
-			if (container && renderer.domElement.parentNode === container) {
-				// eslint-disable-next-line svelte/no-dom-manipulating
-				container.removeChild(renderer.domElement);
+			if (renderer.domElement.parentNode === el) {
+				el.removeChild(renderer.domElement);
 			}
 		};
 	});

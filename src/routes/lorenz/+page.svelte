@@ -238,9 +238,7 @@
 	<!-- Visualization Container -->
 	<LorenzRenderer
 		bind:containerElement={rendererContainer}
-		bind:sigma
-		bind:rho
-		bind:beta
+		params={{ type: 'lorenz', sigma, rho, beta }}
 		height={VIZ_CONTAINER_HEIGHT}
 	/>
 
