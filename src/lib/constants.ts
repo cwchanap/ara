@@ -95,6 +95,12 @@ export const LORENZ_DT = 0.005;
  */
 export const AUTO_ROTATE_SPEED = 0.5;
 
+/**
+ * Number of trailing points shown by the Lorenz "comet" trail style.
+ * Independent of the trajectory length (TRAIL_LENGTH controls total points).
+ */
+export const COMET_WINDOW = 2000;
+
 // ============================================================================
 // D3.js Chart Constants
 // ============================================================================
