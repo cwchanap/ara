@@ -184,6 +184,11 @@
 		let mainColors: Float32Array = new Float32Array(0);
 		let ghostColors: Float32Array = new Float32Array(0);
 
+		function safeComputeLineDistances(line: Line2) {
+			if ((line.geometry as THREE.InstancedBufferGeometry).instanceCount == null) return;
+			line.computeLineDistances();
+		}
+
 		function makeLine(): Line2 {
 			const geometry = new LineGeometry();
 			const material = new LineMaterial({
@@ -194,9 +199,7 @@
 				opacity: 0.8
 			});
 			material.resolution.set(el.clientWidth, el.clientHeight);
-			const line = new Line2(geometry, material);
-			line.computeLineDistances();
-			return line;
+			return new Line2(geometry, material);
 		}
 
 		const mainLine = makeLine();
@@ -270,7 +273,7 @@
 			const col = colors.subarray(from * 3, to * 3);
 			line.geometry.setPositions(Array.from(pos));
 			line.geometry.setColors(Array.from(col));
-			line.computeLineDistances();
+			safeComputeLineDistances(line);
 		}
 
 		let lastFrom = -1;
