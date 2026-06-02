@@ -39,9 +39,11 @@ test.describe('Lorenz Controls', () => {
 	});
 
 	test('shared URL with non-default rho loads the URL value', async ({ page }) => {
-		await page.goto('/lorenz?sigma=10&rho=35&beta=2.667');
+		const config = encodeURIComponent(
+			JSON.stringify({ type: 'lorenz', sigma: 10, rho: 35, beta: 2.667 })
+		);
+		await page.goto(`/lorenz?config=${config}`);
 
-		// rho defaults to 28; using rho=35 verifies URL-driven config loading
 		const rhoInput = page.locator('#rho');
 		await expect(rhoInput).toHaveValue('35');
 	});
