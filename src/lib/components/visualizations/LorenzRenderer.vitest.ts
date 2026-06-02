@@ -31,6 +31,18 @@ vi.mock('three', () => ({
 			updateProjectionMatrix: vi.fn()
 		};
 	}),
+	OrthographicCamera: vi.fn().mockImplementation(function () {
+		return {
+			position: { set: vi.fn(), x: 0, y: 0, z: 30 },
+			left: -10,
+			right: 10,
+			top: 10,
+			bottom: -10,
+			zoom: 1,
+			lookAt: vi.fn(),
+			updateProjectionMatrix: vi.fn()
+		};
+	}),
 	Scene: vi.fn().mockImplementation(function () {
 		return { background: null, add: vi.fn(), remove: vi.fn() };
 	}),
@@ -81,6 +93,7 @@ vi.mock('three/examples/jsm/controls/OrbitControls.js', () => ({
 	OrbitControls: vi.fn().mockImplementation(function () {
 		return {
 			enableDamping: false,
+			enabled: true,
 			autoRotate: false,
 			autoRotateSpeed: 0,
 			target: { x: 0, y: 0, z: 0, set: vi.fn() },
@@ -95,8 +108,9 @@ vi.mock('three/examples/jsm/controls/OrbitControls.js', () => ({
 vi.mock('three/examples/jsm/lines/Line2.js', () => ({
 	Line2: vi.fn().mockImplementation(function () {
 		return {
-			geometry: { dispose: vi.fn() },
-			material: { dispose: vi.fn() },
+			visible: true,
+			geometry: { dispose: vi.fn(), setPositions: vi.fn(), setColors: vi.fn() },
+			material: { dispose: vi.fn(), resolution: { set: vi.fn() } },
 			computeLineDistances: vi.fn()
 		};
 	})
@@ -124,14 +138,14 @@ describe('LorenzRenderer (smoke)', () => {
 	it('renders without throwing', () => {
 		expect(() =>
 			render(LorenzRenderer, {
-				props: { sigma: 10, rho: 28, beta: 2.667, height: 200 }
+				props: { params: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 }, height: 200 }
 			})
 		).not.toThrow();
 	});
 
 	it('renders a container element', () => {
 		const { container } = render(LorenzRenderer, {
-			props: { sigma: 10, rho: 28, beta: 2.667, height: 200 }
+			props: { params: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 }, height: 200 }
 		});
 		expect(container.querySelector('div')).not.toBeNull();
 	});
@@ -145,14 +159,14 @@ describe('LorenzRenderer with different props', () => {
 	it('renders with custom sigma, rho, beta values', () => {
 		expect(() =>
 			render(LorenzRenderer, {
-				props: { sigma: 15, rho: 35, beta: 1.5, height: 200 }
+				props: { params: { type: 'lorenz', sigma: 15, rho: 35, beta: 1.5 }, height: 200 }
 			})
 		).not.toThrow();
 	});
 
 	it('renders with different height', () => {
 		const { container } = render(LorenzRenderer, {
-			props: { sigma: 10, rho: 28, beta: 2.667, height: 400 }
+			props: { params: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 }, height: 400 }
 		});
 		const wrapper = container.querySelector('div');
 		expect(wrapper?.getAttribute('style')).toContain('400px');
@@ -160,7 +174,7 @@ describe('LorenzRenderer with different props', () => {
 
 	it('displays LIVE_RENDER label', () => {
 		const { container } = render(LorenzRenderer, {
-			props: { sigma: 10, rho: 28, beta: 2.667, height: 200 }
+			props: { params: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 }, height: 200 }
 		});
 		expect(container.textContent).toContain('LIVE_RENDER');
 	});
@@ -175,9 +189,7 @@ describe('LorenzRenderer compare mode', () => {
 		expect(() =>
 			render(LorenzRenderer, {
 				props: {
-					sigma: 10,
-					rho: 28,
-					beta: 2.667,
+					params: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 },
 					height: 200,
 					compareMode: true,
 					compareSide: 'left'
@@ -190,9 +202,7 @@ describe('LorenzRenderer compare mode', () => {
 		expect(() =>
 			render(LorenzRenderer, {
 				props: {
-					sigma: 10,
-					rho: 28,
-					beta: 2.667,
+					params: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 },
 					height: 200,
 					compareMode: true,
 					compareSide: 'right'
@@ -210,7 +220,7 @@ describe('LorenzRenderer Three.js integration', () => {
 	it('creates Three.js scene objects', async () => {
 		const THREE = await import('three');
 		render(LorenzRenderer, {
-			props: { sigma: 10, rho: 28, beta: 2.667, height: 200 }
+			props: { params: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 }, height: 200 }
 		});
 		expect(THREE.WebGLRenderer).toHaveBeenCalled();
 		expect(THREE.Scene).toHaveBeenCalled();
@@ -222,7 +232,7 @@ describe('LorenzRenderer Three.js integration', () => {
 		const { OrbitControls } = await import('three/examples/jsm/controls/OrbitControls.js');
 		const { Line2 } = await import('three/examples/jsm/lines/Line2.js');
 		render(LorenzRenderer, {
-			props: { sigma: 10, rho: 28, beta: 2.667, height: 200 }
+			props: { params: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 }, height: 200 }
 		});
 		expect(OrbitControls).toHaveBeenCalled();
 		expect(Line2).toHaveBeenCalled();
