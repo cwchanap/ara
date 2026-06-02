@@ -13,6 +13,21 @@
 	import type { LorenzParameters } from '$lib/types';
 	import { buildComparisonUrl, createComparisonStateFromCurrent } from '$lib/comparison-url-state';
 	import { VIZ_CONTAINER_HEIGHT } from '$lib/constants';
+	import PresetSelector from '$lib/components/visualizations/lorenz/PresetSelector.svelte';
+	import InitialStateControls from '$lib/components/visualizations/lorenz/InitialStateControls.svelte';
+	import PlaybackControls from '$lib/components/visualizations/lorenz/PlaybackControls.svelte';
+	import TrailControls from '$lib/components/visualizations/lorenz/TrailControls.svelte';
+	import ColorModeSelector from '$lib/components/visualizations/lorenz/ColorModeSelector.svelte';
+	import ViewControls from '$lib/components/visualizations/lorenz/ViewControls.svelte';
+	import SolverControls from '$lib/components/visualizations/lorenz/SolverControls.svelte';
+	import ChaosIndicator from '$lib/components/visualizations/lorenz/ChaosIndicator.svelte';
+	import { LORENZ_DEFAULTS } from '$lib/lorenz/defaults';
+	import { matchPreset, type LorenzPreset } from '$lib/lorenz/presets';
+	import { estimateLargestLyapunov, LYAPUNOV_STEPS } from '$lib/lorenz/lyapunov';
+	import { useDebouncedEffect } from '$lib/use-debounced-effect';
+	import { DEBOUNCE_MS } from '$lib/constants';
+	import type { LorenzSolver, LorenzColorMode, LorenzTrailStyle, LorenzViewMode } from '$lib/types';
+	import type { LyapunovClassification } from '$lib/chua';
 
 	let { data } = $props();
 
@@ -20,6 +35,87 @@
 	let sigma = $state(10);
 	let rho = $state(28);
 	let beta = $state(8.0 / 3);
+	let x0 = $state(LORENZ_DEFAULTS.x0);
+	let y0 = $state(LORENZ_DEFAULTS.y0);
+	let z0 = $state(LORENZ_DEFAULTS.z0);
+	let epsilon = $state(LORENZ_DEFAULTS.epsilon);
+	let showGhost = $state(LORENZ_DEFAULTS.showGhost);
+	let solver = $state<LorenzSolver>(LORENZ_DEFAULTS.solver);
+	let dt = $state(LORENZ_DEFAULTS.dt);
+	let stepsPerFrame = $state(LORENZ_DEFAULTS.stepsPerFrame);
+	let speed = $state(LORENZ_DEFAULTS.speed);
+	let colorMode = $state<LorenzColorMode>(LORENZ_DEFAULTS.colorMode);
+	let trailLength = $state(LORENZ_DEFAULTS.trailLength);
+	let trailStyle = $state<LorenzTrailStyle>(LORENZ_DEFAULTS.trailStyle);
+	let viewMode = $state<LorenzViewMode>(LORENZ_DEFAULTS.viewMode);
+	let autoRotate = $state(LORENZ_DEFAULTS.autoRotate);
+	let rotationSpeed = $state(LORENZ_DEFAULTS.rotationSpeed);
+	let zoom = $state(LORENZ_DEFAULTS.zoom);
+
+	// Playback runtime (ephemeral, not persisted).
+	let isPlaying = $state(true);
+	let stepNonce = $state(0);
+	let resetNonce = $state(0);
+	let head = $state(0);
+	let diverged = $state(false);
+
+	const activePresetId = $derived(matchPreset({ sigma, rho, beta }));
+
+	// Live Lyapunov estimate (debounced; depends only on math params).
+	let lambda = $state(0);
+	let lambdaClass = $state<LyapunovClassification>('marginal');
+	let lambdaDiverged = $state(false);
+	const lyapUpdater = useDebouncedEffect(() => {
+		const est = estimateLargestLyapunov({
+			sigma,
+			rho,
+			beta,
+			x0,
+			y0,
+			z0,
+			solver: 'rk4',
+			dt,
+			steps: LYAPUNOV_STEPS
+		});
+		lambda = est.value;
+		lambdaClass = est.classification;
+		lambdaDiverged = est.diverged;
+	}, DEBOUNCE_MS);
+	$effect(() => {
+		void sigma;
+		void rho;
+		void beta;
+		void x0;
+		void y0;
+		void z0;
+		void dt;
+		lyapUpdater.trigger();
+		return () => lyapUpdater.cleanup();
+	});
+
+	function applyPreset(p: LorenzPreset) {
+		sigma = p.sigma;
+		rho = p.rho;
+		beta = p.beta;
+	}
+
+	function randomizeInitialState() {
+		x0 = +(Math.random() * 30 - 15).toFixed(3);
+		y0 = +(Math.random() * 30 - 15).toFixed(3);
+		z0 = +(Math.random() * 30 - 15).toFixed(3);
+	}
+
+	function resetInitialState() {
+		x0 = LORENZ_DEFAULTS.x0;
+		y0 = LORENZ_DEFAULTS.y0;
+		z0 = LORENZ_DEFAULTS.z0;
+	}
+
+	function resetCamera() {
+		viewMode = '3d';
+		zoom = 1;
+		rotationSpeed = LORENZ_DEFAULTS.rotationSpeed;
+	}
 
 	// Save dialog state
 	const saveState = $state(createInitialSaveState());
@@ -32,7 +128,28 @@
 
 	// Get current parameters for saving
 	function getParameters(): LorenzParameters {
-		return { type: 'lorenz', sigma, rho, beta };
+		return {
+			type: 'lorenz',
+			sigma,
+			rho,
+			beta,
+			x0,
+			y0,
+			z0,
+			epsilon,
+			showGhost,
+			solver,
+			dt,
+			stepsPerFrame,
+			speed,
+			colorMode,
+			trailLength,
+			trailStyle,
+			viewMode,
+			autoRotate,
+			rotationSpeed,
+			zoom
+		};
 	}
 
 	let comparisonUrl = $state('');
@@ -72,7 +189,23 @@
 					sigma = params.sigma ?? sigma;
 					rho = params.rho ?? rho;
 					beta = params.beta ?? beta;
-					return { type: 'lorenz', sigma, rho, beta };
+					x0 = params.x0 ?? x0;
+					y0 = params.y0 ?? y0;
+					z0 = params.z0 ?? z0;
+					epsilon = params.epsilon ?? epsilon;
+					showGhost = params.showGhost ?? showGhost;
+					solver = params.solver ?? solver;
+					dt = params.dt ?? dt;
+					stepsPerFrame = params.stepsPerFrame ?? stepsPerFrame;
+					speed = params.speed ?? speed;
+					colorMode = params.colorMode ?? colorMode;
+					trailLength = params.trailLength ?? trailLength;
+					trailStyle = params.trailStyle ?? trailStyle;
+					viewMode = params.viewMode ?? viewMode;
+					autoRotate = params.autoRotate ?? autoRotate;
+					rotationSpeed = params.rotationSpeed ?? rotationSpeed;
+					zoom = params.zoom ?? zoom;
+					return getParameters();
 				},
 				onCheckStability: (params) => checkParameterStability('lorenz', params)
 			},
@@ -170,6 +303,8 @@
 			SYSTEM_PARAMETERS
 		</h2>
 
+		<PresetSelector activeId={activePresetId} onSelect={applyPreset} />
+
 		<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
@@ -201,7 +336,7 @@
 					type="range"
 					bind:value={rho}
 					min="0"
-					max="50"
+					max="100"
 					step="0.1"
 					class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-accent transition-colors"
 				/>
@@ -235,12 +370,92 @@
 		</div>
 	</div>
 
+	<!-- Extended Controls -->
+	<div
+		class="bg-card/30 backdrop-blur-md border border-primary/20 rounded-sm p-6 space-y-6 relative overflow-hidden"
+	>
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+			<InitialStateControls
+				{x0}
+				{y0}
+				{z0}
+				{epsilon}
+				{showGhost}
+				onChange={(s) => {
+					x0 = s.x0;
+					y0 = s.y0;
+					z0 = s.z0;
+					epsilon = s.epsilon;
+					showGhost = s.showGhost;
+				}}
+				onRandomize={randomizeInitialState}
+				onReset={resetInitialState}
+			/>
+			<div class="space-y-6">
+				<PlaybackControls
+					{isPlaying}
+					{speed}
+					onTogglePlay={() => (isPlaying = !isPlaying)}
+					onStep={() => (stepNonce += 1)}
+					onReset={() => (resetNonce += 1)}
+					onSpeedChange={(s) => (speed = s)}
+				/>
+				<TrailControls
+					{trailLength}
+					{trailStyle}
+					onLengthChange={(l) => (trailLength = l)}
+					onStyleChange={(st) => (trailStyle = st)}
+				/>
+			</div>
+			<ColorModeSelector {colorMode} ghostEnabled={showGhost} onChange={(m) => (colorMode = m)} />
+			<ViewControls
+				{viewMode}
+				{autoRotate}
+				{rotationSpeed}
+				{zoom}
+				onChange={(v) => {
+					viewMode = v.viewMode;
+					autoRotate = v.autoRotate;
+					rotationSpeed = v.rotationSpeed;
+					zoom = v.zoom;
+				}}
+				onResetCamera={resetCamera}
+			/>
+		</div>
+
+		<details class="group/adv">
+			<summary class="cursor-pointer text-primary/80 text-xs uppercase tracking-widest font-bold">
+				▸ ADVANCED
+			</summary>
+			<div class="mt-4 max-w-md">
+				<SolverControls
+					{solver}
+					{dt}
+					{stepsPerFrame}
+					onChange={(s) => {
+						solver = s.solver;
+						dt = s.dt;
+						stepsPerFrame = s.stepsPerFrame;
+					}}
+				/>
+			</div>
+		</details>
+	</div>
+
 	<!-- Visualization Container -->
-	<LorenzRenderer
-		bind:containerElement={rendererContainer}
-		params={{ type: 'lorenz', sigma, rho, beta }}
-		height={VIZ_CONTAINER_HEIGHT}
-	/>
+	<div class="space-y-2">
+		<ChaosIndicator value={lambda} classification={lambdaClass} diverged={lambdaDiverged} />
+		<LorenzRenderer
+			bind:containerElement={rendererContainer}
+			params={getParameters()}
+			{isPlaying}
+			{stepNonce}
+			{resetNonce}
+			bind:head
+			bind:diverged
+			height={VIZ_CONTAINER_HEIGHT}
+		/>
+	</div>
 
 	<!-- Info Panel -->
 	<div class="bg-card/30 backdrop-blur-md border border-primary/20 rounded-sm p-6 relative">
