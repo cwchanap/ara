@@ -250,6 +250,9 @@
 			// In compare mode show the full static attractor.
 			if (compareMode) head = r.trailLength;
 			else if (head > r.trailLength) head = r.trailLength;
+			// Invalidate cached slice so updateDraw() pushes new trajectory data.
+			lastFrom = -1;
+			lastTo = -1;
 			applyColors?.();
 		};
 
@@ -262,6 +265,10 @@
 			ghostColors = ghost
 				? computeColors(ghost, resolved.colorMode, { ghost: main })
 				: new Float32Array(0);
+			// Invalidate the cached slice indices so the next updateDraw() call
+			// pushes the new colors/geometry to the line objects.
+			lastFrom = -1;
+			lastTo = -1;
 		};
 
 		function setLineSlice(

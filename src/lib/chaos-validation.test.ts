@@ -1395,7 +1395,24 @@ describe('Lorenz extended-field validation', () => {
 		expect(result.errors.some((e) => e.includes('trailLength'))).toBe(true);
 	});
 
-	test('rejects zoom below min (zoom < 0)', () => {
+	test('rejects trailLength above max (trailLength > 100000)', () => {
+		const result = validateParameters('lorenz', { ...full, trailLength: 100001 });
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('trailLength'))).toBe(true);
+	});
+
+	test('accepts trailLength at max boundary (100000)', () => {
+		const result = validateParameters('lorenz', { ...full, trailLength: 100000 });
+		expect(result.isValid).toBe(true);
+	});
+
+	test('rejects zoom below min (zoom < 0.5)', () => {
+		const result = validateParameters('lorenz', { ...full, zoom: 0 });
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('zoom'))).toBe(true);
+	});
+
+	test('rejects zoom at negative value', () => {
 		const result = validateParameters('lorenz', { ...full, zoom: -1 });
 		expect(result.isValid).toBe(false);
 		expect(result.errors.some((e) => e.includes('zoom'))).toBe(true);
@@ -1403,6 +1420,11 @@ describe('Lorenz extended-field validation', () => {
 
 	test('accepts epsilon at boundary (epsilon = 0)', () => {
 		const result = validateParameters('lorenz', { ...full, epsilon: 0 });
+		expect(result.isValid).toBe(true);
+	});
+
+	test('accepts zoom at min boundary (zoom = 0.5)', () => {
+		const result = validateParameters('lorenz', { ...full, zoom: 0.5 });
 		expect(result.isValid).toBe(true);
 	});
 
