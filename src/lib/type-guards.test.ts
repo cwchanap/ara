@@ -309,3 +309,23 @@ describe('Type Guards', () => {
 		expect(isChuaParameters({} as ChaosMapParameters)).toBe(false);
 	});
 });
+
+describe('isLorenzParameters with extended fields', () => {
+	test('accepts an extended Lorenz config', () => {
+		expect(
+			isLorenzParameters({
+				type: 'lorenz',
+				sigma: 10,
+				rho: 28,
+				beta: 8 / 3,
+				solver: 'rk4',
+				showGhost: true,
+				colorMode: 'divergence'
+			})
+		).toBe(true);
+	});
+
+	test('accepts a legacy Lorenz config', () => {
+		expect(isLorenzParameters({ type: 'lorenz', sigma: 10, rho: 28, beta: 8 / 3 })).toBe(true);
+	});
+});
