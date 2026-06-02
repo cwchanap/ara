@@ -36,6 +36,7 @@
 			<button
 				type="button"
 				class={modeBtn(viewMode === mode.value)}
+				aria-pressed={viewMode === mode.value}
 				onclick={() => emit({ viewMode: mode.value })}
 			>
 				{mode.label}

@@ -35,6 +35,7 @@
 		<button
 			type="button"
 			class={styleBtn(trailStyle === 'comet')}
+			aria-pressed={trailStyle === 'comet'}
 			onclick={() => onStyleChange('comet')}
 		>
 			Comet
@@ -42,6 +43,7 @@
 		<button
 			type="button"
 			class={styleBtn(trailStyle === 'cumulative')}
+			aria-pressed={trailStyle === 'cumulative'}
 			onclick={() => onStyleChange('cumulative')}
 		>
 			Cumulative

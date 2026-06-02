@@ -308,23 +308,6 @@ describe('decodeComparisonState', () => {
 		expect((decoded!.left as StandardParameters).k).toBe(0.5);
 		expect(decoded!.left as unknown as Record<string, unknown>).not.toHaveProperty('K');
 	});
-
-	test('removes stale K when both K and k present for standard map', () => {
-		// Create a URL with both legacy "K" and new "k" parameters
-		// K should be discarded, k should be kept
-		const mixedPayload = base64Encode(
-			JSON.stringify({ K: 0.3, k: 0.5, numP: 10, numQ: 10, iterations: 1000 })
-		);
-		const url = new URL(
-			`https://example.com/standard/compare?compare=true&left=${mixedPayload}`
-		);
-		const decoded = decodeComparisonState(url, 'standard');
-
-		expect(decoded).not.toBeNull();
-		// Should keep the 'k' value, not 'K'
-		expect((decoded!.left as StandardParameters).k).toBe(0.5);
-		expect(decoded!.left as unknown as Record<string, unknown>).not.toHaveProperty('K');
-	});
 });
 
 describe('swapParameters', () => {

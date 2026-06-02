@@ -15,10 +15,12 @@ export const LORENZ_PRESETS: LorenzPreset[] = [
 	{ id: 'wild', label: 'Wild', sigma: 14, rho: 99.96, beta: 8 / 3 }
 ];
 
+export type LorenzPresetId = (typeof LORENZ_PRESETS)[number]['id'] | 'custom';
+
 const EPS = 1e-6;
 
 /** Return the id of the preset matching the given σ/ρ/β, or 'custom' if none. */
-export function matchPreset(p: { sigma: number; rho: number; beta: number }): string {
+export function matchPreset(p: { sigma: number; rho: number; beta: number }): LorenzPresetId {
 	const found = LORENZ_PRESETS.find(
 		(preset) =>
 			Math.abs(preset.sigma - p.sigma) < EPS &&
