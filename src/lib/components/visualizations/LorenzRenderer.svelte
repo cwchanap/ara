@@ -59,7 +59,8 @@
 	let isAnimating = true;
 	let animationFrameId: number | null = null;
 	let rebuild: (() => void) | null = null;
-	let applyView: (() => void) | null = null;
+	let applyCameraPosition: (() => void) | null = null;
+	let applyOrbitSettings: (() => void) | null = null;
 	let applyColors: (() => void) | null = null;
 
 	let controls = $state<OrbitControls | null>(null);
@@ -78,9 +79,11 @@
 		void resolved.solver;
 		void resolved.dt;
 		void resolved.trailLength;
-		void resolved.trailStyle;
 		rebuild?.();
-		untrack(() => applyView?.());
+		untrack(() => {
+			applyCameraPosition?.();
+			applyOrbitSettings?.();
+		});
 	});
 
 	// Recompute colors only (cheap) when colorMode changes.
@@ -89,13 +92,18 @@
 		applyColors?.();
 	});
 
-	// Reapply camera/visibility when the view mode / rotation / zoom change.
+	// Reapply camera position when view mode or zoom change (resets orbit).
 	$effect(() => {
 		void resolved.viewMode;
+		void resolved.zoom;
+		applyCameraPosition?.();
+	});
+
+	// Update orbit settings without resetting camera position.
+	$effect(() => {
 		void resolved.autoRotate;
 		void resolved.rotationSpeed;
-		void resolved.zoom;
-		applyView?.();
+		applyOrbitSettings?.();
 	});
 
 	// Reset playback head on resetNonce change.
@@ -271,8 +279,8 @@
 			line.visible = true;
 			const pos = result.positions.subarray(from * 3, to * 3);
 			const col = colors.subarray(from * 3, to * 3);
-			line.geometry.setPositions(Array.from(pos));
-			line.geometry.setColors(Array.from(col));
+			line.geometry.setPositions(pos);
+			line.geometry.setColors(col);
 			safeComputeLineDistances(line);
 		}
 
@@ -296,13 +304,11 @@
 			if (ghost) setLineSlice(ghostLine, ghost, ghostColors, from, h);
 		}
 
-		applyView = () => {
+		applyCameraPosition = () => {
 			const r = resolved;
 			if (r.viewMode === '3d') {
 				activeCamera = persp;
 				orbit.enabled = true;
-				orbit.autoRotate = !compareMode && r.autoRotate;
-				orbit.autoRotateSpeed = r.rotationSpeed;
 				persp.position.set(40 / r.zoom, 40 / r.zoom, 40 / r.zoom);
 			} else {
 				activeCamera = ortho;
@@ -318,8 +324,19 @@
 			}
 		};
 
+		applyOrbitSettings = () => {
+			const r = resolved;
+			if (r.viewMode === '3d') {
+				orbit.autoRotate = !compareMode && r.autoRotate;
+				orbit.autoRotateSpeed = r.rotationSpeed;
+			} else {
+				orbit.autoRotate = false;
+			}
+		};
+
 		rebuild();
-		applyView();
+		applyCameraPosition();
+		applyOrbitSettings();
 
 		function animate() {
 			if (!isAnimating) return;

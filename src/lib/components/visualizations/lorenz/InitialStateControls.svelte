@@ -21,7 +21,7 @@
 	function parseAndEmit(key: keyof State, raw: string) {
 		if (raw === '' || raw === '-' || raw === '.') return; // intermediate typing
 		const val = Number(raw);
-		if (!isNaN(val)) emit({ [key]: val });
+		if (Number.isFinite(val)) emit({ [key]: val });
 	}
 </script>
 

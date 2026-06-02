@@ -472,22 +472,22 @@ describe('checkParameterStability for chaos-esthetique – additional cases', ()
 
 // ── Infinity parameter values ─────────────────────────────────────────────────
 // validateParameters uses `isNaN()` which does not catch Infinity
-// (typeof Infinity === 'number' && isNaN(Infinity) === false).
-// Infinity values are structurally valid but stability checks will flag them.
+// Infinity values are now rejected by Number.isFinite in validateParameters.
 
 describe('validateParameters with Infinity values', () => {
-	test('accepts Infinity for lorenz sigma (passes type check, fails stability)', () => {
+	test('rejects Infinity for lorenz sigma (Number.isFinite catches it)', () => {
 		const result = validateParameters('lorenz', {
 			type: 'lorenz',
 			sigma: Infinity,
 			rho: 28,
 			beta: 2.667
 		});
-		// Infinity passes the typeof/isNaN check used by validateParameters
-		expect(result.isValid).toBe(true);
+		// Infinity is now rejected by Number.isFinite
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('sigma'))).toBe(true);
 	});
 
-	test('stability check flags Infinity sigma as out of stable range', () => {
+	test('stability check also flags Infinity sigma as invalid', () => {
 		const stability = checkParameterStability('lorenz', {
 			type: 'lorenz',
 			sigma: Infinity,
@@ -495,38 +495,28 @@ describe('validateParameters with Infinity values', () => {
 			beta: 2.667
 		});
 		expect(stability.isStable).toBe(false);
-		expect(stability.warnings.some((w) => /sigma/.test(w))).toBe(true);
 	});
 
-	test('accepts -Infinity for logistic r (passes type check, fails stability)', () => {
+	test('rejects -Infinity for logistic r (Number.isFinite catches it)', () => {
 		const result = validateParameters('logistic', {
 			type: 'logistic',
 			r: -Infinity,
 			x0: 0.1,
 			iterations: 100
 		});
-		expect(result.isValid).toBe(true);
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => /\br\b/.test(e))).toBe(true);
 	});
 
-	test('stability check flags -Infinity r as out of stable range', () => {
-		const stability = checkParameterStability('logistic', {
-			type: 'logistic',
-			r: -Infinity,
-			x0: 0.1,
-			iterations: 100
-		});
-		expect(stability.isStable).toBe(false);
-		expect(stability.warnings.some((w) => /\br\b/.test(w))).toBe(true);
-	});
-
-	test('accepts Infinity iterations for henon (passes type check)', () => {
+	test('rejects Infinity iterations for henon (Number.isFinite catches it)', () => {
 		const result = validateParameters('henon', {
 			type: 'henon',
 			a: 1.4,
 			b: 0.3,
 			iterations: Infinity
 		});
-		expect(result.isValid).toBe(true);
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('iterations'))).toBe(true);
 	});
 });
 

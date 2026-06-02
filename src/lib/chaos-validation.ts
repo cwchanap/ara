@@ -195,7 +195,7 @@ export function validateParameters(
 		const spec = optionalFields[key];
 		if (spec) {
 			if (spec.kind === 'number') {
-				if (typeof value !== 'number' || isNaN(value)) {
+				if (typeof value !== 'number' || !Number.isFinite(value)) {
 					errors.push(`Parameter '${key}' must be a valid number, got: ${typeof value}`);
 				} else {
 					if (spec.min !== undefined && value < spec.min) {
@@ -219,7 +219,7 @@ export function validateParameters(
 			continue;
 		}
 		// Core range field (or unexpected, already reported): must be a number.
-		if (typeof value !== 'number' || isNaN(value)) {
+		if (typeof value !== 'number' || !Number.isFinite(value)) {
 			errors.push(`Parameter '${key}' must be a valid number, got: ${typeof value}`);
 		}
 	}

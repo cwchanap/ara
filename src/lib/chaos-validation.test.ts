@@ -36,6 +36,12 @@ describe('validateParameters for rossler', () => {
 		expect(result.isValid).toBe(false);
 	});
 
+	test('returns invalid for Infinity parameters', () => {
+		const params = { type: 'rossler', a: Infinity, b: 0.2, c: 5.7 };
+		const result = validateParameters('rossler', params);
+		expect(result.isValid).toBe(false);
+	});
+
 	test('returns invalid for extra parameters', () => {
 		const params = { type: 'rossler', a: 0.2, b: 0.2, c: 5.7, extra: 123 };
 		const result = validateParameters('rossler', params);
@@ -646,6 +652,18 @@ describe('validateParameters for lorenz', () => {
 
 	test('returns invalid for NaN parameters', () => {
 		const params = { type: 'lorenz', sigma: NaN, rho: 28, beta: 2.667 };
+		const result = validateParameters('lorenz', params);
+		expect(result.isValid).toBe(false);
+	});
+
+	test('returns invalid for Infinity parameters', () => {
+		const params = { type: 'lorenz', sigma: Infinity, rho: 28, beta: 2.667 };
+		const result = validateParameters('lorenz', params);
+		expect(result.isValid).toBe(false);
+	});
+
+	test('returns invalid for -Infinity parameters', () => {
+		const params = { type: 'lorenz', sigma: -Infinity, rho: 28, beta: 2.667 };
 		const result = validateParameters('lorenz', params);
 		expect(result.isValid).toBe(false);
 	});
@@ -1386,5 +1404,17 @@ describe('Lorenz extended-field validation', () => {
 	test('accepts epsilon at boundary (epsilon = 0)', () => {
 		const result = validateParameters('lorenz', { ...full, epsilon: 0 });
 		expect(result.isValid).toBe(true);
+	});
+
+	test('rejects Infinity in optional number fields (dt)', () => {
+		const result = validateParameters('lorenz', { ...full, dt: Infinity });
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('dt'))).toBe(true);
+	});
+
+	test('rejects -Infinity in optional number fields (x0)', () => {
+		const result = validateParameters('lorenz', { ...full, x0: -Infinity });
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('x0'))).toBe(true);
 	});
 });
