@@ -1223,6 +1223,27 @@ describe('loadSavedConfigParameters – API response missing mapType', () => {
 	});
 });
 
+// ── Persistence round-trip: extended Lorenz config ────────────────────────────
+
+describe('validateParameters – extended Lorenz config round-trip', () => {
+	test('fully-populated extended lorenz config passes validation', () => {
+		const extendedLorenz = {
+			type: 'lorenz' as const,
+			sigma: 10,
+			rho: 28,
+			beta: 8 / 3,
+			solver: 'rk4',
+			dt: 0.01,
+			showGhost: false,
+			colorMode: 'divergence',
+			trailStyle: 'cumulative',
+			viewMode: 'xy'
+		};
+		const result = validateParameters('lorenz', extendedLorenz);
+		expect(result.isValid).toBe(true);
+	});
+});
+
 // ── Additional loadSharedConfigParameters: parameters normalisation ───────────
 
 describe('loadSharedConfigParameters – standard map K→k normalisation', () => {

@@ -123,6 +123,21 @@ describe('getDefaultParameters', () => {
 	});
 });
 
+describe('getDefaultParameters – persistence round-trip', () => {
+	test('lorenz defaults match expected persistence values', () => {
+		const params = getDefaultParameters('lorenz') as LorenzParameters;
+		expect(params).toMatchObject({
+			type: 'lorenz',
+			sigma: 10,
+			rho: 28,
+			beta: 8 / 3
+		});
+		expect(params.sigma).toBe(10);
+		expect(params.rho).toBe(28);
+		expect(params.beta).toBeCloseTo(8 / 3);
+	});
+});
+
 describe('encodeComparisonState', () => {
 	test('encodes comparison state to URLSearchParams', () => {
 		const state: ComparisonURLState = {
