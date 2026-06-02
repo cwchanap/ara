@@ -14,6 +14,12 @@
 		{ value: 'divergence', label: 'Divergence' },
 		{ value: 'single', label: 'Single' }
 	];
+
+	$effect(() => {
+		if (!ghostEnabled && colorMode === 'divergence') {
+			onChange('time');
+		}
+	});
 </script>
 
 <div class="space-y-2">

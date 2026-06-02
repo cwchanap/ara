@@ -1352,4 +1352,39 @@ describe('Lorenz extended-field validation', () => {
 		expect(result.isStable).toBe(false);
 		expect(result.warnings.join(' ')).toMatch(/dt|Euler|euler/);
 	});
+
+	test('rejects epsilon below min (epsilon < 0)', () => {
+		const result = validateParameters('lorenz', { ...full, epsilon: -1 });
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('epsilon'))).toBe(true);
+	});
+
+	test('rejects dt below min (dt < 0)', () => {
+		const result = validateParameters('lorenz', { ...full, dt: -0.01 });
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('dt'))).toBe(true);
+	});
+
+	test('rejects stepsPerFrame below min (stepsPerFrame < 1)', () => {
+		const result = validateParameters('lorenz', { ...full, stepsPerFrame: 0 });
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('stepsPerFrame'))).toBe(true);
+	});
+
+	test('rejects trailLength below min (trailLength < 1)', () => {
+		const result = validateParameters('lorenz', { ...full, trailLength: 0 });
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('trailLength'))).toBe(true);
+	});
+
+	test('rejects zoom below min (zoom < 0)', () => {
+		const result = validateParameters('lorenz', { ...full, zoom: -1 });
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('zoom'))).toBe(true);
+	});
+
+	test('accepts epsilon at boundary (epsilon = 0)', () => {
+		const result = validateParameters('lorenz', { ...full, epsilon: 0 });
+		expect(result.isValid).toBe(true);
+	});
 });

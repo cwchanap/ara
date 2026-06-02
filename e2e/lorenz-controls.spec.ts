@@ -38,12 +38,11 @@ test.describe('Lorenz Controls', () => {
 		await expect(page.locator('canvas').first()).toBeVisible();
 	});
 
-	test('shared URL with ?sigma=10&rho=28&beta=2.667 shows rho value 28', async ({ page }) => {
-		await page.goto('/lorenz?sigma=10&rho=28&beta=2.667');
+	test('shared URL with non-default rho loads the URL value', async ({ page }) => {
+		await page.goto('/lorenz?sigma=10&rho=35&beta=2.667');
 
-		// rho defaults to 28 and these params do not override it via the config loader,
-		// so the slider should show 28 (the default, matching the URL intent)
+		// rho defaults to 28; using rho=35 verifies URL-driven config loading
 		const rhoInput = page.locator('#rho');
-		await expect(rhoInput).toHaveValue('28');
+		await expect(rhoInput).toHaveValue('35');
 	});
 });

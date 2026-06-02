@@ -17,6 +17,12 @@
 	function emit(patch: Partial<State>) {
 		onChange({ x0, y0, z0, epsilon, showGhost, ...patch });
 	}
+
+	function parseAndEmit(key: keyof State, raw: string) {
+		if (raw === '' || raw === '-' || raw === '.') return; // intermediate typing
+		const val = Number(raw);
+		if (!isNaN(val)) emit({ [key]: val });
+	}
 </script>
 
 <div class="space-y-3">
@@ -28,7 +34,7 @@
 				type="number"
 				step="0.1"
 				value={x0}
-				oninput={(e) => emit({ x0: Number(e.currentTarget.value) })}
+				oninput={(e) => parseAndEmit('x0', e.currentTarget.value)}
 				class="w-full bg-black/30 border border-primary/20 rounded-sm px-2 py-1 font-mono text-accent text-sm"
 			/>
 		</label>
@@ -38,7 +44,7 @@
 				type="number"
 				step="0.1"
 				value={y0}
-				oninput={(e) => emit({ y0: Number(e.currentTarget.value) })}
+				oninput={(e) => parseAndEmit('y0', e.currentTarget.value)}
 				class="w-full bg-black/30 border border-primary/20 rounded-sm px-2 py-1 font-mono text-accent text-sm"
 			/>
 		</label>
@@ -48,7 +54,7 @@
 				type="number"
 				step="0.1"
 				value={z0}
-				oninput={(e) => emit({ z0: Number(e.currentTarget.value) })}
+				oninput={(e) => parseAndEmit('z0', e.currentTarget.value)}
 				class="w-full bg-black/30 border border-primary/20 rounded-sm px-2 py-1 font-mono text-accent text-sm"
 			/>
 		</label>
@@ -58,7 +64,7 @@
 				type="number"
 				step="0.0001"
 				value={epsilon}
-				oninput={(e) => emit({ epsilon: Number(e.currentTarget.value) })}
+				oninput={(e) => parseAndEmit('epsilon', e.currentTarget.value)}
 				class="w-full bg-black/30 border border-primary/20 rounded-sm px-2 py-1 font-mono text-accent text-sm"
 			/>
 		</label>

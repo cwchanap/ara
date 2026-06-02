@@ -147,7 +147,10 @@
 		persp.position.set(40, 40, 40);
 		perspectiveCamera = persp;
 
-		const ortho = new THREE.OrthographicCamera(-40, 40, 40, -40, 0.1, 2000);
+		const aspect = el.clientWidth / el.clientHeight;
+		const halfH = 40;
+		const halfW = halfH * aspect;
+		const ortho = new THREE.OrthographicCamera(-halfW, halfW, halfH, -halfH, 0.1, 2000);
 		let activeCamera: THREE.Camera = persp;
 
 		const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -270,18 +273,24 @@
 			line.computeLineDistances();
 		}
 
+		let lastFrom = -1;
+		let lastTo = -1;
+
 		function updateDraw() {
 			if (!main) return;
 			const total = resolved.trailLength;
 			const h = Math.min(head, total);
+			let from: number;
 			if (resolved.trailStyle === 'comet') {
-				const from = Math.max(0, h - COMET_WINDOW);
-				setLineSlice(mainLine, main, mainColors, from, h);
-				if (ghost) setLineSlice(ghostLine, ghost, ghostColors, from, h);
+				from = Math.max(0, h - COMET_WINDOW);
 			} else {
-				setLineSlice(mainLine, main, mainColors, 0, h);
-				if (ghost) setLineSlice(ghostLine, ghost, ghostColors, 0, h);
+				from = 0;
 			}
+			if (from === lastFrom && h === lastTo) return;
+			lastFrom = from;
+			lastTo = h;
+			setLineSlice(mainLine, main, mainColors, from, h);
+			if (ghost) setLineSlice(ghostLine, ghost, ghostColors, from, h);
 		}
 
 		applyView = () => {
@@ -294,8 +303,10 @@
 				persp.position.set(40 / r.zoom, 40 / r.zoom, 40 / r.zoom);
 			} else {
 				activeCamera = ortho;
+				orbit.enabled = false;
 				orbit.autoRotate = false;
-				const d = 80 / r.zoom;
+				const d = 80;
+				ortho.zoom = r.zoom;
 				if (r.viewMode === 'xy') ortho.position.set(0, 0, d);
 				else if (r.viewMode === 'xz') ortho.position.set(0, d, 0);
 				else ortho.position.set(d, 0, 0); // yz
@@ -319,17 +330,20 @@
 
 		const handleResize = () => {
 			if (!container) return;
-			persp.aspect = container.clientWidth / container.clientHeight;
+			const w = container.clientWidth;
+			const h = container.clientHeight;
+			persp.aspect = w / h;
 			persp.updateProjectionMatrix();
-			renderer.setSize(container.clientWidth, container.clientHeight);
-			(mainLine.material as LineMaterial).resolution.set(
-				container.clientWidth,
-				container.clientHeight
-			);
-			(ghostLine.material as LineMaterial).resolution.set(
-				container.clientWidth,
-				container.clientHeight
-			);
+			const halfH = 40;
+			const halfW = halfH * (w / h);
+			ortho.left = -halfW;
+			ortho.right = halfW;
+			ortho.top = halfH;
+			ortho.bottom = -halfH;
+			ortho.updateProjectionMatrix();
+			renderer.setSize(w, h);
+			(mainLine.material as LineMaterial).resolution.set(w, h);
+			(ghostLine.material as LineMaterial).resolution.set(w, h);
 		};
 		window.addEventListener('resize', handleResize);
 		const resizeObserver = new ResizeObserver(() => handleResize());

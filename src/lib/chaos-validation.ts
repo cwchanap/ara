@@ -197,6 +197,13 @@ export function validateParameters(
 			if (spec.kind === 'number') {
 				if (typeof value !== 'number' || isNaN(value)) {
 					errors.push(`Parameter '${key}' must be a valid number, got: ${typeof value}`);
+				} else {
+					if (spec.min !== undefined && value < spec.min) {
+						errors.push(`Parameter '${key}' must be >= ${spec.min}, got: ${value}`);
+					}
+					if (spec.max !== undefined && value > spec.max) {
+						errors.push(`Parameter '${key}' must be <= ${spec.max}, got: ${value}`);
+					}
 				}
 			} else if (spec.kind === 'boolean') {
 				if (typeof value !== 'boolean') {
