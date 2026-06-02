@@ -179,6 +179,7 @@
 		let main: LorenzResult | null = null;
 		let ghost: LorenzResult | null = null;
 		let mainColors: Float32Array = new Float32Array(0);
+		let ghostColors: Float32Array = new Float32Array(0);
 
 		function makeLine(): Line2 {
 			const geometry = new LineGeometry();
@@ -241,6 +242,12 @@
 		applyColors = () => {
 			if (!main) return;
 			mainColors = computeColors(main, resolved.colorMode, { ghost: ghost ?? undefined });
+			// Cache ghost colors too: like the main trajectory they only change on
+			// rebuild or color-mode change, so recomputing them per frame (especially
+			// the O(n) divergence mode) is wasteful.
+			ghostColors = ghost
+				? computeColors(ghost, resolved.colorMode, { ghost: main })
+				: new Float32Array(0);
 		};
 
 		function setLineSlice(
@@ -270,16 +277,10 @@
 			if (resolved.trailStyle === 'comet') {
 				const from = Math.max(0, h - COMET_WINDOW);
 				setLineSlice(mainLine, main, mainColors, from, h);
-				if (ghost) {
-					const gColors = computeColors(ghost, resolved.colorMode, { ghost: main });
-					setLineSlice(ghostLine, ghost, gColors, from, h);
-				}
+				if (ghost) setLineSlice(ghostLine, ghost, ghostColors, from, h);
 			} else {
 				setLineSlice(mainLine, main, mainColors, 0, h);
-				if (ghost) {
-					const gColors = computeColors(ghost, resolved.colorMode, { ghost: main });
-					setLineSlice(ghostLine, ghost, gColors, 0, h);
-				}
+				if (ghost) setLineSlice(ghostLine, ghost, ghostColors, 0, h);
 			}
 		}
 
