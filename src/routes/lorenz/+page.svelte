@@ -93,6 +93,29 @@
 		return () => lyapUpdater.cleanup();
 	});
 
+	// Debounced stability checker for interactive parameter edits.
+	const stabilityUpdater = useDebouncedEffect(() => {
+		const params = getParameters();
+		const result = checkParameterStability('lorenz', params);
+		configState.warnings = result.warnings;
+		configState.showWarning = result.warnings.length > 0;
+	}, DEBOUNCE_MS);
+	$effect(() => {
+		void sigma;
+		void rho;
+		void beta;
+		void x0;
+		void y0;
+		void z0;
+		void dt;
+		void solver;
+		void epsilon;
+		void stepsPerFrame;
+		void trailLength;
+		stabilityUpdater.trigger();
+		return () => stabilityUpdater.cleanup();
+	});
+
 	function applyPreset(p: LorenzPreset) {
 		sigma = p.sigma;
 		rho = p.rho;
@@ -286,6 +309,8 @@
 		onDismissStabilityWarning={() => (configState.showWarning = false)}
 		onDismissSaveError={() => (saveState.saveError = null)}
 		onDismissSaveSuccess={() => (saveState.saveSuccess = false)}
+		{diverged}
+		onDismissDiverged={() => (diverged = false)}
 	/>
 
 	<!-- Control Panel -->

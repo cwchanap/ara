@@ -97,7 +97,8 @@ export const AUTO_ROTATE_SPEED = 0.5;
 
 /**
  * Number of trailing points shown by the Lorenz "comet" trail style.
- * Independent of the trajectory length (TRAIL_LENGTH controls total points).
+ * Independent of the trajectory length (the runtime `trailLength` param
+ * in LORENZ_DEFAULTS controls total integration points).
  */
 export const COMET_WINDOW = 2000;
 

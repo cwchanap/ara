@@ -6,6 +6,7 @@
   - Save error toast (fixed position, red)
   - Config error alert (inline, dismissible, red)
   - Stability warning alert (inline, dismissible, amber)
+  - Integration divergence alert (inline, dismissible, red)
 
   Usage:
   <VisualizationAlerts
@@ -18,6 +19,8 @@
     stabilityWarnings={stabilityWarnings}
     showStabilityWarning={showStabilityWarning}
     onDismissStabilityWarning={() => showStabilityWarning = false}
+    diverged={diverged}
+    onDismissDiverged={() => diverged = false}
   />
 -->
 <script lang="ts">
@@ -42,6 +45,10 @@
 		onDismissStabilityWarning?: () => void;
 		/** Callback when save error is dismissed */
 		onDismissSaveError?: () => void;
+		/** Whether the numerical integration diverged */
+		diverged?: boolean;
+		/** Callback when divergence alert is dismissed */
+		onDismissDiverged?: () => void;
 	}
 
 	let {
@@ -54,7 +61,9 @@
 		stabilityWarnings = [],
 		showStabilityWarning = false,
 		onDismissStabilityWarning = () => {},
-		onDismissSaveError = () => {}
+		onDismissSaveError = () => {},
+		diverged = false,
+		onDismissDiverged = () => {}
 	}: Props = $props();
 
 	// Note: Auto-dismiss timing is handled by createSaveHandler in the parent.
@@ -157,6 +166,30 @@
 				onclick={onDismissStabilityWarning}
 				class="text-amber-400/60 hover:text-amber-400"
 				aria-label="Dismiss warning"
+			>
+				✕
+			</button>
+		</div>
+	</div>
+{/if}
+
+<!-- Integration Divergence Alert -->
+{#if diverged}
+	<div class="bg-red-500/10 border border-red-500/30 rounded-sm p-4 relative" role="alert">
+		<div class="flex items-start gap-3">
+			<span class="text-red-400 text-xl">⟳</span>
+			<div class="flex-1">
+				<h3 class="font-['Orbitron'] text-red-400 font-semibold mb-1">INTEGRATION_DIVERGED</h3>
+				<p class="text-red-200/80 text-sm">
+					The numerical integration diverged — the trajectory blew up to infinity. Reduce dt or
+					switch to a higher-order solver (RK4).
+				</p>
+			</div>
+			<button
+				type="button"
+				onclick={onDismissDiverged}
+				class="text-red-400/60 hover:text-red-400"
+				aria-label="Dismiss divergence alert"
 			>
 				✕
 			</button>
