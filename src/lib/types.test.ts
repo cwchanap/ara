@@ -7,7 +7,7 @@
 
 import { describe, expect, test } from 'bun:test';
 import { VALID_MAP_TYPES, CHAOS_MAP_DISPLAY_NAMES } from './types';
-import type { ChaosMapType } from './types';
+import type { ChaosMapType, LorenzParameters } from './types';
 
 const EXPECTED_MAP_TYPES: ChaosMapType[] = [
 	'lorenz',
@@ -100,5 +100,38 @@ describe('CHAOS_MAP_DISPLAY_NAMES', () => {
 		const displayNameKeys = Object.keys(CHAOS_MAP_DISPLAY_NAMES).sort();
 		const validMapTypesSorted = [...VALID_MAP_TYPES].sort();
 		expect(displayNameKeys).toEqual(validMapTypesSorted);
+	});
+});
+
+describe('LorenzParameters extended fields', () => {
+	test('accepts a fully-populated object', () => {
+		const p: LorenzParameters = {
+			type: 'lorenz',
+			sigma: 10,
+			rho: 28,
+			beta: 8 / 3,
+			x0: 0.1,
+			y0: 0,
+			z0: 0,
+			epsilon: 0.001,
+			showGhost: true,
+			solver: 'rk4',
+			dt: 0.005,
+			stepsPerFrame: 5,
+			speed: 1,
+			colorMode: 'divergence',
+			trailLength: 15000,
+			trailStyle: 'comet',
+			viewMode: 'xy',
+			autoRotate: true,
+			rotationSpeed: 0.5,
+			zoom: 1
+		};
+		expect(p.type).toBe('lorenz');
+	});
+
+	test('accepts a legacy sigma/rho/beta-only object', () => {
+		const p: LorenzParameters = { type: 'lorenz', sigma: 10, rho: 28, beta: 8 / 3 };
+		expect(p.sigma).toBe(10);
 	});
 });

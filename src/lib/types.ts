@@ -23,12 +23,35 @@ export type ChaosMapType =
 	| 'lyapunov'
 	| 'chua';
 
+export type LorenzSolver = 'euler' | 'rk2' | 'rk4';
+export type LorenzColorMode = 'time' | 'speed' | 'zheight' | 'divergence' | 'single';
+export type LorenzTrailStyle = 'comet' | 'cumulative';
+export type LorenzViewMode = '3d' | 'xy' | 'xz' | 'yz';
+
 // Parameter interfaces for each chaos map type
 export interface LorenzParameters {
 	type: 'lorenz';
 	sigma: number;
 	rho: number;
 	beta: number;
+	// Optional extended controls (added by the control-suite feature).
+	// All optional for backward compatibility with legacy σ/ρ/β-only configs.
+	x0?: number;
+	y0?: number;
+	z0?: number;
+	epsilon?: number;
+	showGhost?: boolean;
+	solver?: LorenzSolver;
+	dt?: number;
+	stepsPerFrame?: number;
+	speed?: number;
+	colorMode?: LorenzColorMode;
+	trailLength?: number;
+	trailStyle?: LorenzTrailStyle;
+	viewMode?: LorenzViewMode;
+	autoRotate?: boolean;
+	rotationSpeed?: number;
+	zoom?: number;
 }
 
 export interface RosslerParameters {
