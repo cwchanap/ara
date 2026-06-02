@@ -564,6 +564,76 @@ describe('round-trip encoding/decoding', () => {
 		expect((decoded!.right as LorenzParameters).rho).toBeCloseTo(30.1);
 	});
 
+	test('preserves extended lorenz parameters (x0, solver, dt, trailLength, viewMode) through round-trip', () => {
+		const original: ComparisonURLState = {
+			compare: true,
+			left: {
+				type: 'lorenz',
+				sigma: 10,
+				rho: 28,
+				beta: 8 / 3,
+				x0: 5,
+				y0: -3,
+				z0: 2,
+				solver: 'euler',
+				dt: 0.01,
+				trailLength: 8000,
+				viewMode: 'xy',
+				colorMode: 'speed',
+				autoRotate: false,
+				zoom: 1.5
+			},
+			right: {
+				type: 'lorenz',
+				sigma: 14,
+				rho: 35,
+				beta: 2.5,
+				x0: -1,
+				y0: 0.5,
+				z0: 10,
+				solver: 'rk2',
+				dt: 0.003,
+				trailLength: 20000,
+				viewMode: 'xz',
+				colorMode: 'zheight',
+				autoRotate: true,
+				zoom: 0.8
+			}
+		};
+
+		const encoded = encodeComparisonState(original);
+		const url = new URL(`https://example.com/lorenz/compare?${encoded.toString()}`);
+		const decoded = decodeComparisonState(url, 'lorenz');
+
+		expect(decoded).not.toBeNull();
+		const left = decoded!.left as LorenzParameters;
+		const right = decoded!.right as LorenzParameters;
+
+		// Left extended params preserved
+		expect(left.x0).toBe(5);
+		expect(left.y0).toBe(-3);
+		expect(left.z0).toBe(2);
+		expect(left.solver).toBe('euler');
+		expect(left.dt).toBeCloseTo(0.01);
+		expect(left.trailLength).toBe(8000);
+		expect(left.viewMode).toBe('xy');
+		expect(left.colorMode).toBe('speed');
+		expect(left.autoRotate).toBe(false);
+		expect(left.zoom).toBeCloseTo(1.5);
+
+		// Right extended params preserved
+		expect(right.x0).toBe(-1);
+		expect(right.y0).toBe(0.5);
+		expect(right.z0).toBe(10);
+		expect(right.solver).toBe('rk2');
+		expect(right.dt).toBeCloseTo(0.003);
+		expect(right.trailLength).toBe(20000);
+		expect(right.viewMode).toBe('xz');
+		expect(right.colorMode).toBe('zheight');
+		expect(right.autoRotate).toBe(true);
+		expect(right.zoom).toBeCloseTo(0.8);
+	});
+
 	test('preserves all standard map parameters through round-trip', () => {
 		const original: ComparisonURLState = {
 			compare: true,

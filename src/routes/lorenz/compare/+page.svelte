@@ -24,6 +24,29 @@
 	const leftParams = initialState?.left;
 	const rightParams = initialState?.right;
 
+	// Helper: extract extended optional fields from decoded params
+	function extractExtended(params: LorenzParameters | undefined): Partial<LorenzParameters> {
+		if (!params) return {};
+		return {
+			x0: params.x0,
+			y0: params.y0,
+			z0: params.z0,
+			epsilon: params.epsilon,
+			showGhost: params.showGhost,
+			solver: params.solver,
+			dt: params.dt,
+			stepsPerFrame: params.stepsPerFrame,
+			speed: params.speed,
+			colorMode: params.colorMode,
+			trailLength: params.trailLength,
+			trailStyle: params.trailStyle,
+			viewMode: params.viewMode,
+			autoRotate: params.autoRotate,
+			rotationSpeed: params.rotationSpeed,
+			zoom: params.zoom
+		};
+	}
+
 	// Left panel parameters
 	let leftSigma = $state(
 		leftParams && isLorenzParameters(leftParams) ? leftParams.sigma : defaultParams.sigma
@@ -33,6 +56,10 @@
 	);
 	let leftBeta = $state(
 		leftParams && isLorenzParameters(leftParams) ? leftParams.beta : defaultParams.beta
+	);
+	// Extended params from URL (read-only in compare mode)
+	let leftExtended = $state(
+		leftParams && isLorenzParameters(leftParams) ? extractExtended(leftParams) : {}
 	);
 
 	// Right panel parameters
@@ -45,13 +72,17 @@
 	let rightBeta = $state(
 		rightParams && isLorenzParameters(rightParams) ? rightParams.beta : defaultParams.beta
 	);
+	// Extended params from URL (read-only in compare mode)
+	let rightExtended = $state(
+		rightParams && isLorenzParameters(rightParams) ? extractExtended(rightParams) : {}
+	);
 
 	// Sync URL when parameters change using debounced effect
 	const urlUpdater = useDebouncedEffect(() => {
 		const state = {
 			compare: true as const,
-			left: { type: 'lorenz' as const, sigma: leftSigma, rho: leftRho, beta: leftBeta },
-			right: { type: 'lorenz' as const, sigma: rightSigma, rho: rightRho, beta: rightBeta }
+			left: getLeftParams(),
+			right: getRightParams()
 		};
 		goto(`${base}/lorenz/compare?${encodeComparisonState(state)}`, {
 			replaceState: true,
@@ -82,8 +113,8 @@
 	onMount(() => {
 		const params = encodeComparisonState({
 			compare: true as const,
-			left: { type: 'lorenz' as const, sigma: leftSigma, rho: leftRho, beta: leftBeta },
-			right: { type: 'lorenz' as const, sigma: rightSigma, rho: rightRho, beta: rightBeta }
+			left: getLeftParams(),
+			right: getRightParams()
 		});
 		if ($page.url.searchParams.get('compare') !== 'true') {
 			goto(`${base}/lorenz/compare?${params.toString()}`, {
@@ -94,11 +125,11 @@
 	});
 
 	function getLeftParams(): LorenzParameters {
-		return { type: 'lorenz', sigma: leftSigma, rho: leftRho, beta: leftBeta };
+		return { type: 'lorenz', sigma: leftSigma, rho: leftRho, beta: leftBeta, ...leftExtended };
 	}
 
 	function getRightParams(): LorenzParameters {
-		return { type: 'lorenz', sigma: rightSigma, rho: rightRho, beta: rightBeta };
+		return { type: 'lorenz', sigma: rightSigma, rho: rightRho, beta: rightBeta, ...rightExtended };
 	}
 
 	function handleLeftParamsChange(params: LorenzParameters) {
@@ -196,12 +227,7 @@
 				{/snippet}
 			</ComparisonParameterPanel>
 
-			<LorenzRenderer
-				params={{ type: 'lorenz', sigma: leftSigma, rho: leftRho, beta: leftBeta }}
-				height={400}
-				compareMode={true}
-				compareSide="left"
-			/>
+			<LorenzRenderer params={getLeftParams()} height={400} compareMode={true} compareSide="left" />
 		</div>
 	{/snippet}
 
@@ -280,7 +306,7 @@
 			</ComparisonParameterPanel>
 
 			<LorenzRenderer
-				params={{ type: 'lorenz', sigma: rightSigma, rho: rightRho, beta: rightBeta }}
+				params={getRightParams()}
 				height={400}
 				compareMode={true}
 				compareSide="right"
