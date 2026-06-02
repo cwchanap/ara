@@ -1293,3 +1293,63 @@ describe('getStableRanges for all map types', () => {
 		}
 	});
 });
+
+describe('Lorenz extended-field validation', () => {
+	const full = {
+		type: 'lorenz' as const,
+		sigma: 10,
+		rho: 28,
+		beta: 8 / 3,
+		x0: 0.1,
+		y0: 0,
+		z0: 0,
+		epsilon: 0.001,
+		showGhost: true,
+		solver: 'rk4',
+		dt: 0.005,
+		stepsPerFrame: 5,
+		speed: 1,
+		colorMode: 'time',
+		trailLength: 15000,
+		trailStyle: 'comet',
+		viewMode: '3d',
+		autoRotate: true,
+		rotationSpeed: 0.5,
+		zoom: 1
+	};
+
+	test('accepts a fully-populated Lorenz config', () => {
+		const result = validateParameters('lorenz', full);
+		expect(result.isValid).toBe(true);
+	});
+
+	test('still accepts a legacy sigma/rho/beta-only config', () => {
+		const result = validateParameters('lorenz', {
+			type: 'lorenz',
+			sigma: 10,
+			rho: 28,
+			beta: 8 / 3
+		});
+		expect(result.isValid).toBe(true);
+	});
+
+	test('rejects an invalid solver enum value', () => {
+		const result = validateParameters('lorenz', { ...full, solver: 'verlet' });
+		expect(result.isValid).toBe(false);
+	});
+
+	test('rejects a non-boolean showGhost', () => {
+		const result = validateParameters('lorenz', { ...full, showGhost: 'yes' });
+		expect(result.isValid).toBe(false);
+	});
+
+	test('warns when dt is too large with the euler solver', () => {
+		const result = checkParameterStability(
+			'lorenz',
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			{ ...full, solver: 'euler', dt: 0.05 } as any
+		);
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.join(' ')).toMatch(/dt|Euler|euler/);
+	});
+});

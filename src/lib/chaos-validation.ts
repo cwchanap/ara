@@ -92,6 +92,37 @@ const STABLE_RANGES: Record<ChaosMapType, StableRanges<Record<string, number>>> 
 	}
 };
 
+/** Kinds for optional, non-range Lorenz fields validated only when present. */
+type OptionalFieldKind =
+	| { kind: 'number'; min?: number; max?: number }
+	| { kind: 'enum'; values: readonly string[] }
+	| { kind: 'boolean' };
+
+/**
+ * Optional typed fields beyond the core numeric ranges, per map type.
+ * Present => validated by kind; absent => fine (backward compatible).
+ */
+const OPTIONAL_FIELDS: Partial<Record<ChaosMapType, Record<string, OptionalFieldKind>>> = {
+	lorenz: {
+		x0: { kind: 'number' },
+		y0: { kind: 'number' },
+		z0: { kind: 'number' },
+		epsilon: { kind: 'number', min: 0 },
+		showGhost: { kind: 'boolean' },
+		solver: { kind: 'enum', values: ['euler', 'rk2', 'rk4'] },
+		dt: { kind: 'number', min: 0 },
+		stepsPerFrame: { kind: 'number', min: 1 },
+		speed: { kind: 'number', min: 0 },
+		colorMode: { kind: 'enum', values: ['time', 'speed', 'zheight', 'divergence', 'single'] },
+		trailLength: { kind: 'number', min: 1 },
+		trailStyle: { kind: 'enum', values: ['comet', 'cumulative'] },
+		viewMode: { kind: 'enum', values: ['3d', 'xy', 'xz', 'yz'] },
+		autoRotate: { kind: 'boolean' },
+		rotationSpeed: { kind: 'number' },
+		zoom: { kind: 'number', min: 0 }
+	}
+};
+
 export interface StabilityCheckResult {
 	isStable: boolean;
 	warnings: string[];
@@ -146,16 +177,41 @@ export function validateParameters(
 		errors.push(`Missing required parameters: ${missingKeys.join(', ')}`);
 	}
 
-	// Check for extra keys (but allow 'type' field as it's used for discriminated unions)
-	const extraKeys = actualKeys.filter((key) => !expectedKeys.includes(key) && key !== 'type');
+	const optionalFields = OPTIONAL_FIELDS[mapType] ?? {};
+
+	// Check for extra keys (allow 'type' and any declared optional field).
+	const extraKeys = actualKeys.filter(
+		(key) => !expectedKeys.includes(key) && key !== 'type' && !(key in optionalFields)
+	);
 	if (extraKeys.length > 0) {
 		errors.push(`Unexpected parameters: ${extraKeys.join(', ')}`);
 	}
 
-	// Check that all values are numbers (except 'type' field which is a string)
+	// Validate values: range keys + optional-field keys must be numbers;
+	// optional enum/boolean fields are validated by their declared kind.
 	for (const key of actualKeys) {
 		if (key === 'type') continue;
 		const value = paramObj[key];
+		const spec = optionalFields[key];
+		if (spec) {
+			if (spec.kind === 'number') {
+				if (typeof value !== 'number' || isNaN(value)) {
+					errors.push(`Parameter '${key}' must be a valid number, got: ${typeof value}`);
+				}
+			} else if (spec.kind === 'boolean') {
+				if (typeof value !== 'boolean') {
+					errors.push(`Parameter '${key}' must be a boolean, got: ${typeof value}`);
+				}
+			} else if (spec.kind === 'enum') {
+				if (typeof value !== 'string' || !spec.values.includes(value)) {
+					errors.push(
+						`Parameter '${key}' must be one of [${spec.values.join(', ')}], got: ${String(value)}`
+					);
+				}
+			}
+			continue;
+		}
+		// Core range field (or unexpected, already reported): must be a number.
 		if (typeof value !== 'number' || isNaN(value)) {
 			errors.push(`Parameter '${key}' must be a valid number, got: ${typeof value}`);
 		}
@@ -212,6 +268,25 @@ export function checkParameterStability(
 
 	// Check min/max parameter relationships
 	switch (mapType) {
+		case 'lorenz': {
+			const dt = paramRecord.dt;
+			const solver = (normalizedParams as Record<string, unknown>).solver;
+			if (typeof dt === 'number') {
+				if (dt <= 0 || dt > 0.02) {
+					warnings.push(`dt (${dt}) is outside the recommended range (0, 0.02]`);
+				}
+				if (solver === 'euler' && dt > 0.01) {
+					warnings.push(
+						`Euler integration with dt=${dt} is prone to numerical blow-up; reduce dt or use RK4`
+					);
+				}
+			}
+			const epsilon = paramRecord.epsilon;
+			if (typeof epsilon === 'number' && epsilon <= 0) {
+				warnings.push(`epsilon (${epsilon}) must be positive for the perturbed orbit`);
+			}
+			break;
+		}
 		case 'newton':
 			if (paramRecord.xMin >= paramRecord.xMax) {
 				warnings.push('xMin must be less than xMax');
