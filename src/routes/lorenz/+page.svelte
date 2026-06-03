@@ -21,7 +21,7 @@
 	import ViewControls from '$lib/components/visualizations/lorenz/ViewControls.svelte';
 	import SolverControls from '$lib/components/visualizations/lorenz/SolverControls.svelte';
 	import ChaosIndicator from '$lib/components/visualizations/lorenz/ChaosIndicator.svelte';
-	import { LORENZ_DEFAULTS } from '$lib/lorenz/defaults';
+	import { LORENZ_DEFAULTS, withLorenzDefaults } from '$lib/lorenz/defaults';
 	import { matchPreset, type LorenzPreset } from '$lib/lorenz/presets';
 	import { estimateLargestLyapunov, LYAPUNOV_STEPS } from '$lib/lorenz/lyapunov';
 	import { useDebouncedEffect } from '$lib/use-debounced-effect';
@@ -209,25 +209,26 @@
 				mapType: 'lorenz',
 				base,
 				onParametersLoaded: (params) => {
-					sigma = params.sigma ?? sigma;
-					rho = params.rho ?? rho;
-					beta = params.beta ?? beta;
-					x0 = params.x0 ?? x0;
-					y0 = params.y0 ?? y0;
-					z0 = params.z0 ?? z0;
-					epsilon = params.epsilon ?? epsilon;
-					showGhost = params.showGhost ?? showGhost;
-					solver = params.solver ?? solver;
-					dt = params.dt ?? dt;
-					stepsPerFrame = params.stepsPerFrame ?? stepsPerFrame;
-					speed = params.speed ?? speed;
-					colorMode = params.colorMode ?? colorMode;
-					trailLength = params.trailLength ?? trailLength;
-					trailStyle = params.trailStyle ?? trailStyle;
-					viewMode = params.viewMode ?? viewMode;
-					autoRotate = params.autoRotate ?? autoRotate;
-					rotationSpeed = params.rotationSpeed ?? rotationSpeed;
-					zoom = params.zoom ?? zoom;
+					const resolved = withLorenzDefaults(params);
+					sigma = resolved.sigma;
+					rho = resolved.rho;
+					beta = resolved.beta;
+					x0 = resolved.x0;
+					y0 = resolved.y0;
+					z0 = resolved.z0;
+					epsilon = resolved.epsilon;
+					showGhost = resolved.showGhost;
+					solver = resolved.solver;
+					dt = resolved.dt;
+					stepsPerFrame = resolved.stepsPerFrame;
+					speed = resolved.speed;
+					colorMode = resolved.colorMode;
+					trailLength = resolved.trailLength;
+					trailStyle = resolved.trailStyle;
+					viewMode = resolved.viewMode;
+					autoRotate = resolved.autoRotate;
+					rotationSpeed = resolved.rotationSpeed;
+					zoom = resolved.zoom;
 					return getParameters();
 				},
 				onCheckStability: (params) => checkParameterStability('lorenz', params)
