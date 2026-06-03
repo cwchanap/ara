@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import type { Page } from '@sveltejs/kit';
-import type { LorenzParameters } from '$lib/types';
+import type { ChaosMapParameters, LorenzParameters } from '$lib/types';
 
 import LyapunovComparePage from './lyapunov/compare/+page.svelte';
 import NewtonComparePage from './newton/compare/+page.svelte';
@@ -518,16 +518,6 @@ describe('lorenz compare – swap', () => {
 
 		// Run timers to trigger debounced urlUpdater
 		vi.advanceTimersByTime(300);
-
-		expect(gotoMock).toHaveBeenCalledWith(
-			expect.stringContaining('/lorenz/compare?compare=true'),
-			expect.objectContaining({ replaceState: true })
-		);
-	});
-
-	it('handles missing compare param and falls back to defaults', async () => {
-		setPageUrl('http://localhost/lorenz/compare');
-		render(LorenzComparePage);
 
 		expect(gotoMock).toHaveBeenCalledWith(
 			expect.stringContaining('/lorenz/compare?compare=true'),

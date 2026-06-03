@@ -90,7 +90,9 @@ vi.mock('three', () => ({
 }));
 
 vi.mock('three/examples/jsm/controls/OrbitControls.js', () => {
-	(globalThis as unknown as Record<string, unknown>).capturedOrbitListeners = {};
+	(
+		globalThis as unknown as { capturedOrbitListeners: Record<string, unknown[]> }
+	).capturedOrbitListeners = {};
 	return {
 		OrbitControls: vi.fn().mockImplementation(function () {
 			return {
@@ -102,8 +104,11 @@ vi.mock('three/examples/jsm/controls/OrbitControls.js', () => {
 				update: vi.fn(),
 				dispose: vi.fn(),
 				addEventListener: vi.fn((event: string, handler: unknown) => {
-					const listeners = (globalThis as unknown as Record<string, unknown[]>)
-						.capturedOrbitListeners;
+					const listeners = (
+						globalThis as unknown as {
+							capturedOrbitListeners: Record<string, unknown[]>;
+						}
+					).capturedOrbitListeners;
 					if (!listeners[event]) {
 						listeners[event] = [];
 					}
