@@ -7,6 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import type { Page } from '@sveltejs/kit';
+import type { LorenzParameters } from '$lib/types';
 
 import LyapunovComparePage from './lyapunov/compare/+page.svelte';
 import NewtonComparePage from './newton/compare/+page.svelte';
@@ -478,14 +479,16 @@ describe('lorenz compare – swap', () => {
 		expect(swapped).not.toBeNull();
 
 		// After swap: left should have right's extended fields
-		expect(swapped!.left.solver).toBe('euler');
-		expect(swapped!.left.viewMode).toBe('xy');
-		expect(swapped!.left.trailLength).toBe(5000);
+		const leftParams = swapped!.left as LorenzParameters;
+		expect(leftParams.solver).toBe('euler');
+		expect(leftParams.viewMode).toBe('xy');
+		expect(leftParams.trailLength).toBe(5000);
 
 		// After swap: right should have left's extended fields
-		expect(swapped!.right.solver).toBe('rk4');
-		expect(swapped!.right.viewMode).toBe('xz');
-		expect(swapped!.right.trailLength).toBe(15000);
+		const rightParams = swapped!.right as LorenzParameters;
+		expect(rightParams.solver).toBe('rk4');
+		expect(rightParams.viewMode).toBe('xz');
+		expect(rightParams.trailLength).toBe(15000);
 	});
 });
 
