@@ -1439,4 +1439,44 @@ describe('Lorenz extended-field validation', () => {
 		expect(result.isValid).toBe(false);
 		expect(result.errors.some((e) => e.includes('x0'))).toBe(true);
 	});
+
+	test('rejects inherited Object.prototype keys as extra parameters (constructor)', () => {
+		// Before the Object.hasOwn fix, 'constructor' would match via prototype
+		// and silently skip validation.
+		const result = validateParameters('lorenz', {
+			type: 'lorenz',
+			sigma: 10,
+			rho: 28,
+			beta: 2.667,
+			constructor: 123
+		});
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('constructor'))).toBe(true);
+	});
+
+	test('rejects inherited Object.prototype keys as extra parameters (toString)', () => {
+		const result = validateParameters('rossler', {
+			type: 'rossler',
+			a: 0.2,
+			b: 0.2,
+			c: 5.7,
+			toString: 'malicious'
+		});
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('toString'))).toBe(true);
+	});
+
+	test('rejects inherited Object.prototype key on map type without optional fields', () => {
+		// rossler has no OPTIONAL_FIELDS entry, so optionalFields is {}.
+		// Without Object.hasOwn, 'hasOwnProperty' in {} is true via prototype.
+		const result = validateParameters('rossler', {
+			type: 'rossler',
+			a: 0.2,
+			b: 0.2,
+			c: 5.7,
+			hasOwnProperty: 42
+		});
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('hasOwnProperty'))).toBe(true);
+	});
 });
