@@ -35,7 +35,7 @@ describe('VisualizationAlerts', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss error' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss save error' }));
 
 		expect(onDismissSaveError).toHaveBeenCalledTimes(1);
 	});
@@ -51,7 +51,7 @@ describe('VisualizationAlerts', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss error' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss config error' }));
 
 		expect(onDismissConfigError).toHaveBeenCalledTimes(1);
 	});
@@ -105,7 +105,7 @@ describe('VisualizationAlerts', () => {
 
 		// Trigger all clicks, they should run default empty functions and not error.
 		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss success' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss error' })); // matching first dismiss error button (save error)
+		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss config error' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss warning' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss divergence alert' }));
 	});

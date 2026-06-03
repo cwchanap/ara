@@ -79,9 +79,13 @@ describe('InitialStateControls', () => {
 		const { getByLabelText } = render(InitialStateControls, {
 			props: { ...baseProps, onChange }
 		});
-		const xInput = getByLabelText('x₀');
-		// Passing NaN / Infinity
+		const xInput = getByLabelText('x₀') as HTMLInputElement;
+		// Temporarily change input type to 'text' so jsdom doesn't coerce
+		// 'NaN' and 'Infinity' to '' for type="number" inputs.
+		xInput.type = 'text';
 		await fireEvent.input(xInput, { target: { value: 'NaN' } });
+		expect(onChange).not.toHaveBeenCalled();
+		await fireEvent.input(xInput, { target: { value: 'Infinity' } });
 		expect(onChange).not.toHaveBeenCalled();
 	});
 

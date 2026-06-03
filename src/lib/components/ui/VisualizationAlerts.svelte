@@ -107,7 +107,7 @@
 				type="button"
 				onclick={onDismissSaveError}
 				class="text-red-400/60 hover:text-red-400 ml-2"
-				aria-label="Dismiss error"
+				aria-label="Dismiss save error"
 			>
 				✕
 			</button>
@@ -135,7 +135,7 @@
 				type="button"
 				onclick={onDismissConfigError}
 				class="text-red-400/60 hover:text-red-400"
-				aria-label="Dismiss error"
+				aria-label="Dismiss config error"
 			>
 				✕
 			</button>
