@@ -136,12 +136,14 @@
 		leftSigma = params.sigma;
 		leftRho = params.rho;
 		leftBeta = params.beta;
+		leftExtended = extractExtended(params);
 	}
 
 	function handleRightParamsChange(params: LorenzParameters) {
 		rightSigma = params.sigma;
 		rightRho = params.rho;
 		rightBeta = params.beta;
+		rightExtended = extractExtended(params);
 	}
 </script>
 
@@ -193,7 +195,7 @@
 							type="range"
 							bind:value={leftRho}
 							min="0"
-							max="50"
+							max="100"
 							step="0.1"
 							class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-accent transition-colors"
 						/>
@@ -271,7 +273,7 @@
 							type="range"
 							bind:value={rightRho}
 							min="0"
-							max="50"
+							max="100"
 							step="0.1"
 							class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-accent transition-colors"
 						/>

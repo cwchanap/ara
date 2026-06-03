@@ -429,6 +429,64 @@ describe('lorenz compare – swap', () => {
 			expect.objectContaining({ replaceState: true })
 		);
 	});
+
+	it('swap carries extended fields (solver, viewMode, trailLength) to the other side', async () => {
+		// Encode left with extended fields, right without
+		const { encodeComparisonState, decodeComparisonState } = await import(
+			'$lib/comparison-url-state'
+		);
+		const state = encodeComparisonState({
+			compare: true,
+			left: {
+				type: 'lorenz',
+				sigma: 10,
+				rho: 28,
+				beta: 8 / 3,
+				solver: 'rk4',
+				viewMode: 'xz',
+				trailLength: 15000
+			},
+			right: {
+				type: 'lorenz',
+				sigma: 14,
+				rho: 35,
+				beta: 2.5,
+				solver: 'euler',
+				viewMode: 'xy',
+				trailLength: 5000
+			}
+		});
+
+		setPageUrl(`http://localhost/lorenz/compare?${state.toString()}`);
+		render(LorenzComparePage);
+
+		vi.clearAllTimers();
+		gotoMock.mockReset();
+
+		const swapBtn = screen.getByText('⇄ Swap');
+		await fireEvent.click(swapBtn);
+
+		expect(gotoMock).toHaveBeenCalledWith(
+			expect.stringContaining('/lorenz/compare'),
+			expect.objectContaining({ replaceState: true })
+		);
+
+		// Verify the swapped URL contains the correct extended fields
+		const gotoUrl = gotoMock.mock.calls[0][0] as string;
+		const gotoUrlObj = new URL(gotoUrl, 'http://localhost');
+		const swapped = decodeComparisonState(gotoUrlObj, 'lorenz');
+		expect(swapped).not.toBeNull();
+
+		// After swap: left should have right's extended fields
+		expect(swapped!.left.solver).toBe('euler');
+		expect(swapped!.left.viewMode).toBe('xy');
+		expect(swapped!.left.trailLength).toBe(5000);
+
+		// After swap: right should have left's extended fields
+		expect(swapped!.right.solver).toBe('rk4');
+		expect(swapped!.right.viewMode).toBe('xz');
+		expect(swapped!.right.trailLength).toBe(15000);
+	});
 });
 
 describe('lozi compare – swap', () => {
