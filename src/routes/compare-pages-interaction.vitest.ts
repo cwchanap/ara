@@ -490,6 +490,65 @@ describe('lorenz compare – swap', () => {
 		expect(rightParams.viewMode).toBe('xz');
 		expect(rightParams.trailLength).toBe(15000);
 	});
+
+	it('redirects in onMount when compare parameter is missing in URL', async () => {
+		setPageUrl('http://localhost/lorenz/compare');
+		render(LorenzComparePage);
+
+		expect(gotoMock).toHaveBeenCalledWith(
+			expect.stringContaining('/lorenz/compare?compare=true'),
+			expect.objectContaining({ replaceState: true })
+		);
+	});
+
+	it('updates URL via urlUpdater when a slider parameter changes', async () => {
+		setPageUrl('http://localhost/lorenz/compare?compare=true');
+		render(LorenzComparePage);
+
+		// First run sets initialized=true; clear timers and mocks
+		vi.clearAllTimers();
+		gotoMock.mockReset();
+
+		// Change left-sigma slider value
+		const slider = document.querySelector<HTMLInputElement>('#left-sigma');
+		if (slider) {
+			slider.value = '15';
+			await fireEvent.input(slider);
+		}
+
+		// Run timers to trigger debounced urlUpdater
+		vi.advanceTimersByTime(300);
+
+		expect(gotoMock).toHaveBeenCalledWith(
+			expect.stringContaining('/lorenz/compare?compare=true'),
+			expect.objectContaining({ replaceState: true })
+		);
+	});
+
+	it('handles missing compare param and falls back to defaults', async () => {
+		setPageUrl('http://localhost/lorenz/compare');
+		render(LorenzComparePage);
+
+		expect(gotoMock).toHaveBeenCalledWith(
+			expect.stringContaining('/lorenz/compare?compare=true'),
+			expect.objectContaining({ replaceState: true })
+		);
+	});
+
+	it('falls back to defaults when decoded params are not lorenz params', async () => {
+		const { encodeComparisonState } = await import('$lib/comparison-url-state');
+		const state = encodeComparisonState({
+			compare: true,
+			left: { type: 'rossler', a: 0.2, b: 0.2, c: 5.7 } as unknown as ChaosMapParameters,
+			right: { type: 'rossler', a: 0.2, b: 0.2, c: 5.7 } as unknown as ChaosMapParameters
+		});
+
+		setPageUrl(`http://localhost/lorenz/compare?${state.toString()}`);
+		render(LorenzComparePage);
+
+		// It should still render using default lorenz values
+		expect(screen.getByText('LEFT_PARAMETERS')).toBeInTheDocument();
+	});
 });
 
 describe('lozi compare – swap', () => {

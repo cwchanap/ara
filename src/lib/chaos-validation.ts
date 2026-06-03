@@ -258,6 +258,7 @@ export function checkParameterStability(
 
 	const ranges = STABLE_RANGES[mapType];
 
+	/* c8 ignore next 3 -- validateParameters already rejects unknown map types */
 	if (!ranges) {
 		return { isStable: true, warnings: [] };
 	}

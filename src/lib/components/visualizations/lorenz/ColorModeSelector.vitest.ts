@@ -28,4 +28,29 @@ describe('ColorModeSelector', () => {
 		await fireEvent.click(getByLabelText(/Z-height/i));
 		expect(onChange).toHaveBeenCalledWith('zheight');
 	});
+
+	it('triggers onChange("time") fallback when ghost is disabled but divergence is selected', () => {
+		const onChange = vi.fn();
+		render(ColorModeSelector, {
+			props: {
+				colorMode: 'divergence',
+				ghostEnabled: false,
+				onChange
+			}
+		});
+		// Note: $effect is microtask scheduled, so it should run right after render.
+		expect(onChange).toHaveBeenCalledWith('time');
+	});
+
+	it('selects each mode including single and divergence when ghost is on', async () => {
+		const onChange = vi.fn();
+		const { getByLabelText } = render(ColorModeSelector, {
+			props: { colorMode: 'time', ghostEnabled: true, onChange }
+		});
+		await fireEvent.click(getByLabelText(/Single/i));
+		expect(onChange).toHaveBeenCalledWith('single');
+		onChange.mockClear();
+		await fireEvent.click(getByLabelText(/Divergence/i));
+		expect(onChange).toHaveBeenCalledWith('divergence');
+	});
 });

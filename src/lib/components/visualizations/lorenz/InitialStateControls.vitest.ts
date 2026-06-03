@@ -42,4 +42,63 @@ describe('InitialStateControls', () => {
 		await fireEvent.click(getByLabelText(/Show Perturbed Orbit/i));
 		expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ showGhost: true }));
 	});
+
+	it('calls onReset when Reset button is clicked', async () => {
+		const onReset = vi.fn();
+		const { getByText } = render(InitialStateControls, {
+			props: { ...baseProps, onReset }
+		});
+		await fireEvent.click(getByText('Reset'));
+		expect(onReset).toHaveBeenCalled();
+	});
+
+	it('calls onChange when valid numeric input is typed', async () => {
+		const onChange = vi.fn();
+		const { getByLabelText } = render(InitialStateControls, {
+			props: { ...baseProps, onChange }
+		});
+		const xInput = getByLabelText('x₀');
+		await fireEvent.input(xInput, { target: { value: '1.5' } });
+		expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ x0: 1.5 }));
+	});
+
+	it('does not call onChange for intermediate input strings like empty, dot, or minus', async () => {
+		const onChange = vi.fn();
+		const { getByLabelText } = render(InitialStateControls, {
+			props: { ...baseProps, onChange }
+		});
+		const xInput = getByLabelText('x₀');
+		await fireEvent.input(xInput, { target: { value: '' } });
+		await fireEvent.input(xInput, { target: { value: '-' } });
+		await fireEvent.input(xInput, { target: { value: '.' } });
+		expect(onChange).not.toHaveBeenCalled();
+	});
+
+	it('does not call onChange for invalid non-finite numbers', async () => {
+		const onChange = vi.fn();
+		const { getByLabelText } = render(InitialStateControls, {
+			props: { ...baseProps, onChange }
+		});
+		const xInput = getByLabelText('x₀');
+		// Passing NaN / Infinity
+		await fireEvent.input(xInput, { target: { value: 'NaN' } });
+		expect(onChange).not.toHaveBeenCalled();
+	});
+
+	it('calls onChange for y₀, z₀ and epsilon inputs', async () => {
+		const onChange = vi.fn();
+		const { getByLabelText } = render(InitialStateControls, {
+			props: { ...baseProps, onChange }
+		});
+		await fireEvent.input(getByLabelText('y₀'), { target: { value: '2.5' } });
+		expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ y0: 2.5 }));
+
+		onChange.mockClear();
+		await fireEvent.input(getByLabelText('z₀'), { target: { value: '3.5' } });
+		expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ z0: 3.5 }));
+
+		onChange.mockClear();
+		await fireEvent.input(getByLabelText('ε'), { target: { value: '0.01' } });
+		expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ epsilon: 0.01 }));
+	});
 });
