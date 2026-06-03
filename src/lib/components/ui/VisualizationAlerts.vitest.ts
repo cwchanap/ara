@@ -71,4 +71,42 @@ describe('VisualizationAlerts', () => {
 
 		expect(onDismissStabilityWarning).toHaveBeenCalledTimes(1);
 	});
+
+	it('dismisses divergence alert', async () => {
+		const onDismissDiverged = vi.fn();
+
+		render(VisualizationAlerts, {
+			props: {
+				diverged: true,
+				onDismissDiverged
+			}
+		});
+
+		expect(screen.getByText('INTEGRATION_DIVERGED')).toBeInTheDocument();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss divergence alert' }));
+
+		expect(onDismissDiverged).toHaveBeenCalledTimes(1);
+	});
+
+	it('uses default fallback callbacks without throwing when clicked', async () => {
+		// Render with all alerts open but no callbacks provided.
+		render(VisualizationAlerts, {
+			props: {
+				saveSuccess: true,
+				saveError: 'Error',
+				configErrors: ['Config error'],
+				showConfigError: true,
+				stabilityWarnings: ['Stability warning'],
+				showStabilityWarning: true,
+				diverged: true
+			}
+		});
+
+		// Trigger all clicks, they should run default empty functions and not error.
+		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss success' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss error' })); // matching first dismiss error button (save error)
+		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss warning' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss divergence alert' }));
+	});
 });

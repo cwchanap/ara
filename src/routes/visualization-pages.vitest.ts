@@ -130,7 +130,7 @@ vi.mock('$lib/components/visualizations/LogisticRenderer.svelte', async () => {
 });
 
 vi.mock('$lib/components/visualizations/LorenzRenderer.svelte', async () => {
-	const module = await import('$lib/components/testing/StubComponent.svelte');
+	const module = await import('$lib/components/testing/LorenzRendererStub.svelte');
 	return { default: module.default };
 });
 

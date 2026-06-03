@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render } from '@testing-library/svelte';
 
 vi.mock('$lib/stores/camera-sync', () => ({
@@ -89,27 +89,42 @@ vi.mock('three', () => ({
 	AdditiveBlending: 2
 }));
 
-vi.mock('three/examples/jsm/controls/OrbitControls.js', () => ({
-	OrbitControls: vi.fn().mockImplementation(function () {
-		return {
-			enableDamping: false,
-			enabled: true,
-			autoRotate: false,
-			autoRotateSpeed: 0,
-			target: { x: 0, y: 0, z: 0, set: vi.fn() },
-			update: vi.fn(),
-			dispose: vi.fn(),
-			addEventListener: vi.fn(),
-			removeEventListener: vi.fn()
-		};
-	})
-}));
+vi.mock('three/examples/jsm/controls/OrbitControls.js', () => {
+	(globalThis as unknown as Record<string, unknown>).capturedOrbitListeners = {};
+	return {
+		OrbitControls: vi.fn().mockImplementation(function () {
+			return {
+				enableDamping: false,
+				enabled: true,
+				autoRotate: false,
+				autoRotateSpeed: 0,
+				target: { x: 0, y: 0, z: 0, set: vi.fn() },
+				update: vi.fn(),
+				dispose: vi.fn(),
+				addEventListener: vi.fn((event: string, handler: unknown) => {
+					const listeners = (globalThis as unknown as Record<string, unknown[]>)
+						.capturedOrbitListeners;
+					if (!listeners[event]) {
+						listeners[event] = [];
+					}
+					listeners[event].push(handler);
+				}),
+				removeEventListener: vi.fn()
+			};
+		})
+	};
+});
 
 vi.mock('three/examples/jsm/lines/Line2.js', () => ({
 	Line2: vi.fn().mockImplementation(function () {
 		return {
 			visible: true,
-			geometry: { dispose: vi.fn(), setPositions: vi.fn(), setColors: vi.fn() },
+			geometry: {
+				dispose: vi.fn(),
+				setPositions: vi.fn(),
+				setColors: vi.fn(),
+				instanceCount: 10
+			},
 			material: { dispose: vi.fn(), resolution: { set: vi.fn() } },
 			computeLineDistances: vi.fn()
 		};
@@ -280,5 +295,166 @@ describe('LorenzRenderer engine behavior', () => {
 				}
 			})
 		).not.toThrow();
+	});
+});
+
+describe('LorenzRenderer resize and view modes and unmount', () => {
+	let capturedCallback: (() => void) | null = null;
+
+	beforeEach(() => {
+		capturedCallback = null;
+		globalThis.ResizeObserver = class {
+			constructor(callback: () => void) {
+				capturedCallback = callback;
+			}
+			observe() {}
+			unobserve() {}
+			disconnect() {}
+		} as unknown as typeof ResizeObserver;
+	});
+
+	afterEach(() => {
+		cleanup();
+	});
+
+	it('handles xz and yz orthographic view modes', () => {
+		expect(() =>
+			render(LorenzRenderer, {
+				props: {
+					params: {
+						type: 'lorenz',
+						sigma: 10,
+						rho: 28,
+						beta: 2.667,
+						viewMode: 'xz',
+						zoom: 1.5
+					},
+					height: 200
+				}
+			})
+		).not.toThrow();
+
+		expect(() =>
+			render(LorenzRenderer, {
+				props: {
+					params: {
+						type: 'lorenz',
+						sigma: 10,
+						rho: 28,
+						beta: 2.667,
+						viewMode: 'yz',
+						zoom: 1
+					},
+					height: 200
+				}
+			})
+		).not.toThrow();
+	});
+
+	it('handles autoRotate true and false settings', () => {
+		expect(() =>
+			render(LorenzRenderer, {
+				props: {
+					params: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667, autoRotate: true },
+					height: 200
+				}
+			})
+		).not.toThrow();
+
+		expect(() =>
+			render(LorenzRenderer, {
+				props: {
+					params: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667, autoRotate: false },
+					height: 200
+				}
+			})
+		).not.toThrow();
+	});
+
+	it('responds to window resize and ResizeObserver changes', () => {
+		render(LorenzRenderer, {
+			props: { params: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 } }
+		});
+
+		// Trigger window resize
+		window.dispatchEvent(new Event('resize'));
+
+		// Trigger ResizeObserver callback
+		if (capturedCallback) {
+			capturedCallback();
+		}
+	});
+
+	it('cleans up properly on unmount', () => {
+		const { unmount } = render(LorenzRenderer, {
+			props: { params: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667, showGhost: true } }
+		});
+		expect(() => unmount()).not.toThrow();
+	});
+
+	it('handles head=0 and isPlaying=false (slice count < 2)', () => {
+		expect(() =>
+			render(LorenzRenderer, {
+				props: {
+					params: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 },
+					height: 200,
+					isPlaying: false,
+					head: 0
+				}
+			})
+		).not.toThrow();
+	});
+
+	it('triggers compare mode rebuild when params change', async () => {
+		const { rerender } = render(LorenzRenderer, {
+			props: {
+				params: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667, trailLength: 5000 },
+				height: 200,
+				compareMode: true,
+				compareSide: 'left'
+			}
+		});
+		// Rerender with different sigma to trigger the rebuild effect
+		await rerender({
+			params: { type: 'lorenz', sigma: 11, rho: 28, beta: 2.667, trailLength: 5000 },
+			height: 200,
+			compareMode: true,
+			compareSide: 'left'
+		});
+	});
+
+	it('skips computeLineDistances when instanceCount is null', async () => {
+		const { Line2 } = await import('three/examples/jsm/lines/Line2.js');
+		const line2Mock = Line2 as unknown as ReturnType<typeof vi.fn> & {
+			getMockImplementation?: () => (() => unknown) | undefined;
+		};
+		const originalMock = line2Mock.getMockImplementation?.();
+		line2Mock.mockImplementation(function () {
+			return {
+				visible: true,
+				geometry: {
+					dispose: vi.fn(),
+					setPositions: vi.fn(),
+					setColors: vi.fn(),
+					instanceCount: null
+				},
+				material: { dispose: vi.fn(), resolution: { set: vi.fn() } },
+				computeLineDistances: vi.fn()
+			};
+		});
+		expect(() =>
+			render(LorenzRenderer, {
+				props: {
+					params: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 },
+					height: 200
+				}
+			})
+		).not.toThrow();
+		// Restore original mock
+		if (originalMock) {
+			line2Mock.mockImplementation(originalMock);
+		} else {
+			line2Mock.mockRestore();
+		}
 	});
 });

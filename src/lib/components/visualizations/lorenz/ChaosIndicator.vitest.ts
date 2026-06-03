@@ -27,4 +27,27 @@ describe('ChaosIndicator', () => {
 		});
 		expect(getByText(/Unstable|diverged/i)).toBeTruthy();
 	});
+
+	it('shows Stable for a negative exponent', () => {
+		const { getByText } = render(ChaosIndicator, {
+			props: { value: -0.15, classification: 'stable', diverged: false }
+		});
+		expect(getByText(/Stable/i)).toBeTruthy();
+		expect(getByText(/-0\.15/)).toBeTruthy();
+	});
+
+	it('shows — when value is infinite', () => {
+		const { getByText } = render(ChaosIndicator, {
+			props: { value: Infinity, classification: 'marginal', diverged: false }
+		});
+		expect(getByText(/—/)).toBeTruthy();
+	});
+
+	it('shows Unstable badge when diverged even with stable classification', () => {
+		const { getByText } = render(ChaosIndicator, {
+			props: { value: 1.0, classification: 'stable', diverged: true }
+		});
+		expect(getByText(/Unstable|diverged/i)).toBeTruthy();
+		expect(getByText(/—/)).toBeTruthy();
+	});
 });

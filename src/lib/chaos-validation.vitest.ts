@@ -233,6 +233,78 @@ describe('validateParameters', () => {
 			expect(result.isValid).toBe(true);
 		});
 	});
+
+	describe('optional fields validation', () => {
+		it('accepts valid optional fields for lorenz', () => {
+			const result = validateParameters('lorenz', {
+				sigma: 10,
+				rho: 28,
+				beta: 2.667,
+				epsilon: 0.01,
+				showGhost: true,
+				solver: 'rk4',
+				dt: 0.005,
+				colorMode: 'time',
+				trailStyle: 'comet'
+			});
+			expect(result.isValid).toBe(true);
+		});
+
+		it('rejects invalid number type for optional field', () => {
+			const result = validateParameters('lorenz', {
+				sigma: 10,
+				rho: 28,
+				beta: 2.667,
+				epsilon: 'not-a-number'
+			});
+			expect(result.isValid).toBe(false);
+			expect(result.errors[0]).toContain("Parameter 'epsilon' must be a valid number");
+		});
+
+		it('rejects optional field below minimum', () => {
+			const result = validateParameters('lorenz', {
+				sigma: 10,
+				rho: 28,
+				beta: 2.667,
+				epsilon: -1
+			});
+			expect(result.isValid).toBe(false);
+			expect(result.errors[0]).toContain("Parameter 'epsilon' must be >= 0");
+		});
+
+		it('rejects optional field above maximum', () => {
+			const result = validateParameters('lorenz', {
+				sigma: 10,
+				rho: 28,
+				beta: 2.667,
+				trailLength: 200000
+			});
+			expect(result.isValid).toBe(false);
+			expect(result.errors[0]).toContain("Parameter 'trailLength' must be <= 100000");
+		});
+
+		it('rejects invalid boolean type for optional field', () => {
+			const result = validateParameters('lorenz', {
+				sigma: 10,
+				rho: 28,
+				beta: 2.667,
+				showGhost: 'true'
+			});
+			expect(result.isValid).toBe(false);
+			expect(result.errors[0]).toContain("Parameter 'showGhost' must be a boolean");
+		});
+
+		it('rejects invalid enum value for optional field', () => {
+			const result = validateParameters('lorenz', {
+				sigma: 10,
+				rho: 28,
+				beta: 2.667,
+				solver: 'invalid-solver'
+			});
+			expect(result.isValid).toBe(false);
+			expect(result.errors[0]).toContain("Parameter 'solver' must be one of");
+		});
+	});
 });
 
 describe('checkParameterStability', () => {
@@ -350,6 +422,49 @@ describe('checkParameterStability', () => {
 			});
 			expect(result.isStable).toBe(false);
 			expect(result.warnings).toContain('transientIterations must be <= iterations');
+		});
+
+		it('warns when lorenz dt is <= 0 or > 0.02', () => {
+			const result = checkParameterStability('lorenz', {
+				type: 'lorenz',
+				sigma: 10,
+				rho: 28,
+				beta: 2.667,
+				dt: 0.03
+			});
+			expect(result.isStable).toBe(false);
+			expect(result.warnings).toContain(
+				'dt (0.03) is outside the recommended range (0, 0.02]'
+			);
+		});
+
+		it('warns when lorenz Euler solver is used with dt > 0.01', () => {
+			const result = checkParameterStability('lorenz', {
+				type: 'lorenz',
+				sigma: 10,
+				rho: 28,
+				beta: 2.667,
+				dt: 0.015,
+				solver: 'euler'
+			});
+			expect(result.isStable).toBe(false);
+			expect(result.warnings).toContain(
+				'Euler integration with dt=0.015 is prone to numerical blow-up; reduce dt or use RK4'
+			);
+		});
+
+		it('warns when lorenz epsilon is <= 0', () => {
+			const result = checkParameterStability('lorenz', {
+				type: 'lorenz',
+				sigma: 10,
+				rho: 28,
+				beta: 2.667,
+				epsilon: 0
+			});
+			expect(result.isStable).toBe(false);
+			expect(result.warnings).toContain(
+				'epsilon (0) must be positive for the perturbed orbit'
+			);
 		});
 	});
 

@@ -25,4 +25,21 @@ describe('TrailControls', () => {
 		await fireEvent.click(getByText(/Cumulative/i));
 		expect(onStyleChange).toHaveBeenCalledWith('cumulative');
 	});
+
+	it('calls onLengthChange when sliding the input', async () => {
+		const onLengthChange = vi.fn();
+		const { getByRole } = render(TrailControls, { props: { ...base, onLengthChange } });
+		const slider = getByRole('slider');
+		await fireEvent.input(slider, { target: { value: '25000' } });
+		expect(onLengthChange).toHaveBeenCalledWith(25000);
+	});
+
+	it('calls onStyleChange when switching to comet', async () => {
+		const onStyleChange = vi.fn();
+		const { getByText } = render(TrailControls, {
+			props: { ...base, trailStyle: 'cumulative', onStyleChange }
+		});
+		await fireEvent.click(getByText(/Comet/i));
+		expect(onStyleChange).toHaveBeenCalledWith('comet');
+	});
 });
