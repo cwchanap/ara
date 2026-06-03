@@ -299,7 +299,10 @@
 			const total = resolved.trailLength;
 			const h = Math.min(head, total);
 			let from: number;
-			if (resolved.trailStyle === 'comet') {
+			if (compareMode) {
+				// Compare mode always shows the full static attractor.
+				from = 0;
+			} else if (resolved.trailStyle === 'comet') {
 				from = Math.max(0, h - COMET_WINDOW);
 			} else {
 				from = 0;
