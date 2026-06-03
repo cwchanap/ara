@@ -180,8 +180,11 @@ export function validateParameters(
 	const optionalFields = OPTIONAL_FIELDS[mapType] ?? {};
 
 	// Check for extra keys (allow 'type' and any declared optional field).
+	// Use Object.hasOwn to avoid matching inherited Object.prototype keys
+	// (e.g. 'constructor', 'toString') that would bypass validation.
 	const extraKeys = actualKeys.filter(
-		(key) => !expectedKeys.includes(key) && key !== 'type' && !(key in optionalFields)
+		(key) =>
+			!expectedKeys.includes(key) && key !== 'type' && !Object.hasOwn(optionalFields, key)
 	);
 	if (extraKeys.length > 0) {
 		errors.push(`Unexpected parameters: ${extraKeys.join(', ')}`);
@@ -192,7 +195,7 @@ export function validateParameters(
 	for (const key of actualKeys) {
 		if (key === 'type') continue;
 		const value = paramObj[key];
-		const spec = optionalFields[key];
+		const spec = Object.hasOwn(optionalFields, key) ? optionalFields[key] : undefined;
 		if (spec) {
 			if (spec.kind === 'number') {
 				if (typeof value !== 'number' || !Number.isFinite(value)) {
