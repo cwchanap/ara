@@ -201,26 +201,28 @@ describe('hooks.server', () => {
 		const originalConsoleError = console.error;
 		console.error = consoleErrorSpy;
 
-		const request = new Request(
-			'http://localhost/profile?neon_auth_session_verifier=verifier-123'
-		);
-		const event = {
-			locals: {},
-			request,
-			url: new URL(request.url)
-		} as RequestEvent;
-		const resolve = mock(async () => new Response('ok'));
+		try {
+			const request = new Request(
+				'http://localhost/profile?neon_auth_session_verifier=verifier-123'
+			);
+			const event = {
+				locals: {},
+				request,
+				url: new URL(request.url)
+			} as RequestEvent;
+			const resolve = mock(async () => new Response('ok'));
 
-		const response = await handle({ event, resolve });
+			const response = await handle({ event, resolve });
 
-		expect(consoleErrorSpy).toHaveBeenCalledWith(
-			'Error exchanging Neon Auth OAuth verifier:',
-			'OAuth exchange failed'
-		);
-		expect(resolve).toHaveBeenCalledWith(event);
-		expect(await response.text()).toBe('ok');
-
-		console.error = originalConsoleError;
+			expect(consoleErrorSpy).toHaveBeenCalledWith(
+				'Error exchanging Neon Auth OAuth verifier:',
+				'OAuth exchange failed'
+			);
+			expect(resolve).toHaveBeenCalledWith(event);
+			expect(await response.text()).toBe('ok');
+		} finally {
+			console.error = originalConsoleError;
+		}
 	});
 
 	test('fetchServerSession returns session data for successful auth response', async () => {
@@ -234,31 +236,35 @@ describe('hooks.server', () => {
 				})
 		);
 
-		const request = new Request('http://localhost', {
-			headers: { cookie: '__Secure-neon-auth.session=abc' }
-		});
+		try {
+			const request = new Request('http://localhost', {
+				headers: { cookie: '__Secure-neon-auth.session=abc' }
+			});
 
-		const result = await actualFetchServerSession(request);
+			const result = await actualFetchServerSession(request);
 
-		expect(result.ok).toBe(true);
-		expect(result.data).toEqual(sessionData);
-
-		globalThis.fetch = originalFetch;
+			expect(result.ok).toBe(true);
+			expect(result.data).toEqual(sessionData);
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
 	});
 
 	test('fetchServerSession returns null data for non-ok auth response', async () => {
 		const originalFetch = globalThis.fetch;
 		globalThis.fetch = mock(async () => new Response('Unauthorized', { status: 401 }));
 
-		const request = new Request('http://localhost', {
-			headers: { cookie: '__Secure-neon-auth.session=abc' }
-		});
+		try {
+			const request = new Request('http://localhost', {
+				headers: { cookie: '__Secure-neon-auth.session=abc' }
+			});
 
-		const result = await actualFetchServerSession(request);
+			const result = await actualFetchServerSession(request);
 
-		expect(result.ok).toBe(false);
-		expect(result.data).toBeNull();
-
-		globalThis.fetch = originalFetch;
+			expect(result.ok).toBe(false);
+			expect(result.data).toBeNull();
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
 	});
 });
