@@ -46,7 +46,17 @@ mock.module('$lib/auth/neon', () => ({
 	}
 }));
 
-const { createHandle } = await import('./hooks.server');
+mock.module('$env/dynamic/private', () => ({
+	env: { NEON_AUTH_BASE_URL: 'https://auth.example.test' }
+}));
+
+mock.module('$env/dynamic/public', () => ({
+	env: { PUBLIC_NEON_AUTH_URL: 'https://auth.example.test' }
+}));
+
+const { createHandle, fetchServerSession: actualFetchServerSession } = await import(
+	'./hooks.server'
+);
 const handle = createHandle({ createNeonAuthClient, exchangeOAuthVerifier, fetchServerSession });
 
 describe('hooks.server', () => {
@@ -158,5 +168,79 @@ describe('hooks.server', () => {
 			session: null,
 			user: null
 		});
+	});
+
+	test('failed OAuth exchange logs error and continues to normal setup', async () => {
+		exchangeOAuthVerifier.mockImplementationOnce(async () => ({
+			ok: false,
+			status: 500,
+			redirectUrl: 'http://localhost/profile',
+			setCookieHeaders: [],
+			error: 'OAuth exchange failed'
+		}));
+
+		const consoleErrorSpy = mock(() => {});
+		const originalConsoleError = console.error;
+		console.error = consoleErrorSpy;
+
+		const request = new Request(
+			'http://localhost/profile?neon_auth_session_verifier=verifier-123'
+		);
+		const event = {
+			locals: {},
+			request,
+			url: new URL(request.url)
+		} as RequestEvent;
+		const resolve = mock(async () => new Response('ok'));
+
+		const response = await handle({ event, resolve });
+
+		expect(consoleErrorSpy).toHaveBeenCalledWith(
+			'Error exchanging Neon Auth OAuth verifier:',
+			'OAuth exchange failed'
+		);
+		expect(resolve).toHaveBeenCalledWith(event);
+		expect(await response.text()).toBe('ok');
+
+		console.error = originalConsoleError;
+	});
+
+	test('fetchServerSession returns session data for successful auth response', async () => {
+		const originalFetch = globalThis.fetch;
+		const sessionData = { user: { id: 'user-1', email: 'test@example.com' } };
+		globalThis.fetch = mock(
+			async () =>
+				new Response(JSON.stringify(sessionData), {
+					status: 200,
+					headers: { 'content-type': 'application/json' }
+				})
+		);
+
+		const request = new Request('http://localhost', {
+			headers: { cookie: '__Secure-neon-auth.session=abc' }
+		});
+
+		const result = await actualFetchServerSession(request);
+
+		expect(result.ok).toBe(true);
+		expect(result.data).toEqual(sessionData);
+
+		globalThis.fetch = originalFetch;
+	});
+
+	test('fetchServerSession returns null data for non-ok auth response', async () => {
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = mock(async () => new Response('Unauthorized', { status: 401 }));
+
+		const request = new Request('http://localhost', {
+			headers: { cookie: '__Secure-neon-auth.session=abc' }
+		});
+
+		const result = await actualFetchServerSession(request);
+
+		expect(result.ok).toBe(false);
+		expect(result.data).toBeNull();
+
+		globalThis.fetch = originalFetch;
 	});
 });
