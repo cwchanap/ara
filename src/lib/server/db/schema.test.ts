@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { getTableConfig } from 'drizzle-orm/pg-core';
 import { profiles, savedConfigurations, sharedConfigurations } from './schema';
 import { VALID_MAP_TYPES } from '$lib/types';
 import { readFileSync } from 'node:fs';
@@ -57,5 +58,99 @@ describe('migration map_type constraints include all VALID_MAP_TYPES', () => {
 				.map((s: string) => s.trim().replace(/'/g, ''));
 			expect(constraintTypes).toHaveLength(VALID_MAP_TYPES.length);
 		}
+	});
+});
+
+describe('database indexes', () => {
+	test('saved_configurations has indexes on userId and userId+createdAt', () => {
+		const config = getTableConfig(savedConfigurations);
+		expect(config.indexes).toHaveLength(2);
+
+		const names = config.indexes.map(
+			(idx) => (idx as unknown as { config: { name: string } }).config.name
+		);
+		expect(names).toContain('saved_configurations_user_id_idx');
+		expect(names).toContain('saved_configurations_user_created_at_idx');
+	});
+
+	test('shared_configurations has indexes on userId and expiresAt', () => {
+		const config = getTableConfig(sharedConfigurations);
+		expect(config.indexes).toHaveLength(2);
+
+		const names = config.indexes.map(
+			(idx) => (idx as unknown as { config: { name: string } }).config.name
+		);
+		expect(names).toContain('shared_configurations_user_id_idx');
+		expect(names).toContain('shared_configurations_expires_at_idx');
+	});
+
+	test('saved_configurations userId index covers only userId', () => {
+		const config = getTableConfig(savedConfigurations);
+		const userIdIdx = config.indexes.find(
+			(idx) =>
+				(idx as unknown as { config: { name: string } }).config.name ===
+				'saved_configurations_user_id_idx'
+		);
+		expect(userIdIdx).toBeDefined();
+		const columns = (
+			userIdIdx as unknown as { config: { columns: { name: string }[] } }
+		).config.columns.map((c) => c.name);
+		expect(columns).toEqual(['user_id']);
+	});
+
+	test('saved_configurations composite index covers userId and createdAt', () => {
+		const config = getTableConfig(savedConfigurations);
+		const compositeIdx = config.indexes.find(
+			(idx) =>
+				(idx as unknown as { config: { name: string } }).config.name ===
+				'saved_configurations_user_created_at_idx'
+		);
+		expect(compositeIdx).toBeDefined();
+		const columns = (
+			compositeIdx as unknown as { config: { columns: { name: string }[] } }
+		).config.columns.map((c) => c.name);
+		expect(columns).toEqual(['user_id', 'created_at']);
+	});
+
+	test('shared_configurations expiresAt index covers only expiresAt', () => {
+		const config = getTableConfig(sharedConfigurations);
+		const expiresIdx = config.indexes.find(
+			(idx) =>
+				(idx as unknown as { config: { name: string } }).config.name ===
+				'shared_configurations_expires_at_idx'
+		);
+		expect(expiresIdx).toBeDefined();
+		const columns = (
+			expiresIdx as unknown as { config: { columns: { name: string }[] } }
+		).config.columns.map((c) => c.name);
+		expect(columns).toEqual(['expires_at']);
+	});
+});
+
+describe('schema column defaults and update callbacks', () => {
+	test('profiles updated_at has an onUpdate callback returning ISO string', () => {
+		const config = getTableConfig(profiles);
+		const updatedAt = config.columns.find(
+			(col) => (col as unknown as { name: string }).name === 'updated_at'
+		);
+		expect(updatedAt).toBeDefined();
+		const onUpdateFn = (updatedAt as unknown as { onUpdateFn?: () => string }).onUpdateFn;
+		expect(typeof onUpdateFn).toBe('function');
+		const result = onUpdateFn!();
+		expect(typeof result).toBe('string');
+		expect(new Date(result).toISOString()).toBe(result);
+	});
+
+	test('saved_configurations updated_at has an onUpdate callback returning ISO string', () => {
+		const config = getTableConfig(savedConfigurations);
+		const updatedAt = config.columns.find(
+			(col) => (col as unknown as { name: string }).name === 'updated_at'
+		);
+		expect(updatedAt).toBeDefined();
+		const onUpdateFn = (updatedAt as unknown as { onUpdateFn?: () => string }).onUpdateFn;
+		expect(typeof onUpdateFn).toBe('function');
+		const result = onUpdateFn!();
+		expect(typeof result).toBe('string');
+		expect(new Date(result).toISOString()).toBe(result);
 	});
 });

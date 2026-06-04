@@ -142,7 +142,9 @@ describe('hooks.server', () => {
 
 	test('safeGetSession returns null session and user when Neon Auth returns an error', async () => {
 		fetchSessionResult = { data: null, ok: false };
-		const request = new Request('http://localhost');
+		const request = new Request('http://localhost', {
+			headers: { cookie: '__Secure-neon-auth.session=abc' }
+		});
 		const event = { locals: {}, request } as RequestEvent;
 		const resolve = mock(async () => new Response('ok'));
 
@@ -158,6 +160,21 @@ describe('hooks.server', () => {
 		fetchServerSession.mockImplementationOnce(async () => {
 			throw new Error('Network error');
 		});
+		const request = new Request('http://localhost', {
+			headers: { cookie: '__Secure-neon-auth.session=abc' }
+		});
+		const event = { locals: {}, request } as RequestEvent;
+		const resolve = mock(async () => new Response('ok'));
+
+		await handle({ event, resolve });
+
+		await expect(event.locals.safeGetSession()).resolves.toEqual({
+			session: null,
+			user: null
+		});
+	});
+
+	test('safeGetSession returns null when no Neon Auth cookie is present', async () => {
 		const request = new Request('http://localhost');
 		const event = { locals: {}, request } as RequestEvent;
 		const resolve = mock(async () => new Response('ok'));
@@ -168,6 +185,7 @@ describe('hooks.server', () => {
 			session: null,
 			user: null
 		});
+		expect(fetchServerSession).not.toHaveBeenCalled();
 	});
 
 	test('failed OAuth exchange logs error and continues to normal setup', async () => {

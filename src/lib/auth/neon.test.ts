@@ -16,6 +16,13 @@ describe('neon auth wrapper', () => {
 		createAuthClient.mockClear();
 	});
 
+	test('createNeonAuthClient wraps the real factory', async () => {
+		const { createNeonAuthClient } = await import('./neon.server');
+		const client = createNeonAuthClient({ authUrl: 'https://auth.example.test/auth' });
+		expect(client).toBeDefined();
+		expect(client).toBeTruthy();
+	});
+
 	test('creates an auth client from NEON_AUTH_BASE_URL', async () => {
 		const { createNeonAuthClientWithFactory } = await import('./neon.server');
 		const client = createNeonAuthClientWithFactory(createAuthClient, {
