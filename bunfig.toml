@@ -4,13 +4,15 @@ root = "./src"
 # Preload script registers a Bun plugin to resolve SvelteKit virtual modules
 # ($env/dynamic/private) that don't exist as real files in the filesystem.
 preload = ["./src/test-setup.ts"]
-# Exclude test infrastructure and pure constant/type files from coverage.
-# These files contain no executable logic worth measuring (constants, type
-# definitions, and test harness code).
+# Exclude test infrastructure and pure declaration/constant files from coverage.
+# Only specific files that contain zero executable logic are listed here.
+# Broad globs (e.g. "**/types.ts") are intentionally avoided because some
+# files matching those patterns contain real logic (e.g. auth/types.ts has
+# normalizeSession(), server/db/index.ts runs DB initialization).
 coveragePathIgnorePatterns = [
 	"**/test-setup.ts",
 	"**/constants.ts",
-	"**/types.ts",
-	"**/index.ts",
+	"src/lib/workers/types.ts",
+	"src/lib/index.ts",
 	"**/*.d.ts"
 ]

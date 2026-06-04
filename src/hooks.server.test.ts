@@ -234,7 +234,7 @@ describe('hooks.server', () => {
 					status: 200,
 					headers: { 'content-type': 'application/json' }
 				})
-		);
+		) as unknown as typeof fetch;
 
 		try {
 			const request = new Request('http://localhost', {
@@ -252,7 +252,9 @@ describe('hooks.server', () => {
 
 	test('fetchServerSession returns null data for non-ok auth response', async () => {
 		const originalFetch = globalThis.fetch;
-		globalThis.fetch = mock(async () => new Response('Unauthorized', { status: 401 }));
+		globalThis.fetch = mock(
+			async () => new Response('Unauthorized', { status: 401 })
+		) as unknown as typeof fetch;
 
 		try {
 			const request = new Request('http://localhost', {
