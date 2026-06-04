@@ -325,6 +325,135 @@ describe('neon auth wrapper', () => {
 			sameSite: 'none'
 		});
 	});
+
+	test('startGoogleOAuth returns error when fetch throws', async () => {
+		const error = new Error('network failure');
+		const fetcher = mock(async () => {
+			throw error;
+		});
+
+		const { startGoogleOAuth } = await import('./neon.server');
+		const result = await startGoogleOAuth({
+			authUrl: 'https://auth.example.test/auth',
+			callbackURL: '/saved-configs',
+			fetch: fetcher,
+			request: new Request('https://app.example.test/login')
+		});
+
+		expect(result).toEqual({
+			ok: false,
+			status: 0,
+			error,
+			setCookieHeaders: []
+		});
+	});
+
+	test('exchangeOAuthVerifier returns error when fetch throws', async () => {
+		const error = new Error('network failure');
+		const fetcher = mock(async () => {
+			throw error;
+		});
+
+		const { exchangeOAuthVerifier } = await import('./neon.server');
+		const result = await exchangeOAuthVerifier({
+			authUrl: 'https://auth.example.test/auth',
+			fetch: fetcher,
+			request: new Request(
+				'https://app.example.test/profile?neon_auth_session_verifier=verifier-123'
+			)
+		});
+
+		expect(result).toEqual({
+			ok: false,
+			status: 0,
+			redirectUrl: 'https://app.example.test/profile',
+			error,
+			setCookieHeaders: []
+		});
+	});
+
+	test('startGoogleOAuth tolerates non-JSON response body', async () => {
+		const { startGoogleOAuth } = await import('./neon.server');
+		const result = await startGoogleOAuth({
+			authUrl: 'https://auth.example.test/auth',
+			callbackURL: '/',
+			fetch: async () =>
+				new Response('not json', {
+					status: 200,
+					headers: { 'content-type': 'text/plain' }
+				}),
+			request: new Request('https://app.example.test/login')
+		});
+
+		expect(result).toEqual({
+			ok: true,
+			status: 200,
+			providerUrl: undefined,
+			setCookieHeaders: []
+		});
+	});
+});
+
+describe('applyNeonSetCookieHeaders', () => {
+	test('applies cookie with domain attribute', async () => {
+		const setCalls: unknown[][] = [];
+		const cookies = {
+			set: (...args: unknown[]) => setCalls.push(args)
+		};
+
+		const { applyNeonSetCookieHeaders } = await import('./neon.server');
+		applyNeonSetCookieHeaders(cookies, [
+			'__Secure-neon-auth.session=value; Domain=auth.example.test; Path=/; HttpOnly; Secure; SameSite=Lax'
+		]);
+
+		expect(setCalls).toHaveLength(1);
+		expect(setCalls[0][0]).toBe('__Secure-neon-auth.session');
+		expect(setCalls[0][1]).toBe('value');
+		expect(setCalls[0][2]).toMatchObject({
+			domain: 'auth.example.test',
+			path: '/',
+			httpOnly: true,
+			secure: true,
+			sameSite: 'lax'
+		});
+	});
+
+	test('applies cookie with expires attribute', async () => {
+		const setCalls: unknown[][] = [];
+		const cookies = {
+			set: (...args: unknown[]) => setCalls.push(args)
+		};
+
+		const expiresDate = 'Wed, 21 Oct 2025 07:28:00 GMT';
+		const { applyNeonSetCookieHeaders } = await import('./neon.server');
+		applyNeonSetCookieHeaders(cookies, [
+			`__Secure-neon-auth.session=value; Expires=${expiresDate}; Path=/; HttpOnly; Secure; SameSite=Lax`
+		]);
+
+		expect(setCalls).toHaveLength(1);
+		expect(setCalls[0][0]).toBe('__Secure-neon-auth.session');
+		expect(setCalls[0][1]).toBe('value');
+		const options = setCalls[0][2] as Record<string, unknown>;
+		expect(options.expires).toBeInstanceOf(Date);
+		expect((options.expires as Date).toISOString()).toBe('2025-10-21T07:28:00.000Z');
+	});
+
+	test('tolerates invalid expires attribute', async () => {
+		const setCalls: unknown[][] = [];
+		const cookies = {
+			set: (...args: unknown[]) => setCalls.push(args)
+		};
+
+		const { applyNeonSetCookieHeaders } = await import('./neon.server');
+		applyNeonSetCookieHeaders(cookies, [
+			'__Secure-neon-auth.session=value; Expires=not-a-valid-date; Path=/; HttpOnly; Secure; SameSite=Lax'
+		]);
+
+		expect(setCalls).toHaveLength(1);
+		expect(setCalls[0][0]).toBe('__Secure-neon-auth.session');
+		const options = setCalls[0][2] as Record<string, unknown>;
+		expect(options.expires).toBeUndefined();
+	});
 });
 
 describe('normalizeSession', () => {
