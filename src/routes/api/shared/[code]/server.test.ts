@@ -5,9 +5,9 @@
  * before importing the handler.
  */
 
-import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { beforeEach, describe, expect, vi, test } from 'vitest';
 
-// ── DB mock state ────────────────────────────────────────────────────────────
+// ── Hoisted mock state ────────────────────────────────────────────────────────
 
 interface MockShare {
 	id: string;
@@ -20,35 +20,41 @@ interface MockShare {
 	expiresAt: string;
 }
 
-let mockDbSelectResult: MockShare | null = null;
-let mockDbDeleteThrows = false;
-
-// Indirection layer so individual tests can swap the delete behaviour
-// without a dynamic import inside the test body (which causes cross-file
-// module-cache issues when tests run together).
 type DeleteWhere = (c: unknown) => unknown;
-let deleteImpl: () => { where: DeleteWhere } = () => ({
-	where: () => {
-		if (mockDbDeleteThrows) throw new Error('Delete failed');
-		return Promise.resolve();
-	}
+
+const h = vi.hoisted(() => {
+	const state = {
+		mockDbSelectResult: null as MockShare | null,
+		mockDbDeleteThrows: false,
+		// Indirection layer so individual tests can swap the delete behaviour
+		deleteImpl: null as null | (() => { where: DeleteWhere })
+	};
+
+	return { state };
 });
 
-const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-const pastDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-
-mock.module('$lib/server/db', () => ({
+vi.mock('$lib/server/db', () => ({
 	db: {
 		select: () => ({
 			from: () => ({
 				leftJoin: () => ({
 					where: () => ({
-						limit: () => (mockDbSelectResult ? [mockDbSelectResult] : [])
+						limit: () =>
+							h.state.mockDbSelectResult ? [h.state.mockDbSelectResult] : []
 					})
 				})
 			})
 		}),
-		delete: () => deleteImpl()
+		delete: () => {
+			const impl = h.state.deleteImpl;
+			if (impl) return impl();
+			return {
+				where: () => {
+					if (h.state.mockDbDeleteThrows) throw new Error('Delete failed');
+					return Promise.resolve();
+				}
+			};
+		}
 	},
 	sharedConfigurations: {
 		id: {},
@@ -63,10 +69,21 @@ mock.module('$lib/server/db', () => ({
 	profiles: { username: {}, id: {} }
 }));
 
+vi.mock('$lib/server/share-utils', () => ({
+	isShareExpired: (expiresAt: string) => new Date(expiresAt) < new Date(),
+	getDaysUntilExpiration: (expiresAt: string) => {
+		const diff = new Date(expiresAt).getTime() - Date.now();
+		return Math.ceil(diff / (1000 * 60 * 60 * 24));
+	}
+}));
+
 // Dynamic import AFTER mock registration
 const { GET } = await import('./+server');
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+const pastDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
 function makeEvent(code: string) {
 	return { params: { code } };
@@ -88,17 +105,10 @@ function makeValidShare(overrides: Partial<MockShare> = {}): MockShare {
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-const defaultDeleteImpl: () => { where: DeleteWhere } = () => ({
-	where: () => {
-		if (mockDbDeleteThrows) throw new Error('Delete failed');
-		return Promise.resolve();
-	}
-});
-
 beforeEach(() => {
-	mockDbSelectResult = null;
-	mockDbDeleteThrows = false;
-	deleteImpl = defaultDeleteImpl;
+	h.state.mockDbSelectResult = null;
+	h.state.mockDbDeleteThrows = false;
+	h.state.deleteImpl = null;
 });
 
 describe('GET /api/shared/[code]', () => {
@@ -121,7 +131,7 @@ describe('GET /api/shared/[code]', () => {
 
 	describe('share not found', () => {
 		test('returns 404 when share does not exist', async () => {
-			mockDbSelectResult = null;
+			h.state.mockDbSelectResult = null;
 			const event = makeEvent('NOTFOUND');
 			await expect(GET(event as never)).rejects.toMatchObject({ status: 404 });
 		});
@@ -129,15 +139,14 @@ describe('GET /api/shared/[code]', () => {
 
 	describe('expired share', () => {
 		test('returns 410 (Gone) for expired share', async () => {
-			mockDbSelectResult = makeValidShare({ expiresAt: pastDate });
+			h.state.mockDbSelectResult = makeValidShare({ expiresAt: pastDate });
 			const event = makeEvent('ABCD1234');
 			await expect(GET(event as never)).rejects.toMatchObject({ status: 410 });
 		});
 
 		test('deletes expired share by id, not by shortCode', async () => {
 			let capturedWhereArg: unknown;
-			const originalDeleteImpl = deleteImpl;
-			deleteImpl = () => ({
+			h.state.deleteImpl = () => ({
 				where: (criteria: unknown) => {
 					capturedWhereArg = criteria;
 					return Promise.resolve();
@@ -145,7 +154,7 @@ describe('GET /api/shared/[code]', () => {
 			});
 
 			const share = makeValidShare({ expiresAt: pastDate });
-			mockDbSelectResult = share;
+			h.state.mockDbSelectResult = share;
 			const event = makeEvent('ABCD1234');
 			try {
 				await GET(event as never);
@@ -172,13 +181,11 @@ describe('GET /api/shared/[code]', () => {
 			const allStrings = extractStrings(capturedWhereArg);
 			expect(allStrings).toContain(share.id);
 			expect(allStrings).not.toContain(share.shortCode);
-
-			deleteImpl = originalDeleteImpl;
 		});
 
 		test('still returns 410 even if delete throws', async () => {
-			mockDbDeleteThrows = true;
-			mockDbSelectResult = makeValidShare({ expiresAt: pastDate });
+			h.state.mockDbDeleteThrows = true;
+			h.state.mockDbSelectResult = makeValidShare({ expiresAt: pastDate });
 			const event = makeEvent('ABCD1234');
 			await expect(GET(event as never)).rejects.toMatchObject({ status: 410 });
 		});
@@ -186,14 +193,14 @@ describe('GET /api/shared/[code]', () => {
 
 	describe('successful retrieval', () => {
 		test('returns 200 with share data for valid non-expired share', async () => {
-			mockDbSelectResult = makeValidShare();
+			h.state.mockDbSelectResult = makeValidShare();
 			const event = makeEvent('ABCD1234');
 			const response = await GET(event as never);
 			expect(response.status).toBe(200);
 		});
 
 		test('response includes expected fields', async () => {
-			mockDbSelectResult = makeValidShare();
+			h.state.mockDbSelectResult = makeValidShare();
 			const event = makeEvent('ABCD1234');
 			const response = await GET(event as never);
 			const data = await response.json();
@@ -206,7 +213,7 @@ describe('GET /api/shared/[code]', () => {
 		});
 
 		test('falls back to "Anonymous" when username is null', async () => {
-			mockDbSelectResult = makeValidShare({ username: null });
+			h.state.mockDbSelectResult = makeValidShare({ username: null });
 			const event = makeEvent('ABCD1234');
 			const response = await GET(event as never);
 			const data = await response.json();
@@ -214,7 +221,7 @@ describe('GET /api/shared/[code]', () => {
 		});
 
 		test('includes the actual username when set', async () => {
-			mockDbSelectResult = makeValidShare({ username: 'chaosuser' });
+			h.state.mockDbSelectResult = makeValidShare({ username: 'chaosuser' });
 			const event = makeEvent('ABCD1234');
 			const response = await GET(event as never);
 			const data = await response.json();
@@ -222,7 +229,7 @@ describe('GET /api/shared/[code]', () => {
 		});
 
 		test('returns positive daysRemaining for non-expired share', async () => {
-			mockDbSelectResult = makeValidShare();
+			h.state.mockDbSelectResult = makeValidShare();
 			const event = makeEvent('ABCD1234');
 			const response = await GET(event as never);
 			const data = await response.json();
@@ -232,7 +239,7 @@ describe('GET /api/shared/[code]', () => {
 		test('works for all supported map types', async () => {
 			const mapTypes = ['lorenz', 'rossler', 'henon', 'lozi', 'logistic'];
 			for (const mapType of mapTypes) {
-				mockDbSelectResult = makeValidShare({ mapType, shortCode: 'TSTCODE1' });
+				h.state.mockDbSelectResult = makeValidShare({ mapType, shortCode: 'TSTCODE1' });
 				const event = makeEvent('TSTCODE1');
 				const response = await GET(event as never);
 				expect(response.status).toBe(200);
