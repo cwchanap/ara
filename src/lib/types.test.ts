@@ -5,7 +5,7 @@
  * for correctness and consistency.
  */
 
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { VALID_MAP_TYPES, CHAOS_MAP_DISPLAY_NAMES } from './types';
 import type { ChaosMapType, LorenzParameters } from './types';
 
