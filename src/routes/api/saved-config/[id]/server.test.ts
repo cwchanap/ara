@@ -5,9 +5,9 @@
  * before importing the handler.
  */
 
-import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { beforeEach, describe, expect, vi, test } from 'vitest';
 
-// ── DB mock state ────────────────────────────────────────────────────────────
+// ── Hoisted mock state ────────────────────────────────────────────────────────
 
 interface MockConfig {
 	id: string;
@@ -16,14 +16,20 @@ interface MockConfig {
 	parameters: unknown;
 }
 
-let mockDbSelectResult: MockConfig | null = null;
+const h = vi.hoisted(() => {
+	const state = {
+		mockDbSelectResult: null as MockConfig | null
+	};
 
-mock.module('$lib/server/db', () => ({
+	return { state };
+});
+
+vi.mock('$lib/server/db', () => ({
 	db: {
 		select: () => ({
 			from: () => ({
 				where: () => ({
-					limit: () => (mockDbSelectResult ? [mockDbSelectResult] : [])
+					limit: () => (h.state.mockDbSelectResult ? [h.state.mockDbSelectResult] : [])
 				})
 			})
 		})
@@ -72,7 +78,7 @@ function makeValidConfig(overrides: Partial<MockConfig> = {}): MockConfig {
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
-	mockDbSelectResult = null;
+	h.state.mockDbSelectResult = null;
 });
 
 describe('GET /api/saved-config/[id]', () => {
@@ -92,7 +98,7 @@ describe('GET /api/saved-config/[id]', () => {
 
 	describe('config not found', () => {
 		test('returns 404 when config does not exist', async () => {
-			mockDbSelectResult = null;
+			h.state.mockDbSelectResult = null;
 			const event = makeEvent('nonexistent-id');
 			await expect(GET(event as never)).rejects.toMatchObject({ status: 404 });
 		});
@@ -100,7 +106,7 @@ describe('GET /api/saved-config/[id]', () => {
 
 	describe('authorization', () => {
 		test('returns 403 when config belongs to a different user', async () => {
-			mockDbSelectResult = makeValidConfig({ userId: 'other-user' });
+			h.state.mockDbSelectResult = makeValidConfig({ userId: 'other-user' });
 			const event = makeEvent('config-id-1', 'requesting-user');
 			await expect(GET(event as never)).rejects.toMatchObject({ status: 403 });
 		});
@@ -108,14 +114,14 @@ describe('GET /api/saved-config/[id]', () => {
 
 	describe('successful retrieval', () => {
 		test('returns 200 with config data for the owner', async () => {
-			mockDbSelectResult = makeValidConfig();
+			h.state.mockDbSelectResult = makeValidConfig();
 			const event = makeEvent('config-id-1', 'owner-id');
 			const response = await GET(event as never);
 			expect(response.status).toBe(200);
 		});
 
 		test('response includes id, mapType, and parameters', async () => {
-			mockDbSelectResult = makeValidConfig();
+			h.state.mockDbSelectResult = makeValidConfig();
 			const event = makeEvent('config-id-1', 'owner-id');
 			const response = await GET(event as never);
 			const data = await response.json();
@@ -138,7 +144,7 @@ describe('GET /api/saved-config/[id]', () => {
 			];
 
 			for (const tc of testCases) {
-				mockDbSelectResult = makeValidConfig({
+				h.state.mockDbSelectResult = makeValidConfig({
 					mapType: tc.mapType,
 					parameters: tc.parameters
 				});
@@ -153,7 +159,7 @@ describe('GET /api/saved-config/[id]', () => {
 
 	describe('parameter validation on retrieval', () => {
 		test('returns 500 when stored parameters fail validation', async () => {
-			mockDbSelectResult = makeValidConfig({
+			h.state.mockDbSelectResult = makeValidConfig({
 				parameters: { type: 'lorenz', sigma: 'bad' } // invalid
 			});
 			const event = makeEvent('config-id-1', 'owner-id');

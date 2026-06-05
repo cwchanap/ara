@@ -5,45 +5,51 @@
  * $lib/server/db before importing the handler.
  */
 
-import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { beforeEach, describe, expect, vi, test } from 'vitest';
 
-// ── DB mock state ────────────────────────────────────────────────────────────
+// ── Hoisted mock state ────────────────────────────────────────────────────────
 
-let mockDbInsertShouldThrow = false;
-let lastInsertedValues: Record<string, unknown> | null = null;
-let operationLog: string[] = [];
-
-const ensureProfileForUser = mock(async () => {
-	operationLog.push('provision');
-	return {
-		id: 'user-123',
-		username: 'user_123',
-		createdAt: '2026-01-01T00:00:00.000Z',
-		updatedAt: '2026-01-01T00:00:00.000Z'
+const h = vi.hoisted(() => {
+	const state = {
+		mockDbInsertShouldThrow: false,
+		lastInsertedValues: null as Record<string, unknown> | null,
+		operationLog: [] as string[]
 	};
+
+	const ensureProfileForUser = vi.fn(async () => {
+		state.operationLog.push('provision');
+		return {
+			id: 'user-123',
+			username: 'user_123',
+			createdAt: '2026-01-01T00:00:00.000Z',
+			updatedAt: '2026-01-01T00:00:00.000Z'
+		};
+	});
+
+	const mockReturning = async () => {
+		if (state.mockDbInsertShouldThrow) {
+			throw new Error('DB connection failed');
+		}
+		return [
+			{
+				id: 'new-config-id',
+				name: state.lastInsertedValues?.name ?? 'Test Config',
+				mapType: state.lastInsertedValues?.mapType ?? 'lorenz',
+				createdAt: '2024-01-01T00:00:00Z'
+			}
+		];
+	};
+
+	return { state, ensureProfileForUser, mockReturning };
 });
 
-const mockReturning = async () => {
-	if (mockDbInsertShouldThrow) {
-		throw new Error('DB connection failed');
-	}
-	return [
-		{
-			id: 'new-config-id',
-			name: lastInsertedValues?.name ?? 'Test Config',
-			mapType: lastInsertedValues?.mapType ?? 'lorenz',
-			createdAt: '2024-01-01T00:00:00Z'
-		}
-	];
-};
-
-mock.module('$lib/server/db', () => ({
+vi.mock('$lib/server/db', () => ({
 	db: {
 		insert: () => ({
 			values: (vals: Record<string, unknown>) => {
-				operationLog.push('insert');
-				lastInsertedValues = vals;
-				return { returning: mockReturning };
+				h.state.operationLog.push('insert');
+				h.state.lastInsertedValues = vals;
+				return { returning: h.mockReturning };
 			}
 		})
 	},
@@ -69,8 +75,8 @@ mock.module('$lib/server/db', () => ({
 	profiles: { id: {}, username: {} }
 }));
 
-mock.module('$lib/server/profile-provisioning', () => ({
-	ensureProfileForUser
+vi.mock('$lib/server/profile-provisioning', () => ({
+	ensureProfileForUser: h.ensureProfileForUser
 }));
 
 // Dynamic import AFTER mock registration
@@ -113,10 +119,10 @@ function makeBrokenJsonEvent() {
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
-	mockDbInsertShouldThrow = false;
-	lastInsertedValues = null;
-	operationLog = [];
-	ensureProfileForUser.mockClear();
+	h.state.mockDbInsertShouldThrow = false;
+	h.state.lastInsertedValues = null;
+	h.state.operationLog = [];
+	h.ensureProfileForUser.mockClear();
 });
 
 describe('POST /api/save-config', () => {
@@ -128,8 +134,8 @@ describe('POST /api/save-config', () => {
 				false
 			);
 			await expect(POST(event as never)).rejects.toMatchObject({ status: 401 });
-			expect(ensureProfileForUser).not.toHaveBeenCalled();
-			expect(operationLog).toEqual([]);
+			expect(h.ensureProfileForUser).not.toHaveBeenCalled();
+			expect(h.state.operationLog).toEqual([]);
 		});
 	});
 
@@ -137,8 +143,8 @@ describe('POST /api/save-config', () => {
 		test('returns 400 for invalid JSON', async () => {
 			const event = makeBrokenJsonEvent();
 			await expect(POST(event as never)).rejects.toMatchObject({ status: 400 });
-			expect(ensureProfileForUser).not.toHaveBeenCalled();
-			expect(operationLog).toEqual([]);
+			expect(h.ensureProfileForUser).not.toHaveBeenCalled();
+			expect(h.state.operationLog).toEqual([]);
 		});
 	});
 
@@ -204,8 +210,8 @@ describe('POST /api/save-config', () => {
 				parameters: {}
 			});
 			await expect(POST(event as never)).rejects.toMatchObject({ status: 400 });
-			expect(ensureProfileForUser).not.toHaveBeenCalled();
-			expect(operationLog).toEqual([]);
+			expect(h.ensureProfileForUser).not.toHaveBeenCalled();
+			expect(h.state.operationLog).toEqual([]);
 		});
 	});
 
@@ -217,8 +223,8 @@ describe('POST /api/save-config', () => {
 				parameters: { type: 'lorenz', sigma: 10 } // missing rho and beta
 			});
 			await expect(POST(event as never)).rejects.toMatchObject({ status: 400 });
-			expect(ensureProfileForUser).not.toHaveBeenCalled();
-			expect(operationLog).toEqual([]);
+			expect(h.ensureProfileForUser).not.toHaveBeenCalled();
+			expect(h.state.operationLog).toEqual([]);
 		});
 
 		test('returns 400 for non-numeric parameter values', async () => {
@@ -253,7 +259,7 @@ describe('POST /api/save-config', () => {
 				parameters: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 }
 			});
 			await POST(event as never);
-			expect(lastInsertedValues?.name).toBe('Trimmed Name');
+			expect(h.state.lastInsertedValues?.name).toBe('Trimmed Name');
 		});
 
 		test('accepts a name exactly 100 characters long', async () => {
@@ -276,7 +282,7 @@ describe('POST /api/save-config', () => {
 				'specific-user-id'
 			);
 			await POST(event as never);
-			expect(lastInsertedValues?.userId).toBe('specific-user-id');
+			expect(h.state.lastInsertedValues?.userId).toBe('specific-user-id');
 		});
 
 		test('ensures the authenticated user has a profile before inserting', async () => {
@@ -291,8 +297,8 @@ describe('POST /api/save-config', () => {
 
 			await POST(event as never);
 
-			expect(ensureProfileForUser).toHaveBeenCalledWith({ id: 'specific-user-id' });
-			expect(operationLog).toEqual(['provision', 'insert']);
+			expect(h.ensureProfileForUser).toHaveBeenCalledWith({ id: 'specific-user-id' });
+			expect(h.state.operationLog).toEqual(['provision', 'insert']);
 		});
 
 		test('saves valid rossler parameters', async () => {
@@ -328,7 +334,7 @@ describe('POST /api/save-config', () => {
 
 	describe('database errors', () => {
 		test('returns 500 when database insert fails', async () => {
-			mockDbInsertShouldThrow = true;
+			h.state.mockDbInsertShouldThrow = true;
 			const event = makeEvent({
 				name: 'Test Config',
 				mapType: 'lorenz',

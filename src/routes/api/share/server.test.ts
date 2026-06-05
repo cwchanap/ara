@@ -5,41 +5,47 @@
  * $lib/server/share-utils before importing the handler.
  */
 
-import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { beforeEach, describe, expect, vi, test } from 'vitest';
 
-// ── Mock state ───────────────────────────────────────────────────────────────
+// ── Hoisted mock state ────────────────────────────────────────────────────────
 
-let mockRateLimitResult: {
-	success: boolean;
-	share?: { id: string; shortCode: string; expiresAt: string };
-	remaining: number;
-	resetAt: Date;
-	error?: string;
-} = {
-	success: true,
-	share: { id: 'share-id', shortCode: 'ABCD1234', expiresAt: '2030-01-01T00:00:00Z' },
-	remaining: 9,
-	resetAt: new Date(Date.now() + 3600000)
-};
+const h = vi.hoisted(() => {
+	const state = {
+		mockRateLimitResult: {
+			success: true,
+			share: { id: 'share-id', shortCode: 'ABCD1234', expiresAt: '2030-01-01T00:00:00Z' },
+			remaining: 9,
+			resetAt: new Date(Date.now() + 3600000)
+		} as {
+			success: boolean;
+			share?: { id: string; shortCode: string; expiresAt: string };
+			remaining: number;
+			resetAt: Date;
+			error?: string;
+		}
+	};
 
-const ensureProfileForUser = mock(async () => ({
-	id: 'user-123',
-	username: 'user_123',
-	createdAt: '2026-01-01T00:00:00.000Z',
-	updatedAt: '2026-01-01T00:00:00.000Z'
-}));
+	const ensureProfileForUser = vi.fn(async () => ({
+		id: 'user-123',
+		username: 'user_123',
+		createdAt: '2026-01-01T00:00:00.000Z',
+		updatedAt: '2026-01-01T00:00:00.000Z'
+	}));
 
-mock.module('$lib/server/db', () => ({
+	return { state, ensureProfileForUser };
+});
+
+vi.mock('$lib/server/db', () => ({
 	db: {},
 	sharedConfigurations: {},
 	savedConfigurations: {},
 	profiles: {}
 }));
 
-mock.module('$lib/server/share-utils', () => ({
+vi.mock('$lib/server/share-utils', () => ({
 	generateShortCode: () => 'TESTCODE',
 	calculateExpirationDate: () => new Date('2030-01-01T00:00:00Z'),
-	createShareWithRateLimit: async () => mockRateLimitResult,
+	createShareWithRateLimit: async () => h.state.mockRateLimitResult,
 	isShareExpired: (expiresAt: string) => new Date(expiresAt) < new Date(),
 	getDaysUntilExpiration: (expiresAt: string) => {
 		const diff = new Date(expiresAt).getTime() - Date.now();
@@ -49,8 +55,8 @@ mock.module('$lib/server/share-utils', () => ({
 	incrementViewCount: async () => {}
 }));
 
-mock.module('$lib/server/profile-provisioning', () => ({
-	ensureProfileForUser
+vi.mock('$lib/server/profile-provisioning', () => ({
+	ensureProfileForUser: h.ensureProfileForUser
 }));
 
 // Dynamic import AFTER mock registration
@@ -95,8 +101,8 @@ function makeBrokenJsonEvent() {
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
-	ensureProfileForUser.mockClear();
-	mockRateLimitResult = {
+	h.ensureProfileForUser.mockClear();
+	h.state.mockRateLimitResult = {
 		success: true,
 		share: { id: 'share-id', shortCode: 'ABCD1234', expiresAt: '2030-01-01T00:00:00Z' },
 		remaining: 9,
@@ -116,7 +122,7 @@ describe('POST /api/share', () => {
 				false
 			);
 			await expect(POST(event as never)).rejects.toMatchObject({ status: 401 });
-			expect(ensureProfileForUser).not.toHaveBeenCalled();
+			expect(h.ensureProfileForUser).not.toHaveBeenCalled();
 		});
 	});
 
@@ -124,7 +130,7 @@ describe('POST /api/share', () => {
 		test('returns 400 for invalid JSON', async () => {
 			const event = makeBrokenJsonEvent();
 			await expect(POST(event as never)).rejects.toMatchObject({ status: 400 });
-			expect(ensureProfileForUser).not.toHaveBeenCalled();
+			expect(h.ensureProfileForUser).not.toHaveBeenCalled();
 		});
 	});
 
@@ -142,7 +148,7 @@ describe('POST /api/share', () => {
 				parameters: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 }
 			});
 			await expect(POST(event as never)).rejects.toMatchObject({ status: 400 });
-			expect(ensureProfileForUser).not.toHaveBeenCalled();
+			expect(h.ensureProfileForUser).not.toHaveBeenCalled();
 		});
 
 		test('returns 400 for numeric mapType', async () => {
@@ -171,7 +177,7 @@ describe('POST /api/share', () => {
 				parameters: { type: 'lorenz', sigma: 10 } // missing rho and beta
 			});
 			await expect(POST(event as never)).rejects.toMatchObject({ status: 400 });
-			expect(ensureProfileForUser).not.toHaveBeenCalled();
+			expect(h.ensureProfileForUser).not.toHaveBeenCalled();
 		});
 
 		test('returns 400 for non-numeric parameter values', async () => {
@@ -185,7 +191,7 @@ describe('POST /api/share', () => {
 
 	describe('rate limiting', () => {
 		test('returns 429 when rate limit is exceeded', async () => {
-			mockRateLimitResult = {
+			h.state.mockRateLimitResult = {
 				success: false,
 				remaining: 0,
 				resetAt: new Date(Date.now() + 3600000),
@@ -199,7 +205,7 @@ describe('POST /api/share', () => {
 		});
 
 		test('returns 429 with default message when error field is missing', async () => {
-			mockRateLimitResult = {
+			h.state.mockRateLimitResult = {
 				success: false,
 				remaining: 0,
 				resetAt: new Date(Date.now() + 3600000)
@@ -225,7 +231,7 @@ describe('POST /api/share', () => {
 
 			await POST(event as never);
 
-			expect(ensureProfileForUser).toHaveBeenCalledWith({ id: 'user-456' });
+			expect(h.ensureProfileForUser).toHaveBeenCalledWith({ id: 'user-456' });
 		});
 
 		test('returns 201 with share data', async () => {
