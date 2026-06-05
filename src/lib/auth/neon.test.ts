@@ -1,14 +1,14 @@
-import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { beforeEach, describe, expect, vi, test } from 'vitest';
 import { normalizeSession } from './types';
 
-const createAuthClient = mock((url: string, config?: unknown) => ({
+const createAuthClient = vi.fn((url: string, config?: unknown) => ({
 	url,
 	config,
 	signIn: {
-		social: mock(async () => ({ data: { url: 'https://oauth.example.test' }, error: null }))
+		social: vi.fn(async () => ({ data: { url: 'https://oauth.example.test' }, error: null }))
 	},
-	signOut: mock(async () => ({ data: null, error: null })),
-	getSession: mock(async () => ({ data: null, error: null }))
+	signOut: vi.fn(async () => ({ data: null, error: null })),
+	getSession: vi.fn(async () => ({ data: null, error: null }))
 }));
 
 describe('neon auth wrapper', () => {
@@ -88,7 +88,7 @@ describe('neon auth wrapper', () => {
 	});
 
 	test('starts Google OAuth with direct Better Auth fetch and captures provider URL plus cookies', async () => {
-		const fetcher = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+		const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
 			expect(String(input)).toBe('https://auth.example.test/auth/sign-in/social');
 			expect(init?.method).toBe('POST');
 			expect(JSON.parse(String(init?.body))).toEqual({
@@ -170,7 +170,7 @@ describe('neon auth wrapper', () => {
 	});
 
 	test('exchanges OAuth verifier, preserves search params, and returns clean redirect URL plus cookies', async () => {
-		const fetcher = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+		const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
 			const url = new URL(String(input));
 			expect(url.origin + url.pathname).toBe('https://auth.example.test/auth/get-session');
 			expect(url.searchParams.get('neon_auth_session_verifier')).toBe('verifier-123');
@@ -212,14 +212,14 @@ describe('neon auth wrapper', () => {
 	});
 
 	test('signs out through direct Better Auth fetch and captures clearing cookies', async () => {
-		const fetcher = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+		const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
 			expect(String(input)).toBe('https://auth.example.test/auth/sign-out');
 			expect(init?.method).toBe('POST');
 			expect(new Headers(init?.headers).get('cookie')).toBe('__Secure-neon-auth.session=abc');
 			expect(new Headers(init?.headers).get('content-type')).toBe('application/json');
 			expect(init?.body).toBe('{}');
 
-			return new Response('{}', {
+			return new Response(null, {
 				status: 204,
 				headers: {
 					'set-cookie':
@@ -248,7 +248,7 @@ describe('neon auth wrapper', () => {
 
 	test('returns defensive clearing cookies when direct Better Auth signout fetch throws', async () => {
 		const error = new Error('upstream unavailable');
-		const fetcher = mock(async () => {
+		const fetcher = vi.fn(async () => {
 			throw error;
 		});
 
@@ -275,7 +275,7 @@ describe('neon auth wrapper', () => {
 	});
 
 	test('uses defensive clearing cookies when direct Better Auth signout fails without Set-Cookie', async () => {
-		const fetcher = mock(async () => {
+		const fetcher = vi.fn(async () => {
 			return new Response(JSON.stringify({ error: 'unavailable' }), { status: 502 });
 		});
 
@@ -335,7 +335,7 @@ describe('neon auth wrapper', () => {
 
 	test('startGoogleOAuth returns error when fetch throws', async () => {
 		const error = new Error('network failure');
-		const fetcher = mock(async () => {
+		const fetcher = vi.fn(async () => {
 			throw error;
 		});
 
@@ -357,7 +357,7 @@ describe('neon auth wrapper', () => {
 
 	test('exchangeOAuthVerifier returns error when fetch throws', async () => {
 		const error = new Error('network failure');
-		const fetcher = mock(async () => {
+		const fetcher = vi.fn(async () => {
 			throw error;
 		});
 
