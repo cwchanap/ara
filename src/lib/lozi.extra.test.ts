@@ -11,7 +11,7 @@
  * - large iteration count correctness
  */
 
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { calculateLozi, calculateLoziTuples } from './lozi';
 
 describe('calculateLozi – additional edge cases', () => {

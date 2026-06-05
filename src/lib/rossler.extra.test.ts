@@ -11,7 +11,7 @@
  * - large number of steps
  */
 
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { calculateRossler } from './rossler';
 
 describe('calculateRossler – additional edge cases', () => {
