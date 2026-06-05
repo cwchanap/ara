@@ -4,25 +4,49 @@ import { resolve } from 'path';
 
 export default defineConfig({
 	plugins: [sveltekit()],
+	resolve: {
+		alias: { $lib: resolve('./src/lib') },
+		conditions: ['browser']
+	},
 	test: {
-		// Include all vitest tests (component, route, and lib tests) using .vitest.ts extension to avoid bun:test conflicts
-		include: ['src/**/*.vitest.ts'],
 		globals: true,
-		environment: 'jsdom',
-		setupFiles: ['./vitest.setup.ts'],
 		coverage: {
 			include: ['src/**/*.{ts,svelte}'],
-			exclude: ['src/**/*.test.ts', 'src/**/*.vitest.ts'],
+			exclude: [
+				'src/**/*.test.ts',
+				'src/**/*.svelte.test.ts',
+				'src/**/*.vitest.ts',
+				'src/test-setup.ts',
+				'src/lib/constants.ts',
+				'src/lib/workers/types.ts',
+				'src/lib/index.ts',
+				'**/*.d.ts'
+			],
 			extension: ['.ts', '.svelte']
 		},
-		alias: {
-			$lib: resolve('./src/lib')
-		}
-	},
-	resolve: {
-		alias: {
-			$lib: resolve('./src/lib')
-		},
-		conditions: ['browser']
+		projects: [
+			{
+				extends: true,
+				test: {
+					name: 'node',
+					environment: 'node',
+					include: ['src/**/*.test.ts'],
+					exclude: ['src/**/*.svelte.test.ts', 'src/**/*.vitest.ts'],
+					setupFiles: ['./vitest.setup.node.ts'],
+					alias: { $lib: resolve('./src/lib') }
+				}
+			},
+			{
+				extends: true,
+				test: {
+					name: 'jsdom',
+					environment: 'jsdom',
+					// TEMP: *.vitest.ts kept until Phase 6 renames them; remove in Task 25.
+					include: ['src/**/*.svelte.test.ts', 'src/**/*.vitest.ts'],
+					setupFiles: ['./vitest.setup.ts'],
+					alias: { $lib: resolve('./src/lib') }
+				}
+			}
+		]
 	}
 });
