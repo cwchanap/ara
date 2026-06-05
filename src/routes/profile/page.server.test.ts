@@ -1,76 +1,66 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, vi, test } from 'vitest';
 
-const selectQueue: unknown[][] = [];
-const updateReturnQueue: unknown[][] = [];
-let insertShouldThrow: Error | null = null;
-let updateShouldThrow: Error | null = null;
-
-const selectMock = mock(() => {
-	const chain: Record<string, unknown> = {
-		from: mock(() => chain),
-		where: mock(() => chain),
-		limit: mock(async () => selectQueue.shift() ?? [])
+const h = vi.hoisted(() => {
+	const state = {
+		selectQueue: [] as unknown[][],
+		updateReturnQueue: [] as unknown[][],
+		insertShouldThrow: null as Error | null,
+		updateShouldThrow: null as Error | null
 	};
-	return chain;
+
+	const selectMock = vi.fn(() => {
+		const chain: Record<string, unknown> = {
+			from: vi.fn(() => chain),
+			where: vi.fn(() => chain),
+			limit: vi.fn(async () => state.selectQueue.shift() ?? [])
+		};
+		return chain;
+	});
+
+	const updateMock = vi.fn(() => ({
+		set: vi.fn(() => ({
+			where: vi.fn(() => ({
+				returning: vi.fn(async () => {
+					if (state.updateShouldThrow) {
+						const err = state.updateShouldThrow;
+						state.updateShouldThrow = null;
+						throw err;
+					}
+					return state.updateReturnQueue.shift() ?? [];
+				})
+			}))
+		}))
+	}));
+
+	const insertMock = vi.fn(() => ({
+		values: vi.fn(async () => {
+			if (state.insertShouldThrow) {
+				const err = state.insertShouldThrow;
+				state.insertShouldThrow = null;
+				throw err;
+			}
+		})
+	}));
+
+	return { state, selectMock, updateMock, insertMock };
 });
 
-const updateMock = mock(() => ({
-	set: mock(() => ({
-		where: mock(() => ({
-			returning: mock(async () => {
-				if (updateShouldThrow) {
-					const err = updateShouldThrow;
-					updateShouldThrow = null;
-					throw err;
-				}
-				return updateReturnQueue.shift() ?? [];
-			})
-		}))
-	}))
-}));
-
-const insertMock = mock(() => ({
-	values: mock(async () => {
-		if (insertShouldThrow) {
-			const err = insertShouldThrow;
-			insertShouldThrow = null;
-			throw err;
-		}
-	})
-}));
-
-mock.module('$lib/server/db', () => ({
+vi.mock('$lib/server/db', () => ({
 	db: {
-		select: selectMock,
-		update: updateMock,
-		insert: insertMock
+		select: h.selectMock,
+		update: h.updateMock,
+		insert: h.insertMock
 	},
 	profiles: { id: 'id', username: 'username' },
 	savedConfigurations: {},
 	sharedConfigurations: {}
 }));
 
-mock.module('drizzle-orm', () => ({
-	eq: (a: unknown, b: unknown) => ({ eq: [a, b] })
-}));
-
-const upstreamFetch = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-	void input;
-	void init;
-	return new Response('{}', {
-		status: 204,
-		headers: {
-			'set-cookie':
-				'__Secure-neon-auth.session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax'
-		}
-	});
-});
-
-mock.module('$env/dynamic/private', () => ({
+vi.mock('$env/dynamic/private', () => ({
 	env: { NEON_AUTH_BASE_URL: 'https://auth.example.test/auth' }
 }));
 
-mock.module('$env/dynamic/public', () => ({
+vi.mock('$env/dynamic/public', () => ({
 	env: {}
 }));
 
@@ -93,18 +83,30 @@ function makeRequest(fields: Record<string, string>) {
 
 const originalFetch = globalThis.fetch;
 
+const upstreamFetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+	void input;
+	void init;
+	return new Response('{}', {
+		status: 200,
+		headers: {
+			'set-cookie':
+				'__Secure-neon-auth.session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax'
+		}
+	});
+});
+
 beforeEach(() => {
-	selectQueue.length = 0;
-	updateReturnQueue.length = 0;
-	insertShouldThrow = null;
-	updateShouldThrow = null;
-	selectMock.mockClear();
-	updateMock.mockClear();
-	insertMock.mockClear();
+	h.state.selectQueue.length = 0;
+	h.state.updateReturnQueue.length = 0;
+	h.state.insertShouldThrow = null;
+	h.state.updateShouldThrow = null;
+	h.selectMock.mockClear();
+	h.updateMock.mockClear();
+	h.insertMock.mockClear();
 	upstreamFetch.mockClear();
 	upstreamFetch.mockResolvedValue(
 		new Response('{}', {
-			status: 204,
+			status: 200,
 			headers: {
 				'set-cookie':
 					'__Secure-neon-auth.session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax'
@@ -129,7 +131,7 @@ describe('profile page load', () => {
 	});
 
 	test('returns session, user, and profile for authenticated users', async () => {
-		selectQueue.push([{ id: 'user-1', username: 'testuser' }]);
+		h.state.selectQueue.push([{ id: 'user-1', username: 'testuser' }]);
 
 		const result = await load({
 			locals: makeLocals(),
@@ -144,14 +146,14 @@ describe('profile page load', () => {
 	});
 
 	test('auto-provisions a profile when not found in database', async () => {
-		selectQueue.push([]);
+		h.state.selectQueue.push([]);
 
 		const result = await load({
 			locals: makeLocals(),
 			url: new URL('http://localhost/profile')
 		} as unknown as Parameters<typeof load>[0]);
 
-		expect(insertMock).toHaveBeenCalled();
+		expect(h.insertMock).toHaveBeenCalled();
 		expect(result).toMatchObject({
 			profile: {
 				id: 'user-1',
@@ -184,7 +186,7 @@ describe('profile update action', () => {
 	});
 
 	test('returns 400 when username is already taken by another user', async () => {
-		selectQueue.push([{ id: 'other-user' }]);
+		h.state.selectQueue.push([{ id: 'other-user' }]);
 
 		const result = await actions.update({
 			locals: makeLocals(),
@@ -198,8 +200,8 @@ describe('profile update action', () => {
 	});
 
 	test('returns success and updated username on valid update', async () => {
-		selectQueue.push([]);
-		updateReturnQueue.push([{ id: 'user-1' }]);
+		h.state.selectQueue.push([]);
+		h.state.updateReturnQueue.push([{ id: 'user-1' }]);
 
 		const result = await actions.update({
 			locals: makeLocals(),
@@ -210,21 +212,21 @@ describe('profile update action', () => {
 	});
 
 	test('inserts new profile when update finds no existing row', async () => {
-		selectQueue.push([]);
-		updateReturnQueue.push([]);
+		h.state.selectQueue.push([]);
+		h.state.updateReturnQueue.push([]);
 
 		const result = await actions.update({
 			locals: makeLocals(),
 			request: makeRequest({ username: 'brandnew' })
 		} as unknown as Parameters<(typeof actions)['update']>[0]);
 
-		expect(insertMock).toHaveBeenCalled();
+		expect(h.insertMock).toHaveBeenCalled();
 		expect(result).toMatchObject({ updateSuccess: true });
 	});
 
 	test('returns 400 when database update throws', async () => {
-		selectQueue.push([]);
-		updateShouldThrow = new Error('DB connection failed');
+		h.state.selectQueue.push([]);
+		h.state.updateShouldThrow = new Error('DB connection failed');
 
 		const result = await actions.update({
 			locals: makeLocals(),
@@ -266,7 +268,7 @@ describe('profile update action', () => {
 describe('profile signout action', () => {
 	test('calls direct Neon Auth signout, applies clearing cookies, and redirects to login', async () => {
 		const request = new Request('http://localhost/profile', { method: 'POST' });
-		const cookies = { set: mock(() => {}) };
+		const cookies = { set: vi.fn(() => {}) };
 
 		await expect(
 			actions.signout({
@@ -308,13 +310,13 @@ describe('profile signout action', () => {
 			})
 		);
 		const originalConsoleError = console.error;
-		console.error = mock(() => {});
+		console.error = vi.fn(() => {});
 
 		try {
 			await expect(
 				actions.signout({
 					locals: makeLocals(),
-					cookies: { set: mock(() => {}) },
+					cookies: { set: vi.fn(() => {}) },
 					request: new Request('http://localhost/profile', { method: 'POST' })
 				} as unknown as Parameters<(typeof actions)['signout']>[0])
 			).rejects.toMatchObject({ status: 303, location: '/login' });
@@ -331,9 +333,9 @@ describe('profile signout action', () => {
 		upstreamFetch.mockImplementationOnce(async () => {
 			throw error;
 		});
-		const cookies = { set: mock(() => {}) };
+		const cookies = { set: vi.fn(() => {}) };
 		const originalConsoleError = console.error;
-		console.error = mock(() => {});
+		console.error = vi.fn(() => {});
 
 		try {
 			await expect(

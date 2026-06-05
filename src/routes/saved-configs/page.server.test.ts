@@ -8,87 +8,93 @@
  *  - rename action: auth guard, name validation, ownership check, DB update, error handling
  */
 
-import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { beforeEach, describe, expect, vi, test } from 'vitest';
 
-// ── DB mock state ─────────────────────────────────────────────────────────────
+// ── Hoisted mock state ────────────────────────────────────────────────────────
 
-const selectQueue: unknown[][] = [];
-const insertQueue: unknown[][] = [];
-let deleteShouldThrow: Error | null = null;
-let updateShouldThrow: Error | null = null;
-let insertShouldThrow: Error | null = null;
-let lastInsertedValues: Record<string, unknown> | null = null;
-let lastUpdatedValues: Record<string, unknown> | null = null;
-let operationLog: string[] = [];
-
-const ensureProfileForUser = mock(async () => {
-	operationLog.push('provision');
-	return {
-		id: 'user-1',
-		username: 'user_1',
-		createdAt: '2026-01-01T00:00:00.000Z',
-		updatedAt: '2026-01-01T00:00:00.000Z'
+const h = vi.hoisted(() => {
+	const state = {
+		selectQueue: [] as unknown[][],
+		insertQueue: [] as unknown[][],
+		deleteShouldThrow: null as Error | null,
+		updateShouldThrow: null as Error | null,
+		insertShouldThrow: null as Error | null,
+		lastInsertedValues: null as Record<string, unknown> | null,
+		lastUpdatedValues: null as Record<string, unknown> | null,
+		operationLog: [] as string[]
 	};
-});
 
-const selectMock = mock(() => {
-	const chain: Record<string, unknown> = {
-		from: mock(() => chain),
-		where: mock(() => chain),
-		orderBy: mock(async () => selectQueue.shift() ?? []),
-		limit: mock(async () => selectQueue.shift() ?? [])
-	};
-	return chain;
-});
-
-const insertMock = mock(() => ({
-	values: (vals: Record<string, unknown>) => {
-		operationLog.push('insert');
-		lastInsertedValues = vals;
+	const ensureProfileForUser = vi.fn(async () => {
+		state.operationLog.push('provision');
 		return {
-			returning: mock(async () => {
-				if (insertShouldThrow) {
-					const e = insertShouldThrow;
-					insertShouldThrow = null;
-					throw e;
-				}
-				return insertQueue.shift() ?? [{ id: 'new-config-id' }];
-			})
+			id: 'user-1',
+			username: 'user_1',
+			createdAt: '2026-01-01T00:00:00.000Z',
+			updatedAt: '2026-01-01T00:00:00.000Z'
 		};
-	}
-}));
+	});
 
-const updateMock = mock(() => ({
-	set: mock((vals: Record<string, unknown>) => {
-		lastUpdatedValues = vals;
-		return {
-			where: mock(async () => {
-				if (updateShouldThrow) {
-					const e = updateShouldThrow;
-					updateShouldThrow = null;
-					throw e;
-				}
-			})
+	const selectMock = vi.fn(() => {
+		const chain: Record<string, unknown> = {
+			from: vi.fn(() => chain),
+			where: vi.fn(() => chain),
+			orderBy: vi.fn(async () => state.selectQueue.shift() ?? []),
+			limit: vi.fn(async () => state.selectQueue.shift() ?? [])
 		};
-	})
-}));
+		return chain;
+	});
 
-const deleteMock = mock(() => ({
-	where: mock(async () => {
-		if (deleteShouldThrow) {
-			const e = deleteShouldThrow;
-			deleteShouldThrow = null;
-			throw e;
+	const insertMock = vi.fn(() => ({
+		values: (vals: Record<string, unknown>) => {
+			state.operationLog.push('insert');
+			state.lastInsertedValues = vals;
+			return {
+				returning: vi.fn(async () => {
+					if (state.insertShouldThrow) {
+						const e = state.insertShouldThrow;
+						state.insertShouldThrow = null;
+						throw e;
+					}
+					return state.insertQueue.shift() ?? [{ id: 'new-config-id' }];
+				})
+			};
 		}
-	})
-}));
+	}));
 
-mock.module('$lib/server/db', () => ({
+	const updateMock = vi.fn(() => ({
+		set: vi.fn((vals: Record<string, unknown>) => {
+			state.lastUpdatedValues = vals;
+			return {
+				where: vi.fn(async () => {
+					if (state.updateShouldThrow) {
+						const e = state.updateShouldThrow;
+						state.updateShouldThrow = null;
+						throw e;
+					}
+				})
+			};
+		})
+	}));
+
+	const deleteMock = vi.fn(() => ({
+		where: vi.fn(async () => {
+			if (state.deleteShouldThrow) {
+				const e = state.deleteShouldThrow;
+				state.deleteShouldThrow = null;
+				throw e;
+			}
+		})
+	}));
+
+	return { state, ensureProfileForUser, selectMock, insertMock, updateMock, deleteMock };
+});
+
+vi.mock('$lib/server/db', () => ({
 	db: {
-		select: selectMock,
-		insert: insertMock,
-		update: updateMock,
-		delete: deleteMock
+		select: h.selectMock,
+		insert: h.insertMock,
+		update: h.updateMock,
+		delete: h.deleteMock
 	},
 	savedConfigurations: {
 		id: 'id',
@@ -102,13 +108,8 @@ mock.module('$lib/server/db', () => ({
 	profiles: {}
 }));
 
-mock.module('$lib/server/profile-provisioning', () => ({
-	ensureProfileForUser
-}));
-
-mock.module('drizzle-orm', () => ({
-	eq: (a: unknown, b: unknown) => ({ eq: [a, b] }),
-	desc: (a: unknown) => ({ desc: a })
+vi.mock('$lib/server/profile-provisioning', () => ({
+	ensureProfileForUser: h.ensureProfileForUser
 }));
 
 // Dynamic import AFTER mock registration.
@@ -156,19 +157,19 @@ function makeDbConfig(overrides: Record<string, unknown> = {}) {
 }
 
 beforeEach(() => {
-	selectQueue.length = 0;
-	insertQueue.length = 0;
-	deleteShouldThrow = null;
-	updateShouldThrow = null;
-	insertShouldThrow = null;
-	lastInsertedValues = null;
-	lastUpdatedValues = null;
-	operationLog = [];
-	selectMock.mockClear();
-	insertMock.mockClear();
-	updateMock.mockClear();
-	deleteMock.mockClear();
-	ensureProfileForUser.mockClear();
+	h.state.selectQueue.length = 0;
+	h.state.insertQueue.length = 0;
+	h.state.deleteShouldThrow = null;
+	h.state.updateShouldThrow = null;
+	h.state.insertShouldThrow = null;
+	h.state.lastInsertedValues = null;
+	h.state.lastUpdatedValues = null;
+	h.state.operationLog = [];
+	h.selectMock.mockClear();
+	h.insertMock.mockClear();
+	h.updateMock.mockClear();
+	h.deleteMock.mockClear();
+	h.ensureProfileForUser.mockClear();
 });
 
 // ── load ──────────────────────────────────────────────────────────────────────
@@ -184,7 +185,7 @@ describe('saved-configs load', () => {
 	});
 
 	test('returns empty configurations array when user has none', async () => {
-		selectQueue.push([]); // DB returns empty
+		h.state.selectQueue.push([]); // DB returns empty
 		const result = (await load({
 			locals: makeLocals(),
 			url: makeUrl()
@@ -195,7 +196,7 @@ describe('saved-configs load', () => {
 	});
 
 	test('returns typed configurations for valid DB rows', async () => {
-		selectQueue.push([makeDbConfig()]);
+		h.state.selectQueue.push([makeDbConfig()]);
 		const result = (await load({
 			locals: makeLocals(),
 			url: makeUrl()
@@ -208,7 +209,7 @@ describe('saved-configs load', () => {
 	});
 
 	test('filters out configurations with invalid parameters', async () => {
-		selectQueue.push([
+		h.state.selectQueue.push([
 			makeDbConfig({ parameters: { type: 'lorenz', sigma: 'bad' } }), // invalid
 			makeDbConfig({
 				id: 'config-2',
@@ -226,7 +227,7 @@ describe('saved-configs load', () => {
 	});
 
 	test('returns multiple valid configurations', async () => {
-		selectQueue.push([
+		h.state.selectQueue.push([
 			makeDbConfig({ id: 'c1' }),
 			makeDbConfig({
 				id: 'c2',
@@ -258,8 +259,8 @@ describe('saved-configs save action', () => {
 			request: makeRequest({ name: 'Test', mapType: 'lorenz', parameters: '{}' })
 		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({ status: 401 });
-		expect(ensureProfileForUser).not.toHaveBeenCalled();
-		expect(operationLog).toEqual([]);
+		expect(h.ensureProfileForUser).not.toHaveBeenCalled();
+		expect(h.state.operationLog).toEqual([]);
 	});
 
 	test('returns 400 when name is missing', async () => {
@@ -268,8 +269,8 @@ describe('saved-configs save action', () => {
 			request: makeRequest({ name: '', mapType: 'lorenz', parameters: '{}' })
 		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({ status: 400, data: { saveError: expect.any(String) } });
-		expect(ensureProfileForUser).not.toHaveBeenCalled();
-		expect(operationLog).toEqual([]);
+		expect(h.ensureProfileForUser).not.toHaveBeenCalled();
+		expect(h.state.operationLog).toEqual([]);
 	});
 
 	test('returns 400 when name is only whitespace', async () => {
@@ -296,7 +297,7 @@ describe('saved-configs save action', () => {
 	});
 
 	test('accepts name exactly 100 characters long', async () => {
-		insertQueue.push([{ id: 'new-id' }]);
+		h.state.insertQueue.push([{ id: 'new-id' }]);
 		const result = await actions.save({
 			locals: makeLocals(),
 			request: makeRequest({
@@ -317,8 +318,8 @@ describe('saved-configs save action', () => {
 			status: 400,
 			data: { saveError: expect.stringContaining('Invalid map type') }
 		});
-		expect(ensureProfileForUser).not.toHaveBeenCalled();
-		expect(operationLog).toEqual([]);
+		expect(h.ensureProfileForUser).not.toHaveBeenCalled();
+		expect(h.state.operationLog).toEqual([]);
 	});
 
 	test('returns 400 when parameters field is missing', async () => {
@@ -353,12 +354,12 @@ describe('saved-configs save action', () => {
 			status: 400,
 			data: { saveError: expect.stringContaining('Invalid parameters') }
 		});
-		expect(ensureProfileForUser).not.toHaveBeenCalled();
-		expect(operationLog).toEqual([]);
+		expect(h.ensureProfileForUser).not.toHaveBeenCalled();
+		expect(h.state.operationLog).toEqual([]);
 	});
 
 	test('returns 201 with configurationId on successful save', async () => {
-		insertQueue.push([{ id: 'saved-config-id' }]);
+		h.state.insertQueue.push([{ id: 'saved-config-id' }]);
 		const result = await actions.save({
 			locals: makeLocals(),
 			request: makeRequest({
@@ -371,7 +372,7 @@ describe('saved-configs save action', () => {
 	});
 
 	test('ensures the authenticated user has a profile before inserting', async () => {
-		insertQueue.push([{ id: 'saved-config-id' }]);
+		h.state.insertQueue.push([{ id: 'saved-config-id' }]);
 		const result = await actions.save({
 			locals: makeLocals({ userId: 'first-google-user' }),
 			request: makeRequest({
@@ -382,12 +383,12 @@ describe('saved-configs save action', () => {
 		} as unknown as Parameters<typeof load>[0]);
 
 		expect(result).toMatchObject({ success: true });
-		expect(ensureProfileForUser).toHaveBeenCalledWith({ id: 'first-google-user' });
-		expect(operationLog).toEqual(['provision', 'insert']);
+		expect(h.ensureProfileForUser).toHaveBeenCalledWith({ id: 'first-google-user' });
+		expect(h.state.operationLog).toEqual(['provision', 'insert']);
 	});
 
 	test('trims whitespace from name before saving', async () => {
-		insertQueue.push([{ id: 'new-id' }]);
+		h.state.insertQueue.push([{ id: 'new-id' }]);
 		await actions.save({
 			locals: makeLocals(),
 			request: makeRequest({
@@ -396,11 +397,11 @@ describe('saved-configs save action', () => {
 				parameters: JSON.stringify({ type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 })
 			})
 		} as unknown as Parameters<typeof load>[0]);
-		expect(lastInsertedValues?.name).toBe('Trimmed Config');
+		expect(h.state.lastInsertedValues?.name).toBe('Trimmed Config');
 	});
 
 	test('returns 500 when DB insert fails', async () => {
-		insertShouldThrow = new Error('DB connection failed');
+		h.state.insertShouldThrow = new Error('DB connection failed');
 		const result = await actions.save({
 			locals: makeLocals(),
 			request: makeRequest({
@@ -413,7 +414,7 @@ describe('saved-configs save action', () => {
 	});
 
 	test('saves rossler configuration successfully', async () => {
-		insertQueue.push([{ id: 'rossler-id' }]);
+		h.state.insertQueue.push([{ id: 'rossler-id' }]);
 		const result = await actions.save({
 			locals: makeLocals(),
 			request: makeRequest({
@@ -426,7 +427,7 @@ describe('saved-configs save action', () => {
 	});
 
 	test('saves henon configuration successfully', async () => {
-		insertQueue.push([{ id: 'henon-id' }]);
+		h.state.insertQueue.push([{ id: 'henon-id' }]);
 		const result = await actions.save({
 			locals: makeLocals(),
 			request: makeRequest({
@@ -459,7 +460,7 @@ describe('saved-configs delete action', () => {
 	});
 
 	test('returns 404 when configuration does not exist', async () => {
-		selectQueue.push([]); // no rows found
+		h.state.selectQueue.push([]); // no rows found
 		const result = await actions.delete({
 			locals: makeLocals(),
 			request: makeRequest({ configurationId: 'nonexistent-id' })
@@ -468,7 +469,7 @@ describe('saved-configs delete action', () => {
 	});
 
 	test('returns 403 when configuration belongs to another user', async () => {
-		selectQueue.push([{ id: 'config-1', userId: 'other-user' }]);
+		h.state.selectQueue.push([{ id: 'config-1', userId: 'other-user' }]);
 		const result = await actions.delete({
 			locals: makeLocals({ userId: 'requesting-user' }),
 			request: makeRequest({ configurationId: 'config-1' })
@@ -477,18 +478,18 @@ describe('saved-configs delete action', () => {
 	});
 
 	test('returns deleteSuccess: true on successful deletion', async () => {
-		selectQueue.push([{ id: 'config-1', userId: 'user-1' }]);
+		h.state.selectQueue.push([{ id: 'config-1', userId: 'user-1' }]);
 		const result = await actions.delete({
 			locals: makeLocals({ userId: 'user-1' }),
 			request: makeRequest({ configurationId: 'config-1' })
 		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({ deleteSuccess: true });
-		expect(deleteMock).toHaveBeenCalledTimes(1);
+		expect(h.deleteMock).toHaveBeenCalledTimes(1);
 	});
 
 	test('returns 500 when DB delete throws', async () => {
-		selectQueue.push([{ id: 'config-1', userId: 'user-1' }]);
-		deleteShouldThrow = new Error('DB error');
+		h.state.selectQueue.push([{ id: 'config-1', userId: 'user-1' }]);
+		h.state.deleteShouldThrow = new Error('DB error');
 		const result = await actions.delete({
 			locals: makeLocals({ userId: 'user-1' }),
 			request: makeRequest({ configurationId: 'config-1' })
@@ -536,7 +537,7 @@ describe('saved-configs rename action', () => {
 	});
 
 	test('returns 404 when configuration does not exist', async () => {
-		selectQueue.push([]); // no rows found
+		h.state.selectQueue.push([]); // no rows found
 		const result = await actions.rename({
 			locals: makeLocals(),
 			request: makeRequest({ configurationId: 'nonexistent-id', name: 'New Name' })
@@ -545,7 +546,7 @@ describe('saved-configs rename action', () => {
 	});
 
 	test('returns 403 when configuration belongs to another user', async () => {
-		selectQueue.push([{ id: 'config-1', userId: 'other-user' }]);
+		h.state.selectQueue.push([{ id: 'config-1', userId: 'other-user' }]);
 		const result = await actions.rename({
 			locals: makeLocals({ userId: 'requesting-user' }),
 			request: makeRequest({ configurationId: 'config-1', name: 'New Name' })
@@ -554,28 +555,28 @@ describe('saved-configs rename action', () => {
 	});
 
 	test('returns renameSuccess with new name on successful rename', async () => {
-		selectQueue.push([{ id: 'config-1', userId: 'user-1' }]);
+		h.state.selectQueue.push([{ id: 'config-1', userId: 'user-1' }]);
 		const result = await actions.rename({
 			locals: makeLocals({ userId: 'user-1' }),
 			request: makeRequest({ configurationId: 'config-1', name: 'Renamed Config' })
 		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({ renameSuccess: true, name: 'Renamed Config' });
-		expect(updateMock).toHaveBeenCalledTimes(1);
+		expect(h.updateMock).toHaveBeenCalledTimes(1);
 	});
 
 	test('trims whitespace from new name', async () => {
-		selectQueue.push([{ id: 'config-1', userId: 'user-1' }]);
+		h.state.selectQueue.push([{ id: 'config-1', userId: 'user-1' }]);
 		const result = await actions.rename({
 			locals: makeLocals({ userId: 'user-1' }),
 			request: makeRequest({ configurationId: 'config-1', name: '  Trimmed Name  ' })
 		} as unknown as Parameters<typeof load>[0]);
 		expect(result).toMatchObject({ renameSuccess: true, name: 'Trimmed Name' });
-		expect(lastUpdatedValues?.name).toBe('Trimmed Name');
+		expect(h.state.lastUpdatedValues?.name).toBe('Trimmed Name');
 	});
 
 	test('returns 500 when DB update throws', async () => {
-		selectQueue.push([{ id: 'config-1', userId: 'user-1' }]);
-		updateShouldThrow = new Error('DB error');
+		h.state.selectQueue.push([{ id: 'config-1', userId: 'user-1' }]);
+		h.state.updateShouldThrow = new Error('DB error');
 		const result = await actions.rename({
 			locals: makeLocals({ userId: 'user-1' }),
 			request: makeRequest({ configurationId: 'config-1', name: 'New Name' })
@@ -584,7 +585,7 @@ describe('saved-configs rename action', () => {
 	});
 
 	test('accepts name exactly 100 characters', async () => {
-		selectQueue.push([{ id: 'config-1', userId: 'user-1' }]);
+		h.state.selectQueue.push([{ id: 'config-1', userId: 'user-1' }]);
 		const result = await actions.rename({
 			locals: makeLocals({ userId: 'user-1' }),
 			request: makeRequest({ configurationId: 'config-1', name: 'a'.repeat(100) })
@@ -598,7 +599,7 @@ describe('saved-configs rename action', () => {
 describe('saved-configs load – all configs invalid', () => {
 	test('returns empty array when every DB config fails parameter validation', async () => {
 		// Two configs both have invalid parameters — both must be filtered out.
-		selectQueue.push([
+		h.state.selectQueue.push([
 			makeDbConfig({ mapType: 'lorenz', parameters: { type: 'lorenz', sigma: 'bad' } }),
 			makeDbConfig({
 				id: 'config-2',
@@ -632,7 +633,7 @@ describe('saved-configs save action – parametersJson not a string', () => {
 describe('saved-configs rename action – name not a string from FormData', () => {
 	test('returns 400 when name is null (FormData missing value)', async () => {
 		// FormData.get('name') returns null when the field is missing.
-		selectQueue.push([makeDbConfig()]); // ownership check passes
+		h.state.selectQueue.push([makeDbConfig()]); // ownership check passes
 		const fd = new FormData();
 		fd.set('configurationId', 'config-1');
 		// omit name → fd.get('name') === null → typeof null !== 'string' → 400

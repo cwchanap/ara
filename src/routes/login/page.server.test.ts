@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, vi, test } from 'vitest';
 
-const upstreamFetch = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+const upstreamFetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
 	void input;
 	void init;
 	return new Response(
@@ -15,11 +15,11 @@ const upstreamFetch = mock(async (input: RequestInfo | URL, init?: RequestInit) 
 	);
 });
 
-mock.module('$env/dynamic/private', () => ({
+vi.mock('$env/dynamic/private', () => ({
 	env: { NEON_AUTH_BASE_URL: 'https://auth.example.test/auth' }
 }));
 
-mock.module('$env/dynamic/public', () => ({
+vi.mock('$env/dynamic/public', () => ({
 	env: {}
 }));
 
@@ -92,7 +92,7 @@ describe('login default action', () => {
 			method: 'POST',
 			body: new FormData()
 		});
-		const cookies = { set: mock(() => {}) };
+		const cookies = { set: vi.fn(() => {}) };
 
 		await expect(
 			actions.default({
@@ -139,7 +139,7 @@ describe('login default action', () => {
 		await expect(
 			actions.default({
 				locals: makeLocals(),
-				cookies: { set: mock(() => {}) },
+				cookies: { set: vi.fn(() => {}) },
 				request,
 				url: new URL('http://localhost/login?redirect=%2F%2Fevil.example')
 			} as unknown as Parameters<(typeof actions)['default']>[0])
@@ -157,7 +157,7 @@ describe('login default action', () => {
 		await expect(
 			actions.default({
 				locals: makeLocals({ hasSession: true }),
-				cookies: { set: mock(() => {}) },
+				cookies: { set: vi.fn(() => {}) },
 				request: new Request('http://localhost/login?redirect=%2Fsaved-configs', {
 					method: 'POST',
 					body: new FormData()
@@ -176,7 +176,7 @@ describe('login default action', () => {
 
 		const result = await actions.default({
 			locals: makeLocals(),
-			cookies: { set: mock(() => {}) },
+			cookies: { set: vi.fn(() => {}) },
 			request: new Request('http://localhost/login', {
 				method: 'POST',
 				body: new FormData()
@@ -197,7 +197,7 @@ describe('login default action', () => {
 
 		const result = await actions.default({
 			locals: makeLocals(),
-			cookies: { set: mock(() => {}) },
+			cookies: { set: vi.fn(() => {}) },
 			request: new Request('http://localhost/login', {
 				method: 'POST',
 				body: new FormData()
