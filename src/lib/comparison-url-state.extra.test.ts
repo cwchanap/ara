@@ -12,7 +12,7 @@
  * - decodeComparisonState with compare=1 (not 'true')
  */
 
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import {
 	decodeComparisonState,
 	encodeComparisonState,

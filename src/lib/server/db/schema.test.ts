@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { getTableConfig } from 'drizzle-orm/pg-core';
 import { profiles, savedConfigurations, sharedConfigurations } from './schema';
 import { VALID_MAP_TYPES } from '$lib/types';
@@ -19,7 +19,7 @@ describe('database auth user id columns', () => {
 });
 
 describe('migration map_type constraints include all VALID_MAP_TYPES', () => {
-	const migrationDir = resolve(import.meta.dir, '../../../../drizzle');
+	const migrationDir = resolve(import.meta.dirname, '../../../../drizzle');
 
 	test('saved_configurations constraint covers all VALID_MAP_TYPES', () => {
 		const sql = readFileSync(resolve(migrationDir, '0006_add_chua_map_type.sql'), 'utf-8');

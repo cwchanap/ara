@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 
 describe('@neondatabase/auth contract', () => {
 	test('exports the vanilla auth client used by the SvelteKit adapter', async () => {

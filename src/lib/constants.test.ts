@@ -5,7 +5,7 @@
  * important invariants (ranges, types, relationships).
  */
 
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import {
 	SLIDER_DEBOUNCE_MS,
 	TOAST_SUCCESS_DURATION_MS,

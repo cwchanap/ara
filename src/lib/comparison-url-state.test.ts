@@ -4,7 +4,7 @@
  * Tests the URL state management functions for comparison mode.
  */
 
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import {
 	getDefaultParameters,
 	encodeComparisonState,

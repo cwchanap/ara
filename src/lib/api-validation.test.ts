@@ -5,7 +5,7 @@
  * These are unit tests for the validation functions.
  */
 
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { validateParameters } from './chaos-validation';
 import { VALID_MAP_TYPES } from './types';
 import type { ChaosMapType } from './types';

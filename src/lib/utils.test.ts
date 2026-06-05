@@ -4,7 +4,7 @@
  * Tests the `cn()` class merging utility function.
  */
 
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { cn } from './utils';
 
 describe('cn', () => {
