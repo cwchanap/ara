@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { checkParameterStability, getStableRanges, isValidMapType } from './chaos-validation';
 import { getDefaultParameters } from './comparison-url-state';
 import type { ChuaParameters } from './types';

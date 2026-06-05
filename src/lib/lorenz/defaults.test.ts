@@ -1,5 +1,5 @@
 // src/lib/lorenz/defaults.test.ts
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { LORENZ_DEFAULTS, withLorenzDefaults } from './defaults';
 
 describe('withLorenzDefaults', () => {

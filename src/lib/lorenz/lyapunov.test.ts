@@ -1,5 +1,5 @@
 // src/lib/lorenz/lyapunov.test.ts
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { estimateLargestLyapunov, LYAPUNOV_STEPS } from './lyapunov';
 import type { LorenzIntegrationParams } from './integrators';
 

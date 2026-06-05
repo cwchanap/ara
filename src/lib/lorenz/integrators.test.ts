@@ -1,5 +1,5 @@
 // src/lib/lorenz/integrators.test.ts
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { lorenzDeriv, step, integrate } from './integrators';
 import type { LorenzIntegrationParams } from './integrators';
 
