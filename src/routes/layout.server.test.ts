@@ -5,7 +5,7 @@
  * dependency and passes the session/user from safeGetSession to the page.
  */
 
-import { describe, expect, mock, test } from 'bun:test';
+import { describe, expect, vi, test } from 'vitest';
 
 const { load } = await import('./+layout.server');
 
@@ -22,7 +22,7 @@ function makeEvent({
 		locals: {
 			safeGetSession: async () => ({ session, user })
 		},
-		depends: mock(() => {})
+		depends: vi.fn(() => {})
 	};
 }
 
