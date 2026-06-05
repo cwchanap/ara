@@ -4,7 +4,7 @@
  * Tests pure functions and DB-dependent functions (using mocked db).
  */
 
-import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { beforeEach, describe, expect, vi, test } from 'vitest';
 import {
 	SHARE_CODE_LENGTH,
 	SHARE_CODE_CHARSET,
@@ -13,84 +13,87 @@ import {
 	SHARE_CODE_MAX_RETRIES
 } from '$lib/constants';
 
-// Mutable state controlling mock tx behavior – mutated per test.
-let mockTxShareCount = 0;
-
-// Mutable state controlling outer db.select result (for generateUniqueShortCode).
-// Empty array = no collision; non-empty = collision (code already exists).
-let mockDbSelectResult: { id: string }[] = [];
-
-// Controls tx.insert().values().returning() behavior:
-// - mockTxInsertThrowCount > 0: throw a 23505 unique-violation that many times before succeeding
-// - mockTxInsertThrowNonUnique: throw a generic (non-23505) error on the next call
-let mockTxInsertThrowCount = 0;
-let mockTxInsertThrowNonUnique = false;
-// Tracks total number of insert returning() calls across the current test
-let mockTxInsertCallCount = 0;
-
-// Captures the most recently inserted payload via tx.insert().values(payload).
-let savedInsertPayload: Record<string, unknown> | null = null;
-
-// Returns shares in ascending createdAt order (oldest first) to match the
-// real DB query which uses orderBy(asc(sharedConfigurations.createdAt)).
-// i=0 is the oldest share, i=mockTxShareCount-1 is the newest.
-const getMockTxShares = () =>
-	Array(mockTxShareCount)
-		.fill(null)
-		.map((_, i) => ({
-			createdAt: new Date(Date.now() - (mockTxShareCount - i) * 1000).toISOString()
-		}));
-
-const createMockTx = () => {
-	let insertCallCount = 0;
-	return {
-		select: () => ({
-			from: () => ({
-				where: () => ({
-					orderBy: () => getMockTxShares()
-				})
-			})
-		}),
-		insert: () => ({
-			values: (payload: Record<string, unknown>) => {
-				savedInsertPayload = payload;
-				return {
-					returning: () => {
-						insertCallCount++;
-						mockTxInsertCallCount = insertCallCount;
-						if (mockTxInsertThrowNonUnique) {
-							mockTxInsertThrowNonUnique = false;
-							throw new Error('Database connection failed');
-						}
-						if (insertCallCount <= mockTxInsertThrowCount) {
-							// Simulate PostgreSQL unique constraint violation with proper Error semantics
-							const uniqueViolation = new Error('unique_violation');
-							(uniqueViolation as NodeJS.ErrnoException).code = '23505';
-							throw uniqueViolation;
-						}
-						return [
-							{
-								id: 'mock-share-id',
-								shortCode: 'ABCD1234',
-								expiresAt: '2030-01-01T00:00:00.000Z'
-							}
-						];
-					}
-				};
-			}
-		})
+const h = vi.hoisted(() => {
+	// Mutable state controlling mock tx behavior – mutated per test.
+	const state = {
+		mockTxShareCount: 0,
+		// Mutable state controlling outer db.select result (for generateUniqueShortCode).
+		// Empty array = no collision; non-empty = collision (code already exists).
+		mockDbSelectResult: [] as { id: string }[],
+		// Controls tx.insert().values().returning() behavior:
+		// - mockTxInsertThrowCount > 0: throw a 23505 unique-violation that many times before succeeding
+		// - mockTxInsertThrowNonUnique: throw a generic (non-23505) error on the next call
+		mockTxInsertThrowCount: 0,
+		mockTxInsertThrowNonUnique: false,
+		// Tracks total number of insert returning() calls across the current test
+		mockTxInsertCallCount: 0,
+		// Captures the most recently inserted payload via tx.insert().values(payload).
+		savedInsertPayload: null as Record<string, unknown> | null
 	};
-};
+
+	// Returns shares in ascending createdAt order (oldest first) to match the
+	// real DB query which uses orderBy(asc(sharedConfigurations.createdAt)).
+	// i=0 is the oldest share, i=state.mockTxShareCount-1 is the newest.
+	const getMockTxShares = () =>
+		Array(state.mockTxShareCount)
+			.fill(null)
+			.map((_, i) => ({
+				createdAt: new Date(Date.now() - (state.mockTxShareCount - i) * 1000).toISOString()
+			}));
+
+	const createMockTx = () => {
+		let insertCallCount = 0;
+		return {
+			select: () => ({
+				from: () => ({
+					where: () => ({
+						orderBy: () => getMockTxShares()
+					})
+				})
+			}),
+			insert: () => ({
+				values: (payload: Record<string, unknown>) => {
+					state.savedInsertPayload = payload;
+					return {
+						returning: () => {
+							insertCallCount++;
+							state.mockTxInsertCallCount = insertCallCount;
+							if (state.mockTxInsertThrowNonUnique) {
+								state.mockTxInsertThrowNonUnique = false;
+								throw new Error('Database connection failed');
+							}
+							if (insertCallCount <= state.mockTxInsertThrowCount) {
+								// Simulate PostgreSQL unique constraint violation with proper Error semantics
+								const uniqueViolation = new Error('unique_violation');
+								(uniqueViolation as NodeJS.ErrnoException).code = '23505';
+								throw uniqueViolation;
+							}
+							return [
+								{
+									id: 'mock-share-id',
+									shortCode: 'ABCD1234',
+									expiresAt: '2030-01-01T00:00:00.000Z'
+								}
+							];
+						}
+					};
+				}
+			})
+		};
+	};
+
+	return { state, getMockTxShares, createMockTx };
+});
 
 // Mock $lib/server/db BEFORE importing share-utils to ensure the mock
 // intercepts the DB module before its import-time side effects run.
 // This makes the test truly independent of DB initialization.
-mock.module('$lib/server/db', () => ({
+vi.mock('$lib/server/db', () => ({
 	db: {
 		select: () => ({
 			from: () => ({
 				where: () => ({
-					limit: () => mockDbSelectResult,
+					limit: () => h.state.mockDbSelectResult,
 					orderBy: () => []
 				})
 			})
@@ -113,7 +116,7 @@ mock.module('$lib/server/db', () => ({
 				})
 			})
 		}),
-		transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(createMockTx())
+		transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(h.createMockTx())
 	},
 	sharedConfigurations: {
 		id: { name: 'id' },
@@ -141,12 +144,12 @@ const {
 
 // Reset all mock control variables before every test so tests are isolated.
 beforeEach(() => {
-	mockTxShareCount = 0;
-	mockDbSelectResult = [];
-	mockTxInsertThrowCount = 0;
-	mockTxInsertCallCount = 0;
-	mockTxInsertThrowNonUnique = false;
-	savedInsertPayload = null;
+	h.state.mockTxShareCount = 0;
+	h.state.mockDbSelectResult = [];
+	h.state.mockTxInsertThrowCount = 0;
+	h.state.mockTxInsertCallCount = 0;
+	h.state.mockTxInsertThrowNonUnique = false;
+	h.state.savedInsertPayload = null;
 });
 
 describe('generateShortCode', () => {
@@ -314,7 +317,7 @@ describe('share rate limit constant', () => {
 
 describe('generateUniqueShortCode (mocked db)', () => {
 	test('returns a valid short code when no collision exists', async () => {
-		mockDbSelectResult = []; // no existing code → no collision
+		h.state.mockDbSelectResult = []; // no existing code → no collision
 		const code = await generateUniqueShortCode();
 		expect(code).not.toBeNull();
 		expect(typeof code).toBe('string');
@@ -323,7 +326,7 @@ describe('generateUniqueShortCode (mocked db)', () => {
 	});
 
 	test('returns a string that uses only valid charset characters', async () => {
-		mockDbSelectResult = [];
+		h.state.mockDbSelectResult = [];
 		const code = await generateUniqueShortCode();
 		expect(code).not.toBeNull();
 		for (const char of code!) {
@@ -333,7 +336,7 @@ describe('generateUniqueShortCode (mocked db)', () => {
 
 	test('returns null when all retries collide with existing codes', async () => {
 		// Simulates every generated code already existing in DB → all retries fail
-		mockDbSelectResult = [{ id: 'existing-id' }];
+		h.state.mockDbSelectResult = [{ id: 'existing-id' }];
 		const code = await generateUniqueShortCode();
 		expect(code).toBeNull();
 	});
@@ -354,7 +357,7 @@ describe('incrementViewCount (mocked db)', () => {
 
 describe('createShareWithRateLimit (mocked db)', () => {
 	test('returns success with share data when under rate limit', async () => {
-		mockTxShareCount = 0; // under rate limit
+		h.state.mockTxShareCount = 0; // under rate limit
 
 		const result = await createShareWithRateLimit(
 			'user-id',
@@ -375,14 +378,14 @@ describe('createShareWithRateLimit (mocked db)', () => {
 		expect(result.resetAt).toBeInstanceOf(Date);
 
 		// Verify the payload passed to insert contains the expected fields
-		expect(savedInsertPayload).not.toBeNull();
-		expect(savedInsertPayload!.userId).toBe('user-id');
-		expect(savedInsertPayload!.shortCode).toBe('TESTCODE');
-		expect(savedInsertPayload!.expiresAt).toBe('2030-01-01T00:00:00.000Z');
+		expect(h.state.savedInsertPayload).not.toBeNull();
+		expect(h.state.savedInsertPayload!.userId).toBe('user-id');
+		expect(h.state.savedInsertPayload!.shortCode).toBe('TESTCODE');
+		expect(h.state.savedInsertPayload!.expiresAt).toBe('2030-01-01T00:00:00.000Z');
 	});
 
 	test('calculates remaining shares correctly', async () => {
-		mockTxShareCount = 5; // 5 shares already used
+		h.state.mockTxShareCount = 5; // 5 shares already used
 
 		const result = await createShareWithRateLimit(
 			'user-id',
@@ -398,7 +401,7 @@ describe('createShareWithRateLimit (mocked db)', () => {
 	});
 
 	test('returns rate limit error when at the limit', async () => {
-		mockTxShareCount = SHARE_RATE_LIMIT_PER_HOUR; // exactly at limit
+		h.state.mockTxShareCount = SHARE_RATE_LIMIT_PER_HOUR; // exactly at limit
 
 		const result = await createShareWithRateLimit(
 			'user-id',
@@ -417,8 +420,8 @@ describe('createShareWithRateLimit (mocked db)', () => {
 	});
 
 	test('retries on unique constraint violation (23505) and succeeds', async () => {
-		mockTxShareCount = 0;
-		mockTxInsertThrowCount = 1; // first insert throws 23505, second succeeds
+		h.state.mockTxShareCount = 0;
+		h.state.mockTxInsertThrowCount = 1; // first insert throws 23505, second succeeds
 
 		const result = await createShareWithRateLimit(
 			'user-id',
@@ -432,8 +435,8 @@ describe('createShareWithRateLimit (mocked db)', () => {
 	});
 
 	test('throws non-unique-violation errors from insert', async () => {
-		mockTxShareCount = 0;
-		mockTxInsertThrowNonUnique = true; // throws a generic Error (not 23505)
+		h.state.mockTxShareCount = 0;
+		h.state.mockTxInsertThrowNonUnique = true; // throws a generic Error (not 23505)
 
 		await expect(
 			createShareWithRateLimit(
@@ -447,7 +450,7 @@ describe('createShareWithRateLimit (mocked db)', () => {
 	});
 
 	test('reset time is approximately 1 hour after oldest share when rate limited', async () => {
-		mockTxShareCount = SHARE_RATE_LIMIT_PER_HOUR;
+		h.state.mockTxShareCount = SHARE_RATE_LIMIT_PER_HOUR;
 
 		// Freeze Date.now so getMockTxShares and share-utils both use the same timestamp,
 		// enabling an exact assertion on resetAt.
@@ -477,7 +480,7 @@ describe('createShareWithRateLimit (mocked db)', () => {
 	});
 
 	test('passes correct mapType, parameters, userId, and shortCode to insert', async () => {
-		mockTxShareCount = 0;
+		h.state.mockTxShareCount = 0;
 
 		await createShareWithRateLimit(
 			'user-99',
@@ -487,16 +490,21 @@ describe('createShareWithRateLimit (mocked db)', () => {
 			'2030-06-01T00:00:00.000Z'
 		);
 
-		expect(savedInsertPayload).not.toBeNull();
-		expect(savedInsertPayload!.mapType).toBe('rossler');
-		expect(savedInsertPayload!.expiresAt).toBe('2030-06-01T00:00:00.000Z');
-		expect(savedInsertPayload!.parameters).toEqual({ type: 'rossler', a: 0.2, b: 0.2, c: 5.7 });
-		expect(savedInsertPayload!.userId).toBe('user-99');
-		expect(savedInsertPayload!.shortCode).toBe('ROSSLER1');
+		expect(h.state.savedInsertPayload).not.toBeNull();
+		expect(h.state.savedInsertPayload!.mapType).toBe('rossler');
+		expect(h.state.savedInsertPayload!.expiresAt).toBe('2030-06-01T00:00:00.000Z');
+		expect(h.state.savedInsertPayload!.parameters).toEqual({
+			type: 'rossler',
+			a: 0.2,
+			b: 0.2,
+			c: 5.7
+		});
+		expect(h.state.savedInsertPayload!.userId).toBe('user-99');
+		expect(h.state.savedInsertPayload!.shortCode).toBe('ROSSLER1');
 	});
 
 	test('returns remaining = 0 when exactly one slot is left', async () => {
-		mockTxShareCount = SHARE_RATE_LIMIT_PER_HOUR - 1; // 9 used, 1 remaining
+		h.state.mockTxShareCount = SHARE_RATE_LIMIT_PER_HOUR - 1; // 9 used, 1 remaining
 
 		const result = await createShareWithRateLimit(
 			'user-id',
@@ -512,11 +520,11 @@ describe('createShareWithRateLimit (mocked db)', () => {
 	});
 
 	test('throws after exhausting all unique constraint violation retries', async () => {
-		mockTxShareCount = 0;
+		h.state.mockTxShareCount = 0;
 		// Set throw count to SHARE_CODE_MAX_RETRIES so every attempt throws
 		// a 23505 unique violation. The retry loop exercises `continue` on
 		// attempts 0–(MAX_RETRIES-2) and `throw error` on the final attempt.
-		mockTxInsertThrowCount = SHARE_CODE_MAX_RETRIES;
+		h.state.mockTxInsertThrowCount = SHARE_CODE_MAX_RETRIES;
 
 		await expect(
 			createShareWithRateLimit(
@@ -528,7 +536,7 @@ describe('createShareWithRateLimit (mocked db)', () => {
 			)
 		).rejects.toThrow('unique_violation');
 		// Confirm the retry loop actually ran all SHARE_CODE_MAX_RETRIES attempts
-		expect(mockTxInsertCallCount).toBe(SHARE_CODE_MAX_RETRIES);
+		expect(h.state.mockTxInsertCallCount).toBe(SHARE_CODE_MAX_RETRIES);
 	});
 });
 
