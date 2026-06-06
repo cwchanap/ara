@@ -7,307 +7,20 @@
  * - API success/failure paths, sessionStorage fallback, URL construction
  * - 410 expiry, mapType mismatch, null JSON body, network errors
  *
- * WHY the self-mock pattern:
- * Bun's test runner shares a single module registry across test files within a
- * run. Files like use-config-loader-catch.test.ts and use-visualization-save.test.ts
- * register mock.module('$lib/saved-config-loader', ...) at evaluation time, and
- * those mocks persist for later files. saved-config-loader.test.ts runs after those
- * files, so without the self-mock the dynamic import below would resolve to one of
- * those stubs. By calling mock.module here first (before the await import) we
- * override the contaminating registration with our own faithful copy of the
- * implementation so the captured function references test the real business logic.
- *
- * NOTE on relative vs alias imports:
- * Bun resolves the $lib alias (src/lib) and relative paths (./saved-config-loader
- * from this file's directory) to the same canonical module path, so they share
- * one registry entry. Removing the self-mock here and relying on the relative
- * import alone would NOT bypass the contamination — the contaminating stubs
- * registered by earlier files would still take effect. This was verified
- * experimentally: removing the self-mock caused 20 test failures.
+ * These tests exercise the real implementation against the real
+ * validateParameters; sessionStorage is mocked on globalThis so the suite runs
+ * in the node environment.
  */
 
-import { describe, expect, test, mock } from 'bun:test';
+import { describe, expect, test, vi } from 'vitest';
+import {
+	parseConfigParam,
+	loadSavedConfigParameters,
+	loadSharedConfigParameters
+} from './saved-config-loader';
 import { validateParameters } from '$lib/chaos-validation';
 import { MAX_DECODED_CONFIG_PARAM_LENGTH, MAX_JSON_NESTING_DEPTH } from '$lib/constants';
-import type { ChaosMapType, ChaosMapParameters } from '$lib/types';
-
-// ── Self-mock: faithful copy of the real implementation ───────────────────────
-
-function getMaxJsonNestingDepth(text: string) {
-	let depth = 0;
-	let maxDepth = 0;
-	let inString = false;
-	let escaped = false;
-
-	for (let i = 0; i < text.length; i++) {
-		const ch = text[i];
-		if (inString) {
-			if (escaped) {
-				escaped = false;
-				continue;
-			}
-			if (ch === '\\') {
-				escaped = true;
-				continue;
-			}
-			if (ch === '"') {
-				inString = false;
-			}
-			continue;
-		}
-		if (ch === '"') {
-			inString = true;
-			continue;
-		}
-		if (ch === '{' || ch === '[') {
-			depth++;
-			if (depth > maxDepth) maxDepth = depth;
-			continue;
-		}
-		if (ch === '}' || ch === ']') {
-			depth--;
-			if (depth < 0) return { ok: false as const, maxDepth };
-		}
-	}
-	return { ok: true as const, maxDepth };
-}
-
-function normalizeErrorForLog(err: unknown) {
-	if (err instanceof Error) {
-		return { name: err.name, message: err.message };
-	}
-	return { error: String(err) };
-}
-
-mock.module('$lib/saved-config-loader', () => ({
-	parseConfigParam<T extends ChaosMapType>(args: { mapType: T; configParam: string }) {
-		let decoded: string;
-		try {
-			decoded = decodeURIComponent(args.configParam);
-		} catch (e) {
-			return {
-				ok: false as const,
-				error: 'Failed to parse configuration parameters',
-				errors: ['Failed to parse configuration parameters'],
-				logMessage: 'Invalid config parameter:',
-				logDetails: normalizeErrorForLog(e)
-			};
-		}
-
-		if (decoded.length > MAX_DECODED_CONFIG_PARAM_LENGTH) {
-			return {
-				ok: false as const,
-				error: 'Configuration parameter too large',
-				errors: [
-					`Configuration parameter too large (max ${MAX_DECODED_CONFIG_PARAM_LENGTH} chars)`
-				],
-				logMessage: 'Config parameter too large:',
-				logDetails: {
-					decodedLength: decoded.length,
-					maxDecodedLength: MAX_DECODED_CONFIG_PARAM_LENGTH
-				}
-			};
-		}
-
-		const depthCheck = getMaxJsonNestingDepth(decoded);
-		if (!depthCheck.ok || depthCheck.maxDepth > MAX_JSON_NESTING_DEPTH) {
-			return {
-				ok: false as const,
-				error: 'Configuration parameter too deeply nested',
-				errors: [
-					`Configuration parameter too deeply nested (max depth ${MAX_JSON_NESTING_DEPTH})`
-				],
-				logMessage: 'Config parameter too deeply nested:',
-				logDetails: {
-					maxDepth: depthCheck.maxDepth,
-					maxAllowedDepth: MAX_JSON_NESTING_DEPTH
-				}
-			};
-		}
-
-		let parsed: unknown;
-		try {
-			parsed = JSON.parse(decoded);
-		} catch (e) {
-			return {
-				ok: false as const,
-				error: 'Failed to parse configuration parameters',
-				errors: ['Failed to parse configuration parameters'],
-				logMessage: 'Invalid config parameter:',
-				logDetails: normalizeErrorForLog(e)
-			};
-		}
-
-		const validation = validateParameters(args.mapType, parsed);
-		if (!validation.isValid) {
-			return {
-				ok: false as const,
-				error: 'Invalid parameters structure',
-				errors: validation.errors,
-				logMessage: 'Invalid parameters structure:',
-				logDetails: validation.errors,
-				validationErrors: validation.errors
-			};
-		}
-
-		const parametersToUse = validation.parameters ?? parsed;
-		return { ok: true as const, parameters: parametersToUse };
-	},
-
-	async loadSavedConfigParameters<T extends ChaosMapType>(args: {
-		configId: string;
-		mapType: T;
-		base: string;
-		fetchFn: typeof fetch;
-	}) {
-		let candidateParams: unknown = null;
-		let candidateSource: 'api' | 'sessionStorage' | null = null;
-		let sessionStorageKeyToClear: string | null = null;
-
-		try {
-			const response = await args.fetchFn(
-				`${args.base}/api/saved-config/${encodeURIComponent(args.configId)}`
-			);
-			if (response.ok) {
-				const data = (await response.json().catch(() => null)) as {
-					mapType?: string;
-					parameters?: unknown;
-				} | null;
-				if (data?.mapType === args.mapType) {
-					candidateParams = data.parameters ?? null;
-					candidateSource = 'api';
-				}
-			}
-		} catch (e) {
-			void e;
-		}
-
-		if (!candidateParams) {
-			const storageKey = `saved-config:${args.configId}`;
-			try {
-				if (typeof sessionStorage !== 'undefined') {
-					const raw = sessionStorage.getItem(storageKey);
-					if (raw) {
-						candidateParams = JSON.parse(raw);
-						candidateSource = 'sessionStorage';
-						sessionStorageKeyToClear = storageKey;
-					}
-				}
-			} catch (e) {
-				void e;
-			}
-		}
-
-		if (!candidateParams || !candidateSource) {
-			return {
-				ok: false as const,
-				error: 'Failed to load configuration parameters',
-				errors: ['Failed to load configuration parameters']
-			};
-		}
-
-		const clearSessionStorageCandidate = () => {
-			if (candidateSource === 'sessionStorage' && sessionStorageKeyToClear) {
-				try {
-					if (typeof sessionStorage !== 'undefined') {
-						sessionStorage.removeItem(sessionStorageKeyToClear);
-					}
-				} catch (e) {
-					void e;
-				}
-			}
-		};
-
-		const validation = validateParameters(args.mapType, candidateParams);
-		if (!validation.isValid) {
-			clearSessionStorageCandidate();
-			return {
-				ok: false as const,
-				error: 'Invalid parameters structure',
-				errors: validation.errors,
-				validationErrors: validation.errors
-			};
-		}
-
-		const parametersToUse = validation.parameters ?? candidateParams;
-		clearSessionStorageCandidate();
-		return {
-			ok: true as const,
-			parameters: parametersToUse as Extract<ChaosMapParameters, { type: T }>,
-			source: candidateSource as 'api' | 'sessionStorage'
-		};
-	},
-
-	async loadSharedConfigParameters<T extends ChaosMapType>(args: {
-		shareCode: string;
-		mapType: T;
-		base: string;
-		fetchFn: typeof fetch;
-	}) {
-		try {
-			const response = await args.fetchFn(
-				`${args.base}/api/shared/${encodeURIComponent(args.shareCode)}`
-			);
-			if (!response.ok) {
-				if (response.status === 410) {
-					return {
-						ok: false as const,
-						error: 'This shared configuration has expired',
-						errors: ['This shared configuration has expired']
-					};
-				}
-				return {
-					ok: false as const,
-					error: `Failed to load shared configuration (${response.status})`,
-					errors: [`Failed to load shared configuration (${response.status})`]
-				};
-			}
-
-			const data = (await response.json().catch(() => null)) as {
-				mapType?: string;
-				parameters?: unknown;
-			} | null;
-
-			if (!data || data.mapType !== args.mapType || !data.parameters) {
-				return {
-					ok: false as const,
-					error: 'Invalid shared configuration data',
-					errors: ['Invalid shared configuration data']
-				};
-			}
-
-			const validation = validateParameters(args.mapType, data.parameters);
-			if (!validation.isValid) {
-				return {
-					ok: false as const,
-					error: 'Invalid parameters structure',
-					errors: validation.errors,
-					validationErrors: validation.errors
-				};
-			}
-
-			const parametersToUse = validation.parameters ?? data.parameters;
-			return {
-				ok: true as const,
-				parameters: parametersToUse as Extract<ChaosMapParameters, { type: T }>,
-				source: 'sharedApi' as const
-			};
-		} catch (e) {
-			console.error('Error loading shared config:', e);
-			return {
-				ok: false as const,
-				error: 'Failed to load shared configuration (network error)',
-				errors: ['Failed to load shared configuration (network error)']
-			};
-		}
-	}
-}));
-
-// Capture fixed function references AFTER registering our mock so that later
-// mock.module calls from other files do NOT affect these local variables.
-const { parseConfigParam, loadSavedConfigParameters, loadSharedConfigParameters } = await import(
-	'./saved-config-loader'
-);
+import type { ChaosMapType } from '$lib/types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -316,7 +29,7 @@ function makeFetch(response: {
 	status?: number;
 	json?: () => Promise<unknown>;
 }): typeof fetch {
-	return mock(async () => ({
+	return vi.fn(async () => ({
 		ok: response.ok,
 		status: response.status ?? (response.ok ? 200 : 400),
 		json: response.json ?? (async () => null)
@@ -385,6 +98,19 @@ describe('parseConfigParam', () => {
 			const configParam = encodeURIComponent(JSON.stringify(params));
 			const result = parseConfigParam({ mapType: 'henon', configParam });
 			expect(result.ok).toBe(true);
+		});
+
+		// Merged from vitest base: legacy uppercase K is normalised to lowercase k.
+		test('normalises legacy uppercase K to lowercase k for standard map', () => {
+			const configParam = encodeURIComponent(
+				JSON.stringify({ type: 'standard', K: 1.5, numP: 10, numQ: 10, iterations: 1000 })
+			);
+			const result = parseConfigParam({ mapType: 'standard', configParam });
+			expect(result.ok).toBe(true);
+			if (result.ok) {
+				expect((result.parameters as unknown as Record<string, unknown>).k).toBe(1.5);
+				expect((result.parameters as unknown as Record<string, unknown>).K).toBeUndefined();
+			}
 		});
 
 		test('returns ok:true for all supported map types', () => {
@@ -620,7 +346,7 @@ describe('loadSavedConfigParameters', () => {
 
 		test('builds fetch URL with base path and URL-encoded configId', async () => {
 			let capturedUrl: Parameters<typeof fetch>[0] | undefined;
-			const rawFetch = mock(async (input: Parameters<typeof fetch>[0]) => {
+			const rawFetch = vi.fn(async (input: Parameters<typeof fetch>[0]) => {
 				capturedUrl = input;
 				return {
 					ok: true,
@@ -667,7 +393,7 @@ describe('loadSavedConfigParameters', () => {
 		});
 
 		test('falls through when API response JSON throws', async () => {
-			const fetchFn = mock(async () => ({
+			const fetchFn = vi.fn(async () => ({
 				ok: true,
 				status: 200,
 				json: async () => {
@@ -720,7 +446,7 @@ describe('loadSavedConfigParameters', () => {
 		});
 
 		test('returns ok:false when fetch throws (swallowed internally)', async () => {
-			const fetchFn = mock(async () => {
+			const fetchFn = vi.fn(async () => {
 				throw new Error('network down');
 			}) as unknown as typeof fetch;
 			const result = await loadSavedConfigParameters({
@@ -745,6 +471,53 @@ describe('loadSavedConfigParameters', () => {
 					mapType: 'lorenz',
 					base: '',
 					fetchFn
+				});
+				expect(result.ok).toBe(true);
+				if (result.ok) {
+					expect(result.source).toBe('sessionStorage');
+				}
+			} finally {
+				restore();
+			}
+		});
+
+		// Merged from vitest base: API returns wrong mapType → falls back to sessionStorage.
+		test('falls back to sessionStorage when API returns the wrong mapType', async () => {
+			const { restore } = mockSessionStorage({
+				'saved-config:cfg-ss': JSON.stringify(validLorenz)
+			});
+			try {
+				const fetchFn = makeFetch({
+					ok: true,
+					json: async () => ({ mapType: 'henon', parameters: { a: 1.4 } })
+				});
+				const result = await loadSavedConfigParameters({
+					configId: 'cfg-ss',
+					mapType: 'lorenz',
+					base: '',
+					fetchFn
+				});
+				expect(result.ok).toBe(true);
+				if (result.ok) {
+					expect(result.source).toBe('sessionStorage');
+				}
+			} finally {
+				restore();
+			}
+		});
+
+		// Merged from vitest base: API network error → falls back to sessionStorage.
+		test('falls back to sessionStorage on API network error', async () => {
+			const { restore } = mockSessionStorage({
+				'saved-config:cfg-ss': JSON.stringify(validLorenz)
+			});
+			try {
+				const fetchFn = vi.fn().mockRejectedValue(new Error('network'));
+				const result = await loadSavedConfigParameters({
+					configId: 'cfg-ss',
+					mapType: 'lorenz',
+					base: '',
+					fetchFn: fetchFn as unknown as typeof fetch
 				});
 				expect(result.ok).toBe(true);
 				if (result.ok) {
@@ -844,7 +617,7 @@ describe('loadSharedConfigParameters', () => {
 
 		test('builds fetch URL with base path and URL-encoded share code', async () => {
 			let capturedUrl: Parameters<typeof fetch>[0] | undefined;
-			const rawFetch = mock(async (input: Parameters<typeof fetch>[0]) => {
+			const rawFetch = vi.fn(async (input: Parameters<typeof fetch>[0]) => {
 				capturedUrl = input;
 				return {
 					ok: true,
@@ -908,7 +681,7 @@ describe('loadSharedConfigParameters', () => {
 
 	describe('network / parse errors', () => {
 		test('returns network error message when fetch throws', async () => {
-			const fetchFn = mock(async () => {
+			const fetchFn = vi.fn(async () => {
 				throw new Error('connection refused');
 			}) as unknown as typeof fetch;
 			const result = await loadSharedConfigParameters({
@@ -924,7 +697,7 @@ describe('loadSharedConfigParameters', () => {
 		});
 
 		test('returns invalid data error when response.json() throws', async () => {
-			const fetchFn = mock(async () => ({
+			const fetchFn = vi.fn(async () => ({
 				ok: true,
 				status: 200,
 				json: async () => {
