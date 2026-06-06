@@ -35,16 +35,15 @@ Note: Pre-commit hooks automatically run linting and formatting via `lint-staged
 
 ### Testing
 
-The project uses three test runners for different purposes:
+The project uses Vitest (two projects, environment selected by filename) plus Playwright for E2E:
 
 ```bash
-# Bun tests (unit tests for non-DOM code)
-bun test                   # Run all *.test.ts files
-bun test src/lib/auth-errors.test.ts  # Run a single test file
-
-# Vitest (Svelte component tests requiring jsdom)
-bun run test:unit          # Run all *.vitest.ts files
-bun run test:unit:watch    # Run in watch mode
+# Vitest unit + component tests
+bun run test               # Run the full suite (node + jsdom projects)
+bun run test:watch         # Watch mode
+bun run vitest run --project node    # Only node (logic/server) tests
+bun run vitest run --project jsdom   # Only jsdom (component/DOM) tests
+bun run vitest run src/lib/auth-errors.test.ts  # Run a single test file
 
 # Playwright (E2E browser tests)
 bun run test:e2e           # Run all e2e/*.spec.ts files
@@ -53,8 +52,8 @@ bun run test:e2e:ui        # Run with interactive UI
 
 **File naming conventions**:
 
-- `*.test.ts` - Bun unit tests (pure logic, no DOM)
-- `*.vitest.ts` - Vitest component tests (requires jsdom for Svelte components)
+- `*.test.ts` - Vitest node-environment tests (pure logic, server load functions, API handlers, db schema)
+- `*.svelte.test.ts` - Vitest jsdom-environment tests (Svelte components, runes hooks, canvas/DOM)
 - `e2e/*.spec.ts` - Playwright E2E tests
 
 ### Database Management
