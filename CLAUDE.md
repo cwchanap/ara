@@ -80,7 +80,7 @@ bunx drizzle-kit studio
 
 ### Tech Stack
 
-- **Runtime**: Bun (package manager and test runner)
+- **Runtime**: Bun (package manager) and Vitest (test runner)
 - **Framework**: SvelteKit (Svelte 5 with runes)
 - **Language**: TypeScript (strict mode enabled)
 - **Styling**: TailwindCSS v4 with custom utility classes

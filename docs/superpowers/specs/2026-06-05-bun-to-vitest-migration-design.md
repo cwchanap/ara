@@ -54,8 +54,10 @@ is **node**.
 
 ### Mechanical conversion (per bun file)
 
-- Remove `import { ... } from 'bun:test'`; rely on Vitest globals
-  (`globals: true` is already configured).
+- Replace `import { ... } from 'bun:test'` with explicit imports from `'vitest'`
+  (e.g. `import { describe, expect, test, vi } from 'vitest'`); the codebase
+  uses explicit imports throughout for consistency, even though `globals: true`
+  is configured.
 - `mock(fn)` → `vi.fn()`.
 - `mock.module('x', factory)` → `vi.mock('x', factory)`.
 - Drop bun `mock.module` stubs that merely duplicated `src/test-setup.ts`
