@@ -1,5 +1,4 @@
-// src/lib/lorenz/presets.test.ts
-import { describe, expect, test } from 'bun:test';
+// src/lib/lorenz/presets.svelte.test.ts
 import { LORENZ_PRESETS, matchPreset } from './presets';
 
 describe('LORENZ_PRESETS', () => {
