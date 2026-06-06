@@ -15,8 +15,6 @@ export default defineConfig({
 			exclude: [
 				'src/**/*.test.ts',
 				'src/**/*.svelte.test.ts',
-				'src/**/*.vitest.ts',
-				'src/test-setup.ts',
 				'src/lib/constants.ts',
 				'src/lib/workers/types.ts',
 				'src/lib/index.ts',
@@ -31,7 +29,7 @@ export default defineConfig({
 					name: 'node',
 					environment: 'node',
 					include: ['src/**/*.test.ts'],
-					exclude: ['src/**/*.svelte.test.ts', 'src/**/*.vitest.ts'],
+					exclude: ['src/**/*.svelte.test.ts'],
 					setupFiles: ['./vitest.setup.node.ts'],
 					alias: { $lib: resolve('./src/lib') }
 				}
@@ -41,8 +39,7 @@ export default defineConfig({
 				test: {
 					name: 'jsdom',
 					environment: 'jsdom',
-					// TEMP: *.vitest.ts kept until Phase 6 renames them; remove in Task 25.
-					include: ['src/**/*.svelte.test.ts', 'src/**/*.vitest.ts'],
+					include: ['src/**/*.svelte.test.ts'],
 					setupFiles: ['./vitest.setup.ts'],
 					alias: { $lib: resolve('./src/lib') }
 				}
