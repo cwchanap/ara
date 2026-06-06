@@ -83,4 +83,38 @@ describe('useDebouncedEffect', () => {
 		vi.advanceTimersByTime(300);
 		expect(fn).toHaveBeenCalledTimes(1);
 	});
+
+	// ── Merged from bun use-debounced-effect.test.ts ──────────────────────────
+	it('returns trigger and cleanup functions', () => {
+		const fn = vi.fn();
+		const debounced = useDebouncedEffect(fn, 100);
+
+		expect(debounced).toHaveProperty('trigger');
+		expect(debounced).toHaveProperty('cleanup');
+		expect(typeof debounced.trigger).toBe('function');
+		expect(typeof debounced.cleanup).toBe('function');
+	});
+
+	it('cleanup is idempotent (calling it twice is safe)', () => {
+		const fn = vi.fn();
+		const { trigger, cleanup } = useDebouncedEffect(fn, 300);
+
+		trigger();
+		cleanup();
+		expect(() => cleanup()).not.toThrow();
+
+		vi.advanceTimersByTime(500);
+		expect(fn).not.toHaveBeenCalled();
+	});
+
+	it('calls fn with no arguments', () => {
+		const fn = vi.fn();
+		const { trigger } = useDebouncedEffect(fn, 30);
+
+		trigger();
+		vi.advanceTimersByTime(30);
+
+		expect(fn).toHaveBeenCalledTimes(1);
+		expect(fn.mock.calls[0]).toHaveLength(0);
+	});
 });
