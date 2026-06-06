@@ -15,6 +15,14 @@ describe('createInitialShareState', () => {
 			shareError: null
 		});
 	});
+
+	// Merged from bun use-visualization-share.test.ts
+	it('returns a new independent object on each call', () => {
+		const a = createInitialShareState();
+		const b = createInitialShareState();
+		a.isSharing = true;
+		expect(b.isSharing).toBe(false);
+	});
 });
 
 describe('createShareHandler', () => {
@@ -239,6 +247,52 @@ describe('createShareHandler', () => {
 			);
 
 			await sharePromise;
+		});
+	});
+
+	// ── Merged from bun use-visualization-share.test.ts ───────────────────────
+	describe('share - sequential re-use (merged)', () => {
+		it('allows share again after a previous share completes', async () => {
+			// Return a fresh Response per call — a Response body can only be read once.
+			vi.spyOn(globalThis, 'fetch').mockImplementation(() =>
+				Promise.resolve(
+					new Response(JSON.stringify({ shareUrl: '/s/x', expiresAt: '2026-01-01' }), {
+						status: 200
+					})
+				)
+			);
+
+			const { share } = createShareHandler('lorenz' as ChaosMapType, state, getParameters);
+
+			const result1 = await share();
+			expect(result1).not.toBeNull();
+			// isSharing is reset in finally — a second call must proceed
+			expect(state.isSharing).toBe(false);
+
+			const result2 = await share();
+			expect(result2).not.toBeNull();
+		});
+	});
+
+	describe('different map types (merged)', () => {
+		it('passes mapType correctly in request body for rossler', async () => {
+			const rosslerParams = { type: 'rossler' as const, a: 0.2, b: 0.2, c: 5.7 };
+			const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+				new Response(JSON.stringify({ shareUrl: '/s/r', expiresAt: '2026-01-01' }), {
+					status: 200
+				})
+			);
+
+			const { share } = createShareHandler(
+				'rossler' as ChaosMapType,
+				state,
+				() => rosslerParams
+			);
+			await share();
+
+			const body = JSON.parse(fetchSpy.mock.calls[0]![1]!.body as string);
+			expect(body.mapType).toBe('rossler');
+			expect(body.parameters).toEqual(rosslerParams);
 		});
 	});
 });
