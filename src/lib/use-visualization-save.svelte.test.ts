@@ -38,6 +38,14 @@ describe('createInitialSaveState', () => {
 			showStabilityWarning: false
 		});
 	});
+
+	// Merged from bun use-visualization-save.test.ts
+	it('returns a fresh object on each call (no shared reference)', () => {
+		const a = createInitialSaveState();
+		const b = createInitialSaveState();
+		a.configErrors.push('mutate');
+		expect(b.configErrors).toEqual([]);
+	});
 });
 
 describe('createSaveHandler', () => {
@@ -286,6 +294,101 @@ describe('createSaveHandler', () => {
 		await save1;
 
 		expect(state.isSaving).toBe(false);
+	});
+
+	// ── Merged from bun use-visualization-save.test.ts ────────────────────────
+	it('clears previous saveSuccess at the start of a new save', async () => {
+		state.saveSuccess = true;
+		const mockFetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+		vi.stubGlobal('fetch', mockFetch);
+
+		const handler = createSaveHandler('lorenz', state, () => ({
+			type: 'lorenz',
+			sigma: 10,
+			rho: 28,
+			beta: 2.667
+		}));
+		const promise = handler.save('test');
+
+		expect(state.saveSuccess).toBe(false);
+		await promise;
+	});
+
+	it('falls back to generic message when error response has no error field', async () => {
+		const mockFetch = vi.fn().mockResolvedValue({ ok: false, json: () => Promise.resolve({}) });
+		vi.stubGlobal('fetch', mockFetch);
+
+		const handler = createSaveHandler('lorenz', state, () => ({
+			type: 'lorenz',
+			sigma: 10,
+			rho: 28,
+			beta: 2.667
+		}));
+		await handler.save('test');
+
+		expect(state.saveError).toBe('Failed to save configuration');
+		expect(state.isSaving).toBe(false);
+	});
+
+	it('ignores a second save while the first is still in progress', async () => {
+		let callCount = 0;
+		const mockFetch = vi.fn(async () => {
+			callCount++;
+			await new Promise((r) => setTimeout(r, 10));
+			return { ok: true, json: () => Promise.resolve({}) };
+		});
+		vi.stubGlobal('fetch', mockFetch);
+
+		const handler = createSaveHandler('lorenz', state, () => ({
+			type: 'lorenz',
+			sigma: 10,
+			rho: 28,
+			beta: 2.667
+		}));
+
+		const first = handler.save('first');
+		expect(state.isSaving).toBe(true);
+		const second = handler.save('second');
+
+		await first;
+		await second;
+
+		expect(callCount).toBe(1);
+		expect(state.isSaving).toBe(false);
+	});
+
+	it('cleanup does not throw when called with no in-flight request', () => {
+		const handler = createSaveHandler('lorenz', state, () => ({
+			type: 'lorenz',
+			sigma: 10,
+			rho: 28,
+			beta: 2.667
+		}));
+		expect(() => handler.cleanup()).not.toThrow();
+	});
+
+	it('second save clears the success timeout scheduled by the first save', async () => {
+		vi.useFakeTimers();
+		const mockFetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+		vi.stubGlobal('fetch', mockFetch);
+		const clearSpy = vi.spyOn(globalThis, 'clearTimeout');
+
+		const handler = createSaveHandler('lorenz', state, () => ({
+			type: 'lorenz',
+			sigma: 10,
+			rho: 28,
+			beta: 2.667
+		}));
+
+		await handler.save('first');
+		expect(state.saveSuccess).toBe(true);
+
+		// Second save must clear the first save's pending success timeout.
+		await handler.save('second');
+		expect(clearSpy).toHaveBeenCalled();
+		expect(state.saveSuccess).toBe(true);
+
+		clearSpy.mockRestore();
 	});
 });
 
