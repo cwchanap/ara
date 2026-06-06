@@ -838,4 +838,225 @@ describe('useConfigLoader', () => {
 			cleanup();
 		});
 	});
+
+	// ── Merged from bun use-config-loader.test.ts / -catch.test.ts ──────────
+	// Behaviors not already covered by the base vitest suite.
+	describe('stability checks across all sources (merged)', () => {
+		it('does not set warnings when stability check returns stable (shared)', async () => {
+			const pageStore = writable<Page>(makePage('http://localhost/lorenz'));
+			const state = createInitialConfigLoaderState();
+			const onParametersLoaded = vi.fn((p: LorenzParameters) => p);
+			const onCheckStability = vi.fn(() => ({ isStable: true, warnings: [] as string[] }));
+
+			mockLoadShared.mockResolvedValue({
+				ok: true,
+				parameters: defaultParams,
+				source: 'sharedApi'
+			});
+
+			const { cleanup } = useConfigLoader(
+				{
+					page: pageStore,
+					mapType: 'lorenz' as const,
+					base: '/base',
+					onParametersLoaded,
+					onCheckStability
+				},
+				state
+			);
+
+			pageStore.set(makePage('http://localhost/lorenz?share=stable'));
+			await new Promise((r) => setTimeout(r, 0));
+
+			expect(onCheckStability).toHaveBeenCalledWith(defaultParams);
+			expect(state.showWarning).toBe(false);
+			expect(state.warnings).toEqual([]);
+			cleanup();
+		});
+
+		it('does not set warnings when stability check returns stable (config param)', () => {
+			const pageStore = writable<Page>(makePage('http://localhost/lorenz'));
+			const state = createInitialConfigLoaderState();
+			const onParametersLoaded = vi.fn((p: LorenzParameters) => p);
+			const onCheckStability = vi.fn(() => ({ isStable: true, warnings: [] as string[] }));
+
+			mockParseConfig.mockReturnValue({
+				ok: true,
+				parameters: defaultParams
+			} as ReturnType<typeof parseConfigParam>);
+
+			const { cleanup } = useConfigLoader(
+				{
+					page: pageStore,
+					mapType: 'lorenz' as const,
+					base: '/base',
+					onParametersLoaded,
+					onCheckStability
+				},
+				state
+			);
+
+			pageStore.set(makePage('http://localhost/lorenz?config=%7B%7D'));
+
+			expect(onCheckStability).toHaveBeenCalledWith(defaultParams);
+			expect(state.showWarning).toBe(false);
+			expect(state.warnings).toEqual([]);
+			cleanup();
+		});
+
+		it('sets warnings when stability check returns unstable (configId)', async () => {
+			const pageStore = writable<Page>(makePage('http://localhost/lorenz'));
+			const state = createInitialConfigLoaderState();
+			const onParametersLoaded = vi.fn((p: LorenzParameters) => p);
+			const onCheckStability = vi.fn(() => ({
+				isStable: false,
+				warnings: ['Unstable configId']
+			}));
+
+			mockLoadSaved.mockResolvedValue({
+				ok: true,
+				parameters: defaultParams,
+				source: 'api'
+			});
+
+			const { cleanup } = useConfigLoader(
+				{
+					page: pageStore,
+					mapType: 'lorenz' as const,
+					base: '/base',
+					onParametersLoaded,
+					onCheckStability
+				},
+				state
+			);
+
+			pageStore.set(makePage('http://localhost/lorenz?configId=cfg-unstable'));
+			await new Promise((r) => setTimeout(r, 0));
+
+			expect(state.showWarning).toBe(true);
+			expect(state.warnings).toEqual(['Unstable configId']);
+			cleanup();
+		});
+
+		it('does not set warnings when stability check returns stable (configId)', async () => {
+			const pageStore = writable<Page>(makePage('http://localhost/lorenz'));
+			const state = createInitialConfigLoaderState();
+			const onParametersLoaded = vi.fn((p: LorenzParameters) => p);
+			const onCheckStability = vi.fn(() => ({ isStable: true, warnings: [] as string[] }));
+
+			mockLoadSaved.mockResolvedValue({
+				ok: true,
+				parameters: defaultParams,
+				source: 'api'
+			});
+
+			const { cleanup } = useConfigLoader(
+				{
+					page: pageStore,
+					mapType: 'lorenz' as const,
+					base: '/base',
+					onParametersLoaded,
+					onCheckStability
+				},
+				state
+			);
+
+			pageStore.set(makePage('http://localhost/lorenz?configId=cfg-stable'));
+			await new Promise((r) => setTimeout(r, 0));
+
+			expect(onCheckStability).toHaveBeenCalledWith(defaultParams);
+			expect(state.showWarning).toBe(false);
+			expect(state.warnings).toEqual([]);
+			cleanup();
+		});
+	});
+
+	describe('non-Error throws and abort edge cases (merged)', () => {
+		it('reports non-Error (string) throws from onParametersLoaded for shared config', async () => {
+			const pageStore = writable<Page>(makePage('http://localhost/lorenz'));
+			const state = createInitialConfigLoaderState();
+			const onParametersLoaded = vi.fn(() => {
+				throw 'string-failure';
+			});
+
+			mockLoadShared.mockResolvedValue({
+				ok: true,
+				parameters: defaultParams,
+				source: 'sharedApi'
+			});
+
+			const { cleanup } = useConfigLoader(
+				{
+					page: pageStore,
+					mapType: 'lorenz' as const,
+					base: '/base',
+					onParametersLoaded
+				},
+				state
+			);
+
+			pageStore.set(makePage('http://localhost/lorenz?share=throw-string'));
+			await new Promise((r) => setTimeout(r, 0));
+
+			expect(state.errors).toEqual(['Failed to apply parameters: string-failure']);
+			expect(state.showError).toBe(true);
+			cleanup();
+		});
+
+		it('reports non-Error (string) throws from onParametersLoaded for direct config param', () => {
+			const pageStore = writable<Page>(makePage('http://localhost/lorenz'));
+			const state = createInitialConfigLoaderState();
+			const onParametersLoaded = vi.fn(() => {
+				throw 'direct-string-failure';
+			});
+
+			mockParseConfig.mockReturnValue({
+				ok: true,
+				parameters: defaultParams
+			} as ReturnType<typeof parseConfigParam>);
+
+			const { cleanup } = useConfigLoader(
+				{
+					page: pageStore,
+					mapType: 'lorenz' as const,
+					base: '/base',
+					onParametersLoaded
+				},
+				state
+			);
+
+			pageStore.set(makePage('http://localhost/lorenz?config=%7B%7D'));
+
+			expect(state.errors).toEqual(['Failed to apply parameters: direct-string-failure']);
+			expect(state.showError).toBe(true);
+			cleanup();
+		});
+
+		it('silently ignores AbortError on configId path', async () => {
+			const pageStore = writable<Page>(makePage('http://localhost/lorenz'));
+			const state = createInitialConfigLoaderState();
+			const onParametersLoaded = vi.fn((p: LorenzParameters) => p);
+
+			const abortError = new Error('Aborted');
+			abortError.name = 'AbortError';
+			mockLoadSaved.mockRejectedValue(abortError);
+
+			const { cleanup } = useConfigLoader(
+				{
+					page: pageStore,
+					mapType: 'lorenz' as const,
+					base: '/base',
+					onParametersLoaded
+				},
+				state
+			);
+
+			pageStore.set(makePage('http://localhost/lorenz?configId=aborted'));
+			await new Promise((r) => setTimeout(r, 0));
+
+			expect(state.errors).toEqual([]);
+			expect(state.showError).toBe(false);
+			cleanup();
+		});
+	});
 });
