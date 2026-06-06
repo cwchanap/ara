@@ -817,7 +817,7 @@ describe('downloadSnapshot', () => {
 		}
 	});
 
-	test('clicks link directly when document.body is unavailable', () => {
+	test('clicks link directly when document.body is unavailable', async () => {
 		const click = vi.fn(() => {});
 		const remove = vi.fn(() => {});
 		const link = { href: '', download: '', style: { display: '' }, click, remove };
@@ -826,7 +826,7 @@ describe('downloadSnapshot', () => {
 			body: null
 		};
 
-		withMockedDocument(fakeDocument, () =>
+		await withMockedDocument(fakeDocument, () =>
 			downloadSnapshot('data:image/png;base64,mock', 'a.png')
 		);
 
@@ -836,7 +836,7 @@ describe('downloadSnapshot', () => {
 		expect(remove).toHaveBeenCalledTimes(0);
 	});
 
-	test('appends, clicks, and removes link when body exists', () => {
+	test('appends, clicks, and removes link when body exists', async () => {
 		const click = vi.fn(() => {});
 		const remove = vi.fn(() => {});
 		const appendChild = vi.fn(() => {});
@@ -846,7 +846,7 @@ describe('downloadSnapshot', () => {
 			body: { appendChild }
 		};
 
-		withMockedDocument(fakeDocument, () =>
+		await withMockedDocument(fakeDocument, () =>
 			downloadSnapshot('data:image/jpeg;base64,mock', 'b.jpeg')
 		);
 
