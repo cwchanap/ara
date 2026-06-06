@@ -90,8 +90,9 @@
 
 			const baseFetch = (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
 				fetch(input, { ...init, signal });
+			const _fetch = fetch as typeof fetch & { preconnect?: typeof fetch };
 			const preconnectProp =
-				typeof fetch.preconnect !== 'undefined' ? { preconnect: fetch.preconnect } : {};
+				typeof _fetch.preconnect !== 'undefined' ? { preconnect: _fetch.preconnect } : {};
 			const fetchWithSignal = Object.assign(baseFetch, preconnectProp) as typeof fetch;
 
 			void (async () => {

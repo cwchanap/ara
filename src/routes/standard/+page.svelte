@@ -103,10 +103,11 @@
 			const currentConfigKey = configKey;
 
 			void (async () => {
+				const _fetch = fetch as typeof fetch & { preconnect?: typeof fetch };
 				const fetchWithSignal: typeof fetch = Object.assign(
 					(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
 						fetch(input, { ...init, signal }),
-					{ preconnect: fetch.preconnect }
+					{ preconnect: _fetch.preconnect }
 				);
 
 				try {
