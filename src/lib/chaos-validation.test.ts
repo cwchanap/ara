@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import {
 	validateParameters,
 	checkParameterStability,
@@ -1478,5 +1478,1195 @@ describe('Lorenz extended-field validation', () => {
 		});
 		expect(result.isValid).toBe(false);
 		expect(result.errors.some((e) => e.includes('hasOwnProperty'))).toBe(true);
+	});
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// Merged from chaos-validation.extra.test.ts
+// ════════════════════════════════════════════════════════════════════════════
+
+describe('validateParameters for newton', () => {
+	test('returns valid for correct newton parameters', () => {
+		const result = validateParameters('newton', {
+			type: 'newton',
+			xMin: -2,
+			xMax: 2,
+			yMin: -2,
+			yMax: 2,
+			maxIterations: 50
+		});
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toHaveLength(0);
+	});
+
+	test('returns invalid for missing xMin', () => {
+		const result = validateParameters('newton', {
+			type: 'newton',
+			xMax: 2,
+			yMin: -2,
+			yMax: 2,
+			maxIterations: 50
+		});
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => /xMin/.test(e))).toBe(true);
+	});
+
+	test('returns invalid for missing yMax', () => {
+		const result = validateParameters('newton', {
+			type: 'newton',
+			xMin: -2,
+			xMax: 2,
+			yMin: -2,
+			maxIterations: 50
+		});
+		expect(result.isValid).toBe(false);
+	});
+
+	test('returns invalid for non-numeric maxIterations', () => {
+		const result = validateParameters('newton', {
+			type: 'newton',
+			xMin: -2,
+			xMax: 2,
+			yMin: -2,
+			yMax: 2,
+			maxIterations: 'fifty'
+		});
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => /must be a valid number/.test(e))).toBe(true);
+	});
+
+	test('returns invalid for NaN xMax', () => {
+		const result = validateParameters('newton', {
+			type: 'newton',
+			xMin: -2,
+			xMax: NaN,
+			yMin: -2,
+			yMax: 2,
+			maxIterations: 50
+		});
+		expect(result.isValid).toBe(false);
+	});
+
+	test('returns invalid for extra parameters', () => {
+		const result = validateParameters('newton', {
+			type: 'newton',
+			xMin: -2,
+			xMax: 2,
+			yMin: -2,
+			yMax: 2,
+			maxIterations: 50,
+			extraParam: 99
+		});
+		expect(result.isValid).toBe(false);
+	});
+});
+
+// ── validateParameters for standard ──────────────────────────────────────────
+
+describe('validateParameters for standard', () => {
+	test('returns valid for correct standard parameters', () => {
+		const result = validateParameters('standard', {
+			type: 'standard',
+			k: 0.97,
+			numP: 20,
+			numQ: 20,
+			iterations: 20000
+		});
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toHaveLength(0);
+	});
+
+	test('returns invalid for missing k', () => {
+		const result = validateParameters('standard', {
+			type: 'standard',
+			numP: 20,
+			numQ: 20,
+			iterations: 20000
+		});
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => /\bk\b/.test(e))).toBe(true);
+	});
+
+	test('returns invalid for missing numP', () => {
+		const result = validateParameters('standard', {
+			type: 'standard',
+			k: 0.97,
+			numQ: 20,
+			iterations: 20000
+		});
+		expect(result.isValid).toBe(false);
+	});
+
+	test('returns invalid for non-numeric numQ', () => {
+		const result = validateParameters('standard', {
+			type: 'standard',
+			k: 0.97,
+			numP: 20,
+			numQ: 'twenty',
+			iterations: 20000
+		});
+		expect(result.isValid).toBe(false);
+	});
+
+	test('returns invalid for NaN iterations', () => {
+		const result = validateParameters('standard', {
+			type: 'standard',
+			k: 0.97,
+			numP: 20,
+			numQ: 20,
+			iterations: NaN
+		});
+		expect(result.isValid).toBe(false);
+	});
+
+	test('returns invalid for extra parameters', () => {
+		const result = validateParameters('standard', {
+			type: 'standard',
+			k: 0.97,
+			numP: 20,
+			numQ: 20,
+			iterations: 20000,
+			extra: 1
+		});
+		expect(result.isValid).toBe(false);
+	});
+});
+
+// ── validateParameters for chaos-esthetique ──────────────────────────────────
+
+describe('validateParameters for chaos-esthetique', () => {
+	test('returns valid for correct chaos-esthetique parameters', () => {
+		const result = validateParameters('chaos-esthetique', {
+			type: 'chaos-esthetique',
+			a: 1.4,
+			b: 0.3,
+			x0: 0,
+			y0: 0,
+			iterations: 10000
+		});
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toHaveLength(0);
+	});
+
+	test('returns invalid for missing a', () => {
+		const result = validateParameters('chaos-esthetique', {
+			type: 'chaos-esthetique',
+			b: 0.3,
+			x0: 0,
+			y0: 0,
+			iterations: 10000
+		});
+		expect(result.isValid).toBe(false);
+	});
+
+	test('returns invalid for missing iterations', () => {
+		const result = validateParameters('chaos-esthetique', {
+			type: 'chaos-esthetique',
+			a: 1.4,
+			b: 0.3,
+			x0: 0,
+			y0: 0
+		});
+		expect(result.isValid).toBe(false);
+	});
+
+	test('returns invalid for non-numeric b', () => {
+		const result = validateParameters('chaos-esthetique', {
+			type: 'chaos-esthetique',
+			a: 1.4,
+			b: 'point-three',
+			x0: 0,
+			y0: 0,
+			iterations: 10000
+		});
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => /must be a valid number/.test(e))).toBe(true);
+	});
+
+	test('returns invalid for NaN x0', () => {
+		const result = validateParameters('chaos-esthetique', {
+			type: 'chaos-esthetique',
+			a: 1.4,
+			b: 0.3,
+			x0: NaN,
+			y0: 0,
+			iterations: 10000
+		});
+		expect(result.isValid).toBe(false);
+	});
+
+	test('returns invalid for extra parameters', () => {
+		const result = validateParameters('chaos-esthetique', {
+			type: 'chaos-esthetique',
+			a: 1.4,
+			b: 0.3,
+			x0: 0,
+			y0: 0,
+			iterations: 10000,
+			extra: 42
+		});
+		expect(result.isValid).toBe(false);
+	});
+});
+
+// ── checkParameterStability for newton ───────────────────────────────────────
+
+describe('checkParameterStability for newton – additional cases', () => {
+	test('returns stable for valid ranges', () => {
+		const result = checkParameterStability('newton', {
+			type: 'newton',
+			xMin: -2,
+			xMax: 2,
+			yMin: -2,
+			yMax: 2,
+			maxIterations: 50
+		});
+		expect(result.isStable).toBe(true);
+	});
+
+	test('returns warnings when yMin is not less than yMax', () => {
+		const result = checkParameterStability('newton', {
+			type: 'newton',
+			xMin: -2,
+			xMax: 2,
+			yMin: 3,
+			yMax: 1,
+			maxIterations: 50
+		});
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.length).toBeGreaterThan(0);
+	});
+
+	test('returns warnings when xMin equals xMax', () => {
+		const result = checkParameterStability('newton', {
+			type: 'newton',
+			xMin: 2,
+			xMax: 2,
+			yMin: -2,
+			yMax: 2,
+			maxIterations: 50
+		});
+		expect(result.isStable).toBe(false);
+	});
+
+	test('returns warnings when maxIterations is above stable range', () => {
+		const result = checkParameterStability('newton', {
+			type: 'newton',
+			xMin: -2,
+			xMax: 2,
+			yMin: -2,
+			yMax: 2,
+			maxIterations: 9999
+		});
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => /maxIterations/.test(w))).toBe(true);
+	});
+
+	test('returns warnings when maxIterations is below stable range', () => {
+		const result = checkParameterStability('newton', {
+			type: 'newton',
+			xMin: -2,
+			xMax: 2,
+			yMin: -2,
+			yMax: 2,
+			maxIterations: 0
+		});
+		expect(result.isStable).toBe(false);
+	});
+
+	test('warns for both xMin >= xMax and yMin >= yMax simultaneously', () => {
+		const result = checkParameterStability('newton', {
+			type: 'newton',
+			xMin: 1,
+			xMax: -1,
+			yMin: 1,
+			yMax: -1,
+			maxIterations: 50
+		});
+		expect(result.isStable).toBe(false);
+		expect(result.warnings).toContain('xMin must be less than xMax');
+		expect(result.warnings).toContain('yMin must be less than yMax');
+	});
+});
+
+// ── checkParameterStability for standard ─────────────────────────────────────
+
+describe('checkParameterStability for standard – additional cases', () => {
+	test('returns stable for in-range parameters', () => {
+		const result = checkParameterStability('standard', {
+			type: 'standard',
+			k: 0.97,
+			numP: 20,
+			numQ: 20,
+			iterations: 20000
+		});
+		expect(result.isStable).toBe(true);
+	});
+
+	test('returns warnings when numP is above stable range', () => {
+		const result = checkParameterStability('standard', {
+			type: 'standard',
+			k: 0.97,
+			numP: 999,
+			numQ: 20,
+			iterations: 20000
+		});
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => /numP/.test(w))).toBe(true);
+	});
+
+	test('returns warnings when numQ is above stable range', () => {
+		const result = checkParameterStability('standard', {
+			type: 'standard',
+			k: 0.97,
+			numP: 20,
+			numQ: 999,
+			iterations: 20000
+		});
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => /numQ/.test(w))).toBe(true);
+	});
+
+	test('returns warnings when iterations is above stable range', () => {
+		const result = checkParameterStability('standard', {
+			type: 'standard',
+			k: 0.97,
+			numP: 20,
+			numQ: 20,
+			iterations: 9999999
+		});
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => /iterations/.test(w))).toBe(true);
+	});
+
+	test('returns warnings when k is above stable range', () => {
+		const result = checkParameterStability('standard', {
+			type: 'standard',
+			k: 100,
+			numP: 20,
+			numQ: 20,
+			iterations: 20000
+		});
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => /\bk\b/.test(w))).toBe(true);
+	});
+});
+
+// ── checkParameterStability for chaos-esthetique ─────────────────────────────
+
+describe('checkParameterStability for chaos-esthetique – additional cases', () => {
+	test('returns stable for in-range parameters', () => {
+		const result = checkParameterStability('chaos-esthetique', {
+			type: 'chaos-esthetique',
+			a: 1.4,
+			b: 0.3,
+			x0: 0,
+			y0: 0,
+			iterations: 10000
+		});
+		expect(result.isStable).toBe(true);
+	});
+
+	test('returns warnings when a is above stable range', () => {
+		const result = checkParameterStability('chaos-esthetique', {
+			type: 'chaos-esthetique',
+			a: 100,
+			b: 0.3,
+			x0: 0,
+			y0: 0,
+			iterations: 10000
+		});
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => /\ba\b/.test(w))).toBe(true);
+	});
+
+	test('returns warnings when b is above stable range', () => {
+		const result = checkParameterStability('chaos-esthetique', {
+			type: 'chaos-esthetique',
+			a: 1.4,
+			b: 100,
+			x0: 0,
+			y0: 0,
+			iterations: 10000
+		});
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => /\bb\b/.test(w))).toBe(true);
+	});
+
+	test('returns warnings when iterations is above stable range', () => {
+		const result = checkParameterStability('chaos-esthetique', {
+			type: 'chaos-esthetique',
+			a: 1.4,
+			b: 0.3,
+			x0: 0,
+			y0: 0,
+			iterations: 999999
+		});
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => /iterations/.test(w))).toBe(true);
+	});
+
+	test('returns warnings when x0 is outside stable range', () => {
+		const result = checkParameterStability('chaos-esthetique', {
+			type: 'chaos-esthetique',
+			a: 1.4,
+			b: 0.3,
+			x0: 1000,
+			y0: 0,
+			iterations: 10000
+		});
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => /x0/.test(w))).toBe(true);
+	});
+
+	test('returns warnings when y0 is outside stable range', () => {
+		const result = checkParameterStability('chaos-esthetique', {
+			type: 'chaos-esthetique',
+			a: 1.4,
+			b: 0.3,
+			x0: 0,
+			y0: -1000,
+			iterations: 10000
+		});
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => /y0/.test(w))).toBe(true);
+	});
+});
+
+// ── Infinity parameter values ─────────────────────────────────────────────────
+// validateParameters uses `isNaN()` which does not catch Infinity
+// Infinity values are now rejected by Number.isFinite in validateParameters.
+
+describe('validateParameters with Infinity values', () => {
+	test('rejects Infinity for lorenz sigma (Number.isFinite catches it)', () => {
+		const result = validateParameters('lorenz', {
+			type: 'lorenz',
+			sigma: Infinity,
+			rho: 28,
+			beta: 2.667
+		});
+		// Infinity is now rejected by Number.isFinite
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('sigma'))).toBe(true);
+	});
+
+	test('stability check also flags Infinity sigma as invalid', () => {
+		const stability = checkParameterStability('lorenz', {
+			type: 'lorenz',
+			sigma: Infinity,
+			rho: 28,
+			beta: 2.667
+		});
+		expect(stability.isStable).toBe(false);
+	});
+
+	test('rejects -Infinity for logistic r (Number.isFinite catches it)', () => {
+		const result = validateParameters('logistic', {
+			type: 'logistic',
+			r: -Infinity,
+			x0: 0.1,
+			iterations: 100
+		});
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => /\br\b/.test(e))).toBe(true);
+	});
+
+	test('rejects Infinity iterations for henon (Number.isFinite catches it)', () => {
+		const result = validateParameters('henon', {
+			type: 'henon',
+			a: 1.4,
+			b: 0.3,
+			iterations: Infinity
+		});
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('iterations'))).toBe(true);
+	});
+});
+
+// ── getStableRanges for standard, newton, chaos-esthetique ───────────────────
+
+describe('getStableRanges – additional map types', () => {
+	test('returns correct ranges for standard map', () => {
+		const ranges = getStableRanges('standard');
+		expect(ranges).toBeDefined();
+		expect(ranges!.k).toBeDefined();
+		expect(ranges!.numP).toBeDefined();
+		expect(ranges!.numQ).toBeDefined();
+		expect(ranges!.iterations).toBeDefined();
+	});
+
+	test('returns correct ranges for newton', () => {
+		const ranges = getStableRanges('newton');
+		expect(ranges).toBeDefined();
+		expect(ranges!.xMin).toBeDefined();
+		expect(ranges!.xMax).toBeDefined();
+		expect(ranges!.yMin).toBeDefined();
+		expect(ranges!.yMax).toBeDefined();
+		expect(ranges!.maxIterations).toBeDefined();
+	});
+
+	test('returns correct ranges for chaos-esthetique', () => {
+		const ranges = getStableRanges('chaos-esthetique');
+		expect(ranges).toBeDefined();
+		expect(ranges!.a).toBeDefined();
+		expect(ranges!.b).toBeDefined();
+		expect(ranges!.x0).toBeDefined();
+		expect(ranges!.y0).toBeDefined();
+		expect(ranges!.iterations).toBeDefined();
+	});
+
+	test('stable range min is less than max for all standard params', () => {
+		const ranges = getStableRanges('standard')!;
+		for (const [, range] of Object.entries(ranges)) {
+			expect(range.min).toBeLessThanOrEqual(range.max);
+		}
+	});
+
+	test('stable range min is less than max for all newton params', () => {
+		const ranges = getStableRanges('newton')!;
+		for (const [, range] of Object.entries(ranges)) {
+			expect(range.min).toBeLessThanOrEqual(range.max);
+		}
+	});
+});
+
+// ── isValidMapType edge cases ─────────────────────────────────────────────────
+
+describe('isValidMapType – edge cases', () => {
+	test('returns false for null', () => {
+		expect(isValidMapType(null as unknown as string)).toBe(false);
+	});
+
+	test('returns false for undefined', () => {
+		expect(isValidMapType(undefined as unknown as string)).toBe(false);
+	});
+
+	test('returns false for number', () => {
+		expect(isValidMapType(42 as unknown as string)).toBe(false);
+	});
+
+	test('returns false for object', () => {
+		expect(isValidMapType({} as unknown as string)).toBe(false);
+	});
+
+	test('returns false for whitespace string', () => {
+		expect(isValidMapType(' lorenz')).toBe(false);
+	});
+
+	test('returns false for lorenz with wrong casing', () => {
+		expect(isValidMapType('Lorenz')).toBe(false);
+		expect(isValidMapType('LORENZ')).toBe(false);
+	});
+});
+
+describe('validateParameters with non-object input', () => {
+	test('returns invalid for params that are not an object', () => {
+		const result = validateParameters(
+			'lorenz',
+			'not-an-object' as unknown as Record<string, unknown>
+		);
+		expect(result.isValid).toBe(false);
+		expect(result.errors).toContain('Parameters must be an object');
+	});
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// Merged from chaos-validation.vitest.ts (the 'it'-style suite)
+// ════════════════════════════════════════════════════════════════════════════
+
+describe('validateParameters', () => {
+	describe('non-object params', () => {
+		it('rejects null', () => {
+			const result = validateParameters('lorenz', null);
+			expect(result.isValid).toBe(false);
+			expect(result.errors).toContain('Parameters must be an object');
+		});
+
+		it('rejects undefined', () => {
+			const result = validateParameters('lorenz', undefined);
+			expect(result.isValid).toBe(false);
+			expect(result.errors).toContain('Parameters must be an object');
+		});
+
+		it('rejects string', () => {
+			const result = validateParameters('lorenz', 'not an object');
+			expect(result.isValid).toBe(false);
+			expect(result.errors).toContain('Parameters must be an object');
+		});
+
+		it('rejects number', () => {
+			const result = validateParameters('lorenz', 42);
+			expect(result.isValid).toBe(false);
+			expect(result.errors).toContain('Parameters must be an object');
+		});
+
+		it('rejects boolean', () => {
+			const result = validateParameters('lorenz', true);
+			expect(result.isValid).toBe(false);
+			expect(result.errors).toContain('Parameters must be an object');
+		});
+	});
+
+	describe('Standard map K normalization', () => {
+		it('normalizes uppercase K to lowercase k', () => {
+			const result = validateParameters('standard', {
+				type: 'standard',
+				K: 1.5,
+				numP: 10,
+				numQ: 10,
+				iterations: 5000
+			});
+			expect(result.isValid).toBe(true);
+			expect(result.parameters).toHaveProperty('k', 1.5);
+			expect(result.parameters).not.toHaveProperty('K');
+		});
+
+		it('keeps k when both K and k are present', () => {
+			const result = validateParameters('standard', {
+				type: 'standard',
+				K: 1.5,
+				k: 2.0,
+				numP: 10,
+				numQ: 10,
+				iterations: 5000
+			});
+			expect(result.isValid).toBe(true);
+			expect(result.parameters).toHaveProperty('k', 2.0);
+			expect(result.parameters).not.toHaveProperty('K');
+		});
+
+		it('accepts lowercase k directly', () => {
+			const result = validateParameters('standard', {
+				k: 1.5,
+				numP: 10,
+				numQ: 10,
+				iterations: 5000
+			});
+			expect(result.isValid).toBe(true);
+			expect(result.parameters).toHaveProperty('k', 1.5);
+		});
+	});
+
+	describe('unknown map type', () => {
+		it('rejects unknown map type', () => {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const result = validateParameters('unknown' as any, { a: 1 });
+			expect(result.isValid).toBe(false);
+			expect(result.errors).toEqual([expect.stringContaining('Unknown map type')]);
+		});
+	});
+
+	describe('missing keys', () => {
+		it('reports missing parameters for lorenz', () => {
+			const result = validateParameters('lorenz', { sigma: 10 });
+			expect(result.isValid).toBe(false);
+			expect(result.errors).toEqual([expect.stringContaining('Missing required parameters')]);
+			expect(result.errors[0]).toContain('rho');
+			expect(result.errors[0]).toContain('beta');
+		});
+	});
+
+	describe('extra keys', () => {
+		it('reports unexpected parameters', () => {
+			const result = validateParameters('lorenz', {
+				sigma: 10,
+				rho: 28,
+				beta: 2.667,
+				extra: 5
+			});
+			expect(result.isValid).toBe(false);
+			expect(result.errors).toEqual([expect.stringContaining('Unexpected parameters')]);
+			expect(result.errors[0]).toContain('extra');
+		});
+
+		it('allows type field without reporting as extra', () => {
+			const result = validateParameters('lorenz', {
+				type: 'lorenz',
+				sigma: 10,
+				rho: 28,
+				beta: 2.667
+			});
+			expect(result.isValid).toBe(true);
+		});
+	});
+
+	describe('non-number values', () => {
+		it('rejects string values', () => {
+			const result = validateParameters('lorenz', {
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				sigma: '10' as any,
+				rho: 28,
+				beta: 2.667
+			});
+			expect(result.isValid).toBe(false);
+			expect(result.errors).toEqual([
+				expect.stringContaining("Parameter 'sigma' must be a valid number")
+			]);
+		});
+
+		it('rejects NaN values', () => {
+			const result = validateParameters('lorenz', {
+				sigma: NaN,
+				rho: 28,
+				beta: 2.667
+			});
+			expect(result.isValid).toBe(false);
+			expect(result.errors).toEqual([
+				expect.stringContaining("Parameter 'sigma' must be a valid number")
+			]);
+		});
+	});
+
+	describe('valid params for each map type', () => {
+		it('accepts valid lorenz params', () => {
+			const result = validateParameters('lorenz', { sigma: 10, rho: 28, beta: 2.667 });
+			expect(result.isValid).toBe(true);
+			expect(result.errors).toHaveLength(0);
+		});
+
+		it('accepts valid rossler params', () => {
+			const result = validateParameters('rossler', { a: 0.2, b: 0.2, c: 5.7 });
+			expect(result.isValid).toBe(true);
+		});
+
+		it('accepts valid henon params', () => {
+			const result = validateParameters('henon', { a: 1.4, b: 0.3, iterations: 10000 });
+			expect(result.isValid).toBe(true);
+		});
+
+		it('accepts valid lozi params', () => {
+			const result = validateParameters('lozi', {
+				a: 1.4,
+				b: 0.3,
+				x0: 0.1,
+				y0: 0.1,
+				iterations: 10000
+			});
+			expect(result.isValid).toBe(true);
+		});
+
+		it('accepts valid logistic params', () => {
+			const result = validateParameters('logistic', { r: 3.7, x0: 0.5, iterations: 500 });
+			expect(result.isValid).toBe(true);
+		});
+
+		it('accepts valid newton params', () => {
+			const result = validateParameters('newton', {
+				xMin: -2,
+				xMax: 2,
+				yMin: -2,
+				yMax: 2,
+				maxIterations: 50
+			});
+			expect(result.isValid).toBe(true);
+		});
+
+		it('accepts valid bifurcation-logistic params', () => {
+			const result = validateParameters('bifurcation-logistic', {
+				rMin: 2.5,
+				rMax: 4,
+				maxIterations: 500
+			});
+			expect(result.isValid).toBe(true);
+		});
+
+		it('accepts valid bifurcation-henon params', () => {
+			const result = validateParameters('bifurcation-henon', {
+				aMin: 0.5,
+				aMax: 1.5,
+				b: 0.3,
+				maxIterations: 500
+			});
+			expect(result.isValid).toBe(true);
+		});
+
+		it('accepts valid chaos-esthetique params', () => {
+			const result = validateParameters('chaos-esthetique', {
+				a: 0.5,
+				b: 0.5,
+				x0: 0.1,
+				y0: 0.1,
+				iterations: 50000
+			});
+			expect(result.isValid).toBe(true);
+		});
+
+		it('accepts valid lyapunov params', () => {
+			const result = validateParameters('lyapunov', {
+				rMin: 2,
+				rMax: 4,
+				iterations: 500,
+				transientIterations: 100
+			});
+			expect(result.isValid).toBe(true);
+		});
+	});
+
+	describe('optional fields validation', () => {
+		it('accepts valid optional fields for lorenz', () => {
+			const result = validateParameters('lorenz', {
+				sigma: 10,
+				rho: 28,
+				beta: 2.667,
+				epsilon: 0.01,
+				showGhost: true,
+				solver: 'rk4',
+				dt: 0.005,
+				colorMode: 'time',
+				trailStyle: 'comet'
+			});
+			expect(result.isValid).toBe(true);
+		});
+
+		it('rejects invalid number type for optional field', () => {
+			const result = validateParameters('lorenz', {
+				sigma: 10,
+				rho: 28,
+				beta: 2.667,
+				epsilon: 'not-a-number'
+			});
+			expect(result.isValid).toBe(false);
+			expect(result.errors[0]).toContain("Parameter 'epsilon' must be a valid number");
+		});
+
+		it('rejects optional field below minimum', () => {
+			const result = validateParameters('lorenz', {
+				sigma: 10,
+				rho: 28,
+				beta: 2.667,
+				epsilon: -1
+			});
+			expect(result.isValid).toBe(false);
+			expect(result.errors[0]).toContain("Parameter 'epsilon' must be >= 0");
+		});
+
+		it('rejects optional field above maximum', () => {
+			const result = validateParameters('lorenz', {
+				sigma: 10,
+				rho: 28,
+				beta: 2.667,
+				trailLength: 200000
+			});
+			expect(result.isValid).toBe(false);
+			expect(result.errors[0]).toContain("Parameter 'trailLength' must be <= 100000");
+		});
+
+		it('rejects invalid boolean type for optional field', () => {
+			const result = validateParameters('lorenz', {
+				sigma: 10,
+				rho: 28,
+				beta: 2.667,
+				showGhost: 'true'
+			});
+			expect(result.isValid).toBe(false);
+			expect(result.errors[0]).toContain("Parameter 'showGhost' must be a boolean");
+		});
+
+		it('rejects invalid enum value for optional field', () => {
+			const result = validateParameters('lorenz', {
+				sigma: 10,
+				rho: 28,
+				beta: 2.667,
+				solver: 'invalid-solver'
+			});
+			expect(result.isValid).toBe(false);
+			expect(result.errors[0]).toContain("Parameter 'solver' must be one of");
+		});
+	});
+});
+
+describe('checkParameterStability', () => {
+	describe('invalid params delegation', () => {
+		it('delegates to validateParameters for null', () => {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const result = checkParameterStability('lorenz', null as any);
+			expect(result.isStable).toBe(false);
+			expect(result.warnings).toContain('Parameters must be an object');
+		});
+
+		it('delegates to validateParameters for missing keys', () => {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const result = checkParameterStability('lorenz', { sigma: 10 } as any);
+			expect(result.isStable).toBe(false);
+			expect(result.warnings[0]).toContain('Missing required parameters');
+		});
+	});
+
+	describe('unknown map type', () => {
+		it('returns isStable false due to validation failure', () => {
+			const result = checkParameterStability(
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				'unknown' as any,
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				{} as any
+			);
+			expect(result.isStable).toBe(false);
+			expect(result.warnings).toEqual([expect.stringContaining('Unknown map type')]);
+		});
+	});
+
+	describe('min/max relationship warnings', () => {
+		it('warns when newton xMin >= xMax', () => {
+			const result = checkParameterStability('newton', {
+				type: 'newton',
+				xMin: 2,
+				xMax: 1,
+				yMin: -2,
+				yMax: 2,
+				maxIterations: 50
+			});
+			expect(result.isStable).toBe(false);
+			expect(result.warnings).toContain('xMin must be less than xMax');
+		});
+
+		it('warns when newton yMin >= yMax', () => {
+			const result = checkParameterStability('newton', {
+				type: 'newton',
+				xMin: -2,
+				xMax: 2,
+				yMin: 2,
+				yMax: 1,
+				maxIterations: 50
+			});
+			expect(result.isStable).toBe(false);
+			expect(result.warnings).toContain('yMin must be less than yMax');
+		});
+
+		it('warns when newton xMin === xMax', () => {
+			const result = checkParameterStability('newton', {
+				type: 'newton',
+				xMin: 0,
+				xMax: 0,
+				yMin: -2,
+				yMax: 2,
+				maxIterations: 50
+			});
+			expect(result.isStable).toBe(false);
+			expect(result.warnings).toContain('xMin must be less than xMax');
+		});
+
+		it('warns when bifurcation-logistic rMin >= rMax', () => {
+			const result = checkParameterStability('bifurcation-logistic', {
+				type: 'bifurcation-logistic',
+				rMin: 4,
+				rMax: 3,
+				maxIterations: 500
+			});
+			expect(result.isStable).toBe(false);
+			expect(result.warnings).toContain('rMin must be less than rMax');
+		});
+
+		it('warns when bifurcation-henon aMin >= aMax', () => {
+			const result = checkParameterStability('bifurcation-henon', {
+				type: 'bifurcation-henon',
+				aMin: 2,
+				aMax: 1,
+				b: 0.3,
+				maxIterations: 500
+			});
+			expect(result.isStable).toBe(false);
+			expect(result.warnings).toContain('aMin must be less than aMax');
+		});
+
+		it('warns when lyapunov rMin >= rMax', () => {
+			const result = checkParameterStability('lyapunov', {
+				type: 'lyapunov',
+				rMin: 4,
+				rMax: 2,
+				iterations: 500,
+				transientIterations: 100
+			});
+			expect(result.isStable).toBe(false);
+			expect(result.warnings).toContain('rMin must be less than rMax');
+		});
+
+		it('warns when lyapunov transientIterations > iterations', () => {
+			const result = checkParameterStability('lyapunov', {
+				type: 'lyapunov',
+				rMin: 2,
+				rMax: 4,
+				iterations: 200,
+				transientIterations: 500
+			});
+			expect(result.isStable).toBe(false);
+			expect(result.warnings).toContain('transientIterations must be <= iterations');
+		});
+
+		it('warns when lorenz dt is <= 0 or > 0.02', () => {
+			const result = checkParameterStability('lorenz', {
+				type: 'lorenz',
+				sigma: 10,
+				rho: 28,
+				beta: 2.667,
+				dt: 0.03
+			});
+			expect(result.isStable).toBe(false);
+			expect(result.warnings).toContain(
+				'dt (0.03) is outside the recommended range (0, 0.02]'
+			);
+		});
+
+		it('warns when lorenz Euler solver is used with dt > 0.01', () => {
+			const result = checkParameterStability('lorenz', {
+				type: 'lorenz',
+				sigma: 10,
+				rho: 28,
+				beta: 2.667,
+				dt: 0.015,
+				solver: 'euler'
+			});
+			expect(result.isStable).toBe(false);
+			expect(result.warnings).toContain(
+				'Euler integration with dt=0.015 is prone to numerical blow-up; reduce dt or use RK4'
+			);
+		});
+
+		it('warns when lorenz epsilon is <= 0', () => {
+			const result = checkParameterStability('lorenz', {
+				type: 'lorenz',
+				sigma: 10,
+				rho: 28,
+				beta: 2.667,
+				epsilon: 0
+			});
+			expect(result.isStable).toBe(false);
+			expect(result.warnings).toContain(
+				'epsilon (0) must be positive for the perturbed orbit'
+			);
+		});
+	});
+
+	describe('out-of-range warnings', () => {
+		it('warns when lorenz sigma is above stable range', () => {
+			const result = checkParameterStability('lorenz', {
+				type: 'lorenz',
+				sigma: 100,
+				rho: 28,
+				beta: 2.667
+			});
+			expect(result.isStable).toBe(false);
+			expect(result.warnings).toContain('sigma (100) is outside stable range [0, 50]');
+		});
+
+		it('warns when lorenz sigma is below stable range', () => {
+			const result = checkParameterStability('lorenz', {
+				type: 'lorenz',
+				sigma: -1,
+				rho: 28,
+				beta: 2.667
+			});
+			expect(result.isStable).toBe(false);
+			expect(result.warnings).toContain('sigma (-1) is outside stable range [0, 50]');
+		});
+
+		it('warns for multiple out-of-range params', () => {
+			const result = checkParameterStability('lorenz', {
+				type: 'lorenz',
+				sigma: 100,
+				rho: 200,
+				beta: 2.667
+			});
+			expect(result.isStable).toBe(false);
+			expect(result.warnings).toHaveLength(2);
+		});
+
+		it('accepts boundary values as stable', () => {
+			const result = checkParameterStability('lorenz', {
+				type: 'lorenz',
+				sigma: 0,
+				rho: 0,
+				beta: 0
+			});
+			expect(result.isStable).toBe(true);
+			expect(result.warnings).toHaveLength(0);
+		});
+
+		it('accepts upper boundary values as stable', () => {
+			const result = checkParameterStability('lorenz', {
+				type: 'lorenz',
+				sigma: 50,
+				rho: 100,
+				beta: 10
+			});
+			expect(result.isStable).toBe(true);
+		});
+	});
+
+	describe('stable params', () => {
+		it('returns stable for valid henon params', () => {
+			const result = checkParameterStability('henon', {
+				type: 'henon',
+				a: 1.4,
+				b: 0.3,
+				iterations: 10000
+			});
+			expect(result.isStable).toBe(true);
+			expect(result.warnings).toHaveLength(0);
+		});
+	});
+});
+
+describe('getStableRanges', () => {
+	it('returns ranges for lorenz', () => {
+		const ranges = getStableRanges('lorenz');
+		expect(ranges).toBeDefined();
+		expect(ranges!.sigma).toEqual({ min: 0, max: 50 });
+	});
+
+	it('returns ranges for rossler', () => {
+		const ranges = getStableRanges('rossler');
+		expect(ranges).toBeDefined();
+		expect(ranges!.a).toEqual({ min: 0.126, max: 0.43295 });
+	});
+
+	it('returns undefined for unknown map type', () => {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const ranges = getStableRanges('unknown' as any);
+		expect(ranges).toBeUndefined();
+	});
+
+	it('returns ranges for all map types', () => {
+		const types = [
+			'lorenz',
+			'rossler',
+			'henon',
+			'lozi',
+			'logistic',
+			'newton',
+			'standard',
+			'bifurcation-logistic',
+			'bifurcation-henon',
+			'chaos-esthetique',
+			'lyapunov'
+		] as const;
+		for (const t of types) {
+			expect(getStableRanges(t)).toBeDefined();
+		}
+	});
+});
+
+describe('isValidMapType', () => {
+	it('returns true for lorenz', () => {
+		expect(isValidMapType('lorenz')).toBe(true);
+	});
+
+	it('returns true for rossler', () => {
+		expect(isValidMapType('rossler')).toBe(true);
+	});
+
+	it('returns true for chaos-esthetique', () => {
+		expect(isValidMapType('chaos-esthetique')).toBe(true);
+	});
+
+	it('returns true for bifurcation-logistic', () => {
+		expect(isValidMapType('bifurcation-logistic')).toBe(true);
+	});
+
+	it('returns false for unknown', () => {
+		expect(isValidMapType('unknown')).toBe(false);
+	});
+
+	it('returns false for empty string', () => {
+		expect(isValidMapType('')).toBe(false);
 	});
 });
