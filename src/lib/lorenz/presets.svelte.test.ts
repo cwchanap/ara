@@ -1,4 +1,5 @@
 // src/lib/lorenz/presets.svelte.test.ts
+import { describe, expect, test } from 'vitest';
 import { LORENZ_PRESETS, matchPreset } from './presets';
 
 describe('LORENZ_PRESETS', () => {

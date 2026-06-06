@@ -7,6 +7,7 @@
  * debounced value use a 200ms pause to ensure both timers have fired.
  */
 
+import { describe, test, expect, beforeEach } from 'vitest';
 import { cameraSyncStore, createCameraState, applyCameraState } from './camera-sync';
 import type { CameraState } from './camera-sync';
 
