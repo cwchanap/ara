@@ -108,7 +108,6 @@ describe('Lorenz page interactions', () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
 		// Mock fetch globally
-		// @ts-expect-error mocking fetch in tests
 		global.fetch = vi.fn().mockImplementation(() =>
 			Promise.resolve({
 				ok: true,
@@ -119,7 +118,7 @@ describe('Lorenz page interactions', () => {
 						expiresAt: '2026-06-03'
 					})
 			} as Response)
-		);
+		) as unknown as typeof global.fetch;
 	});
 
 	afterEach(() => {
