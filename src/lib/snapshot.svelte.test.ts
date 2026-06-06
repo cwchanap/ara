@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, test, vi } from 'vitest';
 
 import {
 	captureCanvas,
@@ -619,7 +619,7 @@ describe('captureContainer', () => {
 			});
 			expect(drawImage).toHaveBeenCalled();
 			const urlObject = (globalThis as Record<string, unknown>).URL as {
-				revokeObjectURL: ReturnType<typeof mock>;
+				revokeObjectURL: ReturnType<typeof vi.fn>;
 			};
 			expect(urlObject.revokeObjectURL).toHaveBeenCalledWith('blob:mock-url');
 		} finally {
