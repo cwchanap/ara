@@ -1,296 +1,351 @@
-import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { NeonAuthUser } from '$lib/auth/types';
+import type { Profile } from '$lib/server/db/schema';
 
-interface ProfileRow {
-	id: string;
-	username: string;
-	createdAt: string;
-	updatedAt: string;
+type InsertPayload = { id: string; username: string };
+
+const profileRows: Profile[] = [];
+const insertedProfiles: InsertPayload[] = [];
+const insertErrors: Error[] = [];
+
+const profileColumns = {
+	id: { name: 'id' },
+	username: { name: 'username' }
+};
+
+function queryProfiles(predicate?: unknown): Profile[] {
+	if (!predicate) return profileRows;
+
+	let column: unknown;
+	let value: unknown;
+	if (Array.isArray(predicate)) {
+		[column, value] = predicate;
+	} else if (predicate && typeof predicate === 'object' && 'eq' in predicate) {
+		[column, value] = (predicate as { eq: [unknown, unknown] }).eq;
+	} else {
+		const chunks = (
+			predicate as { queryChunks?: Array<{ name?: string } | { value?: unknown[] }> }
+		)?.queryChunks;
+		const valueChunk = chunks?.[3];
+		[column, value] = [
+			chunks?.[1],
+			valueChunk && 'value' in valueChunk ? valueChunk.value?.[0] : undefined
+		];
+	}
+
+	if (column === profileColumns.id) {
+		return profileRows.filter((profile) => profile.id === value);
+	}
+	if (column === profileColumns.username) {
+		return profileRows.filter((profile) => profile.username === value);
+	}
+	return [];
 }
 
-interface CapturedInsert {
-	id?: string;
-	username?: string;
-}
-
-interface ThrowSpec {
-	code?: string;
-	constraint?: string;
-	name?: string;
-	message?: string;
-}
-
-let selectResultsQueue: ProfileRow[][];
-let insertResultsQueue: { throws?: Error | ThrowSpec }[];
-let capturedInsertValues: CapturedInsert[];
-
-selectResultsQueue = [];
-insertResultsQueue = [];
-capturedInsertValues = [];
-
-mock.module('$lib/server/db', () => ({
-	db: {
-		select: () => ({
-			from: () => ({
-				where: () => ({
-					limit: () => selectResultsQueue.shift() ?? []
-				})
-			})
-		}),
-		insert: () => ({
-			values: (vals: CapturedInsert) => {
-				capturedInsertValues.push(vals);
-				const item = insertResultsQueue.shift();
-				if (!item) throw new Error('No insert result queued');
-				if (item.throws) throw item.throws;
-				return Promise.resolve();
-			}
+function createSelectChain() {
+	let storedPredicate: unknown;
+	return {
+		from: vi.fn(() => {
+			const self = {
+				from: vi.fn(() => self),
+				where: vi.fn((predicate: unknown) => {
+					storedPredicate = predicate;
+					return self;
+				}),
+				limit: vi.fn(async (count: number) =>
+					queryProfiles(storedPredicate).slice(0, count)
+				)
+			};
+			return self;
 		})
+	};
+}
+
+function createInsertChain() {
+	return {
+		values: vi.fn(async (payload: InsertPayload) => {
+			insertedProfiles.push(payload);
+			const error = insertErrors.shift();
+			if (error) throw error;
+			profileRows.push(makeProfile(payload));
+		})
+	};
+}
+
+const selectFn = vi.fn(() => createSelectChain());
+const insertFn = vi.fn(() => createInsertChain());
+
+vi.mock('$lib/server/db', () => ({
+	db: {
+		select: () => selectFn(),
+		insert: () => insertFn()
 	},
-	profiles: { id: 'id' },
+	profiles: profileColumns,
 	savedConfigurations: {},
 	sharedConfigurations: {}
 }));
 
-const { ensureProfileForUser } = await import('./profile-provisioning');
+vi.mock('drizzle-orm', () => ({
+	eq: (a: unknown, b: unknown) => ({ eq: [a, b] })
+}));
+
+function makeProfile(overrides: Partial<Profile>): Profile {
+	return {
+		id: 'user-1',
+		username: 'existing_user',
+		createdAt: '2026-01-01T00:00:00.000Z',
+		updatedAt: '2026-01-01T00:00:00.000Z',
+		...overrides
+	};
+}
+
+function user(overrides: Partial<NeonAuthUser>): NeonAuthUser {
+	return {
+		id: 'user-1',
+		email: null,
+		name: null,
+		image: null,
+		user_metadata: null,
+		...overrides
+	};
+}
+
+function uniqueViolation(message = 'duplicate key value violates unique constraint'): Error {
+	const error = new Error(message);
+	(error as NodeJS.ErrnoException).code = '23505';
+	return error;
+}
 
 beforeEach(() => {
-	selectResultsQueue = [];
-	insertResultsQueue = [];
-	capturedInsertValues = [];
+	profileRows.length = 0;
+	insertedProfiles.length = 0;
+	insertErrors.length = 0;
+	selectFn.mockClear();
+	insertFn.mockClear();
 });
 
 describe('ensureProfileForUser', () => {
-	test('returns existing profile immediately', async () => {
-		const existing = {
-			id: 'u1',
-			username: 'existing',
-			createdAt: '2024-01-01T00:00:00.000Z',
-			updatedAt: '2024-01-01T00:00:00.000Z'
-		};
-		selectResultsQueue.push([existing]);
-		const result = await ensureProfileForUser({ id: 'u1' });
+	it('returns an existing profile without inserting', async () => {
+		const existing = makeProfile({ id: 'user-existing', username: 'grace_hopper' });
+		profileRows.push(existing);
+
+		const { ensureProfileForUser } = await import('./profile-provisioning');
+		const result = await ensureProfileForUser(user({ id: existing.id }));
+
 		expect(result).toEqual(existing);
-		expect(capturedInsertValues).toHaveLength(0);
+		expect(insertedProfiles).toEqual([]);
 	});
 
-	test('creates new profile when none exists', async () => {
-		const created = {
-			id: 'u1',
-			username: 'alice',
-			createdAt: '2024-01-01T00:00:00.000Z',
-			updatedAt: '2024-01-01T00:00:00.000Z'
-		};
-		selectResultsQueue.push([], [created]);
-		insertResultsQueue.push({});
-		const result = await ensureProfileForUser({ id: 'u1', name: 'Alice' });
-		expect(result).toEqual(created);
-		expect(capturedInsertValues).toHaveLength(1);
-		expect(capturedInsertValues[0].id).toBe('u1');
+	it('creates a sanitized username from display name', async () => {
+		const { ensureProfileForUser } = await import('./profile-provisioning');
+		const result = await ensureProfileForUser(user({ id: 'user-2', name: 'Grace Hopper' }));
+
+		expect(insertedProfiles).toEqual([{ id: 'user-2', username: 'grace_hopper' }]);
+		expect(result).toEqual(profileRows[0]);
+		expect(result.username).toBe('grace_hopper');
 	});
 
-	test('falls back to profileFallback when findProfileById returns null after insert', async () => {
-		selectResultsQueue.push([], []);
-		insertResultsQueue.push({});
-		const result = await ensureProfileForUser({ id: 'u1', name: 'Test' });
-		expect(result.id).toBe('u1');
+	it('falls back to email local part when names are missing', async () => {
+		const { ensureProfileForUser } = await import('./profile-provisioning');
+		const result = await ensureProfileForUser(
+			user({ id: 'user-3', email: 'Alan.Turing@example.com' })
+		);
+
+		expect(insertedProfiles).toEqual([{ id: 'user-3', username: 'alan_turing' }]);
+		expect(result.username).toBe('alan_turing');
+	});
+
+	it('uses user metadata name before email local part', async () => {
+		const { ensureProfileForUser } = await import('./profile-provisioning');
+		const result = await ensureProfileForUser(
+			user({
+				id: 'user-4',
+				email: 'fallback@example.com',
+				user_metadata: { name: 'Katherine Johnson' }
+			})
+		);
+
+		expect(insertedProfiles).toEqual([{ id: 'user-4', username: 'katherine_johnson' }]);
+		expect(result.username).toBe('katherine_johnson');
+	});
+
+	it('adds a numeric suffix when username is taken', async () => {
+		insertErrors.push(uniqueViolation());
+
+		const { ensureProfileForUser } = await import('./profile-provisioning');
+		const result = await ensureProfileForUser(user({ id: 'user-5', name: 'Ada' }));
+
+		expect(insertedProfiles).toEqual([
+			{ id: 'user-5', username: 'ada' },
+			{ id: 'user-5', username: 'ada_1' }
+		]);
+		expect(result.username).toBe('ada_1');
+	});
+
+	it('keeps suffixed usernames within the max length', async () => {
+		const base = 'averyveryveryveryverylongname';
+		insertErrors.push(uniqueViolation());
+
+		const { ensureProfileForUser } = await import('./profile-provisioning');
+		const result = await ensureProfileForUser(user({ id: 'user-6', name: base }));
+
+		expect(insertedProfiles).toEqual([
+			{ id: 'user-6', username: base },
+			{ id: 'user-6', username: 'averyveryveryveryverylongnam_1' }
+		]);
+		expect(insertedProfiles[1].username).toHaveLength(30);
+		expect(result.username).toBe('averyveryveryveryverylongnam_1');
+	});
+
+	it('falls back to chaos_user for very short or unusable sources', async () => {
+		const { ensureProfileForUser } = await import('./profile-provisioning');
+		const result = await ensureProfileForUser(
+			user({ id: 'user-7', name: '__', email: '@example.com' })
+		);
+
+		expect(insertedProfiles).toEqual([{ id: 'user-7', username: 'chaos_user' }]);
+		expect(result.username).toBe('chaos_user');
+	});
+
+	it('throws after a finite number of username collision attempts', async () => {
+		insertErrors.push(...Array.from({ length: 100 }, () => uniqueViolation()));
+
+		const { ensureProfileForUser } = await import('./profile-provisioning');
+		await expect(ensureProfileForUser(user({ id: 'user-8', name: 'Ada' }))).rejects.toThrow(
+			'Unable to provision a unique username'
+		);
+		expect(insertedProfiles).toHaveLength(100);
+	});
+
+	it('retries with next suffix after an insert-time username collision', async () => {
+		insertErrors.push(uniqueViolation('profiles_username_unique'));
+
+		const { ensureProfileForUser } = await import('./profile-provisioning');
+		const result = await ensureProfileForUser(user({ id: 'user-9', name: 'Ada' }));
+
+		expect(insertedProfiles).toEqual([
+			{ id: 'user-9', username: 'ada' },
+			{ id: 'user-9', username: 'ada_1' }
+		]);
+		expect(result.username).toBe('ada_1');
+	});
+
+	it('returns concurrently created profile when insert hits same-user unique violation', async () => {
+		const concurrentProfile = makeProfile({ id: 'user-10', username: 'ada' });
+		insertErrors.push(uniqueViolation('profiles_pkey'));
+		insertFn.mockImplementationOnce(() => ({
+			values: vi.fn(async (payload: InsertPayload) => {
+				insertedProfiles.push(payload);
+				profileRows.push(concurrentProfile);
+				throw insertErrors.shift();
+			})
+		}));
+
+		const { ensureProfileForUser } = await import('./profile-provisioning');
+		const result = await ensureProfileForUser(user({ id: 'user-10', name: 'Ada' }));
+
+		expect(insertedProfiles).toEqual([{ id: 'user-10', username: 'ada' }]);
+		expect(result).toEqual(concurrentProfile);
+	});
+
+	it('propagates non-unique insert errors', async () => {
+		const dbError = new Error('database unavailable');
+		insertErrors.push(dbError);
+
+		const { ensureProfileForUser } = await import('./profile-provisioning');
+		await expect(ensureProfileForUser(user({ id: 'user-11', name: 'Ada' }))).rejects.toBe(
+			dbError
+		);
+		expect(insertedProfiles).toEqual([{ id: 'user-11', username: 'ada' }]);
+	});
+
+	// ── Merged from bun profile-provisioning.test.ts ──────────────────────────
+	it('falls back to a constructed profile when the row is missing after insert', async () => {
+		// Insert succeeds but persists no row, so findProfileById returns null.
+		insertFn.mockImplementationOnce(() => ({
+			values: vi.fn(async (payload: InsertPayload) => {
+				insertedProfiles.push(payload);
+			})
+		}));
+
+		const { ensureProfileForUser } = await import('./profile-provisioning');
+		const result = await ensureProfileForUser(user({ id: 'user-null', name: 'Test' }));
+
+		expect(result.id).toBe('user-null');
 		expect(result.username).toBe('test');
 		expect(result.createdAt).toBeTruthy();
 		expect(result.updatedAt).toBeTruthy();
 	});
 
-	test('derives username from user.name', async () => {
-		selectResultsQueue.push([], []);
-		insertResultsQueue.push({});
-		await ensureProfileForUser({ id: 'u1', name: 'Alice Smith' });
-		expect(capturedInsertValues[0].username).toBe('alice_smith');
-	});
+	it('recognizes a unique violation reported via the constraint field', async () => {
+		const error = new Error('insert failed') as Error & { constraint?: string };
+		error.constraint = 'duplicate_key_violation';
+		insertErrors.push(error);
 
-	test('derives username from user_metadata.name when user.name is invalid', async () => {
-		selectResultsQueue.push([], []);
-		insertResultsQueue.push({});
-		await ensureProfileForUser({
-			id: 'u1',
-			name: 'ab',
-			user_metadata: { name: 'Bob' }
-		});
-		expect(capturedInsertValues[0].username).toBe('bob');
-	});
+		const { ensureProfileForUser } = await import('./profile-provisioning');
+		const result = await ensureProfileForUser(user({ id: 'user-con', name: 'Test' }));
 
-	test('derives username from email local part when other sources fail', async () => {
-		selectResultsQueue.push([], []);
-		insertResultsQueue.push({});
-		await ensureProfileForUser({
-			id: 'u1',
-			name: '!!',
-			email: 'charlie@example.com'
-		});
-		expect(capturedInsertValues[0].username).toBe('charlie');
-	});
-
-	test('uses FALLBACK_USERNAME when all sources produce invalid usernames', async () => {
-		selectResultsQueue.push([], []);
-		insertResultsQueue.push({});
-		await ensureProfileForUser({
-			id: 'u1',
-			name: null,
-			email: null,
-			user_metadata: null
-		});
-		expect(capturedInsertValues[0].username).toBe('chaos_user');
-	});
-
-	test('appends suffix and truncates base on retry with long name', async () => {
-		selectResultsQueue.push([], [], []);
-		insertResultsQueue.push({ throws: { code: '23505' } }, {});
-		await ensureProfileForUser({ id: 'u1', name: 'a'.repeat(40) });
-		expect(capturedInsertValues[0].username).toBe('a'.repeat(30));
-		expect(capturedInsertValues[1].username).toBe('a'.repeat(28) + '_1');
-	});
-
-	test('returns concurrent profile after unique violation', async () => {
-		const concurrent = {
-			id: 'u1',
-			username: 'concurrent',
-			createdAt: '2024-01-01T00:00:00.000Z',
-			updatedAt: '2024-01-01T00:00:00.000Z'
-		};
-		selectResultsQueue.push([], [concurrent]);
-		insertResultsQueue.push({ throws: { code: '23505' } });
-		const result = await ensureProfileForUser({ id: 'u1', name: 'Test' });
-		expect(result).toEqual(concurrent);
-	});
-
-	test('continues to next suffix on unique violation without concurrent profile', async () => {
-		selectResultsQueue.push(
-			[],
-			[],
-			[
-				{
-					id: 'u1',
-					username: 'test_1',
-					createdAt: '2024-01-01T00:00:00.000Z',
-					updatedAt: '2024-01-01T00:00:00.000Z'
-				}
-			]
-		);
-		insertResultsQueue.push({ throws: { code: '23505' } }, {});
-		const result = await ensureProfileForUser({ id: 'u1', name: 'Test' });
 		expect(result.username).toBe('test_1');
 	});
 
-	test('rethrows non-unique-violation error', async () => {
-		selectResultsQueue.push([]);
-		insertResultsQueue.push({ throws: new Error('connection lost') });
-		await expect(ensureProfileForUser({ id: 'u1', name: 'Test' })).rejects.toThrow(
-			'connection lost'
-		);
-	});
+	it('recognizes a unique violation reported via the error name', async () => {
+		const error = new Error('insert failed');
+		error.name = 'UniqueConstraintError';
+		insertErrors.push(error);
 
-	test('throws when max attempts exhausted', async () => {
-		selectResultsQueue.push([]);
-		for (let i = 0; i < 100; i++) {
-			insertResultsQueue.push({ throws: { code: '23505' } });
-			selectResultsQueue.push([]);
-		}
-		await expect(ensureProfileForUser({ id: 'u1', name: 'Test' })).rejects.toThrow(
-			'Unable to provision a unique username'
-		);
-	});
+		const { ensureProfileForUser } = await import('./profile-provisioning');
+		const result = await ensureProfileForUser(user({ id: 'user-name', name: 'Test' }));
 
-	test('recognizes unique violation by constraint containing duplicate', async () => {
-		selectResultsQueue.push(
-			[],
-			[],
-			[
-				{
-					id: 'u1',
-					username: 'test_1',
-					createdAt: '2024-01-01T00:00:00.000Z',
-					updatedAt: '2024-01-01T00:00:00.000Z'
-				}
-			]
-		);
-		insertResultsQueue.push({ throws: { constraint: 'duplicate_key_violation' } }, {});
-		const result = await ensureProfileForUser({ id: 'u1', name: 'Test' });
 		expect(result.username).toBe('test_1');
 	});
 
-	test('recognizes unique violation by name containing unique', async () => {
-		selectResultsQueue.push(
-			[],
-			[],
-			[
-				{
-					id: 'u1',
-					username: 'test_1',
-					createdAt: '2024-01-01T00:00:00.000Z',
-					updatedAt: '2024-01-01T00:00:00.000Z'
-				}
-			]
-		);
-		insertResultsQueue.push({ throws: { name: 'UniqueConstraintError' } }, {});
-		const result = await ensureProfileForUser({ id: 'u1', name: 'Test' });
+	it('recognizes a unique violation reported only via the message (no code)', async () => {
+		const error = new Error('duplicate key value violates unique constraint');
+		insertErrors.push(error);
+
+		const { ensureProfileForUser } = await import('./profile-provisioning');
+		const result = await ensureProfileForUser(user({ id: 'user-msg', name: 'Test' }));
+
 		expect(result.username).toBe('test_1');
 	});
 
-	test('recognizes unique violation by message containing duplicate', async () => {
-		selectResultsQueue.push(
-			[],
-			[],
-			[
-				{
-					id: 'u1',
-					username: 'test_1',
-					createdAt: '2024-01-01T00:00:00.000Z',
-					updatedAt: '2024-01-01T00:00:00.000Z'
-				}
-			]
+	it('skips a non-string user_metadata name and uses the email local part', async () => {
+		const { ensureProfileForUser } = await import('./profile-provisioning');
+		const result = await ensureProfileForUser(
+			user({
+				id: 'user-meta',
+				name: null,
+				user_metadata: { name: 42 } as unknown as NeonAuthUser['user_metadata'],
+				email: 'fallback@example.com'
+			})
 		);
-		insertResultsQueue.push(
-			{ throws: { message: 'duplicate key value violates unique constraint' } },
-			{}
+
+		expect(result.username).toBe('fallback');
+	});
+
+	it('sanitizes punctuation out of the display name', async () => {
+		const { ensureProfileForUser } = await import('./profile-provisioning');
+		const result = await ensureProfileForUser(
+			user({ id: 'user-sp', name: 'Hello World!@#$%' })
 		);
-		const result = await ensureProfileForUser({ id: 'u1', name: 'Test' });
-		expect(result.username).toBe('test_1');
+
+		expect(result.username).toBe('hello_world');
 	});
 
-	test('sanitizes special characters in username', async () => {
-		selectResultsQueue.push([], []);
-		insertResultsQueue.push({});
-		await ensureProfileForUser({ id: 'u1', name: 'Hello World!@#$%' });
-		expect(capturedInsertValues[0].username).toBe('hello_world');
+	it('skips a too-short sanitized name and uses the email local part', async () => {
+		const { ensureProfileForUser } = await import('./profile-provisioning');
+		const result = await ensureProfileForUser(
+			user({ id: 'user-short', name: 'ab', email: 'valid@example.com' })
+		);
+
+		expect(result.username).toBe('valid');
 	});
 
-	test('skips name that becomes too short after sanitization', async () => {
-		selectResultsQueue.push([], []);
-		insertResultsQueue.push({});
-		await ensureProfileForUser({ id: 'u1', name: 'ab', email: 'valid@example.com' });
-		expect(capturedInsertValues[0].username).toBe('valid');
-	});
+	it('truncates a very long name to 30 characters when there is no collision', async () => {
+		const { ensureProfileForUser } = await import('./profile-provisioning');
+		const result = await ensureProfileForUser(user({ id: 'user-long', name: 'a'.repeat(100) }));
 
-	test('truncates very long names to 30 characters', async () => {
-		selectResultsQueue.push([], []);
-		insertResultsQueue.push({});
-		await ensureProfileForUser({ id: 'u1', name: 'a'.repeat(100) });
-		expect(capturedInsertValues[0].username).toBe('a'.repeat(30));
-	});
-
-	test('handles email with empty local part by falling back', async () => {
-		selectResultsQueue.push([], []);
-		insertResultsQueue.push({});
-		await ensureProfileForUser({ id: 'u1', name: null, email: '@example.com' });
-		expect(capturedInsertValues[0].username).toBe('chaos_user');
-	});
-
-	test('skips user_metadata.name that is not a string', async () => {
-		selectResultsQueue.push([], []);
-		insertResultsQueue.push({});
-		await ensureProfileForUser({
-			id: 'u1',
-			name: null,
-			user_metadata: { name: 42 },
-			email: 'fallback@example.com'
-		});
-		expect(capturedInsertValues[0].username).toBe('fallback');
+		expect(result.username).toBe('a'.repeat(30));
+		expect(insertedProfiles[0].username).toBe('a'.repeat(30));
 	});
 });
