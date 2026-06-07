@@ -47,6 +47,20 @@ export function getDefaultParameters(mapType: ChaosMapType): ChaosMapParameters 
 			return { type: 'henon', a: 1.4, b: 0.3, iterations: 2000 };
 		case 'lozi':
 			return { type: 'lozi', a: 1.7, b: 0.5, x0: 0, y0: 0, iterations: 5000 };
+		case 'ikeda':
+			return {
+				type: 'ikeda',
+				u: 0.918,
+				x0: 0.1,
+				y0: 0,
+				iterations: 800,
+				burnIn: 100,
+				renderMode: 'multi',
+				seeds: 250,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				opacity: 0.6
+			};
 		case 'logistic':
 			return { type: 'logistic', r: 3.9, x0: 0.1, iterations: 100 };
 		case 'newton':

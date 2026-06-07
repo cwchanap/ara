@@ -64,6 +64,16 @@ describe('getDefaultParameters', () => {
 		expect(params).toHaveProperty('iterations', 5000);
 	});
 
+	test('returns correct default parameters for ikeda', () => {
+		const params = getDefaultParameters('ikeda');
+		expect(params.type).toBe('ikeda');
+		if (params.type === 'ikeda') {
+			expect(params.u).toBeCloseTo(0.918, 5);
+			expect(params.iterations).toBeGreaterThan(0);
+			expect(params.burnIn).toBeGreaterThanOrEqual(0);
+		}
+	});
+
 	test('returns correct default parameters for logistic', () => {
 		const params = getDefaultParameters('logistic') as LogisticParameters;
 		expect(params.type).toBe('logistic');

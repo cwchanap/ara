@@ -12,9 +12,10 @@ import {
 	isChaosEsthetiqueParameters,
 	isLyapunovParameters,
 	isChuaParameters,
+	isIkedaParameters,
 	isParametersOfType
 } from './type-guards';
-import type { ChaosMapParameters } from './types';
+import type { ChaosMapParameters, IkedaParameters } from './types';
 
 describe('Type Guards', () => {
 	test('isLorenzParameters correctly identifies Lorenz parameters', () => {
@@ -327,5 +328,24 @@ describe('isLorenzParameters with extended fields', () => {
 
 	test('accepts a legacy Lorenz config', () => {
 		expect(isLorenzParameters({ type: 'lorenz', sigma: 10, rho: 28, beta: 8 / 3 })).toBe(true);
+	});
+});
+
+describe('isIkedaParameters', () => {
+	test('accepts an Ikeda config and rejects others', () => {
+		const ikeda: IkedaParameters = {
+			type: 'ikeda',
+			u: 0.918,
+			x0: 0.1,
+			y0: 0,
+			iterations: 800,
+			burnIn: 100
+		};
+		expect(isIkedaParameters(ikeda)).toBe(true);
+		expect(
+			isIkedaParameters({ type: 'lozi', a: 1.7, b: 0.5, x0: 0, y0: 0, iterations: 5000 })
+		).toBe(false);
+		expect(isIkedaParameters(null)).toBe(false);
+		expect(isIkedaParameters(undefined)).toBe(false);
 	});
 });
