@@ -14,6 +14,7 @@ export type ChaosMapType =
 	| 'rossler'
 	| 'henon'
 	| 'lozi'
+	| 'ikeda'
 	| 'logistic'
 	| 'newton'
 	| 'standard'
@@ -75,6 +76,25 @@ export interface LoziParameters {
 	x0: number;
 	y0: number;
 	iterations: number;
+}
+
+export type IkedaRenderMode = 'single' | 'multi';
+export type IkedaColorMode = 'single' | 'iteration' | 'seed' | 'radius';
+
+export interface IkedaParameters {
+	type: 'ikeda';
+	// Required system + initial-condition parameters
+	u: number;
+	x0: number;
+	y0: number;
+	iterations: number;
+	burnIn: number;
+	// Optional render state — persisted so save/share/snapshot reproduce exactly.
+	renderMode?: IkedaRenderMode;
+	seeds?: number;
+	colorMode?: IkedaColorMode;
+	pointSize?: number;
+	opacity?: number;
 }
 
 export interface LogisticParameters {
@@ -156,6 +176,7 @@ export type ChaosMapParameters =
 	| RosslerParameters
 	| HenonParameters
 	| LoziParameters
+	| IkedaParameters
 	| LogisticParameters
 	| NewtonParameters
 	| StandardParameters
@@ -171,6 +192,7 @@ export const CHAOS_MAP_DISPLAY_NAMES: Record<ChaosMapType, string> = {
 	rossler: 'RÖSSLER_ATTRACTOR',
 	henon: 'HÉNON_MAP',
 	lozi: 'LOZI_MAP',
+	ikeda: 'IKEDA_MAP',
 	logistic: 'LOGISTIC_MAP',
 	newton: 'NEWTON_FRACTAL',
 	standard: 'STANDARD_MAP',
@@ -187,6 +209,7 @@ export const VALID_MAP_TYPES: ChaosMapType[] = [
 	'rossler',
 	'henon',
 	'lozi',
+	'ikeda',
 	'logistic',
 	'newton',
 	'standard',
@@ -220,6 +243,10 @@ export type SavedConfiguration = {
 	| {
 			mapType: 'lozi';
 			parameters: LoziParameters;
+	  }
+	| {
+			mapType: 'ikeda';
+			parameters: IkedaParameters;
 	  }
 	| {
 			mapType: 'logistic';

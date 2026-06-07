@@ -2670,3 +2670,58 @@ describe('isValidMapType', () => {
 		expect(isValidMapType('')).toBe(false);
 	});
 });
+
+describe('validateParameters - ikeda', () => {
+	test('accepts a valid minimal ikeda config', () => {
+		const result = validateParameters('ikeda', {
+			type: 'ikeda',
+			u: 0.918,
+			x0: 0.1,
+			y0: 0,
+			iterations: 800,
+			burnIn: 100
+		});
+		expect(result.isValid).toBe(true);
+	});
+
+	test('accepts optional render fields with valid values', () => {
+		const result = validateParameters('ikeda', {
+			type: 'ikeda',
+			u: 0.918,
+			x0: 0.1,
+			y0: 0,
+			iterations: 800,
+			burnIn: 100,
+			renderMode: 'multi',
+			seeds: 250,
+			colorMode: 'iteration',
+			pointSize: 1.5,
+			opacity: 0.6
+		});
+		expect(result.isValid).toBe(true);
+	});
+
+	test('rejects an invalid colorMode enum value', () => {
+		const result = validateParameters('ikeda', {
+			type: 'ikeda',
+			u: 0.918,
+			x0: 0.1,
+			y0: 0,
+			iterations: 800,
+			burnIn: 100,
+			colorMode: 'rainbow'
+		});
+		expect(result.isValid).toBe(false);
+	});
+
+	test('rejects a missing required field (burnIn)', () => {
+		const result = validateParameters('ikeda', {
+			type: 'ikeda',
+			u: 0.918,
+			x0: 0.1,
+			y0: 0,
+			iterations: 800
+		});
+		expect(result.isValid).toBe(false);
+	});
+});

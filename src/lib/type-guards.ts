@@ -5,6 +5,7 @@ import type {
 	RosslerParameters,
 	LogisticParameters,
 	LoziParameters,
+	IkedaParameters,
 	NewtonParameters,
 	StandardParameters,
 	BifurcationLogisticParameters,
@@ -57,6 +58,15 @@ export function isLoziParameters(
 	params: ChaosMapParameters | null | undefined
 ): params is LoziParameters {
 	return params?.type === 'lozi';
+}
+
+/**
+ * Type guard for Ikeda parameters.
+ */
+export function isIkedaParameters(
+	params: ChaosMapParameters | null | undefined
+): params is IkedaParameters {
+	return params?.type === 'ikeda';
 }
 
 /**
