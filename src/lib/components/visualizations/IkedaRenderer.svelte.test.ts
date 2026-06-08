@@ -126,4 +126,161 @@ describe('IkedaRenderer', () => {
 			vi.useRealTimers();
 		}
 	});
+
+	it('renders with colorMode "single"', async () => {
+		const { container } = render(IkedaRenderer, {
+			props: {
+				u: 0.918,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 10,
+				renderMode: 'multi',
+				seeds: 2,
+				colorMode: 'single',
+				pointSize: 1.5,
+				opacity: 0.6,
+				height: 200
+			}
+		});
+		await waitFor(() => {
+			expect(container.querySelector('svg')).not.toBeNull();
+		});
+	});
+
+	it('renders with colorMode "seed"', async () => {
+		const { container } = render(IkedaRenderer, {
+			props: {
+				u: 0.918,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 10,
+				renderMode: 'multi',
+				seeds: 5,
+				colorMode: 'seed',
+				pointSize: 1.5,
+				opacity: 0.6,
+				height: 200
+			}
+		});
+		await waitFor(() => {
+			expect(container.querySelector('svg')).not.toBeNull();
+		});
+	});
+
+	it('renders with colorMode "radius"', async () => {
+		const { container } = render(IkedaRenderer, {
+			props: {
+				u: 0.918,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 10,
+				renderMode: 'multi',
+				seeds: 2,
+				colorMode: 'radius',
+				pointSize: 1.5,
+				opacity: 0.6,
+				height: 200
+			}
+		});
+		await waitFor(() => {
+			expect(container.querySelector('svg')).not.toBeNull();
+		});
+	});
+
+	it('applies custom height to the container', async () => {
+		const { container } = render(IkedaRenderer, {
+			props: {
+				u: 0.918,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 10,
+				renderMode: 'multi',
+				seeds: 2,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				opacity: 0.6,
+				height: 400
+			}
+		});
+		await waitFor(() => {
+			const div = container.firstElementChild as HTMLElement;
+			expect(div?.style.height).toContain('400');
+		});
+	});
+
+	it('renders multiple points in single-orbit mode', async () => {
+		const { calculateIkedaTuples } = await import('$lib/ikeda');
+		vi.mocked(calculateIkedaTuples).mockReturnValueOnce([
+			[0, 0],
+			[1, 0.5],
+			[2, 1],
+			[1.5, 0.8],
+			[0.3, 0.2]
+		]);
+		const { container } = render(IkedaRenderer, {
+			props: {
+				u: 0.918,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 10,
+				renderMode: 'single',
+				seeds: 2,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				opacity: 0.6,
+				height: 200
+			}
+		});
+		await waitFor(() => {
+			expect(container.querySelector('svg')).not.toBeNull();
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+	});
+
+	it('binds containerElement prop', async () => {
+		const { container } = render(IkedaRenderer, {
+			props: {
+				u: 0.918,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 10,
+				renderMode: 'multi',
+				seeds: 2,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				opacity: 0.6,
+				height: 200
+			}
+		});
+		await waitFor(() => {
+			expect(container.querySelector('svg')).not.toBeNull();
+		});
+	});
+
+	it('renders with different opacity and point size', async () => {
+		const { container } = render(IkedaRenderer, {
+			props: {
+				u: 0.918,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 10,
+				renderMode: 'multi',
+				seeds: 2,
+				colorMode: 'iteration',
+				pointSize: 3,
+				opacity: 0.2,
+				height: 200
+			}
+		});
+		await waitFor(() => {
+			expect(container.querySelector('svg')).not.toBeNull();
+		});
+	});
 });

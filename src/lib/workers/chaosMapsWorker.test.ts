@@ -647,3 +647,76 @@ describe('standard map: single iteration per initial condition', () => {
 		expect(responses[0]?.points).toHaveLength(9);
 	});
 });
+
+// ── ikeda map messages ─────────────────────────────────────────────────────────
+
+describe('ikeda map messages', () => {
+	test('handles ikeda message type', () => {
+		responses.length = 0;
+		selfMock.onmessage?.({
+			data: {
+				type: 'ikeda',
+				id: 100,
+				u: 0.918,
+				iterations: 100,
+				burnIn: 20,
+				seeds: 30,
+				maxPoints: 200000
+			}
+		});
+		expect(responses).toHaveLength(1);
+		expect(responses[0]?.type).toBe('ikedaResult');
+		expect(responses[0]?.id).toBe(100);
+		expect(responses[0]?.points.length).toBeGreaterThan(0);
+	});
+
+	test('ikeda response has parallel seedIndices', () => {
+		responses.length = 0;
+		selfMock.onmessage?.({
+			data: {
+				type: 'ikeda',
+				id: 101,
+				u: 0.918,
+				iterations: 80,
+				burnIn: 10,
+				seeds: 25,
+				maxPoints: 200000
+			}
+		});
+		expect(responses[0]?.seedIndices).toHaveLength(responses[0]?.points?.length ?? 0);
+	});
+
+	test('ikeda honors maxPoints cap', () => {
+		responses.length = 0;
+		selfMock.onmessage?.({
+			data: {
+				type: 'ikeda',
+				id: 102,
+				u: 0.918,
+				iterations: 200,
+				burnIn: 10,
+				seeds: 100,
+				maxPoints: 50
+			}
+		});
+		expect(responses[0]?.points).toHaveLength(50);
+		expect(responses[0]?.seedIndices).toHaveLength(50);
+	});
+
+	test('ikeda with zero seeds returns empty', () => {
+		responses.length = 0;
+		selfMock.onmessage?.({
+			data: {
+				type: 'ikeda',
+				id: 103,
+				u: 0.918,
+				iterations: 100,
+				burnIn: 10,
+				seeds: 0,
+				maxPoints: 200000
+			}
+		});
+		expect(responses[0]?.points).toHaveLength(0);
+		expect(responses[0]?.seedIndices).toHaveLength(0);
+	});
+});

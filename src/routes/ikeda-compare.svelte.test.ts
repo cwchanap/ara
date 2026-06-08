@@ -4,7 +4,7 @@ import type { Page } from '@sveltejs/kit';
 import IkedaComparePage from './ikeda/compare/+page.svelte';
 
 const pageStore = vi.hoisted(() => {
-	const value = {
+	let value: Page = {
 		url: new URL('http://localhost/ikeda/compare') as Page['url'],
 		params: {},
 		route: { id: null },
@@ -13,11 +13,17 @@ const pageStore = vi.hoisted(() => {
 		data: { session: null, user: null, profile: null },
 		form: null,
 		state: {}
-	} as Page;
+	};
+	const subscribers = new Set<(value: Page) => void>();
 	return {
 		subscribe(run: (value: Page) => void) {
 			run(value);
-			return () => {};
+			subscribers.add(run);
+			return () => subscribers.delete(run);
+		},
+		set(next: Page) {
+			value = next;
+			subscribers.forEach((s) => s(value));
 		}
 	};
 });
@@ -29,14 +35,92 @@ vi.mock('$lib/components/visualizations/IkedaRenderer.svelte', async () => {
 	const m = await import('$lib/components/testing/StubComponent.svelte');
 	return { default: m.default };
 });
+vi.mock('$lib/components/comparison/ComparisonLayout.svelte', async () => {
+	const m = await import('$lib/components/testing/ComparisonLayoutStub.svelte');
+	return { default: m.default };
+});
+vi.mock('$lib/components/comparison/ComparisonParameterPanel.svelte', async () => {
+	const m = await import('$lib/components/testing/StubComponent.svelte');
+	return { default: m.default };
+});
 
 describe('Ikeda compare page', () => {
 	afterEach(() => cleanup());
 
 	it('renders left and right feedback controls', () => {
 		const { container } = render(IkedaComparePage);
-		// The `u` label text is just "u"; the left/right context comes from the
-		// input ids, so query those directly (per plan note).
+		expect(container.querySelector('#left-u')).not.toBeNull();
+		expect(container.querySelector('#right-u')).not.toBeNull();
+	});
+
+	it('renders left and right x0 sliders', () => {
+		const { container } = render(IkedaComparePage);
+		expect(container.querySelector('#left-x0')).not.toBeNull();
+		expect(container.querySelector('#right-x0')).not.toBeNull();
+	});
+
+	it('renders left and right y0 sliders', () => {
+		const { container } = render(IkedaComparePage);
+		expect(container.querySelector('#left-y0')).not.toBeNull();
+		expect(container.querySelector('#right-y0')).not.toBeNull();
+	});
+
+	it('renders left and right iterations sliders', () => {
+		const { container } = render(IkedaComparePage);
+		expect(container.querySelector('#left-iterations')).not.toBeNull();
+		expect(container.querySelector('#right-iterations')).not.toBeNull();
+	});
+
+	it('renders left and right burnIn sliders', () => {
+		const { container } = render(IkedaComparePage);
+		expect(container.querySelector('#left-burnIn')).not.toBeNull();
+		expect(container.querySelector('#right-burnIn')).not.toBeNull();
+	});
+
+	it('renders left and right render mode selects', () => {
+		const { container } = render(IkedaComparePage);
+		expect(container.querySelector('#left-renderMode')).not.toBeNull();
+		expect(container.querySelector('#right-renderMode')).not.toBeNull();
+	});
+
+	it('renders without throwing with default URL', () => {
+		expect(() => render(IkedaComparePage)).not.toThrow();
+	});
+
+	it('renders with URL parameters', () => {
+		const leftParams = btoa(
+			JSON.stringify({
+				u: 0.6,
+				x0: 0.5,
+				y0: -0.5,
+				iterations: 500,
+				burnIn: 50,
+				renderMode: 'single'
+			})
+		);
+		const rightParams = btoa(
+			JSON.stringify({
+				u: 0.95,
+				x0: -0.3,
+				y0: 0.3,
+				iterations: 1000,
+				burnIn: 100,
+				renderMode: 'multi'
+			})
+		);
+		pageStore.set({
+			url: new URL(
+				`http://localhost/ikeda/compare?compare=true&left=${leftParams}&right=${rightParams}`
+			) as Page['url'],
+			params: {},
+			route: { id: null },
+			status: 200,
+			error: null,
+			data: { session: null, user: null, profile: null },
+			form: null,
+			state: {}
+		});
+		const { container } = render(IkedaComparePage);
 		expect(container.querySelector('#left-u')).not.toBeNull();
 		expect(container.querySelector('#right-u')).not.toBeNull();
 	});
