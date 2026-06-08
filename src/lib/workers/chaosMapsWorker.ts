@@ -1,4 +1,5 @@
 import type { ChaosMapsWorkerRequest, ChaosMapsWorkerResponse } from './types';
+import { calculateIkedaMultiSeed } from '../ikeda';
 
 function standardMap(
 	numP: number,
@@ -95,6 +96,20 @@ self.onmessage = (event: MessageEvent<ChaosMapsWorkerRequest>) => {
 			type: 'chaosResult',
 			id: data.id,
 			points
+		};
+		self.postMessage(response);
+	} else if (data.type === 'ikeda') {
+		const { points, seedIndices } = calculateIkedaMultiSeed({
+			u: data.u,
+			iterations: data.iterations,
+			burnIn: data.burnIn,
+			seeds: data.seeds
+		});
+		const response: ChaosMapsWorkerResponse = {
+			type: 'ikedaResult',
+			id: data.id,
+			points,
+			seedIndices
 		};
 		self.postMessage(response);
 	}

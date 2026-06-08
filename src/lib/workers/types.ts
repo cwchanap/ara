@@ -25,7 +25,16 @@ export interface ChaosEsthetiqueRequest {
 	maxPoints: number;
 }
 
-export type ChaosMapsWorkerRequest = StandardMapRequest | ChaosEsthetiqueRequest;
+export interface IkedaRequest {
+	type: 'ikeda';
+	id: number;
+	u: number;
+	iterations: number;
+	burnIn: number;
+	seeds: number;
+}
+
+export type ChaosMapsWorkerRequest = StandardMapRequest | ChaosEsthetiqueRequest | IkedaRequest;
 
 // Response types
 export interface StandardMapResponse {
@@ -40,4 +49,11 @@ export interface ChaosEsthetiqueResponse {
 	points: [number, number][];
 }
 
-export type ChaosMapsWorkerResponse = StandardMapResponse | ChaosEsthetiqueResponse;
+export interface IkedaResponse {
+	type: 'ikedaResult';
+	id: number;
+	points: [number, number][];
+	seedIndices: number[];
+}
+
+export type ChaosMapsWorkerResponse = StandardMapResponse | ChaosEsthetiqueResponse | IkedaResponse;
