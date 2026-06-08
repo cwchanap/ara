@@ -103,7 +103,8 @@ self.onmessage = (event: MessageEvent<ChaosMapsWorkerRequest>) => {
 			u: data.u,
 			iterations: data.iterations,
 			burnIn: data.burnIn,
-			seeds: data.seeds
+			seeds: data.seeds,
+			maxPoints: data.maxPoints
 		});
 		const response: ChaosMapsWorkerResponse = {
 			type: 'ikedaResult',
