@@ -21,6 +21,12 @@
 			color: 'from-indigo-500 to-violet-600'
 		},
 		{
+			name: 'Ikeda Map',
+			description: 'A 2D nonlinear optical feedback map with spiral chaotic attractors',
+			url: '/ikeda',
+			color: 'from-sky-500 to-cyan-600'
+		},
+		{
 			name: 'Logistic Map',
 			description: 'Population growth model showing chaotic behavior',
 			url: '/logistic',
