@@ -50,6 +50,13 @@
 			"when": 1779699600001,
 			"tag": "0006_add_chua_map_type",
 			"breakpoints": true
+		},
+		{
+			"idx": 7,
+			"version": "7",
+			"when": 1779699600002,
+			"tag": "0007_add_ikeda_map_type",
+			"breakpoints": true
 		}
 	]
 }
