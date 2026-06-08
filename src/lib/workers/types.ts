@@ -32,6 +32,7 @@ export interface IkedaRequest {
 	iterations: number;
 	burnIn: number;
 	seeds: number;
+	maxPoints: number;
 }
 
 export type ChaosMapsWorkerRequest = StandardMapRequest | ChaosEsthetiqueRequest | IkedaRequest;

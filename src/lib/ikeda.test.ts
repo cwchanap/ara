@@ -134,4 +134,29 @@ describe('calculateIkedaMultiSeed', () => {
 		expect(points).toHaveLength(0);
 		expect(seedIndices).toHaveLength(0);
 	});
+
+	test('maxPoints caps total collected points and stays a deterministic prefix', () => {
+		const base = { u: 0.918, iterations: 200, burnIn: 10, seeds: 100 };
+		const uncapped = calculateIkedaMultiSeed(base);
+		const cap = 150;
+		const capped = calculateIkedaMultiSeed({ ...base, maxPoints: cap });
+		expect(uncapped.points.length).toBeGreaterThan(cap);
+		expect(capped.points).toHaveLength(cap);
+		expect(capped.seedIndices).toHaveLength(cap);
+		// Capped output is exactly the prefix of the uncapped output.
+		expect(capped.points).toEqual(uncapped.points.slice(0, cap));
+		expect(capped.seedIndices).toEqual(uncapped.seedIndices.slice(0, cap));
+	});
+
+	test('maxPoints of zero yields no points', () => {
+		const { points, seedIndices } = calculateIkedaMultiSeed({
+			u: 0.918,
+			iterations: 100,
+			burnIn: 10,
+			seeds: 50,
+			maxPoints: 0
+		});
+		expect(points).toHaveLength(0);
+		expect(seedIndices).toHaveLength(0);
+	});
 });

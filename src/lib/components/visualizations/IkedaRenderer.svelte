@@ -207,7 +207,7 @@
 			const points = calculateIkedaTuples({ u, x0, y0, iterations, burnIn });
 			return { points, seedIndices: points.map(() => 0) };
 		}
-		return calculateIkedaMultiSeed({ u, iterations, burnIn, seeds });
+		return calculateIkedaMultiSeed({ u, iterations, burnIn, seeds, maxPoints: MAX_POINTS });
 	}
 
 	function paramsValid(): boolean {
@@ -227,7 +227,15 @@
 			const id = ++workerRequestId;
 			latestWorkerRequestId = id;
 			isComputing = true;
-			worker.postMessage({ type: 'ikeda', id, u, iterations, burnIn, seeds });
+			worker.postMessage({
+				type: 'ikeda',
+				id,
+				u,
+				iterations,
+				burnIn,
+				seeds,
+				maxPoints: MAX_POINTS
+			});
 			return;
 		}
 

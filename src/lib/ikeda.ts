@@ -28,6 +28,8 @@ export interface IkedaMultiSeedParams {
 	iterations: number;
 	burnIn: number;
 	seeds: number;
+	/** Optional cap on total collected points; stops early once reached. */
+	maxPoints?: number;
 }
 
 export interface IkedaMultiSeedResult {
@@ -98,11 +100,12 @@ const MULTI_SEED_RNG_SEED = 0x1abe11ed;
  * collect the rest into one point cloud.
  */
 export function calculateIkedaMultiSeed(params: IkedaMultiSeedParams): IkedaMultiSeedResult {
-	const { u, iterations, burnIn, seeds } = params;
+	const { u, iterations, burnIn, seeds, maxPoints } = params;
+	const cap = maxPoints !== undefined && maxPoints >= 0 ? maxPoints : Infinity;
 	const points: [number, number][] = [];
 	const seedIndices: number[] = [];
 	const rand = mulberry32(MULTI_SEED_RNG_SEED);
-	for (let s = 0; s < seeds; s++) {
+	for (let s = 0; s < seeds && points.length < cap; s++) {
 		// Starting box roughly enclosing the attractor: x ∈ [-0.5, 1.5], y ∈ [-0.5, 0.5]
 		let x = rand() * 2 - 0.5;
 		let y = rand() * 1 - 0.5;
@@ -112,6 +115,7 @@ export function calculateIkedaMultiSeed(params: IkedaMultiSeedParams): IkedaMult
 			if (i >= burnIn) {
 				points.push([x, y]);
 				seedIndices.push(s);
+				if (points.length >= cap) break;
 			}
 		}
 	}
