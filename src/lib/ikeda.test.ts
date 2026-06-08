@@ -55,6 +55,15 @@ describe('calculateIkeda', () => {
 			0
 		);
 	});
+
+	test('stops early when values become non-finite', () => {
+		const pts = calculateIkeda({ u: 1e10, x0: 1, y0: 1, iterations: 500, burnIn: 0 });
+		for (const p of pts) {
+			expect(Number.isFinite(p.x)).toBe(true);
+			expect(Number.isFinite(p.y)).toBe(true);
+		}
+		expect(pts.length).toBeLessThan(500);
+	});
 });
 
 describe('calculateIkedaTuples', () => {
@@ -67,6 +76,15 @@ describe('calculateIkedaTuples', () => {
 			expect(tuples[i][0]).toBeCloseTo(objs[i].x, 12);
 			expect(tuples[i][1]).toBeCloseTo(objs[i].y, 12);
 		}
+	});
+
+	test('stops early when values become non-finite', () => {
+		const pts = calculateIkedaTuples({ u: 1e10, x0: 1, y0: 1, iterations: 500, burnIn: 0 });
+		for (const [x, y] of pts) {
+			expect(Number.isFinite(x)).toBe(true);
+			expect(Number.isFinite(y)).toBe(true);
+		}
+		expect(pts.length).toBeLessThan(500);
 	});
 });
 
@@ -158,5 +176,13 @@ describe('calculateIkedaMultiSeed', () => {
 		});
 		expect(points).toHaveLength(0);
 		expect(seedIndices).toHaveLength(0);
+	});
+
+	test('negative maxPoints is treated as no cap', () => {
+		const base = { u: 0.918, iterations: 100, burnIn: 10, seeds: 50 };
+		const uncapped = calculateIkedaMultiSeed(base);
+		const negative = calculateIkedaMultiSeed({ ...base, maxPoints: -100 });
+		expect(negative.points).toEqual(uncapped.points);
+		expect(negative.seedIndices).toEqual(uncapped.seedIndices);
 	});
 });

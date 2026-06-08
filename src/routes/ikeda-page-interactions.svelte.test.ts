@@ -83,4 +83,83 @@ describe('Ikeda page interactions', () => {
 		await fireEvent.input(slider, { target: { value: '0.42' } });
 		expect(screen.getByTestId('active-preset').textContent).toMatch(/custom/i);
 	});
+
+	it('changes render mode via select', async () => {
+		render(IkedaPage, { props: pageProps });
+		const select = screen.getByTestId('select-render-mode') as HTMLSelectElement;
+		await fireEvent.change(select, { target: { value: 'single' } });
+		expect(select.value).toBe('single');
+	});
+
+	it('changes color mode via select', async () => {
+		render(IkedaPage, { props: pageProps });
+		const select = screen.getByTestId('select-color-mode') as HTMLSelectElement;
+		await fireEvent.change(select, { target: { value: 'seed' } });
+		expect(select.value).toBe('seed');
+	});
+
+	it('displays the current feedback value', () => {
+		render(IkedaPage, { props: pageProps });
+		expect(screen.getByTestId('value-u').textContent).toBe('0.918');
+	});
+
+	it('renders all preset buttons', () => {
+		render(IkedaPage, { props: pageProps });
+		expect(screen.getByRole('button', { name: /Classic Ikeda/i })).toBeTruthy();
+		expect(screen.getByRole('button', { name: /Low Feedback/i })).toBeTruthy();
+		expect(screen.getByRole('button', { name: /Transition/i })).toBeTruthy();
+		expect(screen.getByRole('button', { name: /Structured Chaos/i })).toBeTruthy();
+		expect(screen.getByRole('button', { name: /Dense Fractal/i })).toBeTruthy();
+	});
+
+	it('displays the Ikeda equations', () => {
+		render(IkedaPage, { props: pageProps });
+		expect(screen.getByText(/t\(n\) = 0\.4/i)).toBeTruthy();
+	});
+
+	it('renders the data log section', () => {
+		render(IkedaPage, { props: pageProps });
+		expect(screen.getByText(/DATA_LOG: IKEDA_MAP/i)).toBeTruthy();
+	});
+
+	it('renders the Compare link', () => {
+		render(IkedaPage, { props: pageProps });
+		expect(screen.getByRole('link', { name: /Compare/i })).toBeTruthy();
+	});
+
+	it('renders the Return link', () => {
+		render(IkedaPage, { props: pageProps });
+		expect(screen.getByRole('link', { name: /Return/i })).toBeTruthy();
+	});
+
+	it('renders the Share button', () => {
+		render(IkedaPage, { props: pageProps });
+		expect(screen.getByRole('button', { name: /Share/i })).toBeTruthy();
+	});
+
+	it('renders the Save button', () => {
+		render(IkedaPage, { props: pageProps });
+		expect(screen.getByRole('button', { name: /Save/i })).toBeTruthy();
+	});
+
+	it('applies Structured Chaos preset when clicked', async () => {
+		render(IkedaPage, { props: pageProps });
+		const btn = screen.getByRole('button', { name: /Structured Chaos/i });
+		await fireEvent.click(btn);
+		expect(screen.getByTestId('active-preset').textContent).toMatch(/structured chaos/i);
+	});
+
+	it('applies Dense Fractal preset when clicked', async () => {
+		render(IkedaPage, { props: pageProps });
+		const btn = screen.getByRole('button', { name: /Dense Fractal/i });
+		await fireEvent.click(btn);
+		expect(screen.getByTestId('active-preset').textContent).toMatch(/dense fractal/i);
+	});
+
+	it('applies Transition preset when clicked', async () => {
+		render(IkedaPage, { props: pageProps });
+		const btn = screen.getByRole('button', { name: /Transition/i });
+		await fireEvent.click(btn);
+		expect(screen.getByTestId('active-preset').textContent).toMatch(/transition/i);
+	});
 });
