@@ -159,6 +159,13 @@
 				g.selectAll('text').attr('fill', '#00f3ff').attr('font-family', 'Rajdhani');
 			});
 
+		// Avoid Math.max(...largeArray) which overflows the argument stack on big clouds.
+		// Computed before the ctx guard so the O(n) scan is always exercised.
+		let seedCount = 1;
+		for (const s of computed.seedIndices) {
+			if (s + 1 > seedCount) seedCount = s + 1;
+		}
+
 		const canvas = canvasSelection.node() as HTMLCanvasElement | null;
 		const ctx = canvas?.getContext('2d');
 		if (!canvas || !ctx) return;
@@ -171,8 +178,6 @@
 				if (r > maxRadius) maxRadius = r;
 			}
 		}
-
-		const seedCount = computed.seedIndices.length > 0 ? Math.max(...computed.seedIndices) + 1 : 1;
 
 		ctx.clearRect(0, 0, width, chartHeight);
 		ctx.globalAlpha = Math.min(1, Math.max(0, opacity));
