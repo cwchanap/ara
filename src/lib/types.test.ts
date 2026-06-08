@@ -14,6 +14,7 @@ const EXPECTED_MAP_TYPES: ChaosMapType[] = [
 	'rossler',
 	'henon',
 	'lozi',
+	'ikeda',
 	'logistic',
 	'newton',
 	'standard',
@@ -25,8 +26,8 @@ const EXPECTED_MAP_TYPES: ChaosMapType[] = [
 ];
 
 describe('VALID_MAP_TYPES', () => {
-	test('contains exactly 12 map types', () => {
-		expect(VALID_MAP_TYPES).toHaveLength(12);
+	test('contains exactly 13 map types', () => {
+		expect(VALID_MAP_TYPES).toHaveLength(13);
 	});
 
 	test('contains all expected map types', () => {
@@ -60,8 +61,8 @@ describe('CHAOS_MAP_DISPLAY_NAMES', () => {
 		}
 	});
 
-	test('has exactly 12 entries', () => {
-		expect(Object.keys(CHAOS_MAP_DISPLAY_NAMES)).toHaveLength(12);
+	test('has exactly 13 entries', () => {
+		expect(Object.keys(CHAOS_MAP_DISPLAY_NAMES)).toHaveLength(13);
 	});
 
 	test('all display names are non-empty strings', () => {
