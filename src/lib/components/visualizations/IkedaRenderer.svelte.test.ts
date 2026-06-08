@@ -86,4 +86,44 @@ describe('IkedaRenderer', () => {
 			})
 		).not.toThrow();
 	});
+
+	it('renders a large multi-seed cloud without throwing (no Math.max spread overflow)', async () => {
+		const { calculateIkedaMultiSeed } = await import('$lib/ikeda');
+		const N = 200000;
+		const points: [number, number][] = new Array(N);
+		const seedIndices: number[] = new Array(N);
+		for (let i = 0; i < N; i++) {
+			points[i] = [i % 100, (i % 50) - 25];
+			seedIndices[i] = i % 300;
+		}
+		vi.mocked(calculateIkedaMultiSeed).mockReturnValueOnce({ points, seedIndices });
+
+		// The render runs inside a debounced setTimeout, so flush timers synchronously
+		// to ensure the actual render() path (and its seedCount scan over 200k points)
+		// is exercised inside the not.toThrow assertion. The old Math.max(...seedIndices)
+		// threw RangeError: Maximum call stack size exceeded for arrays this large.
+		vi.useFakeTimers();
+		try {
+			expect(() => {
+				render(IkedaRenderer, {
+					props: {
+						u: 0.918,
+						x0: 0.1,
+						y0: 0,
+						iterations: 100,
+						burnIn: 10,
+						renderMode: 'multi',
+						seeds: 300,
+						colorMode: 'seed',
+						pointSize: 1.5,
+						opacity: 0.6,
+						height: 200
+					}
+				});
+				vi.runOnlyPendingTimers();
+			}).not.toThrow();
+		} finally {
+			vi.useRealTimers();
+		}
+	});
 });
