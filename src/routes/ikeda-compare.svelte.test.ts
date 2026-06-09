@@ -169,4 +169,73 @@ describe('Ikeda compare page', () => {
 		expect(container.querySelector('#left-u')).not.toBeNull();
 		expect(container.querySelector('#right-u')).not.toBeNull();
 	});
+
+	it('disables x0/y0 sliders when render mode is multi (default)', () => {
+		// Reset pageStore to default URL (no params) to avoid state pollution
+		pageStore.set({
+			url: new URL('http://localhost/ikeda/compare') as Page['url'],
+			params: {},
+			route: { id: null },
+			status: 200,
+			error: null,
+			data: { session: null, user: null, profile: null },
+			form: null,
+			state: {}
+		});
+		const { container } = render(IkedaComparePage);
+		const leftX0 = container.querySelector('#left-x0') as HTMLInputElement;
+		const leftY0 = container.querySelector('#left-y0') as HTMLInputElement;
+		const rightX0 = container.querySelector('#right-x0') as HTMLInputElement;
+		const rightY0 = container.querySelector('#right-y0') as HTMLInputElement;
+		// Default render mode is multi, so all x0/y0 sliders should be disabled
+		expect(leftX0.disabled).toBe(true);
+		expect(leftY0.disabled).toBe(true);
+		expect(rightX0.disabled).toBe(true);
+		expect(rightY0.disabled).toBe(true);
+	});
+
+	it('enables left x0/y0 sliders when left render mode is single', () => {
+		const leftParams = btoa(
+			JSON.stringify({
+				u: 0.7,
+				x0: 0.1,
+				y0: 0.1,
+				iterations: 1000,
+				burnIn: 100,
+				renderMode: 'single'
+			})
+		);
+		const rightParams = btoa(
+			JSON.stringify({
+				u: 0.9,
+				x0: 0.0,
+				y0: 0.0,
+				iterations: 2000,
+				burnIn: 200,
+				renderMode: 'multi'
+			})
+		);
+		pageStore.set({
+			url: new URL(
+				`http://localhost/ikeda/compare?compare=true&left=${leftParams}&right=${rightParams}`
+			) as Page['url'],
+			params: {},
+			route: { id: null },
+			status: 200,
+			error: null,
+			data: { session: null, user: null, profile: null },
+			form: null,
+			state: {}
+		});
+		const { container } = render(IkedaComparePage);
+		// Left is single → x0/y0 enabled; Right is multi → x0/y0 disabled
+		const leftX0 = container.querySelector('#left-x0') as HTMLInputElement;
+		const leftY0 = container.querySelector('#left-y0') as HTMLInputElement;
+		const rightX0 = container.querySelector('#right-x0') as HTMLInputElement;
+		const rightY0 = container.querySelector('#right-y0') as HTMLInputElement;
+		expect(leftX0.disabled).toBe(false);
+		expect(leftY0.disabled).toBe(false);
+		expect(rightX0.disabled).toBe(true);
+		expect(rightY0.disabled).toBe(true);
+	});
 });

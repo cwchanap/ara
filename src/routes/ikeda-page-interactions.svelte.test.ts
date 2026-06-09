@@ -162,4 +162,28 @@ describe('Ikeda page interactions', () => {
 		await fireEvent.click(btn);
 		expect(screen.getByTestId('active-preset').textContent).toMatch(/transition/i);
 	});
+
+	it('disables x0 and y0 sliders in multi mode', () => {
+		render(IkedaPage, { props: pageProps });
+		const x0 = document.getElementById('x0') as HTMLInputElement;
+		const y0 = document.getElementById('y0') as HTMLInputElement;
+		expect(x0.disabled).toBe(true);
+		expect(y0.disabled).toBe(true);
+	});
+
+	it('enables x0 and y0 sliders in single mode', async () => {
+		render(IkedaPage, { props: pageProps });
+		const select = screen.getByTestId('select-render-mode') as HTMLSelectElement;
+		await fireEvent.change(select, { target: { value: 'single' } });
+		const x0 = document.getElementById('x0') as HTMLInputElement;
+		const y0 = document.getElementById('y0') as HTMLInputElement;
+		expect(x0.disabled).toBe(false);
+		expect(y0.disabled).toBe(false);
+	});
+
+	it('shows Single Orbit hint on x0/y0 when in multi mode', () => {
+		render(IkedaPage, { props: pageProps });
+		const hints = screen.getAllByText('Single Orbit only');
+		expect(hints.length).toBe(2);
+	});
 });
