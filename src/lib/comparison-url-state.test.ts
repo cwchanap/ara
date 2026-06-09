@@ -69,8 +69,15 @@ describe('getDefaultParameters', () => {
 		expect(params.type).toBe('ikeda');
 		if (params.type === 'ikeda') {
 			expect(params.u).toBeCloseTo(0.918, 5);
-			expect(params.iterations).toBeGreaterThan(0);
-			expect(params.burnIn).toBeGreaterThanOrEqual(0);
+			expect(params.x0).toBe(0.1);
+			expect(params.y0).toBe(0);
+			expect(params.iterations).toBe(800);
+			expect(params.burnIn).toBe(100);
+			expect(params.renderMode).toBe('multi');
+			expect(params.seeds).toBe(250);
+			expect(params.colorMode).toBe('iteration');
+			expect(params.pointSize).toBe(1.5);
+			expect(params.opacity).toBe(0.6);
 		}
 	});
 

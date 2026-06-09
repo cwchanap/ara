@@ -38,7 +38,7 @@ out of scope for this release (future enhancements).
 
 Standard feedback-parameter form of the Ikeda map:
 
-```
+```text
 tₙ   = 0.4 − 6 / (1 + xₙ² + yₙ²)
 xₙ₊₁ = 1 + u·(xₙ·cos tₙ − yₙ·sin tₙ)
 yₙ₊₁ = u·(xₙ·sin tₙ + yₙ·cos tₙ)
