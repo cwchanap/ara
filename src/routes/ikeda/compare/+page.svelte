@@ -62,6 +62,9 @@
 	let rightBurnIn = $state(rightInitial.burnIn);
 	let rightRenderMode = $state<IkedaRenderMode>(rightInitial.renderMode ?? 'multi');
 
+	// Styling params are intentionally shared from the left side only.
+	// Both panels render with identical visual settings so differences
+	// reflect mathematical parameters (u, iterations, burnIn), not styling.
 	const seeds = leftInitial.seeds ?? defaultParams.seeds ?? 250;
 	const colorMode = leftInitial.colorMode ?? defaultParams.colorMode ?? 'iteration';
 	const pointSize = leftInitial.pointSize ?? defaultParams.pointSize ?? 1.5;
@@ -180,7 +183,11 @@
 						/>
 					</div>
 					<div class="grid grid-cols-2 gap-3">
-						<div class="space-y-1">
+						<div
+							class="space-y-1"
+							class:opacity-40={leftRenderMode === 'multi'}
+							class:pointer-events-none={leftRenderMode === 'multi'}
+						>
 							<div class="flex justify-between items-end">
 								<label
 									for="left-x0"
@@ -192,13 +199,21 @@
 								id="left-x0"
 								type="range"
 								bind:value={leftX0}
+								disabled={leftRenderMode === 'multi'}
 								min="-2"
 								max="2"
 								step="0.01"
 								class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
 							/>
+							{#if leftRenderMode === 'multi'}
+								<span class="text-[10px] text-primary/50">Single Orbit</span>
+							{/if}
 						</div>
-						<div class="space-y-1">
+						<div
+							class="space-y-1"
+							class:opacity-40={leftRenderMode === 'multi'}
+							class:pointer-events-none={leftRenderMode === 'multi'}
+						>
 							<div class="flex justify-between items-end">
 								<label
 									for="left-y0"
@@ -210,11 +225,15 @@
 								id="left-y0"
 								type="range"
 								bind:value={leftY0}
+								disabled={leftRenderMode === 'multi'}
 								min="-2"
 								max="2"
 								step="0.01"
 								class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
 							/>
+							{#if leftRenderMode === 'multi'}
+								<span class="text-[10px] text-primary/50">Single Orbit</span>
+							{/if}
 						</div>
 					</div>
 					<div class="grid grid-cols-2 gap-3">
@@ -313,7 +332,11 @@
 						/>
 					</div>
 					<div class="grid grid-cols-2 gap-3">
-						<div class="space-y-1">
+						<div
+							class="space-y-1"
+							class:opacity-40={rightRenderMode === 'multi'}
+							class:pointer-events-none={rightRenderMode === 'multi'}
+						>
 							<div class="flex justify-between items-end">
 								<label
 									for="right-x0"
@@ -325,13 +348,21 @@
 								id="right-x0"
 								type="range"
 								bind:value={rightX0}
+								disabled={rightRenderMode === 'multi'}
 								min="-2"
 								max="2"
 								step="0.01"
 								class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
 							/>
+							{#if rightRenderMode === 'multi'}
+								<span class="text-[10px] text-primary/50">Single Orbit</span>
+							{/if}
 						</div>
-						<div class="space-y-1">
+						<div
+							class="space-y-1"
+							class:opacity-40={rightRenderMode === 'multi'}
+							class:pointer-events-none={rightRenderMode === 'multi'}
+						>
 							<div class="flex justify-between items-end">
 								<label
 									for="right-y0"
@@ -343,11 +374,15 @@
 								id="right-y0"
 								type="range"
 								bind:value={rightY0}
+								disabled={rightRenderMode === 'multi'}
 								min="-2"
 								max="2"
 								step="0.01"
 								class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
 							/>
+							{#if rightRenderMode === 'multi'}
+								<span class="text-[10px] text-primary/50">Single Orbit</span>
+							{/if}
 						</div>
 					</div>
 					<div class="grid grid-cols-2 gap-3">

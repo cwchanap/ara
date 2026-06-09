@@ -376,7 +376,11 @@
 		</div>
 
 		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-			<div class="space-y-2">
+			<div
+				class="space-y-2"
+				class:opacity-40={renderMode === 'multi'}
+				class:pointer-events-none={renderMode === 'multi'}
+			>
 				<div class="flex justify-between items-end">
 					<label for="x0" class="text-primary/80 text-xs uppercase tracking-widest font-bold"
 						>x₀</label
@@ -387,13 +391,21 @@
 					id="x0"
 					type="range"
 					bind:value={x0}
+					disabled={renderMode === 'multi'}
 					min="-2"
 					max="2"
 					step="0.01"
 					class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-accent transition-colors"
 				/>
+				{#if renderMode === 'multi'}
+					<span class="text-[10px] text-primary/50">Single Orbit only</span>
+				{/if}
 			</div>
-			<div class="space-y-2">
+			<div
+				class="space-y-2"
+				class:opacity-40={renderMode === 'multi'}
+				class:pointer-events-none={renderMode === 'multi'}
+			>
 				<div class="flex justify-between items-end">
 					<label for="y0" class="text-primary/80 text-xs uppercase tracking-widest font-bold"
 						>y₀</label
@@ -404,11 +416,15 @@
 					id="y0"
 					type="range"
 					bind:value={y0}
+					disabled={renderMode === 'multi'}
 					min="-2"
 					max="2"
 					step="0.01"
 					class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-accent transition-colors"
 				/>
+				{#if renderMode === 'multi'}
+					<span class="text-[10px] text-primary/50">Single Orbit only</span>
+				{/if}
 			</div>
 			<div class="space-y-2">
 				<div class="flex justify-between items-end">
