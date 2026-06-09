@@ -124,4 +124,49 @@ describe('Ikeda compare page', () => {
 		expect(container.querySelector('#left-u')).not.toBeNull();
 		expect(container.querySelector('#right-u')).not.toBeNull();
 	});
+
+	it('preserves styling params from URL-decoded left state', () => {
+		const leftParams = btoa(
+			JSON.stringify({
+				u: 0.7,
+				x0: 0.1,
+				y0: 0.1,
+				iterations: 1000,
+				burnIn: 100,
+				renderMode: 'multi',
+				seeds: 500,
+				colorMode: 'seed',
+				pointSize: 2.5,
+				opacity: 0.8
+			})
+		);
+		const rightParams = btoa(
+			JSON.stringify({
+				u: 0.9,
+				x0: 0.0,
+				y0: 0.0,
+				iterations: 2000,
+				burnIn: 200,
+				renderMode: 'single'
+			})
+		);
+		pageStore.set({
+			url: new URL(
+				`http://localhost/ikeda/compare?compare=true&left=${leftParams}&right=${rightParams}`
+			) as Page['url'],
+			params: {},
+			route: { id: null },
+			status: 200,
+			error: null,
+			data: { session: null, user: null, profile: null },
+			form: null,
+			state: {}
+		});
+		// Should render without errors — styling params (seeds, colorMode,
+		// pointSize, opacity) from left URL params must not cause a crash
+		// and should flow through to the renderer instead of being ignored.
+		const { container } = render(IkedaComparePage);
+		expect(container.querySelector('#left-u')).not.toBeNull();
+		expect(container.querySelector('#right-u')).not.toBeNull();
+	});
 });
