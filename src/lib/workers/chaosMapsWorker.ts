@@ -113,5 +113,13 @@ self.onmessage = (event: MessageEvent<ChaosMapsWorkerRequest>) => {
 			seedIndices
 		};
 		self.postMessage(response);
+	} else {
+		// Exhaustive check: unknown message types get an error reply so the
+		// caller doesn't stall waiting for a response that never arrives.
+		self.postMessage({
+			type: 'error' as const,
+			id: (data as { id: number }).id,
+			message: `Unknown message type: ${(data as { type: string }).type}`
+		});
 	}
 };
