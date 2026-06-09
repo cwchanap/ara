@@ -168,7 +168,10 @@
 
 		const canvas = canvasSelection.node() as HTMLCanvasElement | null;
 		const ctx = canvas?.getContext('2d');
-		if (!canvas || !ctx) return;
+		if (!canvas || !ctx) {
+			console.warn('IkedaRenderer: canvas or 2D context unavailable');
+			return;
+		}
 
 		// Precompute max radius for the 'radius' color mode.
 		let maxRadius = 0;
@@ -217,6 +220,7 @@
 
 	function requestPoints() {
 		if (!paramsValid()) {
+			console.warn('IkedaRenderer: invalid parameters, skipping render');
 			latest = { points: [], seedIndices: [] };
 			isComputing = false;
 			render(latest);

@@ -283,4 +283,33 @@ describe('IkedaRenderer', () => {
 			expect(container.querySelector('svg')).not.toBeNull();
 		});
 	});
+
+	it('warns and renders empty when parameters are invalid', async () => {
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		vi.useFakeTimers();
+		try {
+			render(IkedaRenderer, {
+				props: {
+					u: NaN,
+					x0: 0.1,
+					y0: 0,
+					iterations: 100,
+					burnIn: 10,
+					renderMode: 'multi',
+					seeds: 2,
+					colorMode: 'iteration',
+					pointSize: 1.5,
+					opacity: 0.6,
+					height: 200
+				}
+			});
+			vi.runOnlyPendingTimers();
+			expect(warnSpy).toHaveBeenCalledWith(
+				'IkedaRenderer: invalid parameters, skipping render'
+			);
+		} finally {
+			vi.useRealTimers();
+			warnSpy.mockRestore();
+		}
+	});
 });

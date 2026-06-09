@@ -437,24 +437,32 @@ describe('chaosMapsWorker', () => {
 // ── unknown / unhandled message types ────────────────────────────────────────
 
 describe('unknown / unhandled message types', () => {
-	test('does not post any response for an unrecognised type', () => {
+	test('posts an error response for an unrecognised type', () => {
 		responses.length = 0;
 		selfMock.onmessage?.({
 			data: { type: 'unknown', id: 99 } as unknown as ChaosMapsWorkerRequest
 		});
-		expect(responses).toHaveLength(0);
+		expect(responses).toHaveLength(1);
+		const r = responses[0] as unknown as Record<string, unknown>;
+		expect(r.type).toBe('error');
+		expect(r.id).toBe(99);
+		expect(String(r.message)).toContain('unknown');
 	});
 
-	test('does not post any response when type is an empty string', () => {
+	test('posts an error response when type is an empty string', () => {
 		responses.length = 0;
 		selfMock.onmessage?.({ data: { type: '', id: 1 } as unknown as ChaosMapsWorkerRequest });
-		expect(responses).toHaveLength(0);
+		expect(responses).toHaveLength(1);
+		const r = responses[0] as unknown as Record<string, unknown>;
+		expect(r.type).toBe('error');
 	});
 
-	test('does not post any response when type is null', () => {
+	test('posts an error response when type is null', () => {
 		responses.length = 0;
 		selfMock.onmessage?.({ data: { type: null, id: 1 } as unknown as ChaosMapsWorkerRequest });
-		expect(responses).toHaveLength(0);
+		expect(responses).toHaveLength(1);
+		const r = responses[0] as unknown as Record<string, unknown>;
+		expect(r.type).toBe('error');
 	});
 });
 
@@ -683,7 +691,11 @@ describe('ikeda map messages', () => {
 				maxPoints: 200000
 			}
 		});
-		expect(responses[0]?.seedIndices).toHaveLength(responses[0]?.points?.length ?? 0);
+		const r = responses[0];
+		expect(r?.type).toBe('ikedaResult');
+		if (r?.type === 'ikedaResult') {
+			expect(r.seedIndices).toHaveLength(r.points.length);
+		}
 	});
 
 	test('ikeda honors maxPoints cap', () => {
@@ -700,7 +712,11 @@ describe('ikeda map messages', () => {
 			}
 		});
 		expect(responses[0]?.points).toHaveLength(50);
-		expect(responses[0]?.seedIndices).toHaveLength(50);
+		const r1 = responses[0];
+		expect(r1?.type).toBe('ikedaResult');
+		if (r1?.type === 'ikedaResult') {
+			expect(r1.seedIndices).toHaveLength(50);
+		}
 	});
 
 	test('ikeda with zero seeds returns empty', () => {
@@ -717,6 +733,10 @@ describe('ikeda map messages', () => {
 			}
 		});
 		expect(responses[0]?.points).toHaveLength(0);
-		expect(responses[0]?.seedIndices).toHaveLength(0);
+		const r2 = responses[0];
+		expect(r2?.type).toBe('ikedaResult');
+		if (r2?.type === 'ikedaResult') {
+			expect(r2.seedIndices).toHaveLength(0);
+		}
 	});
 });

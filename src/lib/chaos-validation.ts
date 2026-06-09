@@ -99,7 +99,7 @@ const STABLE_RANGES: Record<ChaosMapType, StableRanges<Record<string, number>>> 
 	}
 };
 
-/** Kinds for optional, non-range Lorenz fields validated only when present. */
+/** Kinds for optional fields validated only when present (e.g. Lorenz, Ikeda render fields). */
 type OptionalFieldKind =
 	| { kind: 'number'; min?: number; max?: number }
 	| { kind: 'enum'; values: readonly string[] }
