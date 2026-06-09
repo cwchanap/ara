@@ -62,10 +62,10 @@
 	let rightBurnIn = $state(rightInitial.burnIn);
 	let rightRenderMode = $state<IkedaRenderMode>(rightInitial.renderMode ?? 'multi');
 
-	const seeds = defaultParams.seeds ?? 250;
-	const colorMode = defaultParams.colorMode ?? 'iteration';
-	const pointSize = defaultParams.pointSize ?? 1.5;
-	const opacity = defaultParams.opacity ?? 0.6;
+	const seeds = leftInitial.seeds ?? defaultParams.seeds ?? 250;
+	const colorMode = leftInitial.colorMode ?? defaultParams.colorMode ?? 'iteration';
+	const pointSize = leftInitial.pointSize ?? defaultParams.pointSize ?? 1.5;
+	const opacity = leftInitial.opacity ?? defaultParams.opacity ?? 0.6;
 
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	$effect(() => {
