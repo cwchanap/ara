@@ -101,10 +101,11 @@ export function handleWorkerMessage(data: ChaosMapsWorkerRequest): ChaosMapsWork
 		});
 		return { type: 'ikedaResult', id: data.id, points, seedIndices };
 	} else {
+		const fallback = data as Record<string, unknown>;
 		return {
 			type: 'error',
-			id: (data as { id: number }).id,
-			message: `Unknown message type: ${(data as { type: string }).type}`
-		} as ErrorResponse;
+			id: typeof fallback.id === 'number' ? fallback.id : -1,
+			message: `Unknown message type: ${String(fallback.type ?? 'undefined')}`
+		} satisfies ErrorResponse;
 	}
 }
