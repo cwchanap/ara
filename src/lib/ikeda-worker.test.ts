@@ -1,19 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { calculateIkedaMultiSeed } from './ikeda';
-import type { IkedaRequest, IkedaResponse } from './workers/types';
-
-// Mirrors exactly what the worker does for an 'ikeda' message, validating the
-// request/response contract the worker implements.
-function handleIkedaRequest(req: IkedaRequest): IkedaResponse {
-	const { points, seedIndices } = calculateIkedaMultiSeed({
-		u: req.u,
-		iterations: req.iterations,
-		burnIn: req.burnIn,
-		seeds: req.seeds,
-		maxPoints: req.maxPoints
-	});
-	return { type: 'ikedaResult', id: req.id, points, seedIndices };
-}
+import { handleWorkerMessage } from './workers/chaosMapsHandler';
+import type { IkedaRequest, ChaosMapsWorkerResponse } from './workers/types';
 
 describe('ikeda worker contract', () => {
 	test('produces an ikedaResult with matching id and parallel arrays', () => {
@@ -26,7 +13,11 @@ describe('ikeda worker contract', () => {
 			seeds: 30,
 			maxPoints: 200000
 		};
-		const res = handleIkedaRequest(req);
+		const res = handleWorkerMessage(req) as ChaosMapsWorkerResponse & {
+			type: 'ikedaResult';
+			points: [number, number][];
+			seedIndices: number[];
+		};
 		expect(res.type).toBe('ikedaResult');
 		expect(res.id).toBe(7);
 		expect(res.seedIndices).toHaveLength(res.points.length);
@@ -42,7 +33,11 @@ describe('ikeda worker contract', () => {
 			seeds: 100,
 			maxPoints: 100
 		};
-		const res = handleIkedaRequest(req);
+		const res = handleWorkerMessage(req) as ChaosMapsWorkerResponse & {
+			type: 'ikedaResult';
+			points: [number, number][];
+			seedIndices: number[];
+		};
 		expect(res.points).toHaveLength(100);
 		expect(res.seedIndices).toHaveLength(100);
 	});
