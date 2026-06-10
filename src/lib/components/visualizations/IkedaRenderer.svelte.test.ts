@@ -68,23 +68,31 @@ describe('IkedaRenderer', () => {
 	it('does not throw when compute returns no points', async () => {
 		const { calculateIkedaMultiSeed } = await import('$lib/ikeda');
 		vi.mocked(calculateIkedaMultiSeed).mockReturnValueOnce({ points: [], seedIndices: [] });
-		expect(() =>
-			render(IkedaRenderer, {
-				props: {
-					u: 0.918,
-					x0: 0.1,
-					y0: 0,
-					iterations: 100,
-					burnIn: 10,
-					renderMode: 'multi',
-					seeds: 2,
-					colorMode: 'iteration',
-					pointSize: 1.5,
-					opacity: 0.6,
-					height: 200
-				}
-			})
-		).not.toThrow();
+		// Flush the debounced render (setTimeout) so the actual render path with
+		// empty data is exercised inside the not.toThrow assertion.
+		vi.useFakeTimers();
+		try {
+			expect(() => {
+				render(IkedaRenderer, {
+					props: {
+						u: 0.918,
+						x0: 0.1,
+						y0: 0,
+						iterations: 100,
+						burnIn: 10,
+						renderMode: 'multi',
+						seeds: 2,
+						colorMode: 'iteration',
+						pointSize: 1.5,
+						opacity: 0.6,
+						height: 200
+					}
+				});
+				vi.runOnlyPendingTimers();
+			}).not.toThrow();
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it('renders a large multi-seed cloud without throwing (no Math.max spread overflow)', async () => {

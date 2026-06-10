@@ -77,6 +77,21 @@
 		colorMode = s.colorMode;
 		pointSize = s.pointSize;
 		opacity = s.opacity;
+
+		stabilityWarnings = [];
+		showStabilityWarning = false;
+		const stability = checkParameterStability('ikeda', {
+			type: 'ikeda',
+			u,
+			x0,
+			y0,
+			iterations,
+			burnIn
+		});
+		if (!stability.isStable) {
+			stabilityWarnings = stability.warnings;
+			showStabilityWarning = true;
+		}
 	}
 
 	// Load config from URL reactively (mirrors the Lozi page).
