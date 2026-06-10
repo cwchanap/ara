@@ -1,5 +1,19 @@
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
-import type { ChaosMapsWorkerRequest, ChaosMapsWorkerResponse, ErrorResponse } from './types';
+import type {
+	ChaosMapsWorkerRequest,
+	ChaosMapsWorkerResponse,
+	ErrorResponse,
+	StandardMapResponse,
+	ChaosEsthetiqueResponse,
+	IkedaResponse
+} from './types';
+
+type SuccessResponse = StandardMapResponse | ChaosEsthetiqueResponse | IkedaResponse;
+
+function asSuccess(r: ChaosMapsWorkerResponse | undefined): SuccessResponse | undefined {
+	if (r && r.type !== 'error') return r as SuccessResponse;
+	return undefined;
+}
 
 type WorkerSelf = {
 	onmessage: ((event: { data: ChaosMapsWorkerRequest | null }) => void) | null;
@@ -55,7 +69,7 @@ describe('chaosMapsWorker', () => {
 
 		expect(responses).toHaveLength(1);
 		expect(responses[0]?.type).toBe('standardResult');
-		expect(responses[0]?.points).toHaveLength(2);
+		expect(asSuccess(responses[0])?.points).toHaveLength(2);
 	});
 
 	test('normalizes standard map points to [0, 2π)', () => {
@@ -74,7 +88,7 @@ describe('chaosMapsWorker', () => {
 
 		expect(responses).toHaveLength(1);
 		expect(responses[0]?.type).toBe('standardResult');
-		for (const [q, p] of responses[0]?.points ?? []) {
+		for (const [q, p] of asSuccess(responses[0])?.points ?? []) {
 			expect(q).toBeGreaterThanOrEqual(0);
 			expect(q).toBeLessThan(2 * Math.PI);
 			expect(p).toBeGreaterThanOrEqual(0);
@@ -99,7 +113,7 @@ describe('chaosMapsWorker', () => {
 
 		expect(responses).toHaveLength(1);
 		expect(responses[0]?.type).toBe('chaosResult');
-		expect(responses[0]?.points).toHaveLength(3);
+		expect(asSuccess(responses[0])?.points).toHaveLength(3);
 	});
 
 	test('ignores empty payloads', () => {
@@ -125,7 +139,7 @@ describe('chaosMapsWorker', () => {
 
 		expect(responses).toHaveLength(1);
 		expect(responses[0]?.type).toBe('standardResult');
-		expect(responses[0]?.points).toHaveLength(0);
+		expect(asSuccess(responses[0])?.points).toHaveLength(0);
 	});
 
 	test('standard map: returns empty array when numQ <= 0', () => {
@@ -144,7 +158,7 @@ describe('chaosMapsWorker', () => {
 
 		expect(responses).toHaveLength(1);
 		expect(responses[0]?.type).toBe('standardResult');
-		expect(responses[0]?.points).toHaveLength(0);
+		expect(asSuccess(responses[0])?.points).toHaveLength(0);
 	});
 
 	test('standard map: returns empty array when iterations <= 0', () => {
@@ -163,7 +177,7 @@ describe('chaosMapsWorker', () => {
 
 		expect(responses).toHaveLength(1);
 		expect(responses[0]?.type).toBe('standardResult');
-		expect(responses[0]?.points).toHaveLength(0);
+		expect(asSuccess(responses[0])?.points).toHaveLength(0);
 	});
 
 	test('standard map: truncates output when maxPoints is reached', () => {
@@ -184,7 +198,7 @@ describe('chaosMapsWorker', () => {
 
 		expect(responses).toHaveLength(1);
 		expect(responses[0]?.type).toBe('standardResult');
-		expect(responses[0]?.points).toHaveLength(5);
+		expect(asSuccess(responses[0])?.points).toHaveLength(5);
 	});
 
 	test('standard map: echoes request id in response', () => {
@@ -241,7 +255,7 @@ describe('chaosMapsWorker', () => {
 
 		expect(responses).toHaveLength(1);
 		expect(responses[0]?.type).toBe('chaosResult');
-		expect(responses[0]?.points).toHaveLength(5);
+		expect(asSuccess(responses[0])?.points).toHaveLength(5);
 	});
 
 	test('standard map: multiple initial conditions (numP=3, numQ=3)', () => {
@@ -259,7 +273,7 @@ describe('chaosMapsWorker', () => {
 		});
 
 		// 3 × 3 initial conditions × 2 iterations = 18 points
-		expect(responses[0]?.points).toHaveLength(18);
+		expect(asSuccess(responses[0])?.points).toHaveLength(18);
 	});
 
 	test('standard map: returns empty array when maxPoints = 0', () => {
@@ -278,7 +292,7 @@ describe('chaosMapsWorker', () => {
 
 		expect(responses).toHaveLength(1);
 		expect(responses[0]?.type).toBe('standardResult');
-		expect(responses[0]?.points).toHaveLength(0);
+		expect(asSuccess(responses[0])?.points).toHaveLength(0);
 	});
 
 	test('standard map: returns empty array when maxPoints < 0', () => {
@@ -297,7 +311,7 @@ describe('chaosMapsWorker', () => {
 
 		expect(responses).toHaveLength(1);
 		expect(responses[0]?.type).toBe('standardResult');
-		expect(responses[0]?.points).toHaveLength(0);
+		expect(asSuccess(responses[0])?.points).toHaveLength(0);
 	});
 
 	test('chaos map: returns 0 points when maxPoints = 0', () => {
@@ -318,7 +332,7 @@ describe('chaosMapsWorker', () => {
 		// Math.min(100, 0) = 0 steps → empty array
 		expect(responses).toHaveLength(1);
 		expect(responses[0]?.type).toBe('chaosResult');
-		expect(responses[0]?.points).toHaveLength(0);
+		expect(asSuccess(responses[0])?.points).toHaveLength(0);
 	});
 
 	test('chaos map: returns exactly 1 point when maxPoints = 1', () => {
@@ -338,7 +352,7 @@ describe('chaosMapsWorker', () => {
 
 		expect(responses).toHaveLength(1);
 		expect(responses[0]?.type).toBe('chaosResult');
-		expect(responses[0]?.points).toHaveLength(1);
+		expect(asSuccess(responses[0])?.points).toHaveLength(1);
 	});
 
 	test('chaos map: output points are finite numbers', () => {
@@ -357,7 +371,7 @@ describe('chaosMapsWorker', () => {
 		});
 
 		expect(responses).toHaveLength(1);
-		for (const [x, y] of responses[0]?.points ?? []) {
+		for (const [x, y] of asSuccess(responses[0])?.points ?? []) {
 			expect(Number.isFinite(x)).toBe(true);
 			expect(Number.isFinite(y)).toBe(true);
 		}
@@ -377,7 +391,7 @@ describe('chaosMapsWorker', () => {
 				maxPoints: 50
 			}
 		});
-		const points1 = [...(responses[0]?.points ?? [])];
+		const points1 = [...(asSuccess(responses[0])?.points ?? [])];
 
 		responses.length = 0;
 		selfMock.onmessage?.({
@@ -392,7 +406,7 @@ describe('chaosMapsWorker', () => {
 				maxPoints: 50
 			}
 		});
-		const points2 = [...(responses[0]?.points ?? [])];
+		const points2 = [...(asSuccess(responses[0])?.points ?? [])];
 
 		// Significantly different a values (1.4 vs 0.1) should produce clearly different trajectories
 		const diff = Math.abs((points1[49]?.[0] ?? 0) - (points2[49]?.[0] ?? 0));
@@ -416,7 +430,7 @@ describe('chaosMapsWorker', () => {
 		expect(responses).toHaveLength(1);
 		expect(responses[0]?.type).toBe('standardResult');
 
-		const points = responses[0]?.points ?? [];
+		const points = asSuccess(responses[0])?.points ?? [];
 		expect(points).toHaveLength(3);
 
 		// With k=0: pNew = p + 0*sin(q) = p (p is unchanged each iteration)
@@ -485,8 +499,8 @@ describe('chaos map: negative parameter values', () => {
 		});
 		expect(responses).toHaveLength(1);
 		expect(responses[0]?.type).toBe('chaosResult');
-		expect(responses[0]?.points).toHaveLength(20);
-		for (const [x, y] of responses[0]?.points ?? []) {
+		expect(asSuccess(responses[0])?.points).toHaveLength(20);
+		for (const [x, y] of asSuccess(responses[0])?.points ?? []) {
 			expect(Number.isFinite(x)).toBe(true);
 			expect(Number.isFinite(y)).toBe(true);
 		}
@@ -507,7 +521,7 @@ describe('chaos map: negative parameter values', () => {
 			}
 		});
 		expect(responses).toHaveLength(1);
-		expect(responses[0]?.points).toHaveLength(15);
+		expect(asSuccess(responses[0])?.points).toHaveLength(15);
 	});
 
 	test('handles a = 0 (degenerate case) without error', () => {
@@ -525,7 +539,7 @@ describe('chaos map: negative parameter values', () => {
 			}
 		});
 		expect(responses[0]?.type).toBe('chaosResult');
-		expect(responses[0]?.points).toHaveLength(10);
+		expect(asSuccess(responses[0])?.points).toHaveLength(10);
 	});
 });
 
@@ -547,7 +561,7 @@ describe('standard map: large k values', () => {
 		});
 		expect(responses[0]?.type).toBe('standardResult');
 		const TWO_PI = 2 * Math.PI;
-		for (const [q, p] of responses[0]?.points ?? []) {
+		for (const [q, p] of asSuccess(responses[0])?.points ?? []) {
 			expect(q).toBeGreaterThanOrEqual(0);
 			expect(q).toBeLessThan(TWO_PI);
 			expect(p).toBeGreaterThanOrEqual(0);
@@ -569,9 +583,9 @@ describe('standard map: large k values', () => {
 			}
 		});
 		expect(responses[0]?.type).toBe('standardResult');
-		expect(responses[0]?.points).toHaveLength(3);
+		expect(asSuccess(responses[0])?.points).toHaveLength(3);
 		const TWO_PI = 2 * Math.PI;
-		for (const [q, p] of responses[0]?.points ?? []) {
+		for (const [q, p] of asSuccess(responses[0])?.points ?? []) {
 			expect(q).toBeGreaterThanOrEqual(0);
 			expect(q).toBeLessThan(TWO_PI);
 			expect(p).toBeGreaterThanOrEqual(0);
@@ -598,7 +612,7 @@ describe('chaos map: negative initial conditions', () => {
 			}
 		});
 		expect(responses[0]?.type).toBe('chaosResult');
-		expect(responses[0]?.points).toHaveLength(30);
+		expect(asSuccess(responses[0])?.points).toHaveLength(30);
 	});
 
 	test('trajectory from negative x0 differs from positive x0', () => {
@@ -615,7 +629,7 @@ describe('chaos map: negative initial conditions', () => {
 				maxPoints: 10
 			}
 		});
-		const lastPos = responses[0]?.points?.at(-1)?.[0] ?? 0;
+		const lastPos = asSuccess(responses[0])?.points?.at(-1)?.[0] ?? 0;
 
 		responses.length = 0;
 		selfMock.onmessage?.({
@@ -630,7 +644,7 @@ describe('chaos map: negative initial conditions', () => {
 				maxPoints: 10
 			}
 		});
-		const lastNeg = responses[0]?.points?.at(-1)?.[0] ?? 0;
+		const lastNeg = asSuccess(responses[0])?.points?.at(-1)?.[0] ?? 0;
 
 		expect(Math.abs(lastPos - lastNeg)).toBeGreaterThan(0);
 	});
@@ -652,7 +666,7 @@ describe('standard map: single iteration per initial condition', () => {
 				maxPoints: 1000
 			}
 		});
-		expect(responses[0]?.points).toHaveLength(9);
+		expect(asSuccess(responses[0])?.points).toHaveLength(9);
 	});
 });
 
@@ -675,7 +689,7 @@ describe('ikeda map messages', () => {
 		expect(responses).toHaveLength(1);
 		expect(responses[0]?.type).toBe('ikedaResult');
 		expect(responses[0]?.id).toBe(100);
-		expect(responses[0]?.points.length).toBeGreaterThan(0);
+		expect(asSuccess(responses[0])?.points.length).toBeGreaterThan(0);
 	});
 
 	test('ikeda response has parallel seedIndices', () => {
@@ -711,7 +725,7 @@ describe('ikeda map messages', () => {
 				maxPoints: 50
 			}
 		});
-		expect(responses[0]?.points).toHaveLength(50);
+		expect(asSuccess(responses[0])?.points).toHaveLength(50);
 		const r1 = responses[0];
 		expect(r1?.type).toBe('ikedaResult');
 		if (r1?.type === 'ikedaResult') {
@@ -732,7 +746,7 @@ describe('ikeda map messages', () => {
 				maxPoints: 200000
 			}
 		});
-		expect(responses[0]?.points).toHaveLength(0);
+		expect(asSuccess(responses[0])?.points).toHaveLength(0);
 		const r2 = responses[0];
 		expect(r2?.type).toBe('ikedaResult');
 		if (r2?.type === 'ikedaResult') {

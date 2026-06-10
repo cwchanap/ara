@@ -242,7 +242,8 @@ describe('IkedaRenderer', () => {
 		});
 	});
 
-	it('binds containerElement prop', async () => {
+	it('binds containerElement to the rendered div', async () => {
+		let containerEl: HTMLDivElement | undefined;
 		const { container } = render(IkedaRenderer, {
 			props: {
 				u: 0.918,
@@ -255,12 +256,19 @@ describe('IkedaRenderer', () => {
 				colorMode: 'iteration',
 				pointSize: 1.5,
 				opacity: 0.6,
-				height: 200
+				height: 200,
+				get containerElement() {
+					return containerEl;
+				},
+				set containerElement(next: HTMLDivElement | undefined) {
+					containerEl = next;
+				}
 			}
 		});
 		await waitFor(() => {
 			expect(container.querySelector('svg')).not.toBeNull();
 		});
+		expect(containerEl).toBeInstanceOf(HTMLDivElement);
 	});
 
 	it('renders with different opacity and point size', async () => {
