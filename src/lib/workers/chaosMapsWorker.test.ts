@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
-import type { ChaosMapsWorkerRequest, ChaosMapsWorkerResponse } from './types';
+import type { ChaosMapsWorkerRequest, ChaosMapsWorkerResponse, ErrorResponse } from './types';
 
 type WorkerSelf = {
 	onmessage: ((event: { data: ChaosMapsWorkerRequest | null }) => void) | null;
@@ -443,17 +443,17 @@ describe('unknown / unhandled message types', () => {
 			data: { type: 'unknown', id: 99 } as unknown as ChaosMapsWorkerRequest
 		});
 		expect(responses).toHaveLength(1);
-		const r = responses[0] as unknown as Record<string, unknown>;
+		const r = responses[0] as ErrorResponse;
 		expect(r.type).toBe('error');
 		expect(r.id).toBe(99);
-		expect(String(r.message)).toContain('unknown');
+		expect(r.message).toContain('unknown');
 	});
 
 	test('posts an error response when type is an empty string', () => {
 		responses.length = 0;
 		selfMock.onmessage?.({ data: { type: '', id: 1 } as unknown as ChaosMapsWorkerRequest });
 		expect(responses).toHaveLength(1);
-		const r = responses[0] as unknown as Record<string, unknown>;
+		const r = responses[0] as ErrorResponse;
 		expect(r.type).toBe('error');
 	});
 
@@ -461,7 +461,7 @@ describe('unknown / unhandled message types', () => {
 		responses.length = 0;
 		selfMock.onmessage?.({ data: { type: null, id: 1 } as unknown as ChaosMapsWorkerRequest });
 		expect(responses).toHaveLength(1);
-		const r = responses[0] as unknown as Record<string, unknown>;
+		const r = responses[0] as ErrorResponse;
 		expect(r.type).toBe('error');
 	});
 });

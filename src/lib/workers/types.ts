@@ -57,4 +57,14 @@ export interface IkedaResponse {
 	seedIndices: number[];
 }
 
-export type ChaosMapsWorkerResponse = StandardMapResponse | ChaosEsthetiqueResponse | IkedaResponse;
+export interface ErrorResponse {
+	type: 'error';
+	id: number;
+	message: string;
+}
+
+export type ChaosMapsWorkerResponse =
+	| StandardMapResponse
+	| ChaosEsthetiqueResponse
+	| IkedaResponse
+	| ErrorResponse;
