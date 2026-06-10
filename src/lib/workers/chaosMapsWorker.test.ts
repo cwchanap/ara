@@ -478,6 +478,16 @@ describe('unknown / unhandled message types', () => {
 		const r = responses[0] as ErrorResponse;
 		expect(r.type).toBe('error');
 	});
+
+	test('error response falls back to id -1 when id is missing', () => {
+		responses.length = 0;
+		selfMock.onmessage?.({ data: { type: 'bogus' } as unknown as ChaosMapsWorkerRequest });
+		expect(responses).toHaveLength(1);
+		const r = responses[0] as ErrorResponse;
+		expect(r.type).toBe('error');
+		expect(r.id).toBe(-1);
+		expect(r.message).toContain('bogus');
+	});
 });
 
 // ── chaos map: negative parameters ───────────────────────────────────────────

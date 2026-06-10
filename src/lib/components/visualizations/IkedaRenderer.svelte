@@ -116,8 +116,9 @@
 			.attr('transform', `translate(${margin.left},${margin.top})`);
 
 		// Defensive cap so an unexpectedly large compute result cannot stall rendering.
-		const points =
-			computed.points.length > MAX_POINTS ? computed.points.slice(0, MAX_POINTS) : computed.points;
+		const capped = computed.points.length > MAX_POINTS;
+		const points = capped ? computed.points.slice(0, MAX_POINTS) : computed.points;
+		const seedIndices = capped ? computed.seedIndices.slice(0, MAX_POINTS) : computed.seedIndices;
 		if (points.length === 0) {
 			// Axes-only frame (no data); keep canvas/svg present but empty.
 			return;
@@ -162,7 +163,7 @@
 		// Avoid Math.max(...largeArray) which overflows the argument stack on big clouds.
 		// Computed before the ctx guard so the O(n) scan is always exercised.
 		let seedCount = 1;
-		for (const s of computed.seedIndices) {
+		for (const s of seedIndices) {
 			if (s + 1 > seedCount) seedCount = s + 1;
 		}
 
@@ -190,14 +191,7 @@
 			const p = points[i];
 			const cx = xScale(p[0]);
 			const cy = yScale(p[1]);
-			ctx.fillStyle = colorFor(
-				i,
-				p,
-				computed.seedIndices[i] ?? 0,
-				points.length,
-				seedCount,
-				maxRadius
-			);
+			ctx.fillStyle = colorFor(i, p, seedIndices[i] ?? 0, points.length, seedCount, maxRadius);
 			ctx.beginPath();
 			ctx.arc(cx, cy, r, 0, Math.PI * 2);
 			ctx.fill();
@@ -277,10 +271,26 @@
 					const data = event.data as {
 						type: string;
 						id: number;
-						points: [number, number][];
-						seedIndices: number[];
+						points?: [number, number][];
+						seedIndices?: number[];
+						message?: string;
 					};
-					if (isUnmounted || !data || data.type !== 'ikedaResult') return;
+					if (isUnmounted || !data) return;
+
+					if (data.type === 'error') {
+						console.error('Ikeda worker error response:', data.message);
+						isComputing = false;
+						workerAvailable = false;
+						worker?.terminate();
+						worker = null;
+						if (container && !isUnmounted) {
+							latest = computeMainThread();
+							render(latest);
+						}
+						return;
+					}
+
+					if (data.type !== 'ikedaResult') return;
 					if (data.id !== latestWorkerRequestId) return;
 					isComputing = false;
 					latest = { points: data.points, seedIndices: data.seedIndices };

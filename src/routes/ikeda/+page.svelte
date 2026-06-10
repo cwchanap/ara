@@ -30,7 +30,9 @@
 
 	let rendererContainer: HTMLDivElement | undefined = $state();
 
-	const defaultState = getPreset(DEFAULT_IKEDA_PRESET_ID)!.state;
+	const defaultPreset = getPreset(DEFAULT_IKEDA_PRESET_ID);
+	if (!defaultPreset) throw new Error(`Missing default Ikeda preset: ${DEFAULT_IKEDA_PRESET_ID}`);
+	const defaultState = defaultPreset.state;
 	let u = $state(defaultState.u);
 	let x0 = $state(defaultState.x0);
 	let y0 = $state(defaultState.y0);
@@ -225,6 +227,9 @@
 		if (!stability.isStable) {
 			stabilityWarnings = stability.warnings;
 			showStabilityWarning = true;
+		} else {
+			stabilityWarnings = [];
+			showStabilityWarning = false;
 		}
 	}
 

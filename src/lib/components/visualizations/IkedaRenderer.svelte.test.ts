@@ -104,7 +104,13 @@ describe('IkedaRenderer', () => {
 			points[i] = [i % 100, (i % 50) - 25];
 			seedIndices[i] = i % 300;
 		}
-		vi.mocked(calculateIkedaMultiSeed).mockReturnValueOnce({ points, seedIndices });
+		// Exceed MAX_POINTS to verify both points AND seedIndices are sliced
+		const oversizedPoints = [...points, [0, 0] as [number, number]];
+		const oversizedSeeds = [...seedIndices, 0];
+		vi.mocked(calculateIkedaMultiSeed).mockReturnValueOnce({
+			points: oversizedPoints,
+			seedIndices: oversizedSeeds
+		});
 
 		// The render runs inside a debounced setTimeout, so flush timers synchronously
 		// to ensure the actual render() path (and its seedCount scan over 200k points)
