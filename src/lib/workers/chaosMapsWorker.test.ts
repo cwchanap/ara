@@ -116,11 +116,12 @@ describe('chaosMapsWorker', () => {
 		expect(asSuccess(responses[0])?.points).toHaveLength(3);
 	});
 
-	test('ignores empty payloads', () => {
+	test('posts error response for empty payloads', () => {
 		responses.length = 0;
 		selfMock.onmessage?.({ data: null });
 
-		expect(responses).toHaveLength(0);
+		expect(responses).toHaveLength(1);
+		expect(responses[0]?.type).toBe('error');
 	});
 
 	test('standard map: returns empty array when numP <= 0', () => {

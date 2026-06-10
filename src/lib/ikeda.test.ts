@@ -178,11 +178,10 @@ describe('calculateIkedaMultiSeed', () => {
 		expect(seedIndices).toHaveLength(0);
 	});
 
-	test('negative maxPoints is treated as no cap', () => {
+	test('negative maxPoints returns empty result (aligned with standardMap/calculateChaos)', () => {
 		const base = { u: 0.918, iterations: 100, burnIn: 10, seeds: 50 };
-		const uncapped = calculateIkedaMultiSeed(base);
-		const negative = calculateIkedaMultiSeed({ ...base, maxPoints: -100 });
-		expect(negative.points).toEqual(uncapped.points);
-		expect(negative.seedIndices).toEqual(uncapped.seedIndices);
+		const result = calculateIkedaMultiSeed({ ...base, maxPoints: -100 });
+		expect(result.points).toHaveLength(0);
+		expect(result.seedIndices).toHaveLength(0);
 	});
 });
