@@ -1,4 +1,4 @@
-import type { ChaosMapsWorkerRequest, ChaosMapsWorkerResponse } from './types';
+import type { ChaosMapsWorkerRequest, ChaosMapsWorkerResponse, ErrorResponse } from './types';
 import { calculateIkedaMultiSeed } from '../ikeda';
 
 function standardMap(
@@ -116,10 +116,11 @@ self.onmessage = (event: MessageEvent<ChaosMapsWorkerRequest>) => {
 	} else {
 		// Exhaustive check: unknown message types get an error reply so the
 		// caller doesn't stall waiting for a response that never arrives.
-		self.postMessage({
-			type: 'error' as const,
+		const response: ErrorResponse = {
+			type: 'error',
 			id: (data as { id: number }).id,
 			message: `Unknown message type: ${(data as { type: string }).type}`
-		});
+		};
+		self.postMessage(response);
 	}
 };
