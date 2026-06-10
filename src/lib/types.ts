@@ -8,7 +8,7 @@ export interface Profile {
 	updatedAt: string;
 }
 
-// Chaos Map Types - the 12 supported visualization types
+// Chaos Map Types - the 13 supported visualization types
 export type ChaosMapType =
 	| 'lorenz'
 	| 'rossler'

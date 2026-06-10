@@ -13,7 +13,10 @@ import { handleWorkerMessage } from './chaosMapsHandler';
 
 self.onmessage = (event: MessageEvent<ChaosMapsWorkerRequest>) => {
 	const data = event.data;
-	if (!data) return;
+	if (!data) {
+		self.postMessage({ type: 'error', id: -1, message: 'Empty worker payload' });
+		return;
+	}
 	const response = handleWorkerMessage(data);
 	self.postMessage(response);
 };

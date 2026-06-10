@@ -101,7 +101,10 @@ const MULTI_SEED_RNG_SEED = 0x1abe11ed;
  */
 export function calculateIkedaMultiSeed(params: IkedaMultiSeedParams): IkedaMultiSeedResult {
 	const { u, iterations, burnIn, seeds, maxPoints } = params;
-	const cap = maxPoints !== undefined && maxPoints >= 0 ? maxPoints : Infinity;
+	// Non-positive maxPoints → empty result (aligned with standardMap / calculateChaos).
+	// undefined → no cap (uncapped).
+	if (typeof maxPoints === 'number' && maxPoints <= 0) return { points: [], seedIndices: [] };
+	const cap = maxPoints ?? Infinity;
 	const points: [number, number][] = [];
 	const seedIndices: number[] = [];
 	const rand = mulberry32(MULTI_SEED_RNG_SEED);
