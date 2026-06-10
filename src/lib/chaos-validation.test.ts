@@ -2492,6 +2492,49 @@ describe('checkParameterStability', () => {
 			expect(result.warnings).toContain('transientIterations must be <= iterations');
 		});
 
+		it('warns when ikeda burnIn >= iterations', () => {
+			const result = checkParameterStability('ikeda', {
+				type: 'ikeda',
+				u: 0.918,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 1000
+			});
+			expect(result.isStable).toBe(false);
+			expect(result.warnings).toContain(
+				'burnIn must be less than iterations or the visualization will be empty'
+			);
+		});
+
+		it('does not warn when ikeda burnIn < iterations', () => {
+			const result = checkParameterStability('ikeda', {
+				type: 'ikeda',
+				u: 0.918,
+				x0: 0.1,
+				y0: 0,
+				iterations: 5000,
+				burnIn: 100
+			});
+			expect(result.isStable).toBe(true);
+			expect(result.warnings).toHaveLength(0);
+		});
+
+		it('warns when ikeda burnIn equals iterations', () => {
+			const result = checkParameterStability('ikeda', {
+				type: 'ikeda',
+				u: 0.918,
+				x0: 0.1,
+				y0: 0,
+				iterations: 200,
+				burnIn: 200
+			});
+			expect(result.isStable).toBe(false);
+			expect(result.warnings).toContain(
+				'burnIn must be less than iterations or the visualization will be empty'
+			);
+		});
+
 		it('warns when lorenz dt is <= 0 or > 0.02', () => {
 			const result = checkParameterStability('lorenz', {
 				type: 'lorenz',

@@ -330,6 +330,13 @@ export function checkParameterStability(
 				warnings.push('aMin must be less than aMax');
 			}
 			break;
+		case 'ikeda':
+			if (paramRecord.burnIn >= paramRecord.iterations) {
+				warnings.push(
+					'burnIn must be less than iterations or the visualization will be empty'
+				);
+			}
+			break;
 		case 'lyapunov':
 			if (paramRecord.rMin >= paramRecord.rMax) {
 				warnings.push('rMin must be less than rMax');
