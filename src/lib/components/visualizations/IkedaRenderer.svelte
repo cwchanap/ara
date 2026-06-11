@@ -121,7 +121,7 @@
 		const points = capped ? computed.points.slice(0, MAX_POINTS) : computed.points;
 		const seedIndices = capped ? computed.seedIndices.slice(0, MAX_POINTS) : computed.seedIndices;
 		if (points.length === 0) {
-			// Axes-only frame (no data); keep canvas/svg present but empty.
+			// Empty data — canvas/svg are present but blank.
 			return;
 		}
 
