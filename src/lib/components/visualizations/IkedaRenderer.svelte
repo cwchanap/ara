@@ -48,7 +48,7 @@
 	const MAX_POINTS = 200000;
 	const DEBOUNCE_MS = 250;
 
-	type Computed = { points: [number, number][]; seedIndices: number[] };
+	type Computed = { points: [number, number][]; seedIndices: number[]; maxRadius: number };
 
 	let renderTimeout: ReturnType<typeof setTimeout> | null = null;
 	let worker: Worker | null = null;
@@ -89,6 +89,20 @@
 				return interpCyanMagenta(t);
 			}
 		}
+	}
+
+	/** Precompute maxRadius from raw points (before capping). */
+	function computeMaxRadius(points: [number, number][]): number {
+		let max = 0;
+		for (const [px, py] of points) {
+			const r = Math.hypot(px, py);
+			if (r > max) max = r;
+		}
+		return max;
+	}
+
+	function buildComputed(points: [number, number][], seedIndices: number[]): Computed {
+		return { points, seedIndices, maxRadius: computeMaxRadius(points) };
 	}
 
 	function render(computed: Computed) {
@@ -162,7 +176,6 @@
 			});
 
 		// Avoid Math.max(...largeArray) which overflows the argument stack on big clouds.
-		// Computed before the ctx guard so the O(n) scan is always exercised.
 		let seedCount = 1;
 		for (const s of seedIndices) {
 			if (s + 1 > seedCount) seedCount = s + 1;
@@ -175,14 +188,8 @@
 			return;
 		}
 
-		// Precompute max radius for the 'radius' color mode.
-		let maxRadius = 0;
-		if (colorMode === 'radius') {
-			for (const [px, py] of points) {
-				const r = Math.hypot(px, py);
-				if (r > maxRadius) maxRadius = r;
-			}
-		}
+		// Use cached maxRadius from the Computed object (computed once per data change).
+		const maxRadius = computed.maxRadius;
 
 		ctx.clearRect(0, 0, width, chartHeight);
 		ctx.globalAlpha = Math.min(1, Math.max(0, opacity));
@@ -203,9 +210,19 @@
 	function computeMainThread(): Computed {
 		if (renderMode === 'single') {
 			const points = calculateIkedaTuples({ u, x0, y0, iterations, burnIn });
-			return { points, seedIndices: points.map(() => 0) };
+			return buildComputed(
+				points,
+				points.map(() => 0)
+			);
 		}
-		return calculateIkedaMultiSeed({ u, iterations, burnIn, seeds, maxPoints: MAX_POINTS });
+		const { points, seedIndices } = calculateIkedaMultiSeed({
+			u,
+			iterations,
+			burnIn,
+			seeds,
+			maxPoints: MAX_POINTS
+		});
+		return buildComputed(points, seedIndices);
 	}
 
 	function paramsValid(): boolean {
@@ -216,7 +233,7 @@
 	function requestPoints() {
 		if (!paramsValid()) {
 			console.warn('IkedaRenderer: invalid parameters, skipping render');
-			latest = { points: [], seedIndices: [] };
+			latest = buildComputed([], []);
 			isComputing = false;
 			render(latest);
 			return;
@@ -288,7 +305,7 @@
 					if (data.type !== 'ikedaResult') return;
 					if (data.id !== latestWorkerRequestId) return;
 					isComputing = false;
-					latest = { points: data.points, seedIndices: data.seedIndices };
+					latest = buildComputed(data.points, data.seedIndices);
 					render(latest);
 					if (hasPendingRender) {
 						hasPendingRender = false;
