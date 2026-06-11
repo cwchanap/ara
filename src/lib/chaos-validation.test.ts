@@ -1371,34 +1371,39 @@ describe('Lorenz extended-field validation', () => {
 		expect(result.warnings.join(' ')).toMatch(/dt|Euler|euler/);
 	});
 
-	test('rejects epsilon below min (epsilon < 0)', () => {
+	test('clamps epsilon below min to 0 (epsilon < 0)', () => {
 		const result = validateParameters('lorenz', { ...full, epsilon: -1 });
-		expect(result.isValid).toBe(false);
-		expect(result.errors.some((e) => e.includes('epsilon'))).toBe(true);
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toHaveLength(0);
+		expect(result.parameters?.epsilon).toBe(0);
 	});
 
-	test('rejects dt below min (dt < 0)', () => {
+	test('clamps dt below min to 0 (dt < 0)', () => {
 		const result = validateParameters('lorenz', { ...full, dt: -0.01 });
-		expect(result.isValid).toBe(false);
-		expect(result.errors.some((e) => e.includes('dt'))).toBe(true);
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toHaveLength(0);
+		expect(result.parameters?.dt).toBe(0);
 	});
 
-	test('rejects stepsPerFrame below min (stepsPerFrame < 1)', () => {
+	test('clamps stepsPerFrame below min to 1 (stepsPerFrame < 1)', () => {
 		const result = validateParameters('lorenz', { ...full, stepsPerFrame: 0 });
-		expect(result.isValid).toBe(false);
-		expect(result.errors.some((e) => e.includes('stepsPerFrame'))).toBe(true);
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toHaveLength(0);
+		expect(result.parameters?.stepsPerFrame).toBe(1);
 	});
 
-	test('rejects trailLength below min (trailLength < 1)', () => {
+	test('clamps trailLength below min to 1 (trailLength < 1)', () => {
 		const result = validateParameters('lorenz', { ...full, trailLength: 0 });
-		expect(result.isValid).toBe(false);
-		expect(result.errors.some((e) => e.includes('trailLength'))).toBe(true);
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toHaveLength(0);
+		expect(result.parameters?.trailLength).toBe(1);
 	});
 
-	test('rejects trailLength above max (trailLength > 100000)', () => {
+	test('clamps trailLength above max to 100000 (trailLength > 100000)', () => {
 		const result = validateParameters('lorenz', { ...full, trailLength: 100001 });
-		expect(result.isValid).toBe(false);
-		expect(result.errors.some((e) => e.includes('trailLength'))).toBe(true);
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toHaveLength(0);
+		expect(result.parameters?.trailLength).toBe(100000);
 	});
 
 	test('accepts trailLength at max boundary (100000)', () => {
@@ -1406,16 +1411,18 @@ describe('Lorenz extended-field validation', () => {
 		expect(result.isValid).toBe(true);
 	});
 
-	test('rejects zoom below min (zoom < 0.5)', () => {
+	test('clamps zoom below min to 0.5 (zoom < 0.5)', () => {
 		const result = validateParameters('lorenz', { ...full, zoom: 0 });
-		expect(result.isValid).toBe(false);
-		expect(result.errors.some((e) => e.includes('zoom'))).toBe(true);
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toHaveLength(0);
+		expect(result.parameters?.zoom).toBe(0.5);
 	});
 
-	test('rejects zoom at negative value', () => {
+	test('clamps zoom at negative value to 0.5', () => {
 		const result = validateParameters('lorenz', { ...full, zoom: -1 });
-		expect(result.isValid).toBe(false);
-		expect(result.errors.some((e) => e.includes('zoom'))).toBe(true);
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toHaveLength(0);
+		expect(result.parameters?.zoom).toBe(0.5);
 	});
 
 	test('accepts epsilon at boundary (epsilon = 0)', () => {
@@ -2329,26 +2336,26 @@ describe('validateParameters', () => {
 			expect(result.errors[0]).toContain("Parameter 'epsilon' must be a valid number");
 		});
 
-		it('rejects optional field below minimum', () => {
+		it('clamps optional field below minimum', () => {
 			const result = validateParameters('lorenz', {
 				sigma: 10,
 				rho: 28,
 				beta: 2.667,
 				epsilon: -1
 			});
-			expect(result.isValid).toBe(false);
-			expect(result.errors[0]).toContain("Parameter 'epsilon' must be >= 0");
+			expect(result.isValid).toBe(true);
+			expect(result.parameters?.epsilon).toBe(0);
 		});
 
-		it('rejects optional field above maximum', () => {
+		it('clamps optional field above maximum', () => {
 			const result = validateParameters('lorenz', {
 				sigma: 10,
 				rho: 28,
 				beta: 2.667,
 				trailLength: 200000
 			});
-			expect(result.isValid).toBe(false);
-			expect(result.errors[0]).toContain("Parameter 'trailLength' must be <= 100000");
+			expect(result.isValid).toBe(true);
+			expect(result.parameters?.trailLength).toBe(100000);
 		});
 
 		it('rejects invalid boolean type for optional field', () => {
@@ -2764,6 +2771,89 @@ describe('validateParameters - ikeda', () => {
 			x0: 0.1,
 			y0: 0,
 			iterations: 800
+		});
+		expect(result.isValid).toBe(false);
+	});
+
+	test('clamps pointSize above max (6) to 6', () => {
+		const result = validateParameters('ikeda', {
+			type: 'ikeda',
+			u: 0.918,
+			x0: 0.1,
+			y0: 0,
+			iterations: 800,
+			burnIn: 100,
+			pointSize: 10
+		});
+		expect(result.isValid).toBe(true);
+		expect(result.parameters?.pointSize).toBe(6);
+	});
+
+	test('clamps pointSize below min (0.5) to 0.5', () => {
+		const result = validateParameters('ikeda', {
+			type: 'ikeda',
+			u: 0.918,
+			x0: 0.1,
+			y0: 0,
+			iterations: 800,
+			burnIn: 100,
+			pointSize: 0.1
+		});
+		expect(result.isValid).toBe(true);
+		expect(result.parameters?.pointSize).toBe(0.5);
+	});
+
+	test('clamps opacity below min (0) to 0', () => {
+		const result = validateParameters('ikeda', {
+			type: 'ikeda',
+			u: 0.918,
+			x0: 0.1,
+			y0: 0,
+			iterations: 800,
+			burnIn: 100,
+			opacity: -0.5
+		});
+		expect(result.isValid).toBe(true);
+		expect(result.parameters?.opacity).toBe(0);
+	});
+
+	test('clamps opacity above max (1) to 1', () => {
+		const result = validateParameters('ikeda', {
+			type: 'ikeda',
+			u: 0.918,
+			x0: 0.1,
+			y0: 0,
+			iterations: 800,
+			burnIn: 100,
+			opacity: 1.5
+		});
+		expect(result.isValid).toBe(true);
+		expect(result.parameters?.opacity).toBe(1);
+	});
+
+	test('clamps seeds above max (5000) to 5000', () => {
+		const result = validateParameters('ikeda', {
+			type: 'ikeda',
+			u: 0.918,
+			x0: 0.1,
+			y0: 0,
+			iterations: 800,
+			burnIn: 100,
+			seeds: 10000
+		});
+		expect(result.isValid).toBe(true);
+		expect(result.parameters?.seeds).toBe(5000);
+	});
+
+	test('still rejects NaN in optional numeric fields', () => {
+		const result = validateParameters('ikeda', {
+			type: 'ikeda',
+			u: 0.918,
+			x0: 0.1,
+			y0: 0,
+			iterations: 800,
+			burnIn: 100,
+			pointSize: NaN
 		});
 		expect(result.isValid).toBe(false);
 	});

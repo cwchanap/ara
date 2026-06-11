@@ -145,6 +145,7 @@ export interface StabilityCheckResult {
 export interface ParameterValidationResult {
 	isValid: boolean;
 	errors: string[];
+	/** Normalized parameters with optional numeric fields clamped to declared ranges. */
 	parameters?: Record<string, unknown>;
 }
 
@@ -206,6 +207,8 @@ export function validateParameters(
 
 	// Validate values: range keys + optional-field keys must be numbers;
 	// optional enum/boolean fields are validated by their declared kind.
+	// Optional numeric fields are clamped to declared ranges instead of rejected,
+	// so that a single out-of-range styling param doesn't discard the entire config.
 	for (const key of actualKeys) {
 		if (key === 'type') continue;
 		const value = paramObj[key];
@@ -215,11 +218,14 @@ export function validateParameters(
 				if (typeof value !== 'number' || !Number.isFinite(value)) {
 					errors.push(`Parameter '${key}' must be a valid number, got: ${typeof value}`);
 				} else {
-					if (spec.min !== undefined && value < spec.min) {
-						errors.push(`Parameter '${key}' must be >= ${spec.min}, got: ${value}`);
+					let clamped = value;
+					if (spec.min !== undefined && clamped < spec.min) {
+						clamped = spec.min;
+						paramObj[key] = clamped;
 					}
-					if (spec.max !== undefined && value > spec.max) {
-						errors.push(`Parameter '${key}' must be <= ${spec.max}, got: ${value}`);
+					if (spec.max !== undefined && clamped > spec.max) {
+						clamped = spec.max;
+						paramObj[key] = clamped;
 					}
 				}
 			} else if (spec.kind === 'boolean') {

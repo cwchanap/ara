@@ -7,6 +7,7 @@
 	import * as d3 from 'd3';
 	import { calculateIkedaTuples, calculateIkedaMultiSeed } from '$lib/ikeda';
 	import type { IkedaColorMode, IkedaRenderMode } from '$lib/types';
+	import type { ChaosMapsWorkerResponse } from '$lib/workers/types';
 
 	interface Props {
 		u?: number;
@@ -267,14 +268,8 @@
 					type: 'module'
 				});
 				workerAvailable = true;
-				worker.onmessage = (event: MessageEvent) => {
-					const data = event.data as {
-						type: string;
-						id: number;
-						points?: [number, number][];
-						seedIndices?: number[];
-						message?: string;
-					};
+				worker.onmessage = (event: MessageEvent<ChaosMapsWorkerResponse>) => {
+					const data = event.data;
 					if (isUnmounted || !data) return;
 
 					if (data.type === 'error') {
