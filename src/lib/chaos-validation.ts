@@ -168,7 +168,7 @@ export function validateParameters(
 		return { isValid: false, errors };
 	}
 
-	let paramObj = params as Record<string, unknown>;
+	let paramObj = { ...(params as Record<string, unknown>) };
 
 	// Backward compatibility: normalize 'K' to 'k' for Standard map
 	if (mapType === 'standard' && 'K' in paramObj) {

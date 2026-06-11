@@ -240,8 +240,17 @@
 						type: string;
 						id: number;
 						points: [number, number][];
+						message?: string;
 					};
-					if (isUnmounted || !data || data.type !== 'standardResult') return;
+					if (isUnmounted || !data) return;
+
+					if (data.type === 'error') {
+						console.error('Standard map worker error response:', data.message);
+						handleWorkerFailure(data.message);
+						return;
+					}
+
+					if (data.type !== 'standardResult') return;
 					if (data.id !== latestWorkerRequestId) return;
 					isComputing = false;
 					latestPoints = data.points;

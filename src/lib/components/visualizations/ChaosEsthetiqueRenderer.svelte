@@ -233,8 +233,26 @@
 						type: string;
 						id: number;
 						points: [number, number][];
+						message?: string;
 					};
-					if (isUnmounted || !data || data.type !== 'chaosResult') return;
+					if (isUnmounted || !data) return;
+
+					if (data.type === 'error') {
+						console.error('Chaos esthetique worker error response:', data.message);
+						isComputing = false;
+						workerAvailable = false;
+						worker?.terminate();
+						worker = null;
+						// Fallback to main thread computation
+						if (container && !isUnmounted) {
+							const points = calculateChaos(a, b, x0, y0, iterations, MAX_POINTS);
+							latestPoints = points;
+							render(points);
+						}
+						return;
+					}
+
+					if (data.type !== 'chaosResult') return;
 					if (data.id !== latestWorkerRequestId) return;
 					isComputing = false;
 					latestPoints = data.points;
