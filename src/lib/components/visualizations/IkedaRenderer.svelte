@@ -350,11 +350,12 @@
 	});
 </script>
 
-<div
-	bind:this={container}
-	class="bg-black/40 border border-primary/20 rounded-sm overflow-hidden shadow-[0_0_30px_rgba(0,0,0,0.5)] relative"
-	style="height: {height}px;"
->
+<div class="relative">
+	<div
+		bind:this={container}
+		class="bg-black/40 border border-primary/20 rounded-sm overflow-hidden shadow-[0_0_30px_rgba(0,0,0,0.5)] relative"
+		style="height: {height}px;"
+	></div>
 	<div
 		class="absolute top-4 right-4 text-xs font-['Rajdhani'] text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
 	>

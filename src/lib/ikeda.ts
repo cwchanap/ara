@@ -54,6 +54,7 @@ function ikedaStep(x: number, y: number, u: number): [number, number] {
  */
 export function calculateIkeda(params: IkedaParams): IkedaPoint[] {
 	const { u, x0, y0, iterations, burnIn } = params;
+	if (iterations <= 0) return [];
 	const points: IkedaPoint[] = [];
 	let x = x0;
 	let y = y0;
@@ -68,6 +69,7 @@ export function calculateIkeda(params: IkedaParams): IkedaPoint[] {
 /** Single-orbit trajectory as [x, y] tuples (Canvas/D3-friendly). */
 export function calculateIkedaTuples(params: IkedaParams): [number, number][] {
 	const { u, x0, y0, iterations, burnIn } = params;
+	if (iterations <= 0) return [];
 	const points: [number, number][] = [];
 	let x = x0;
 	let y = y0;
@@ -101,6 +103,8 @@ const MULTI_SEED_RNG_SEED = 0x1abe11ed;
  */
 export function calculateIkedaMultiSeed(params: IkedaMultiSeedParams): IkedaMultiSeedResult {
 	const { u, iterations, burnIn, seeds, maxPoints } = params;
+	// Non-positive seeds or iterations → empty result.
+	if (seeds <= 0 || iterations <= 0) return { points: [], seedIndices: [] };
 	// Non-positive maxPoints → empty result (aligned with standardMap / calculateChaos).
 	// undefined → no cap (uncapped).
 	if (typeof maxPoints === 'number' && maxPoints <= 0) return { points: [], seedIndices: [] };
