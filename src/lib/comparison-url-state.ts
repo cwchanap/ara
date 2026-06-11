@@ -52,7 +52,9 @@ export function getDefaultParameters(mapType: ChaosMapType): ChaosMapParameters 
 		case 'lozi':
 			return { type: 'lozi', a: 1.7, b: 0.5, x0: 0, y0: 0, iterations: 5000 };
 		case 'ikeda': {
-			const preset = getPreset(DEFAULT_IKEDA_PRESET_ID)!;
+			const preset = getPreset(DEFAULT_IKEDA_PRESET_ID);
+			if (!preset)
+				throw new Error(`Missing default Ikeda preset: ${DEFAULT_IKEDA_PRESET_ID}`);
 			return { type: 'ikeda', ...preset.state };
 		}
 		case 'logistic':
