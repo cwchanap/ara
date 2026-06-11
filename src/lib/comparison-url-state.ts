@@ -7,6 +7,8 @@
 
 import type { ChaosMapType, ChaosMapParameters } from './types';
 import { validateParameters } from './chaos-validation';
+import { getPreset, DEFAULT_IKEDA_PRESET_ID } from './ikeda-presets';
+import { LORENZ_PRESETS } from './lorenz/presets';
 
 /**
  * Normalize parameters to ensure backward compatibility.
@@ -39,28 +41,20 @@ export interface ComparisonURLState {
  */
 export function getDefaultParameters(mapType: ChaosMapType): ChaosMapParameters {
 	switch (mapType) {
-		case 'lorenz':
-			return { type: 'lorenz', sigma: 10, rho: 28, beta: 8 / 3 };
+		case 'lorenz': {
+			const classic = LORENZ_PRESETS.find((p) => p.id === 'classic')!;
+			return { type: 'lorenz', sigma: classic.sigma, rho: classic.rho, beta: classic.beta };
+		}
 		case 'rossler':
 			return { type: 'rossler', a: 0.2, b: 0.2, c: 5.7 };
 		case 'henon':
 			return { type: 'henon', a: 1.4, b: 0.3, iterations: 2000 };
 		case 'lozi':
 			return { type: 'lozi', a: 1.7, b: 0.5, x0: 0, y0: 0, iterations: 5000 };
-		case 'ikeda':
-			return {
-				type: 'ikeda',
-				u: 0.918,
-				x0: 0.1,
-				y0: 0,
-				iterations: 800,
-				burnIn: 100,
-				renderMode: 'multi',
-				seeds: 250,
-				colorMode: 'iteration',
-				pointSize: 1.5,
-				opacity: 0.6
-			};
+		case 'ikeda': {
+			const preset = getPreset(DEFAULT_IKEDA_PRESET_ID)!;
+			return { type: 'ikeda', ...preset.state };
+		}
 		case 'logistic':
 			return { type: 'logistic', r: 3.9, x0: 0.1, iterations: 100 };
 		case 'newton':

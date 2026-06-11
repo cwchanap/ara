@@ -1045,3 +1045,105 @@ describe('base64Encode / base64Decode – additional cases', () => {
 		expect(encoded).toMatch(/^[A-Za-z0-9+/=]+$/);
 	});
 });
+
+// ── Optional field clamping via URL decode ────────────────────────────────────
+
+describe('decodeComparisonState – optional field clamping', () => {
+	test('clamps ikeda pointSize above max to 6 instead of rejecting entire config', () => {
+		// pointSize max is 6 — sending 10 should be clamped, not rejected
+		const payload = base64Encode(
+			JSON.stringify({
+				u: 0.918,
+				x0: 0.1,
+				y0: 0,
+				iterations: 800,
+				burnIn: 100,
+				renderMode: 'multi',
+				seeds: 250,
+				colorMode: 'iteration',
+				pointSize: 10,
+				opacity: 0.6
+			})
+		);
+		const url = new URL(
+			`https://example.com/ikeda/compare?compare=true&left=${payload}&right=${payload}`
+		);
+		const result = decodeComparisonState(url, 'ikeda');
+
+		expect(result).not.toBeNull();
+		// The config should be accepted with pointSize clamped, not rejected entirely
+		const left = result!.left as unknown as Record<string, unknown>;
+		expect(left.pointSize).toBe(6);
+		expect(left.u).toBeCloseTo(0.918, 5);
+	});
+
+	test('clamps ikeda opacity below min to 0 instead of rejecting entire config', () => {
+		// opacity min is 0 — sending -0.5 should be clamped
+		const payload = base64Encode(
+			JSON.stringify({
+				u: 0.918,
+				x0: 0.1,
+				y0: 0,
+				iterations: 800,
+				burnIn: 100,
+				pointSize: 1.5,
+				opacity: -0.5
+			})
+		);
+		const url = new URL(`https://example.com/ikeda/compare?compare=true&left=${payload}`);
+		const result = decodeComparisonState(url, 'ikeda');
+
+		expect(result).not.toBeNull();
+		expect((result!.left as unknown as Record<string, unknown>).opacity).toBe(0);
+	});
+
+	test('clamps lorenz zoom below min to 0.5 instead of rejecting entire config', () => {
+		// zoom min is 0.5 — sending 0 should be clamped
+		const payload = base64Encode(
+			JSON.stringify({
+				sigma: 10,
+				rho: 28,
+				beta: 2.667,
+				zoom: 0,
+				trailLength: 200000
+			})
+		);
+		const url = new URL(`https://example.com/lorenz/compare?compare=true&left=${payload}`);
+		const result = decodeComparisonState(url, 'lorenz');
+
+		expect(result).not.toBeNull();
+		const left = result!.left as unknown as Record<string, unknown>;
+		expect(left.zoom).toBe(0.5);
+		expect(left.trailLength).toBe(100000);
+		// Core params should still be intact
+		expect((result!.left as LorenzParameters).sigma).toBe(10);
+	});
+});
+
+// ── getDefaultParameters derives from presets ─────────────────────────────────
+
+describe('getDefaultParameters – preset derivation', () => {
+	test('ikeda defaults match the classic-ikeda preset', () => {
+		const defaults = getDefaultParameters('ikeda');
+		// These values come from the classic-ikeda preset in ikeda-presets.ts
+		if (defaults.type === 'ikeda') {
+			expect(defaults.u).toBeCloseTo(0.918, 5);
+			expect(defaults.x0).toBe(0.1);
+			expect(defaults.y0).toBe(0);
+			expect(defaults.iterations).toBe(800);
+			expect(defaults.burnIn).toBe(100);
+			expect(defaults.renderMode).toBe('multi');
+			expect(defaults.seeds).toBe(250);
+			expect(defaults.colorMode).toBe('iteration');
+			expect(defaults.pointSize).toBe(1.5);
+			expect(defaults.opacity).toBe(0.6);
+		}
+	});
+
+	test('lorenz defaults match the classic lorenz preset', () => {
+		const defaults = getDefaultParameters('lorenz') as LorenzParameters;
+		expect(defaults.sigma).toBe(10);
+		expect(defaults.rho).toBe(28);
+		expect(defaults.beta).toBeCloseTo(8 / 3);
+	});
+});
