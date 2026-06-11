@@ -87,12 +87,16 @@ describe('CHAOS_MAP_DISPLAY_NAMES', () => {
 
 	test('maps each type to the correct display name', () => {
 		expect(CHAOS_MAP_DISPLAY_NAMES['lorenz']).toBe('LORENZ_ATTRACTOR');
+		expect(CHAOS_MAP_DISPLAY_NAMES['rossler']).toBe('RÖSSLER_ATTRACTOR');
 		expect(CHAOS_MAP_DISPLAY_NAMES['henon']).toBe('HÉNON_MAP');
 		expect(CHAOS_MAP_DISPLAY_NAMES['lozi']).toBe('LOZI_MAP');
+		expect(CHAOS_MAP_DISPLAY_NAMES['ikeda']).toBe('IKEDA_MAP');
 		expect(CHAOS_MAP_DISPLAY_NAMES['logistic']).toBe('LOGISTIC_MAP');
 		expect(CHAOS_MAP_DISPLAY_NAMES['newton']).toBe('NEWTON_FRACTAL');
 		expect(CHAOS_MAP_DISPLAY_NAMES['standard']).toBe('STANDARD_MAP');
 		expect(CHAOS_MAP_DISPLAY_NAMES['bifurcation-logistic']).toBe('BIFURCATION_LOGISTIC');
+		expect(CHAOS_MAP_DISPLAY_NAMES['bifurcation-henon']).toBe('BIFURCATION_HÉNON');
+		expect(CHAOS_MAP_DISPLAY_NAMES['chaos-esthetique']).toBe('CHAOS_ESTHÉTIQUE');
 		expect(CHAOS_MAP_DISPLAY_NAMES['lyapunov']).toBe('LYAPUNOV_EXPONENTS');
 		expect(CHAOS_MAP_DISPLAY_NAMES['chua']).toBe('CHUA_CIRCUIT');
 	});
