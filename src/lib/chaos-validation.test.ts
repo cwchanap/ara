@@ -2380,6 +2380,24 @@ describe('validateParameters', () => {
 			expect(result.errors[0]).toContain("Parameter 'solver' must be one of");
 		});
 	});
+
+	describe('input immutability', () => {
+		it('does not mutate the caller input object when clamping optional fields', () => {
+			const input = { sigma: 10, rho: 28, beta: 2.667, epsilon: -5 };
+			const inputCopy = { ...input };
+			validateParameters('lorenz', input);
+			expect(input).toEqual(inputCopy);
+			expect(input.epsilon).toBe(-5);
+		});
+
+		it('does not mutate the caller input object when clamping optional fields above max', () => {
+			const input = { sigma: 10, rho: 28, beta: 2.667, trailLength: 999999 };
+			const inputCopy = { ...input };
+			validateParameters('lorenz', input);
+			expect(input).toEqual(inputCopy);
+			expect(input.trailLength).toBe(999999);
+		});
+	});
 });
 
 describe('checkParameterStability', () => {

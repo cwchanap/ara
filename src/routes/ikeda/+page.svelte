@@ -205,11 +205,11 @@
 	});
 
 	function applyParameters(p: IkedaParameters) {
-		u = p.u ?? u;
-		x0 = p.x0 ?? x0;
-		y0 = p.y0 ?? y0;
-		iterations = p.iterations ?? iterations;
-		burnIn = p.burnIn ?? burnIn;
+		u = p.u;
+		x0 = p.x0;
+		y0 = p.y0;
+		iterations = p.iterations;
+		burnIn = p.burnIn;
 		renderMode = p.renderMode ?? renderMode;
 		seeds = p.seeds ?? seeds;
 		colorMode = p.colorMode ?? colorMode;
