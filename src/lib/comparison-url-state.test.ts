@@ -26,7 +26,8 @@ import type {
 	LoziParameters,
 	NewtonParameters,
 	BifurcationHenonParameters,
-	ChaosEsthetiqueParameters
+	ChaosEsthetiqueParameters,
+	ChuaParameters
 } from './types';
 
 describe('getDefaultParameters', () => {
@@ -142,6 +143,16 @@ describe('getDefaultParameters', () => {
 		expect(params.rMax).toBe(4.0);
 		expect(params.iterations).toBe(100);
 		expect(params.transientIterations).toBe(100);
+	});
+
+	test('returns correct default parameters for chua', () => {
+		const params = getDefaultParameters('chua') as ChuaParameters;
+		expect(params.type).toBe('chua');
+		expect(params.alpha).toBe(15.6);
+		expect(params.beta).toBe(28);
+		expect(params.gamma).toBe(0);
+		expect(params.a).toBeCloseTo(-8 / 7);
+		expect(params.b).toBeCloseTo(-5 / 7);
 	});
 });
 
@@ -880,6 +891,23 @@ describe('decodeComparisonState – remaining map types round-trip', () => {
 		const result = decodeComparisonState(url, 'lorenz');
 		expect(result).toBeNull();
 	});
+
+	test('round-trips chua parameters', () => {
+		const state: ComparisonURLState = {
+			compare: true,
+			left: { type: 'chua', alpha: 15.6, beta: 28, gamma: 0, a: -8 / 7, b: -5 / 7 },
+			right: { type: 'chua', alpha: 10, beta: 20, gamma: 1, a: -1, b: -0.5 }
+		};
+		const encoded = encodeComparisonState(state);
+		const url = new URL(`https://example.com/chua/compare?${encoded.toString()}`);
+		const decoded = decodeComparisonState(url, 'chua');
+
+		expect(decoded).not.toBeNull();
+		expect((decoded!.left as ChuaParameters).alpha).toBeCloseTo(15.6);
+		expect((decoded!.left as ChuaParameters).beta).toBe(28);
+		expect((decoded!.right as ChuaParameters).alpha).toBe(10);
+		expect((decoded!.right as ChuaParameters).gamma).toBe(1);
+	});
 });
 
 // ── buildComparisonUrl additional cases ───────────────────────────────────────
@@ -997,7 +1025,8 @@ describe('createComparisonStateFromCurrent – additional cases', () => {
 			'bifurcation-logistic',
 			'bifurcation-henon',
 			'chaos-esthetique',
-			'lyapunov'
+			'lyapunov',
+			'chua'
 		] as const;
 
 		for (const mapType of mapTypes) {
@@ -1145,5 +1174,15 @@ describe('getDefaultParameters – preset derivation', () => {
 		expect(defaults.sigma).toBe(10);
 		expect(defaults.rho).toBe(28);
 		expect(defaults.beta).toBeCloseTo(8 / 3);
+	});
+
+	test('chua defaults have correct parameter values', () => {
+		const defaults = getDefaultParameters('chua') as ChuaParameters;
+		expect(defaults.type).toBe('chua');
+		expect(defaults.alpha).toBe(15.6);
+		expect(defaults.beta).toBe(28);
+		expect(defaults.gamma).toBe(0);
+		expect(defaults.a).toBeCloseTo(-8 / 7);
+		expect(defaults.b).toBeCloseTo(-5 / 7);
 	});
 });

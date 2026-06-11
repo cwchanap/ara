@@ -186,4 +186,58 @@ describe('Ikeda page interactions', () => {
 		const hints = screen.getAllByText('Single Orbit only');
 		expect(hints.length).toBe(2);
 	});
+
+	it('opens the save dialog when Save button is clicked', async () => {
+		render(IkedaPage, { props: pageProps });
+		const saveBtn = screen.getByRole('button', { name: /Save/i });
+		await fireEvent.click(saveBtn);
+		const dialog = screen.getByTestId('dialog-stub-ikeda');
+		expect(dialog).toBeTruthy();
+	});
+
+	it('opens the share dialog when Share button is clicked', async () => {
+		render(IkedaPage, { props: pageProps });
+		const shareBtn = screen.getByRole('button', { name: /Share/i });
+		await fireEvent.click(shareBtn);
+		const dialog = screen.getByTestId('dialog-stub-ikeda');
+		expect(dialog).toBeTruthy();
+	});
+
+	it('closes the save dialog via onClose callback', async () => {
+		render(IkedaPage, { props: pageProps });
+		const saveBtn = screen.getByRole('button', { name: /Save/i });
+		await fireEvent.click(saveBtn);
+		const closeBtn = screen.getByTestId('dialog-close-ikeda');
+		expect(closeBtn).toBeTruthy();
+		await fireEvent.click(closeBtn);
+		expect(screen.queryByTestId('dialog-stub-ikeda')).toBeNull();
+	});
+
+	it('closes the share dialog via onClose callback', async () => {
+		render(IkedaPage, { props: pageProps });
+		const shareBtn = screen.getByRole('button', { name: /Share/i });
+		await fireEvent.click(shareBtn);
+		const closeBtn = screen.getByTestId('dialog-close-ikeda');
+		expect(closeBtn).toBeTruthy();
+		await fireEvent.click(closeBtn);
+		expect(screen.queryByTestId('dialog-stub-ikeda')).toBeNull();
+	});
+
+	it('renders authenticated session data without crashing', () => {
+		expect(() =>
+			render(IkedaPage, {
+				props: {
+					data: {
+						session: { user: { id: 'user-1' } },
+						user: { id: 'user-1' }
+					}
+				}
+			})
+		).not.toThrow();
+	});
+
+	it('renders the Ikeda renderer component', () => {
+		const { container } = render(IkedaPage, { props: pageProps });
+		expect(container.querySelector('[data-testid="stub"]')).toBeTruthy();
+	});
 });
