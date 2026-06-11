@@ -240,4 +240,9 @@ describe('Ikeda page interactions', () => {
 		const { container } = render(IkedaPage, { props: pageProps });
 		expect(container.querySelector('[data-testid="stub"]')).toBeTruthy();
 	});
+
+	it('cleans up on unmount without throwing', () => {
+		const { unmount } = render(IkedaPage, { props: pageProps });
+		expect(() => unmount()).not.toThrow();
+	});
 });

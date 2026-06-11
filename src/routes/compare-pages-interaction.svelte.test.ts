@@ -20,6 +20,7 @@ import ChaosEsthetiqueComparePage from './chaos-esthetique/compare/+page.svelte'
 import LorenzComparePage from './lorenz/compare/+page.svelte';
 import LoziComparePage from './lozi/compare/+page.svelte';
 import StandardComparePage from './standard/compare/+page.svelte';
+import IkedaComparePage from './ikeda/compare/+page.svelte';
 
 const gotoMock = vi.hoisted(() => vi.fn());
 
@@ -99,6 +100,10 @@ vi.mock('$lib/components/visualizations/LoziRenderer.svelte', async () => {
 	return { default: m.default };
 });
 vi.mock('$lib/components/visualizations/StandardRenderer.svelte', async () => {
+	const m = await import('$lib/components/testing/StubComponent.svelte');
+	return { default: m.default };
+});
+vi.mock('$lib/components/visualizations/IkedaRenderer.svelte', async () => {
 	const m = await import('$lib/components/testing/StubComponent.svelte');
 	return { default: m.default };
 });
@@ -584,6 +589,46 @@ describe('standard compare – swap', () => {
 
 		expect(gotoMock).toHaveBeenCalledWith(
 			expect.stringContaining('/standard/compare'),
+			expect.objectContaining({ replaceState: true })
+		);
+	});
+});
+
+describe('ikeda compare – swap and goto', () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+		gotoMock.mockReset();
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+		cleanup();
+	});
+
+	it('calls goto after initial parameter change', async () => {
+		setPageUrl('http://localhost/ikeda/compare?compare=true');
+		render(IkedaComparePage);
+
+		vi.advanceTimersByTime(300);
+
+		expect(gotoMock).toHaveBeenCalledWith(
+			expect.stringContaining('/ikeda/compare'),
+			expect.objectContaining({ replaceState: true })
+		);
+	});
+
+	it('calls swap handler via button click', async () => {
+		setPageUrl('http://localhost/ikeda/compare?compare=true');
+		render(IkedaComparePage);
+
+		vi.clearAllTimers();
+		gotoMock.mockReset();
+
+		const swapBtn = screen.getByText('⇄ Swap');
+		await fireEvent.click(swapBtn);
+
+		expect(gotoMock).toHaveBeenCalledWith(
+			expect.stringContaining('/ikeda/compare'),
 			expect.objectContaining({ replaceState: true })
 		);
 	});

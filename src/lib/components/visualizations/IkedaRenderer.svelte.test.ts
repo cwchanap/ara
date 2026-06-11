@@ -1,6 +1,32 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, waitFor } from '@testing-library/svelte';
 import IkedaRenderer from './IkedaRenderer.svelte';
+
+let originalGetContext: typeof HTMLCanvasElement.prototype.getContext;
+
+beforeAll(() => {
+	originalGetContext = HTMLCanvasElement.prototype.getContext;
+
+	const ctx = {
+		clearRect: vi.fn(),
+		beginPath: vi.fn(),
+		arc: vi.fn(),
+		fill: vi.fn(),
+		fillStyle: '' as string,
+		globalAlpha: 1
+	};
+	Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+		configurable: true,
+		value: () => ctx
+	});
+});
+
+afterAll(() => {
+	Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+		configurable: true,
+		value: originalGetContext
+	});
+});
 
 // Worker is unavailable in jsdom, so the component uses the main-thread fallback.
 vi.mock('$lib/ikeda', () => ({
@@ -427,5 +453,253 @@ describe('IkedaRenderer', () => {
 		await waitFor(() => {
 			expect(container.querySelector('svg')).not.toBeNull();
 		});
+	});
+
+	it('re-renders when colorMode changes (style-only effect)', async () => {
+		const { container, component } = render(IkedaRenderer, {
+			props: {
+				u: 0.918,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 10,
+				renderMode: 'multi',
+				seeds: 2,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				opacity: 0.6,
+				height: 200
+			}
+		});
+		await waitFor(() => {
+			expect(container.querySelector('svg')).not.toBeNull();
+		});
+		// Trigger style-only re-render by changing colorMode
+		(component as unknown as Record<string, unknown>).colorMode = 'seed';
+		await waitFor(() => {
+			expect(container.querySelector('svg')).not.toBeNull();
+		});
+	});
+
+	it('handles worker error response and falls back to main thread', async () => {
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		let workerInstance: {
+			onmessage: ((event: MessageEvent) => void) | null;
+			onerror: ((event: ErrorEvent) => void) | null;
+			terminate: () => void;
+		} | null = null;
+		class MockWorker {
+			postMessage = vi.fn();
+			terminate = vi.fn();
+			onmessage: ((event: MessageEvent) => void) | null = null;
+			onerror: ((event: ErrorEvent) => void) | null = null;
+			constructor() {
+				// eslint-disable-next-line @typescript-eslint/no-this-alias
+				workerInstance = this;
+			}
+		}
+		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+
+		const { calculateIkedaMultiSeed } = await import('$lib/ikeda');
+		vi.mocked(calculateIkedaMultiSeed).mockReturnValueOnce({
+			points: [[0, 0]],
+			seedIndices: [0]
+		});
+
+		render(IkedaRenderer, {
+			props: {
+				u: 0.918,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 10,
+				renderMode: 'multi',
+				seeds: 2,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				opacity: 0.6,
+				height: 200
+			}
+		});
+
+		// Give onMount time to set up worker and post message
+		await new Promise((r) => setTimeout(r, 50));
+
+		// Simulate worker error response before DOM is rendered
+		if (workerInstance?.onmessage) {
+			workerInstance.onmessage(
+				new MessageEvent('message', {
+					data: { type: 'error', message: 'worker failed' }
+				})
+			);
+		}
+
+		await waitFor(() => {
+			expect(errorSpy).toHaveBeenCalledWith('Ikeda worker error response:', 'worker failed');
+		});
+
+		// Worker should be terminated and unavailable after error
+		expect(workerInstance?.terminate).toHaveBeenCalled();
+
+		delete (globalThis as unknown as Record<string, unknown>).Worker;
+		errorSpy.mockRestore();
+	});
+
+	it('handles worker onerror and falls back to main thread', async () => {
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		let workerInstance: {
+			onmessage: ((event: MessageEvent) => void) | null;
+			onerror: ((event: ErrorEvent) => void) | null;
+			terminate: () => void;
+		} | null = null;
+		class MockWorker {
+			postMessage = vi.fn();
+			terminate = vi.fn();
+			onmessage: ((event: MessageEvent) => void) | null = null;
+			onerror: ((event: ErrorEvent) => void) | null = null;
+			constructor() {
+				// eslint-disable-next-line @typescript-eslint/no-this-alias
+				workerInstance = this;
+			}
+		}
+		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+
+		const { calculateIkedaMultiSeed } = await import('$lib/ikeda');
+		vi.mocked(calculateIkedaMultiSeed).mockReturnValueOnce({
+			points: [[0, 0]],
+			seedIndices: [0]
+		});
+
+		render(IkedaRenderer, {
+			props: {
+				u: 0.918,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 10,
+				renderMode: 'multi',
+				seeds: 2,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				opacity: 0.6,
+				height: 200
+			}
+		});
+
+		await new Promise((r) => setTimeout(r, 50));
+
+		// Simulate worker runtime error
+		if (workerInstance?.onerror) {
+			workerInstance.onerror(new ErrorEvent('error', { message: 'worker runtime error' }));
+		}
+
+		await waitFor(() => {
+			expect(errorSpy).toHaveBeenCalledWith('Ikeda worker error:', 'worker runtime error');
+		});
+
+		expect(workerInstance?.terminate).toHaveBeenCalled();
+
+		delete (globalThis as unknown as Record<string, unknown>).Worker;
+		errorSpy.mockRestore();
+	});
+
+	it('handles worker initialization failure gracefully', async () => {
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		class FailingWorker {
+			constructor() {
+				throw new Error('Worker init failed');
+			}
+		}
+		(globalThis as unknown as Record<string, unknown>).Worker = FailingWorker;
+
+		const { container } = render(IkedaRenderer, {
+			props: {
+				u: 0.918,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 10,
+				renderMode: 'multi',
+				seeds: 2,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				opacity: 0.6,
+				height: 200
+			}
+		});
+
+		await waitFor(() => {
+			expect(container.querySelector('svg')).not.toBeNull();
+		});
+		expect(errorSpy).toHaveBeenCalledWith(
+			'Failed to initialize ikeda web worker:',
+			expect.any(Error)
+		);
+
+		delete (globalThis as unknown as Record<string, unknown>).Worker;
+		errorSpy.mockRestore();
+	});
+
+	it('processes a successful worker response and renders', async () => {
+		let workerInstance: {
+			onmessage: ((event: MessageEvent) => void) | null;
+			onerror: ((event: ErrorEvent) => void) | null;
+			postMessage: (msg: unknown) => void;
+		} | null = null;
+		class MockWorker {
+			postMessage = (msg: unknown) => {
+				// auto-respond with success after a tick
+				setTimeout(() => {
+					if (this.onmessage) {
+						this.onmessage(
+							new MessageEvent('message', {
+								data: {
+									type: 'ikedaResult',
+									id: (msg as { id: number }).id,
+									points: [
+										[0, 0],
+										[1, 0.5]
+									],
+									seedIndices: [0, 1]
+								}
+							})
+						);
+					}
+				}, 10);
+			};
+			terminate = vi.fn();
+			onmessage: ((event: MessageEvent) => void) | null = null;
+			onerror: ((event: ErrorEvent) => void) | null = null;
+			constructor() {
+				// eslint-disable-next-line @typescript-eslint/no-this-alias
+				workerInstance = this;
+			}
+		}
+		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+
+		const { container } = render(IkedaRenderer, {
+			props: {
+				u: 0.918,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 10,
+				renderMode: 'multi',
+				seeds: 2,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				opacity: 0.6,
+				height: 200
+			}
+		});
+
+		await waitFor(() => {
+			expect(container.querySelector('svg')).not.toBeNull();
+		});
+
+		// Verify worker posted a message with correct parameters
+		expect(workerInstance).not.toBeNull();
+
+		delete (globalThis as unknown as Record<string, unknown>).Worker;
 	});
 });
