@@ -141,4 +141,134 @@ describe('ChaosEsthetiqueRenderer (coverage)', () => {
 		).not.toThrow();
 		await vi.advanceTimersByTimeAsync(400);
 	});
+
+	it('handles invalid parameters by rendering empty', async () => {
+		vi.useFakeTimers();
+		const { container } = render(ChaosEsthetiqueRenderer, {
+			props: { a: NaN, b: 0.9999, x0: 18, y0: 0, iterations: 100, height: 200 }
+		});
+		await vi.advanceTimersByTimeAsync(400);
+		// Container should still exist even with invalid params
+		expect(container.querySelector('div')).not.toBeNull();
+	});
+
+	it('handles zero iterations by rendering empty', async () => {
+		vi.useFakeTimers();
+		const { container } = render(ChaosEsthetiqueRenderer, {
+			props: { a: 0.9, b: 0.9999, x0: 18, y0: 0, iterations: 0, height: 200 }
+		});
+		await vi.advanceTimersByTimeAsync(400);
+		expect(container.querySelector('div')).not.toBeNull();
+	});
+
+	it('handles worker error response and falls back to main thread', async () => {
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		let workerInstance: {
+			onmessage: ((event: MessageEvent) => void) | null;
+			terminate: () => void;
+		} | null = null;
+		class MockWorker {
+			postMessage = vi.fn();
+			terminate = vi.fn();
+			onmessage: ((event: MessageEvent) => void) | null = null;
+			onerror: ((event: ErrorEvent) => void) | null = null;
+			constructor() {
+				// eslint-disable-next-line @typescript-eslint/no-this-alias
+				workerInstance = this;
+			}
+		}
+		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+
+		render(ChaosEsthetiqueRenderer, {
+			props: { a: 0.9, b: 0.9999, x0: 18, y0: 0, iterations: 100, height: 200 }
+		});
+
+		await new Promise((r) => setTimeout(r, 50));
+
+		if (workerInstance?.onmessage) {
+			workerInstance.onmessage(
+				new MessageEvent('message', {
+					data: { type: 'error', message: 'chaos worker failed' }
+				})
+			);
+		}
+
+		await waitFor(() => {
+			expect(errorSpy).toHaveBeenCalledWith(
+				'Chaos esthetique worker error response:',
+				'chaos worker failed'
+			);
+		});
+
+		expect(workerInstance?.terminate).toHaveBeenCalled();
+		delete (globalThis as unknown as Record<string, unknown>).Worker;
+		errorSpy.mockRestore();
+	});
+
+	it('handles worker onerror and falls back to main thread', async () => {
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		let workerInstance: {
+			onerror: ((event: ErrorEvent) => void) | null;
+			terminate: () => void;
+		} | null = null;
+		class MockWorker {
+			postMessage = vi.fn();
+			terminate = vi.fn();
+			onmessage: ((event: MessageEvent) => void) | null = null;
+			onerror: ((event: ErrorEvent) => void) | null = null;
+			constructor() {
+				// eslint-disable-next-line @typescript-eslint/no-this-alias
+				workerInstance = this;
+			}
+		}
+		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+
+		render(ChaosEsthetiqueRenderer, {
+			props: { a: 0.9, b: 0.9999, x0: 18, y0: 0, iterations: 100, height: 200 }
+		});
+
+		await new Promise((r) => setTimeout(r, 50));
+
+		if (workerInstance?.onerror) {
+			workerInstance.onerror(
+				new ErrorEvent('error', { message: 'chaos worker runtime error' })
+			);
+		}
+
+		await waitFor(() => {
+			expect(errorSpy).toHaveBeenCalledWith(
+				'Chaos esthetique worker error:',
+				'chaos worker runtime error'
+			);
+		});
+
+		expect(workerInstance?.terminate).toHaveBeenCalled();
+		delete (globalThis as unknown as Record<string, unknown>).Worker;
+		errorSpy.mockRestore();
+	});
+
+	it('handles worker initialization failure gracefully', async () => {
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		class FailingWorker {
+			constructor() {
+				throw new Error('Worker init failed');
+			}
+		}
+		(globalThis as unknown as Record<string, unknown>).Worker = FailingWorker;
+
+		const { container } = render(ChaosEsthetiqueRenderer, {
+			props: { a: 0.9, b: 0.9999, x0: 18, y0: 0, iterations: 100, height: 200 }
+		});
+
+		await waitFor(() => {
+			expect(container.querySelector('div')).not.toBeNull();
+		});
+		expect(errorSpy).toHaveBeenCalledWith(
+			'Failed to initialize chaos esthetique web worker:',
+			expect.any(Error)
+		);
+
+		delete (globalThis as unknown as Record<string, unknown>).Worker;
+		errorSpy.mockRestore();
+	});
 });

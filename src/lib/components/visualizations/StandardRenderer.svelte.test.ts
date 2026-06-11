@@ -136,4 +136,132 @@ describe('StandardRenderer (coverage)', () => {
 		).not.toThrow();
 		await vi.advanceTimersByTimeAsync(200);
 	});
+
+	it('handles worker error response via handleWorkerFailure', async () => {
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		let workerInstance: {
+			onmessage: ((event: MessageEvent) => void) | null;
+			terminate: () => void;
+		} | null = null;
+		class MockWorker {
+			postMessage = vi.fn();
+			terminate = vi.fn();
+			onmessage: ((event: MessageEvent) => void) | null = null;
+			onerror: ((event: ErrorEvent) => void) | null = null;
+			onmessageerror: ((event: MessageEvent) => void) | null = null;
+			constructor() {
+				// eslint-disable-next-line @typescript-eslint/no-this-alias
+				workerInstance = this;
+			}
+		}
+		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+
+		render(StandardRenderer, {
+			props: {
+				k: 1,
+				numP: 1,
+				numQ: 1,
+				iterations: 5,
+				height: 200
+			}
+		});
+
+		await new Promise((r) => setTimeout(r, 50));
+
+		if (workerInstance?.onmessage) {
+			workerInstance.onmessage(
+				new MessageEvent('message', {
+					data: { type: 'error', message: 'standard worker failed' }
+				})
+			);
+		}
+
+		await waitFor(() => {
+			expect(errorSpy).toHaveBeenCalledWith(
+				'Standard map worker error response:',
+				'standard worker failed'
+			);
+		});
+
+		expect(workerInstance?.terminate).toHaveBeenCalled();
+		delete (globalThis as unknown as Record<string, unknown>).Worker;
+		errorSpy.mockRestore();
+	});
+
+	it('handles worker onerror and falls back to main thread', async () => {
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		let workerInstance: {
+			onerror: ((event: ErrorEvent) => void) | null;
+			terminate: () => void;
+		} | null = null;
+		class MockWorker {
+			postMessage = vi.fn();
+			terminate = vi.fn();
+			onmessage: ((event: MessageEvent) => void) | null = null;
+			onerror: ((event: ErrorEvent) => void) | null = null;
+			onmessageerror: ((event: MessageEvent) => void) | null = null;
+			constructor() {
+				// eslint-disable-next-line @typescript-eslint/no-this-alias
+				workerInstance = this;
+			}
+		}
+		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+
+		render(StandardRenderer, {
+			props: {
+				k: 1,
+				numP: 1,
+				numQ: 1,
+				iterations: 5,
+				height: 200
+			}
+		});
+
+		await new Promise((r) => setTimeout(r, 50));
+
+		if (workerInstance?.onerror) {
+			workerInstance.onerror(
+				new ErrorEvent('error', { message: 'standard worker runtime error' })
+			);
+		}
+
+		await waitFor(() => {
+			expect(errorSpy).toHaveBeenCalledWith(
+				'Standard map worker failure:',
+				'standard worker runtime error'
+			);
+		});
+
+		expect(workerInstance?.terminate).toHaveBeenCalled();
+		delete (globalThis as unknown as Record<string, unknown>).Worker;
+		errorSpy.mockRestore();
+	});
+
+	it('handles worker initialization failure gracefully', async () => {
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		class FailingWorker {
+			constructor() {
+				throw new Error('Worker init failed');
+			}
+		}
+		(globalThis as unknown as Record<string, unknown>).Worker = FailingWorker;
+
+		const { container } = render(StandardRenderer, {
+			props: {
+				k: 1,
+				numP: 1,
+				numQ: 1,
+				iterations: 5,
+				height: 200
+			}
+		});
+
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+		expect(errorSpy).toHaveBeenCalledWith('Standard map worker failure:', expect.any(Error));
+
+		delete (globalThis as unknown as Record<string, unknown>).Worker;
+		errorSpy.mockRestore();
+	});
 });

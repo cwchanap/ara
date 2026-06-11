@@ -228,4 +228,19 @@ describe('calculateIkedaMultiSeed', () => {
 		expect(result.points.length).toBeGreaterThan(0);
 		expect(result.seedIndices).toHaveLength(result.points.length);
 	});
+
+	test('stops early when values become non-finite in multi-seed mode', () => {
+		const { points, seedIndices } = calculateIkedaMultiSeed({
+			u: 1e10,
+			iterations: 500,
+			burnIn: 0,
+			seeds: 10
+		});
+		for (const [x, y] of points) {
+			expect(Number.isFinite(x)).toBe(true);
+			expect(Number.isFinite(y)).toBe(true);
+		}
+		expect(seedIndices).toHaveLength(points.length);
+		expect(points.length).toBeLessThan(5000);
+	});
 });
