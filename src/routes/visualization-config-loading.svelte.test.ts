@@ -16,6 +16,7 @@ import ChaosEsthetiquePage from './chaos-esthetique/+page.svelte';
 import HenonPage from './henon/+page.svelte';
 import LogisticPage from './logistic/+page.svelte';
 import NewtonPage from './newton/+page.svelte';
+import IkedaPage from './ikeda/+page.svelte';
 
 // --- Mocks for saved-config-loader ---
 const loadSavedConfigParametersMock = vi.hoisted(() => vi.fn());
@@ -113,6 +114,10 @@ vi.mock('$lib/components/visualizations/ChaosEsthetiqueRenderer.svelte', async (
 	return { default: m.default };
 });
 vi.mock('$lib/components/visualizations/NewtonRenderer.svelte', async () => {
+	const m = await import('$lib/components/testing/StubComponent.svelte');
+	return { default: m.default };
+});
+vi.mock('$lib/components/visualizations/IkedaRenderer.svelte', async () => {
 	const m = await import('$lib/components/testing/StubComponent.svelte');
 	return { default: m.default };
 });
@@ -1183,6 +1188,215 @@ describe('newton page – config loading', () => {
 
 		setPageUrl('http://localhost/newton?config=bad-data');
 		render(NewtonPage, { props: pageProps });
+
+		await waitFor(() => {
+			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
+		});
+	});
+});
+
+// ============================================================
+// IKEDA – uses $effect() for config loading
+// ============================================================
+describe('ikeda page – config loading', () => {
+	beforeEach(() => {
+		loadSavedConfigParametersMock.mockReset();
+		loadSharedConfigParametersMock.mockReset();
+		parseConfigParamMock.mockReset();
+	});
+
+	afterEach(() => {
+		cleanup();
+	});
+
+	it('loads config from configId and applies parameters', async () => {
+		loadSavedConfigParametersMock.mockResolvedValueOnce({
+			ok: true,
+			parameters: {
+				type: 'ikeda',
+				u: 0.6,
+				x0: 0.5,
+				y0: -0.5,
+				iterations: 500,
+				burnIn: 50,
+				renderMode: 'single',
+				seeds: 100,
+				colorMode: 'seed',
+				pointSize: 2,
+				opacity: 0.8
+			},
+			source: 'api'
+		});
+
+		setPageUrl('http://localhost/ikeda?configId=ikeda-id-1');
+		render(IkedaPage, { props: pageProps });
+
+		await waitFor(() => {
+			expect(loadSavedConfigParametersMock).toHaveBeenCalledWith(
+				expect.objectContaining({ configId: 'ikeda-id-1', mapType: 'ikeda' })
+			);
+		});
+
+		await waitFor(() => {
+			const uSlider = screen.getByTestId('slider-u') as HTMLInputElement;
+			expect(uSlider.value).toBe('0.6');
+		});
+	});
+
+	it('loads config from share code and applies parameters', async () => {
+		loadSharedConfigParametersMock.mockResolvedValueOnce({
+			ok: true,
+			parameters: {
+				type: 'ikeda',
+				u: 0.7,
+				x0: 0.2,
+				y0: 0.1,
+				iterations: 1000,
+				burnIn: 100,
+				renderMode: 'multi',
+				seeds: 500,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				opacity: 0.6
+			},
+			source: 'sharedApi'
+		});
+
+		setPageUrl('http://localhost/ikeda?share=ikeda-share-1');
+		render(IkedaPage, { props: pageProps });
+
+		await waitFor(() => {
+			expect(loadSharedConfigParametersMock).toHaveBeenCalledWith(
+				expect.objectContaining({ shareCode: 'ikeda-share-1', mapType: 'ikeda' })
+			);
+		});
+
+		await waitFor(() => {
+			const uSlider = screen.getByTestId('slider-u') as HTMLInputElement;
+			expect(uSlider.value).toBe('0.7');
+		});
+	});
+
+	it('shows config error alert when configId load fails', async () => {
+		loadSavedConfigParametersMock.mockResolvedValueOnce({
+			ok: false,
+			error: 'Not found',
+			errors: ['Configuration not found']
+		});
+
+		setPageUrl('http://localhost/ikeda?configId=bad-id');
+		render(IkedaPage, { props: pageProps });
+
+		await waitFor(() => {
+			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
+		});
+	});
+
+	it('shows config error alert when configId load returns null', async () => {
+		loadSavedConfigParametersMock.mockResolvedValueOnce(
+			null as unknown as Parameters<typeof loadSavedConfigParametersMock>[0]
+		);
+
+		setPageUrl('http://localhost/ikeda?configId=null-id');
+		render(IkedaPage, { props: pageProps });
+
+		await waitFor(() => {
+			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
+		});
+	});
+
+	it('shows config error alert when share load fails', async () => {
+		loadSharedConfigParametersMock.mockResolvedValueOnce({
+			ok: false,
+			error: 'Share expired',
+			errors: ['Share link has expired']
+		});
+
+		setPageUrl('http://localhost/ikeda?share=expired-code');
+		render(IkedaPage, { props: pageProps });
+
+		await waitFor(() => {
+			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
+		});
+	});
+
+	it('shows stability warning when loaded config has burnIn >= iterations', async () => {
+		loadSavedConfigParametersMock.mockResolvedValueOnce({
+			ok: true,
+			parameters: {
+				type: 'ikeda',
+				u: 0.918,
+				x0: 0.1,
+				y0: 0,
+				iterations: 50,
+				burnIn: 100
+			},
+			source: 'api'
+		});
+
+		setPageUrl('http://localhost/ikeda?configId=unstable-ikeda');
+		render(IkedaPage, { props: pageProps });
+
+		await waitFor(() => {
+			expect(screen.getByText('UNSTABLE_PARAMETERS_DETECTED')).toBeInTheDocument();
+		});
+	});
+
+	it('applies config from inline config param', async () => {
+		parseConfigParamMock.mockReturnValueOnce({
+			ok: true,
+			parameters: {
+				type: 'ikeda',
+				u: 0.8,
+				x0: 0.3,
+				y0: 0.1,
+				iterations: 2000,
+				burnIn: 200,
+				renderMode: 'single',
+				seeds: 100,
+				colorMode: 'radius',
+				pointSize: 3,
+				opacity: 0.4
+			}
+		});
+
+		setPageUrl('http://localhost/ikeda?config=some-encoded-data');
+		render(IkedaPage, { props: pageProps });
+
+		await waitFor(() => {
+			expect(parseConfigParamMock).toHaveBeenCalledWith(
+				expect.objectContaining({ mapType: 'ikeda', configParam: 'some-encoded-data' })
+			);
+		});
+
+		await waitFor(() => {
+			const uSlider = screen.getByTestId('slider-u') as HTMLInputElement;
+			expect(uSlider.value).toBe('0.8');
+		});
+	});
+
+	it('shows error when inline config param is invalid', async () => {
+		parseConfigParamMock.mockReturnValueOnce({
+			ok: false,
+			error: 'Invalid parameters',
+			errors: ['Bad ikeda params'],
+			logMessage: 'err',
+			logDetails: {}
+		});
+
+		setPageUrl('http://localhost/ikeda?config=bad-data');
+		render(IkedaPage, { props: pageProps });
+
+		await waitFor(() => {
+			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
+		});
+	});
+
+	it('shows error when config loading throws an exception', async () => {
+		loadSavedConfigParametersMock.mockRejectedValueOnce(new Error('Network error'));
+
+		setPageUrl('http://localhost/ikeda?configId=error-id');
+		render(IkedaPage, { props: pageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();

@@ -361,4 +361,71 @@ describe('IkedaRenderer', () => {
 		expect(label).not.toBeNull();
 		expect(label?.textContent).toContain('LIVE_RENDER');
 	});
+
+	it('renders without throwing with default height', async () => {
+		const { container } = render(IkedaRenderer, {
+			props: {
+				u: 0.918,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 10,
+				renderMode: 'multi',
+				seeds: 2,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				opacity: 0.6
+			}
+		});
+		await waitFor(() => {
+			expect(container.querySelector('svg')).not.toBeNull();
+		});
+	});
+
+	it('renders without throwing with zero iterations', async () => {
+		vi.useFakeTimers();
+		try {
+			expect(() => {
+				render(IkedaRenderer, {
+					props: {
+						u: 0.918,
+						x0: 0.1,
+						y0: 0,
+						iterations: 0,
+						burnIn: 0,
+						renderMode: 'multi',
+						seeds: 2,
+						colorMode: 'iteration',
+						pointSize: 1.5,
+						opacity: 0.6,
+						height: 200
+					}
+				});
+				vi.runOnlyPendingTimers();
+			}).not.toThrow();
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('renders with negative burnIn without throwing', async () => {
+		const { container } = render(IkedaRenderer, {
+			props: {
+				u: 0.918,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: -10,
+				renderMode: 'single',
+				seeds: 2,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				opacity: 0.6,
+				height: 200
+			}
+		});
+		await waitFor(() => {
+			expect(container.querySelector('svg')).not.toBeNull();
+		});
+	});
 });

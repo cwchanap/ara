@@ -216,4 +216,16 @@ describe('calculateIkedaMultiSeed', () => {
 		expect(result.points).toHaveLength(0);
 		expect(result.seedIndices).toHaveLength(0);
 	});
+
+	test('undefined maxPoints produces uncapped result', () => {
+		const result = calculateIkedaMultiSeed({
+			u: 0.918,
+			iterations: 50,
+			burnIn: 5,
+			seeds: 5,
+			maxPoints: undefined
+		});
+		expect(result.points.length).toBeGreaterThan(0);
+		expect(result.seedIndices).toHaveLength(result.points.length);
+	});
 });

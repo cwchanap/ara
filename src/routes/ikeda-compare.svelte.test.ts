@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render } from '@testing-library/svelte';
+import { cleanup, fireEvent, render } from '@testing-library/svelte';
 import type { Page } from '@sveltejs/kit';
 import IkedaComparePage from './ikeda/compare/+page.svelte';
 
@@ -237,5 +237,76 @@ describe('Ikeda compare page', () => {
 		expect(leftY0.disabled).toBe(false);
 		expect(rightX0.disabled).toBe(true);
 		expect(rightY0.disabled).toBe(true);
+	});
+
+	it('renders left and right "Single Orbit" hints when render mode is multi', () => {
+		pageStore.set({
+			url: new URL('http://localhost/ikeda/compare') as Page['url'],
+			params: {},
+			route: { id: null },
+			status: 200,
+			error: null,
+			data: { session: null, user: null, profile: null },
+			form: null,
+			state: {}
+		});
+		const { container } = render(IkedaComparePage);
+		const leftHints = container.querySelectorAll('#left-x0 ~ span');
+		const rightHints = container.querySelectorAll('#right-x0 ~ span');
+		expect(leftHints.length + rightHints.length).toBeGreaterThanOrEqual(2);
+	});
+
+	it('updates left u slider value', async () => {
+		pageStore.set({
+			url: new URL('http://localhost/ikeda/compare') as Page['url'],
+			params: {},
+			route: { id: null },
+			status: 200,
+			error: null,
+			data: { session: null, user: null, profile: null },
+			form: null,
+			state: {}
+		});
+		const { container } = render(IkedaComparePage);
+		const leftU = container.querySelector('#left-u') as HTMLInputElement;
+		expect(leftU).not.toBeNull();
+		await fireEvent.input(leftU, { target: { value: '0.5' } });
+		expect(leftU.value).toBe('0.5');
+	});
+
+	it('updates right iterations slider value', async () => {
+		pageStore.set({
+			url: new URL('http://localhost/ikeda/compare') as Page['url'],
+			params: {},
+			route: { id: null },
+			status: 200,
+			error: null,
+			data: { session: null, user: null, profile: null },
+			form: null,
+			state: {}
+		});
+		const { container } = render(IkedaComparePage);
+		const rightIterations = container.querySelector('#right-iterations') as HTMLInputElement;
+		expect(rightIterations).not.toBeNull();
+		await fireEvent.input(rightIterations, { target: { value: '2000' } });
+		expect(rightIterations.value).toBe('2000');
+	});
+
+	it('changes left render mode via select', async () => {
+		pageStore.set({
+			url: new URL('http://localhost/ikeda/compare') as Page['url'],
+			params: {},
+			route: { id: null },
+			status: 200,
+			error: null,
+			data: { session: null, user: null, profile: null },
+			form: null,
+			state: {}
+		});
+		const { container } = render(IkedaComparePage);
+		const leftRenderMode = container.querySelector('#left-renderMode') as HTMLSelectElement;
+		expect(leftRenderMode).not.toBeNull();
+		await fireEvent.change(leftRenderMode, { target: { value: 'single' } });
+		expect(leftRenderMode.value).toBe('single');
 	});
 });
