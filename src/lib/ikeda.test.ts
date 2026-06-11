@@ -50,6 +50,10 @@ describe('calculateIkeda', () => {
 		expect(calculateIkeda({ u: 0.9, x0: 0, y0: 0, iterations: 0, burnIn: 0 })).toHaveLength(0);
 	});
 
+	test('negative iterations yields no points', () => {
+		expect(calculateIkeda({ u: 0.9, x0: 0, y0: 0, iterations: -5, burnIn: 0 })).toHaveLength(0);
+	});
+
 	test('burnIn >= iterations yields no points', () => {
 		expect(calculateIkeda({ u: 0.9, x0: 0, y0: 0, iterations: 10, burnIn: 10 })).toHaveLength(
 			0
@@ -85,6 +89,12 @@ describe('calculateIkedaTuples', () => {
 			expect(Number.isFinite(y)).toBe(true);
 		}
 		expect(pts.length).toBeLessThan(500);
+	});
+
+	test('negative iterations yields no points', () => {
+		expect(
+			calculateIkedaTuples({ u: 0.9, x0: 0, y0: 0, iterations: -5, burnIn: 0 })
+		).toHaveLength(0);
 	});
 });
 
@@ -148,6 +158,28 @@ describe('calculateIkedaMultiSeed', () => {
 			iterations: 100,
 			burnIn: 0,
 			seeds: 0
+		});
+		expect(points).toHaveLength(0);
+		expect(seedIndices).toHaveLength(0);
+	});
+
+	test('negative seeds yields no points', () => {
+		const { points, seedIndices } = calculateIkedaMultiSeed({
+			u: 0.9,
+			iterations: 100,
+			burnIn: 0,
+			seeds: -10
+		});
+		expect(points).toHaveLength(0);
+		expect(seedIndices).toHaveLength(0);
+	});
+
+	test('negative iterations yields no points', () => {
+		const { points, seedIndices } = calculateIkedaMultiSeed({
+			u: 0.9,
+			iterations: -5,
+			burnIn: 0,
+			seeds: 10
 		});
 		expect(points).toHaveLength(0);
 		expect(seedIndices).toHaveLength(0);

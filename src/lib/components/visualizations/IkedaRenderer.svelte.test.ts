@@ -221,8 +221,9 @@ describe('IkedaRenderer', () => {
 			}
 		});
 		await waitFor(() => {
-			const div = container.firstElementChild as HTMLElement;
-			expect(div?.style.height).toContain('400');
+			const wrapper = container.firstElementChild as HTMLElement;
+			const inner = wrapper?.firstElementChild as HTMLElement;
+			expect(inner?.style.height).toContain('400');
 		});
 	});
 
@@ -333,5 +334,31 @@ describe('IkedaRenderer', () => {
 			vi.useRealTimers();
 			warnSpy.mockRestore();
 		}
+	});
+
+	it('preserves the LIVE_RENDER label after render', async () => {
+		const { container } = render(IkedaRenderer, {
+			props: {
+				u: 0.918,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 10,
+				renderMode: 'multi',
+				seeds: 2,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				opacity: 0.6,
+				height: 200
+			}
+		});
+		await waitFor(() => {
+			expect(container.querySelector('svg')).not.toBeNull();
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+		// The label must survive the D3 render pass (selectAll('*').remove()).
+		const label = container.querySelector('div.pointer-events-none');
+		expect(label).not.toBeNull();
+		expect(label?.textContent).toContain('LIVE_RENDER');
 	});
 });
