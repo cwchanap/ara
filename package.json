@@ -60,6 +60,11 @@
 		"drizzle-orm": "^0.44.7",
 		"three": "^0.181.2"
 	},
+	"lint-staged": {
+		"*.{js,ts,svelte}": "eslint --fix",
+		"*.{js,ts,svelte,css,html,json,md}": "prettier --write",
+		"*.{ts,svelte}": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --output machine"
+	},
 	"overrides": {
 		"esbuild": ">=0.24.0"
 	}

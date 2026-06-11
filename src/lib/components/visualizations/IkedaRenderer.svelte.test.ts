@@ -526,8 +526,8 @@ describe('IkedaRenderer', () => {
 		await new Promise((r) => setTimeout(r, 50));
 
 		// Simulate worker error response before DOM is rendered
-		if (workerInstance?.onmessage) {
-			workerInstance.onmessage(
+		if (workerInstance!.onmessage) {
+			workerInstance!.onmessage(
 				new MessageEvent('message', {
 					data: { type: 'error', message: 'worker failed' }
 				})
@@ -538,8 +538,7 @@ describe('IkedaRenderer', () => {
 			expect(errorSpy).toHaveBeenCalledWith('Ikeda worker error response:', 'worker failed');
 		});
 
-		// Worker should be terminated and unavailable after error
-		expect(workerInstance?.terminate).toHaveBeenCalled();
+		expect(workerInstance!.terminate).toHaveBeenCalled();
 
 		delete (globalThis as unknown as Record<string, unknown>).Worker;
 		errorSpy.mockRestore();
@@ -589,15 +588,15 @@ describe('IkedaRenderer', () => {
 		await new Promise((r) => setTimeout(r, 50));
 
 		// Simulate worker runtime error
-		if (workerInstance?.onerror) {
-			workerInstance.onerror(new ErrorEvent('error', { message: 'worker runtime error' }));
+		if (workerInstance!.onerror) {
+			workerInstance!.onerror(new ErrorEvent('error', { message: 'worker runtime error' }));
 		}
 
 		await waitFor(() => {
 			expect(errorSpy).toHaveBeenCalledWith('Ikeda worker error:', 'worker runtime error');
 		});
 
-		expect(workerInstance?.terminate).toHaveBeenCalled();
+		expect(workerInstance!.terminate).toHaveBeenCalled();
 
 		delete (globalThis as unknown as Record<string, unknown>).Worker;
 		errorSpy.mockRestore();

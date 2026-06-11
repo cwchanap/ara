@@ -185,8 +185,8 @@ describe('ChaosEsthetiqueRenderer (coverage)', () => {
 
 		await new Promise((r) => setTimeout(r, 50));
 
-		if (workerInstance?.onmessage) {
-			workerInstance.onmessage(
+		if (workerInstance!.onmessage) {
+			workerInstance!.onmessage(
 				new MessageEvent('message', {
 					data: { type: 'error', message: 'chaos worker failed' }
 				})
@@ -200,7 +200,7 @@ describe('ChaosEsthetiqueRenderer (coverage)', () => {
 			);
 		});
 
-		expect(workerInstance?.terminate).toHaveBeenCalled();
+		expect(workerInstance!.terminate).toHaveBeenCalled();
 		delete (globalThis as unknown as Record<string, unknown>).Worker;
 		errorSpy.mockRestore();
 	});
@@ -229,8 +229,8 @@ describe('ChaosEsthetiqueRenderer (coverage)', () => {
 
 		await new Promise((r) => setTimeout(r, 50));
 
-		if (workerInstance?.onerror) {
-			workerInstance.onerror(
+		if (workerInstance!.onerror) {
+			workerInstance!.onerror(
 				new ErrorEvent('error', { message: 'chaos worker runtime error' })
 			);
 		}
@@ -242,7 +242,7 @@ describe('ChaosEsthetiqueRenderer (coverage)', () => {
 			);
 		});
 
-		expect(workerInstance?.terminate).toHaveBeenCalled();
+		expect(workerInstance!.terminate).toHaveBeenCalled();
 		delete (globalThis as unknown as Record<string, unknown>).Worker;
 		errorSpy.mockRestore();
 	});
