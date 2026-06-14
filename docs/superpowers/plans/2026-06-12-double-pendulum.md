@@ -121,7 +121,9 @@ describe('rk4Step', () => {
 	});
 
 	it('approximately conserves energy with damping = 0 over many steps', () => {
-		let s: PendulumState = { theta1: Math.PI / 2, theta2: Math.PI / 2, omega1: 0, omega2: 0 };
+		// Use a non-degenerate start: at theta1=theta2=PI/2 the total energy is
+		// exactly 0, which makes a *relative* tolerance check meaningless.
+		let s: PendulumState = { theta1: 1, theta2: 0.5, omega1: 0, omega2: 0 };
 		const e0 = totalEnergy(s, PHYS);
 		for (let i = 0; i < 2000; i++) s = rk4Step(s, PHYS, 0.005);
 		const e1 = totalEnergy(s, PHYS);
