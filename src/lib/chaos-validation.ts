@@ -96,6 +96,18 @@ const STABLE_RANGES: Record<ChaosMapType, StableRanges<Record<string, number>>> 
 		gamma: { min: -1, max: 1 },
 		a: { min: -2, max: -0.5 },
 		b: { min: -1.5, max: -0.3 }
+	},
+	'double-pendulum': {
+		theta1: { min: -2 * Math.PI, max: 2 * Math.PI },
+		theta2: { min: -2 * Math.PI, max: 2 * Math.PI },
+		omega1: { min: -50, max: 50 },
+		omega2: { min: -50, max: 50 },
+		l1: { min: 0.1, max: 5 },
+		l2: { min: 0.1, max: 5 },
+		m1: { min: 0.1, max: 10 },
+		m2: { min: 0.1, max: 10 },
+		gravity: { min: 0, max: 50 },
+		damping: { min: 0, max: 2 }
 	}
 };
 
@@ -134,6 +146,13 @@ const OPTIONAL_FIELDS: Partial<Record<ChaosMapType, Record<string, OptionalField
 		colorMode: { kind: 'enum', values: ['single', 'iteration', 'seed', 'radius'] },
 		pointSize: { kind: 'number', min: 0.5, max: 6 },
 		opacity: { kind: 'number', min: 0, max: 1 }
+	},
+	'double-pendulum': {
+		speed: { kind: 'number', min: 0, max: 10 },
+		showTrail: { kind: 'boolean' },
+		trailLength: { kind: 'number', min: 1, max: 5000 },
+		compareMode: { kind: 'boolean' },
+		compareOffset: { kind: 'number', min: -1, max: 1 }
 	}
 };
 
@@ -349,6 +368,11 @@ export function checkParameterStability(
 			}
 			if (paramRecord.transientIterations > paramRecord.iterations) {
 				warnings.push('transientIterations must be <= iterations');
+			}
+			break;
+		case 'double-pendulum':
+			if (paramRecord.gravity === 0) {
+				warnings.push('gravity is 0; the pendulum will not swing');
 			}
 			break;
 	}
