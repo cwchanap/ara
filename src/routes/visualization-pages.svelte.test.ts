@@ -6,6 +6,8 @@ import BifurcationLogisticPage from './bifurcation-logistic/+page.svelte';
 import ChaosEsthetiquePage from './chaos-esthetique/+page.svelte';
 import ChuaPage from './chua/+page.svelte';
 import ChuaComparePage from './chua/compare/+page.svelte';
+import DoublePendulumPage from './double-pendulum/+page.svelte';
+import DoublePendulumComparePage from './double-pendulum/compare/+page.svelte';
 import HenonPage from './henon/+page.svelte';
 import LogisticPage from './logistic/+page.svelte';
 import LorenzPage from './lorenz/+page.svelte';
@@ -164,6 +166,11 @@ vi.mock('$lib/components/visualizations/ChuaRenderer.svelte', async () => {
 	return { default: module.default };
 });
 
+vi.mock('$lib/components/visualizations/DoublePendulumRenderer.svelte', async () => {
+	const module = await import('$lib/components/testing/StubComponent.svelte');
+	return { default: module.default };
+});
+
 function setPageUrl(url: string) {
 	pageStore.set(createPage(url));
 }
@@ -233,6 +240,12 @@ describe('visualization pages', () => {
 		expect(screen.getByText('CHUA_CIRCUIT')).toBeInTheDocument();
 	});
 
+	it('renders double pendulum page', () => {
+		setPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: pageProps });
+		expect(screen.getByText('DOUBLE_PENDULUM')).toBeInTheDocument();
+	});
+
 	it('renders bifurcation logistic page', () => {
 		setPageUrl('http://localhost/bifurcation-logistic');
 		render(BifurcationLogisticPage, { props: pageProps });
@@ -272,6 +285,13 @@ describe('visualization pages', () => {
 	it('renders chua compare page', () => {
 		setPageUrl('http://localhost/chua/compare?compare=true');
 		render(ChuaComparePage);
+		expect(screen.getByText('LEFT_PARAMETERS')).toBeInTheDocument();
+		expect(screen.getByText('RIGHT_PARAMETERS')).toBeInTheDocument();
+	});
+
+	it('renders double pendulum compare page', () => {
+		setPageUrl('http://localhost/double-pendulum/compare?compare=true');
+		render(DoublePendulumComparePage);
 		expect(screen.getByText('LEFT_PARAMETERS')).toBeInTheDocument();
 		expect(screen.getByText('RIGHT_PARAMETERS')).toBeInTheDocument();
 	});
