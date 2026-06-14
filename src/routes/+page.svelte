@@ -80,6 +80,13 @@
 				'A nonlinear circuit model whose state spirals between two lobes, producing the classic double-scroll attractor',
 			url: '/chua',
 			color: 'from-red-500 to-amber-600'
+		},
+		{
+			name: 'Double Pendulum',
+			description:
+				'A physical chaotic system where tiny angle changes produce wildly different motion',
+			url: '/double-pendulum',
+			color: 'from-lime-400 to-emerald-600'
 		}
 	];
 </script>

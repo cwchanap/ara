@@ -26,10 +26,10 @@ describe('Homepage (+page.svelte)', () => {
 		).toBeInTheDocument();
 	});
 
-	it('renders all 13 visualization cards', () => {
+	it('renders all 14 visualization cards', () => {
 		render(Page);
 		const links = screen.getAllByRole('link');
-		expect(links).toHaveLength(13);
+		expect(links).toHaveLength(14);
 	});
 
 	it('shows the Ikeda Map card linking to /ikeda', () => {
@@ -51,7 +51,8 @@ describe('Homepage (+page.svelte)', () => {
 		{ name: 'Chaos Esthetique', url: '/chaos-esthetique' },
 		{ name: 'Rössler Attractor', url: '/rossler' },
 		{ name: 'Lyapunov Exponents', url: '/lyapunov' },
-		{ name: 'Chua Circuit', url: '/chua' }
+		{ name: 'Chua Circuit', url: '/chua' },
+		{ name: 'Double Pendulum', url: '/double-pendulum' }
 	];
 
 	for (const { name, url } of visualizations) {
@@ -68,7 +69,7 @@ describe('Homepage (+page.svelte)', () => {
 	it('renders "Initialize Module" call-to-action on each card', () => {
 		render(Page);
 		const ctaElements = screen.getAllByText('Initialize Module');
-		expect(ctaElements).toHaveLength(13);
+		expect(ctaElements).toHaveLength(14);
 	});
 
 	it('renders card descriptions', () => {
