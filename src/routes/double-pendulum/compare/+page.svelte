@@ -11,7 +11,6 @@
 		encodeComparisonState
 	} from '$lib/comparison-url-state';
 	import { getStableRanges } from '$lib/chaos-validation';
-	import { VIZ_CONTAINER_HEIGHT } from '$lib/constants';
 	import type { DoublePendulumParameters } from '$lib/types';
 
 	const initialState = decodeComparisonState($page.url, 'double-pendulum');
@@ -342,7 +341,7 @@
 				showTrail={true}
 				{trailLength}
 				compareMode={false}
-				height={VIZ_CONTAINER_HEIGHT}
+				height={400}
 			/>
 		</div>
 	{/snippet}
@@ -502,7 +501,7 @@
 				showTrail={true}
 				{trailLength}
 				compareMode={false}
-				height={VIZ_CONTAINER_HEIGHT}
+				height={400}
 			/>
 		</div>
 	{/snippet}
