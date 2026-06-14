@@ -26,6 +26,9 @@ test.describe('Double Pendulum', () => {
 		// Trail toggle.
 		await page.getByTestId('toggle-trail').click();
 
+		// Divergence readout is absent until comparison mode is enabled.
+		await expect(page.getByTestId('divergence-readout')).toBeHidden();
+
 		// Comparison mode reveals the divergence readout.
 		await page.getByTestId('toggle-compare').click();
 		await expect(page.getByTestId('divergence-readout')).toBeVisible();
