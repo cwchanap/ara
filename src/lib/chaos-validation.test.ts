@@ -2876,3 +2876,62 @@ describe('validateParameters - ikeda', () => {
 		expect(result.isValid).toBe(false);
 	});
 });
+
+describe('double-pendulum validation', () => {
+	const valid = {
+		type: 'double-pendulum' as const,
+		theta1: Math.PI / 2,
+		theta2: Math.PI / 2,
+		omega1: 0,
+		omega2: 0,
+		l1: 1,
+		l2: 1,
+		m1: 1,
+		m2: 1,
+		gravity: 9.81,
+		damping: 0
+	};
+
+	it('accepts a complete valid parameter set', () => {
+		const result = validateParameters('double-pendulum', valid);
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toEqual([]);
+	});
+
+	it('reports missing required parameters', () => {
+		const { gravity, ...incomplete } = valid;
+		void gravity;
+		const result = validateParameters('double-pendulum', incomplete);
+		expect(result.isValid).toBe(false);
+		expect(result.errors.join(' ')).toContain('gravity');
+	});
+
+	it('accepts optional sim/render fields and clamps out-of-range trailLength', () => {
+		const result = validateParameters('double-pendulum', {
+			...valid,
+			speed: 1,
+			showTrail: true,
+			trailLength: 999999,
+			compareMode: false,
+			compareOffset: 0.001
+		});
+		expect(result.isValid).toBe(true);
+		expect((result.parameters as Record<string, number>).trailLength).toBe(5000);
+	});
+
+	it('warns when gravity is zero (pendulum will not swing)', () => {
+		const result = checkParameterStability('double-pendulum', { ...valid, gravity: 0 });
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.join(' ')).toContain('gravity');
+	});
+
+	it('is stable for default chaotic parameters', () => {
+		const result = checkParameterStability('double-pendulum', valid);
+		expect(result.isStable).toBe(true);
+	});
+
+	it('exposes stable ranges and recognizes the map type', () => {
+		expect(getStableRanges('double-pendulum')).toBeDefined();
+		expect(isValidMapType('double-pendulum')).toBe(true);
+	});
+});
