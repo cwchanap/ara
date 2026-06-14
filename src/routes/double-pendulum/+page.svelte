@@ -113,6 +113,8 @@
 		trailLength = s.trailLength;
 		compareMode = s.compareMode;
 		compareOffset = s.compareOffset;
+		diverged = false;
+		running = true;
 		restartSignal += 1;
 		runStabilityCheck();
 	}
