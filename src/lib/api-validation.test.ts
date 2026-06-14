@@ -280,6 +280,7 @@ describe('API Validation Logic', () => {
 				'rossler',
 				'henon',
 				'lozi',
+				'ikeda',
 				'logistic',
 				'newton',
 				'standard',
@@ -287,12 +288,16 @@ describe('API Validation Logic', () => {
 				'bifurcation-henon',
 				'chaos-esthetique',
 				'lyapunov',
-				'chua'
+				'chua',
+				'double-pendulum'
 			];
 
-			for (const type of expectedTypes) {
-				expect(VALID_MAP_TYPES).toContain(type);
-			}
+			// Bi-directional check: guards against both unregistered additions
+			// and silent removals from VALID_MAP_TYPES. (Previously one-directional,
+			// which let this list go stale — missing ikeda and double-pendulum.)
+			expect(VALID_MAP_TYPES).toEqual(expect.arrayContaining(expectedTypes));
+			expect(expectedTypes).toEqual(expect.arrayContaining(VALID_MAP_TYPES));
+			expect(VALID_MAP_TYPES).toHaveLength(expectedTypes.length);
 		});
 	});
 });
