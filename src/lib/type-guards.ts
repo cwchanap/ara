@@ -12,7 +12,8 @@ import type {
 	BifurcationHenonParameters,
 	ChaosEsthetiqueParameters,
 	LyapunovParameters,
-	ChuaParameters
+	ChuaParameters,
+	DoublePendulumParameters
 } from '$lib/types';
 
 /**
@@ -130,6 +131,15 @@ export function isChuaParameters(
 	params: ChaosMapParameters | null | undefined
 ): params is ChuaParameters {
 	return params?.type === 'chua';
+}
+
+/**
+ * Type guard for Double Pendulum parameters.
+ */
+export function isDoublePendulumParameters(
+	params: ChaosMapParameters | null | undefined
+): params is DoublePendulumParameters {
+	return params?.type === 'double-pendulum';
 }
 
 /**

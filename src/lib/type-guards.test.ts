@@ -1,4 +1,4 @@
-import { describe, test, expect } from 'vitest';
+import { describe, test, it, expect } from 'vitest';
 import {
 	isLorenzParameters,
 	isHenonParameters,
@@ -13,9 +13,10 @@ import {
 	isLyapunovParameters,
 	isChuaParameters,
 	isIkedaParameters,
+	isDoublePendulumParameters,
 	isParametersOfType
 } from './type-guards';
-import type { ChaosMapParameters, IkedaParameters } from './types';
+import type { ChaosMapParameters, IkedaParameters, DoublePendulumParameters } from './types';
 
 describe('Type Guards', () => {
 	test('isLorenzParameters correctly identifies Lorenz parameters', () => {
@@ -347,5 +348,26 @@ describe('isIkedaParameters', () => {
 		).toBe(false);
 		expect(isIkedaParameters(null)).toBe(false);
 		expect(isIkedaParameters(undefined)).toBe(false);
+	});
+});
+
+describe('isDoublePendulumParameters', () => {
+	it('returns true only for double-pendulum params', () => {
+		const params: DoublePendulumParameters = {
+			type: 'double-pendulum',
+			theta1: 1,
+			theta2: 1,
+			omega1: 0,
+			omega2: 0,
+			l1: 1,
+			l2: 1,
+			m1: 1,
+			m2: 1,
+			gravity: 9.81,
+			damping: 0
+		};
+		expect(isDoublePendulumParameters(params)).toBe(true);
+		expect(isDoublePendulumParameters({ type: 'chua' } as never)).toBe(false);
+		expect(isDoublePendulumParameters(null)).toBe(false);
 	});
 });

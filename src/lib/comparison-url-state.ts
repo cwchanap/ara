@@ -8,6 +8,10 @@
 import type { ChaosMapType, ChaosMapParameters } from './types';
 import { validateParameters } from './chaos-validation';
 import { getPreset, DEFAULT_IKEDA_PRESET_ID } from './ikeda-presets';
+import {
+	getPreset as getDoublePendulumPreset,
+	DEFAULT_DOUBLE_PENDULUM_PRESET_ID
+} from './double-pendulum-presets';
 import { LORENZ_PRESETS } from './lorenz/presets';
 
 /**
@@ -79,6 +83,15 @@ export function getDefaultParameters(mapType: ChaosMapType): ChaosMapParameters 
 			};
 		case 'chua':
 			return { type: 'chua', alpha: 15.6, beta: 28, gamma: 0, a: -8 / 7, b: -5 / 7 };
+		case 'double-pendulum': {
+			const preset = getDoublePendulumPreset(DEFAULT_DOUBLE_PENDULUM_PRESET_ID);
+			if (!preset) {
+				throw new Error(
+					`Missing default double-pendulum preset: ${DEFAULT_DOUBLE_PENDULUM_PRESET_ID}`
+				);
+			}
+			return { type: 'double-pendulum', ...preset.state };
+		}
 	}
 }
 
