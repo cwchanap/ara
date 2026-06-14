@@ -145,6 +145,22 @@
 		restartSignal += 1;
 	}
 
+	// Re-validate stability whenever any physics parameter changes (slider edits,
+	// randomize, presets, loaded configs). Keeps warnings in sync with state.
+	$effect(() => {
+		void theta1;
+		void theta2;
+		void omega1;
+		void omega2;
+		void l1;
+		void l2;
+		void m1;
+		void m2;
+		void gravity;
+		void damping;
+		runStabilityCheck();
+	});
+
 	// Load config from URL reactively (mirrors the Ikeda page).
 	$effect(() => {
 		const configId = $page.url.searchParams.get('configId');
