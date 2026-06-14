@@ -22,7 +22,8 @@ export type ChaosMapType =
 	| 'bifurcation-henon'
 	| 'chaos-esthetique'
 	| 'lyapunov'
-	| 'chua';
+	| 'chua'
+	| 'double-pendulum';
 
 export type LorenzSolver = 'euler' | 'rk2' | 'rk4';
 export type LorenzColorMode = 'time' | 'speed' | 'zheight' | 'divergence' | 'single';
@@ -170,6 +171,35 @@ export interface ChuaParameters {
 	b: number;
 }
 
+/**
+ * Double Pendulum parameters (persisted/saved/shared).
+ *
+ * theta/omega are the INITIAL conditions only (the live evolving state is
+ * session-local and not persisted — same approach as Chua). The optional
+ * fields capture sim/render settings so save/share/snapshot reproduce a setup.
+ */
+export interface DoublePendulumParameters {
+	type: 'double-pendulum';
+	// Initial conditions (radians, rad/s)
+	theta1: number;
+	theta2: number;
+	omega1: number;
+	omega2: number;
+	// Physical parameters
+	l1: number;
+	l2: number;
+	m1: number;
+	m2: number;
+	gravity: number;
+	damping: number;
+	// Optional sim/render state
+	speed?: number;
+	showTrail?: boolean;
+	trailLength?: number;
+	compareMode?: boolean;
+	compareOffset?: number;
+}
+
 // Union type for all chaos map parameters
 export type ChaosMapParameters =
 	| LorenzParameters
@@ -184,7 +214,8 @@ export type ChaosMapParameters =
 	| BifurcationHenonParameters
 	| ChaosEsthetiqueParameters
 	| LyapunovParameters
-	| ChuaParameters;
+	| ChuaParameters
+	| DoublePendulumParameters;
 
 // Display names for chaos map types (UPPERCASE_SNAKE_CASE per constitution)
 export const CHAOS_MAP_DISPLAY_NAMES: Record<ChaosMapType, string> = {
@@ -200,7 +231,8 @@ export const CHAOS_MAP_DISPLAY_NAMES: Record<ChaosMapType, string> = {
 	'bifurcation-henon': 'BIFURCATION_HÉNON',
 	'chaos-esthetique': 'CHAOS_ESTHÉTIQUE',
 	lyapunov: 'LYAPUNOV_EXPONENTS',
-	chua: 'CHUA_CIRCUIT'
+	chua: 'CHUA_CIRCUIT',
+	'double-pendulum': 'DOUBLE_PENDULUM'
 };
 
 // Valid chaos map types array for validation
@@ -217,7 +249,8 @@ export const VALID_MAP_TYPES: ChaosMapType[] = [
 	'bifurcation-henon',
 	'chaos-esthetique',
 	'lyapunov',
-	'chua'
+	'chua',
+	'double-pendulum'
 ];
 
 // Saved configuration discriminated union (matches Drizzle schema)
@@ -279,5 +312,9 @@ export type SavedConfiguration = {
 	| {
 			mapType: 'chua';
 			parameters: ChuaParameters;
+	  }
+	| {
+			mapType: 'double-pendulum';
+			parameters: DoublePendulumParameters;
 	  }
 );
