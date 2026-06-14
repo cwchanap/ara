@@ -57,6 +57,13 @@
 			"when": 1779699600002,
 			"tag": "0007_add_ikeda_map_type",
 			"breakpoints": true
+		},
+		{
+			"idx": 8,
+			"version": "7",
+			"when": 1779699600003,
+			"tag": "0008_add_double_pendulum_map_type",
+			"breakpoints": true
 		}
 	]
 }
