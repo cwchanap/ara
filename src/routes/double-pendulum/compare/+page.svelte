@@ -78,9 +78,9 @@
 	// differ only by the exposed parameters: initial angles, lengths, masses, gravity.
 	const omega1 = leftInitial.omega1;
 	const omega2 = leftInitial.omega2;
-	const damping = leftInitial.damping ?? defaultParams.damping ?? 0;
-	const speed = leftInitial.speed ?? defaultParams.speed ?? 1;
-	const trailLength = leftInitial.trailLength ?? defaultParams.trailLength ?? 400;
+	const damping = leftInitial.damping;
+	const speed = leftInitial.speed;
+	const trailLength = leftInitial.trailLength;
 
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	$effect(() => {
