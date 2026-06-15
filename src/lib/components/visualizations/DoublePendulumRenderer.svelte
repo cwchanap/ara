@@ -98,6 +98,15 @@
 		physics = { l1, l2, m1, m2, gravity, damping };
 	});
 
+	// Drop accumulated trail points when trails are hidden so re-enabling starts fresh.
+	$effect(() => {
+		void showTrail;
+		if (!showTrail) {
+			trailA = [];
+			trailB = [];
+		}
+	});
+
 	// Re-seed when initial conditions, compare settings, or restartSignal change.
 	$effect(() => {
 		void theta1;
@@ -116,6 +125,7 @@
 	});
 
 	function pushTrail(trail: Array<{ x: number; y: number }>, x: number, y: number) {
+		if (!showTrail) return; // skip accumulation when trails are hidden
 		trail.push({ x, y });
 		if (trail.length > trailLength) trail.splice(0, trail.length - trailLength);
 	}

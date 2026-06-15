@@ -57,4 +57,20 @@ describe('DoublePendulumRenderer', () => {
 		});
 		expect(queryByTestId('divergence-readout')).toBeNull();
 	});
+
+	it('mounts cleanly with trails disabled', () => {
+		const { container } = render(DoublePendulumRenderer, {
+			props: { ...baseProps, showTrail: false }
+		});
+		expect(container.querySelector('canvas')).not.toBeNull();
+	});
+
+	it('toggling showTrail off then on does not throw', async () => {
+		const { rerender, container } = render(DoublePendulumRenderer, {
+			props: { ...baseProps, showTrail: true }
+		});
+		await rerender({ ...baseProps, showTrail: false });
+		await rerender({ ...baseProps, showTrail: true });
+		expect(container.querySelector('canvas')).not.toBeNull();
+	});
 });
