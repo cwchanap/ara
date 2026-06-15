@@ -119,6 +119,16 @@ export function randomizeInitialConditions(rng: () => number = Math.random): Pen
 	};
 }
 
+/**
+ * Wrap an angle into [-PI, PI]. Safe for this system because `derivatives`
+ * only consumes angles through sin/cos (2π-periodic), so wrapping never
+ * changes the physics — it only prevents floating-point precision loss in
+ * long-running loops where theta accumulates beyond many full turns.
+ */
+export function wrapAngle(a: number): number {
+	return Math.atan2(Math.sin(a), Math.cos(a));
+}
+
 /** True when every field is finite (used to detect NaN/Infinity blow-up). */
 export function isFiniteState(s: PendulumState): boolean {
 	return (
