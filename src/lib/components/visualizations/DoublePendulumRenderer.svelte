@@ -47,8 +47,6 @@
 		divergenceValue?: number;
 		/** Set true when the simulation blows up to NaN/Infinity (output). */
 		diverged?: boolean;
-		/** Container element exposed for SnapshotButton. */
-		containerElement?: HTMLDivElement;
 	}
 
 	let {
@@ -71,8 +69,7 @@
 		running = $bindable(true),
 		height = 600,
 		divergenceValue = $bindable(0),
-		diverged = $bindable(false),
-		containerElement = $bindable()
+		diverged = $bindable(false)
 	}: Props = $props();
 
 	const FIXED_DT = 0.005; // physics timestep (s)
@@ -88,10 +85,6 @@
 	let trailB: Array<{ x: number; y: number }> = [];
 
 	let physics: PendulumPhysics = { l1, l2, m1, m2, gravity, damping };
-
-	$effect(() => {
-		containerElement = container;
-	});
 
 	// Live physical parameters — apply without re-seeding.
 	$effect(() => {
@@ -122,6 +115,7 @@
 		trailB = [];
 		divergenceValue = 0;
 		diverged = false;
+		running = true;
 	});
 
 	function pushTrail(trail: Array<{ x: number; y: number }>, x: number, y: number) {
@@ -230,19 +224,11 @@
 					// Keep angles in [-PI, PI] to avoid floating-point precision
 					// loss over very long runs. Safe because derivatives only use
 					// sin/cos of the angles (2π-periodic).
-					stateA = {
-						theta1: wrapAngle(stateA.theta1),
-						theta2: wrapAngle(stateA.theta2),
-						omega1: stateA.omega1,
-						omega2: stateA.omega2
-					};
+					stateA.theta1 = wrapAngle(stateA.theta1);
+					stateA.theta2 = wrapAngle(stateA.theta2);
 					if (compareMode) {
-						stateB = {
-							theta1: wrapAngle(stateB.theta1),
-							theta2: wrapAngle(stateB.theta2),
-							omega1: stateB.omega1,
-							omega2: stateB.omega2
-						};
+						stateB.theta1 = wrapAngle(stateB.theta1);
+						stateB.theta2 = wrapAngle(stateB.theta2);
 					}
 					acc -= FIXED_DT;
 					steps += 1;
