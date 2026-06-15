@@ -16,6 +16,7 @@
 	} from '$lib/saved-config-loader';
 	import { createSaveHandler, createInitialSaveState } from '$lib/use-visualization-save';
 	import { createShareHandler, createInitialShareState } from '$lib/use-visualization-share';
+	import { buildComparisonUrl, createComparisonStateFromCurrent } from '$lib/comparison-url-state';
 	import type { DoublePendulumParameters } from '$lib/types';
 	import { randomizeInitialConditions } from '$lib/double-pendulum';
 	import {
@@ -349,7 +350,11 @@
 		<div class="flex gap-3">
 			<SnapshotButton target={rendererContainer} targetType="container" mapType="double-pendulum" />
 			<a
-				href={base + '/double-pendulum/compare'}
+				href={buildComparisonUrl(
+					base,
+					'double-pendulum',
+					createComparisonStateFromCurrent('double-pendulum', getParameters())
+				)}
 				class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
 			>
 				⊞ Compare
