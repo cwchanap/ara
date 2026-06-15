@@ -6,6 +6,7 @@ import {
 	divergence,
 	randomizeInitialConditions,
 	isFiniteState,
+	wrapAngle,
 	type PendulumState,
 	type PendulumPhysics
 } from './double-pendulum';
@@ -130,5 +131,34 @@ describe('isFiniteState', () => {
 		expect(isFiniteState({ theta1: NaN, theta2: 0, omega1: 0, omega2: 0 })).toBe(false);
 		expect(isFiniteState({ theta1: 0, theta2: 0, omega1: Infinity, omega2: 0 })).toBe(false);
 		expect(isFiniteState({ theta1: 0, theta2: 0, omega1: 0, omega2: 0 })).toBe(true);
+	});
+});
+
+describe('wrapAngle', () => {
+	it('leaves angles already in [-PI, PI] unchanged', () => {
+		expect(wrapAngle(0)).toBeCloseTo(0, 12);
+		expect(wrapAngle(Math.PI / 2)).toBeCloseTo(Math.PI / 2, 12);
+		expect(wrapAngle(-Math.PI / 3)).toBeCloseTo(-Math.PI / 3, 12);
+	});
+
+	it('wraps a full turn back to zero', () => {
+		expect(wrapAngle(2 * Math.PI)).toBeCloseTo(0, 9);
+		expect(wrapAngle(-2 * Math.PI)).toBeCloseTo(0, 9);
+	});
+
+	it('wraps large accumulated angles into [-PI, PI]', () => {
+		const large = 12345.678;
+		const wrapped = wrapAngle(large);
+		expect(wrapped).toBeGreaterThanOrEqual(-Math.PI);
+		expect(wrapped).toBeLessThanOrEqual(Math.PI);
+		// Same position on the unit circle as the unwrapped value.
+		expect(Math.sin(wrapped)).toBeCloseTo(Math.sin(large), 6);
+		expect(Math.cos(wrapped)).toBeCloseTo(Math.cos(large), 6);
+	});
+
+	it('is 2π-periodic (physics invariance)', () => {
+		const a = 0.7;
+		expect(wrapAngle(a + 2 * Math.PI)).toBeCloseTo(wrapAngle(a), 12);
+		expect(wrapAngle(a - 2 * Math.PI)).toBeCloseTo(wrapAngle(a), 12);
 	});
 });

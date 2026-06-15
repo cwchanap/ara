@@ -18,6 +18,7 @@
 		bobPositions,
 		divergence,
 		isFiniteState,
+		wrapAngle,
 		type PendulumState,
 		type PendulumPhysics
 	} from '$lib/double-pendulum';
@@ -216,6 +217,23 @@
 				while (acc >= FIXED_DT && steps < MAX_STEPS_PER_FRAME) {
 					stateA = rk4Step(stateA, physics, FIXED_DT);
 					if (compareMode) stateB = rk4Step(stateB, physics, FIXED_DT);
+					// Keep angles in [-PI, PI] to avoid floating-point precision
+					// loss over very long runs. Safe because derivatives only use
+					// sin/cos of the angles (2π-periodic).
+					stateA = {
+						theta1: wrapAngle(stateA.theta1),
+						theta2: wrapAngle(stateA.theta2),
+						omega1: stateA.omega1,
+						omega2: stateA.omega2
+					};
+					if (compareMode) {
+						stateB = {
+							theta1: wrapAngle(stateB.theta1),
+							theta2: wrapAngle(stateB.theta2),
+							omega1: stateB.omega1,
+							omega2: stateB.omega2
+						};
+					}
 					acc -= FIXED_DT;
 					steps += 1;
 					if (!isFiniteState(stateA) || (compareMode && !isFiniteState(stateB))) {
