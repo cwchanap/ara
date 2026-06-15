@@ -452,7 +452,15 @@
 	<div class="flex flex-wrap gap-3">
 		<button
 			data-testid="toggle-play"
-			onclick={() => (running = !running)}
+			onclick={() => {
+				if (diverged) {
+					diverged = false;
+					restartSignal += 1;
+					running = true;
+				} else {
+					running = !running;
+				}
+			}}
 			class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm uppercase tracking-widest text-sm font-bold"
 		>
 			{running ? '⏸ Pause' : '▶ Play'}
@@ -754,7 +762,7 @@
 						data-testid="slider-compareOffset"
 						type="range"
 						bind:value={compareOffset}
-						min="0"
+						min="-0.1"
 						max="0.1"
 						step="0.001"
 						class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-accent transition-colors"

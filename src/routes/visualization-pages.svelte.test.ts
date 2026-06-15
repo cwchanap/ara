@@ -402,6 +402,20 @@ describe('visualization pages', () => {
 			url: 'http://localhost/chua',
 			dialogTestId: 'dialog-close-chua',
 			renderPage: () => render(ChuaPage, { props: pageProps })
+		},
+		{
+			action: 'save',
+			pageName: 'double-pendulum',
+			url: 'http://localhost/double-pendulum',
+			dialogTestId: 'dialog-close-double-pendulum',
+			renderPage: () => render(DoublePendulumPage, { props: pageProps })
+		},
+		{
+			action: 'share',
+			pageName: 'double-pendulum',
+			url: 'http://localhost/double-pendulum',
+			dialogTestId: 'dialog-close-double-pendulum',
+			renderPage: () => render(DoublePendulumPage, { props: pageProps })
 		}
 	];
 
