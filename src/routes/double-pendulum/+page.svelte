@@ -116,7 +116,6 @@
 		diverged = false;
 		running = true;
 		restartSignal += 1;
-		runStabilityCheck();
 	}
 
 	function runStabilityCheck() {
@@ -290,7 +289,6 @@
 		diverged = false;
 		running = true;
 		restartSignal += 1;
-		runStabilityCheck();
 	}
 
 	function getParameters(): DoublePendulumParameters {
