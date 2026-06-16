@@ -107,7 +107,7 @@ describe('DoublePendulumRenderer', () => {
 		expect(container.querySelector('canvas')).not.toBeNull();
 	});
 
-	it('restores running after re-seed so physics resumes', async () => {
+	it('preserves paused running state on re-seed', async () => {
 		// Override the default no-op rAF with a manual pump.
 		const queue: Array<{ id: number; cb: FrameRequestCallback }> = [];
 		let nextId = 0;
@@ -135,14 +135,23 @@ describe('DoublePendulumRenderer', () => {
 		await tick();
 		expect(container.textContent).toContain('SIMULATION DIVERGED');
 
-		// Re-seed with the same dangerous params but a new restartSignal
-		await rerender({ ...baseProps, l1: 0, restartSignal: 1 });
+		// Re-seed with the same dangerous params but a new restartSignal,
+		// explicitly keeping running=false (simulating a parent-paused state).
+		// The renderer must NOT override the parent's paused state.
+		await rerender({ ...baseProps, l1: 0, restartSignal: 1, running: false });
 		await tick();
 
-		// Pump another frame. If running were not restored, physics would
-		// stay frozen and the overlay would disappear. With the fix it
-		// resumes and immediately diverges again.
+		// Pump another frame. Physics should stay frozen because running
+		// was preserved as false; the overlay stays gone because diverged
+		// was reset but physics never ran to re-trigger divergence.
 		queue.splice(0).forEach((q) => q.cb(50));
+		await tick();
+		expect(container.textContent).not.toContain('SIMULATION DIVERGED');
+
+		// Now the parent explicitly resumes — physics should run and diverge again.
+		await rerender({ ...baseProps, l1: 0, restartSignal: 1, running: true });
+		await tick();
+		queue.splice(0).forEach((q) => q.cb(66.67));
 		await tick();
 		expect(container.textContent).toContain('SIMULATION DIVERGED');
 	});

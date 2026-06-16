@@ -115,7 +115,6 @@
 		trailB = [];
 		divergenceValue = 0;
 		diverged = false;
-		running = true;
 	});
 
 	function pushTrail(trail: Array<{ x: number; y: number }>, x: number, y: number) {
