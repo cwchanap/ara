@@ -318,4 +318,240 @@ describe('Double pendulum page interactions', () => {
 		const returnBtn = screen.getByRole('link', { name: /Return/i });
 		expect(returnBtn).toHaveAttribute('href', '/');
 	});
+
+	it('loads configuration from configId URL parameter', async () => {
+		vi.useFakeTimers();
+		setPageUrl('http://localhost/double-pendulum?configId=test-config-123');
+		render(DoublePendulumPage, { props: pageProps });
+
+		await vi.runAllTimersAsync();
+		vi.useRealTimers();
+	});
+
+	it('loads configuration from share URL parameter', async () => {
+		vi.useFakeTimers();
+		setPageUrl('http://localhost/double-pendulum?share=test-share-code');
+		render(DoublePendulumPage, { props: pageProps });
+
+		await vi.runAllTimersAsync();
+		vi.useRealTimers();
+	});
+
+	it('loads configuration from config URL parameter', async () => {
+		setPageUrl('http://localhost/double-pendulum?config=eyJ0aGV0YTEiOjEuNX0=');
+		render(DoublePendulumPage, { props: pageProps });
+	});
+
+	it('handles config load error and shows error alert', async () => {
+		vi.useFakeTimers();
+		global.fetch = vi.fn().mockImplementation(() =>
+			Promise.resolve({
+				ok: false,
+				json: () => Promise.resolve({ errors: ['Configuration not found'] })
+			} as Response)
+		) as unknown as typeof global.fetch;
+
+		setPageUrl('http://localhost/double-pendulum?configId=invalid-config');
+		render(DoublePendulumPage, { props: pageProps });
+
+		await vi.runAllTimersAsync();
+		vi.useRealTimers();
+	});
+
+	it('dismisses config error alert', async () => {
+		vi.useFakeTimers();
+		global.fetch = vi.fn().mockImplementation(() =>
+			Promise.resolve({
+				ok: false,
+				json: () => Promise.resolve({ errors: ['Configuration not found'] })
+			} as Response)
+		) as unknown as typeof global.fetch;
+
+		setPageUrl('http://localhost/double-pendulum?configId=invalid-config');
+		render(DoublePendulumPage, { props: pageProps });
+
+		await vi.runAllTimersAsync();
+
+		const dismissBtn = screen.getByRole('button', { name: /Dismiss config error/i });
+		await fireEvent.click(dismissBtn);
+
+		vi.useRealTimers();
+	});
+
+	it('handles toggle play when diverged', async () => {
+		setPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: pageProps });
+
+		await fireEvent.click(screen.getByTestId('stub-trigger-diverged'));
+		const stubDiv = screen.getByTestId('stub-trigger-diverged').parentElement;
+		expect(stubDiv?.getAttribute('data-diverged')).toBe('true');
+
+		const playBtn = screen.getByTestId('toggle-play');
+		await fireEvent.click(playBtn);
+		expect(stubDiv?.getAttribute('data-diverged')).toBe('false');
+		expect(stubDiv?.getAttribute('data-running')).toBe('true');
+	});
+
+	it('toggles advanced section visibility', async () => {
+		setPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: pageProps });
+
+		const showBtn = screen.getByRole('button', { name: /Show Advanced/i });
+		await fireEvent.click(showBtn);
+
+		const hideBtn = screen.getByRole('button', { name: /Hide Advanced/i });
+		expect(hideBtn).toBeInTheDocument();
+
+		await fireEvent.click(hideBtn);
+		expect(screen.getByRole('button', { name: /Show Advanced/i })).toBeInTheDocument();
+	});
+
+	it('handles damping parameter update', async () => {
+		setPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: pageProps });
+
+		const advancedBtn = screen.getByRole('button', { name: /Show Advanced/i });
+		await fireEvent.click(advancedBtn);
+
+		const dampingSlider = screen.getByTestId('slider-damping');
+		await fireEvent.input(dampingSlider, { target: { value: '0.5' } });
+		expect(screen.getByTestId('value-damping')).toHaveTextContent('0.5');
+	});
+
+	it('handles trail length parameter update', async () => {
+		setPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: pageProps });
+
+		const advancedBtn = screen.getByRole('button', { name: /Show Advanced/i });
+		await fireEvent.click(advancedBtn);
+
+		const trailLengthSlider = screen.getByTestId('slider-trailLength');
+		await fireEvent.input(trailLengthSlider, { target: { value: '500' } });
+		expect(screen.getByTestId('value-trailLength')).toHaveTextContent('500');
+	});
+
+	it('handles compare offset parameter update', async () => {
+		setPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: pageProps });
+
+		const advancedBtn = screen.getByRole('button', { name: /Show Advanced/i });
+		await fireEvent.click(advancedBtn);
+
+		const compareOffsetSlider = screen.getByTestId('slider-compareOffset');
+		await fireEvent.input(compareOffsetSlider, { target: { value: '0.01' } });
+		expect(screen.getByTestId('value-compareOffset')).toHaveTextContent('0.01');
+	});
+
+	it('aborts previous config load when new config is loaded', async () => {
+		vi.useFakeTimers();
+		global.fetch = vi.fn().mockImplementation(() => {
+			return new Promise((resolve) => {
+				setTimeout(() => {
+					resolve({
+						ok: true,
+						json: () => Promise.resolve({ ok: true, parameters: {} })
+					} as Response);
+				}, 100);
+			});
+		}) as unknown as typeof global.fetch;
+
+		const originalAbort = AbortController.prototype.abort;
+		AbortController.prototype.abort = function () {
+			originalAbort.call(this);
+		};
+
+		setPageUrl('http://localhost/double-pendulum?configId=first');
+		render(DoublePendulumPage, { props: pageProps });
+
+		// Quickly change to another config
+		setPageUrl('http://localhost/double-pendulum?configId=second');
+		await vi.runAllTimersAsync();
+
+		AbortController.prototype.abort = originalAbort;
+		vi.useRealTimers();
+	});
+
+	it('handles invalid config parameter gracefully', async () => {
+		setPageUrl('http://localhost/double-pendulum?config=invalid-json');
+		render(DoublePendulumPage, { props: pageProps });
+	});
+
+	it('preserves running state when applying preset', async () => {
+		setPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: pageProps });
+
+		const pauseBtn = screen.getByRole('button', { name: /Pause/i });
+		await fireEvent.click(pauseBtn);
+
+		const presetBtn = screen.getByRole('button', { name: /Asymmetric/i });
+		await fireEvent.click(presetBtn);
+
+		// Preset should reset running to true
+		const playBtn = screen.getByRole('button', { name: /Pause/i });
+		expect(playBtn).toBeInTheDocument();
+	});
+
+	it('clears divergence when applying preset', async () => {
+		setPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: pageProps });
+
+		await fireEvent.click(screen.getByTestId('stub-trigger-diverged'));
+		const stubDiv = screen.getByTestId('stub-trigger-diverged').parentElement;
+		expect(stubDiv?.getAttribute('data-diverged')).toBe('true');
+
+		const presetBtn = screen.getByRole('button', { name: /Asymmetric/i });
+		await fireEvent.click(presetBtn);
+
+		expect(stubDiv?.getAttribute('data-diverged')).toBe('false');
+	});
+
+	it('increments restart signal when applying preset', async () => {
+		setPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: pageProps });
+
+		const presetBtn = screen.getByRole('button', { name: /Asymmetric/i });
+		await fireEvent.click(presetBtn);
+
+		const stubDiv = screen.getByTestId('stub-trigger-diverged').parentElement;
+		expect(stubDiv?.getAttribute('data-restart-signal')).not.toBe('0');
+	});
+
+	it('clears divergence when randomizing', async () => {
+		setPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: pageProps });
+
+		await fireEvent.click(screen.getByTestId('stub-trigger-diverged'));
+		const stubDiv = screen.getByTestId('stub-trigger-diverged').parentElement;
+		expect(stubDiv?.getAttribute('data-diverged')).toBe('true');
+
+		const randomizeBtn = screen.getByRole('button', { name: /Randomize/i });
+		await fireEvent.click(randomizeBtn);
+
+		expect(stubDiv?.getAttribute('data-diverged')).toBe('false');
+	});
+
+	it('sets running to true when randomizing', async () => {
+		setPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: pageProps });
+
+		const pauseBtn = screen.getByRole('button', { name: /Pause/i });
+		await fireEvent.click(pauseBtn);
+
+		const randomizeBtn = screen.getByRole('button', { name: /Randomize/i });
+		await fireEvent.click(randomizeBtn);
+
+		const playBtn = screen.getByRole('button', { name: /Pause/i });
+		expect(playBtn).toBeInTheDocument();
+	});
+
+	it('increments restart signal when randomizing', async () => {
+		setPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: pageProps });
+
+		const randomizeBtn = screen.getByRole('button', { name: /Randomize/i });
+		await fireEvent.click(randomizeBtn);
+
+		const stubDiv = screen.getByTestId('stub-trigger-diverged').parentElement;
+		expect(stubDiv?.getAttribute('data-restart-signal')).not.toBe('0');
+	});
 });

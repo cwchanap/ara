@@ -401,4 +401,178 @@ describe('Double pendulum compare page interactions', () => {
 		await fireEvent.click(rightBtn);
 		expect(rightBtn).toHaveTextContent('⏸ Pause');
 	});
+
+	it('handles missing or null parameters gracefully', () => {
+		setPageUrl('http://localhost/double-pendulum/compare?compare=true');
+		render(DoublePendulumComparePage);
+
+		// Should render with default parameters
+		expect(document.getElementById('left-theta1')).toBeInTheDocument();
+		expect(document.getElementById('right-theta1')).toBeInTheDocument();
+	});
+
+	it('clamps out-of-range theta values', () => {
+		const state = encodeComparisonState({
+			compare: true,
+			left: {
+				type: 'double-pendulum',
+				theta1: 10,
+				theta2: Math.PI / 2,
+				omega1: 0,
+				omega2: 0,
+				l1: 1,
+				l2: 1,
+				m1: 1,
+				m2: 1,
+				gravity: 9.81,
+				damping: 0
+			},
+			right: {
+				type: 'double-pendulum',
+				theta1: Math.PI / 2,
+				theta2: Math.PI / 2,
+				omega1: 0,
+				omega2: 0,
+				l1: 1,
+				l2: 1,
+				m1: 1,
+				m2: 1,
+				gravity: 9.81,
+				damping: 0
+			}
+		});
+		setPageUrl(`http://localhost/double-pendulum/compare?${state.toString()}`);
+		render(DoublePendulumComparePage);
+
+		expect(screen.getByTestId('config-corrected-notice')).toBeTruthy();
+	});
+
+	it('clamps out-of-range length values', () => {
+		const state = encodeComparisonState({
+			compare: true,
+			left: {
+				type: 'double-pendulum',
+				theta1: Math.PI / 2,
+				theta2: Math.PI / 2,
+				omega1: 0,
+				omega2: 0,
+				l1: 10,
+				l2: 1,
+				m1: 1,
+				m2: 1,
+				gravity: 9.81,
+				damping: 0
+			},
+			right: {
+				type: 'double-pendulum',
+				theta1: Math.PI / 2,
+				theta2: Math.PI / 2,
+				omega1: 0,
+				omega2: 0,
+				l1: 1,
+				l2: 1,
+				m1: 1,
+				m2: 1,
+				gravity: 9.81,
+				damping: 0
+			}
+		});
+		setPageUrl(`http://localhost/double-pendulum/compare?${state.toString()}`);
+		render(DoublePendulumComparePage);
+
+		expect(screen.getByTestId('config-corrected-notice')).toBeTruthy();
+	});
+
+	it('clamps out-of-range mass values', () => {
+		const state = encodeComparisonState({
+			compare: true,
+			left: {
+				type: 'double-pendulum',
+				theta1: Math.PI / 2,
+				theta2: Math.PI / 2,
+				omega1: 0,
+				omega2: 0,
+				l1: 1,
+				l2: 1,
+				m1: 20,
+				m2: 1,
+				gravity: 9.81,
+				damping: 0
+			},
+			right: {
+				type: 'double-pendulum',
+				theta1: Math.PI / 2,
+				theta2: Math.PI / 2,
+				omega1: 0,
+				omega2: 0,
+				l1: 1,
+				l2: 1,
+				m1: 1,
+				m2: 1,
+				gravity: 9.81,
+				damping: 0
+			}
+		});
+		setPageUrl(`http://localhost/double-pendulum/compare?${state.toString()}`);
+		render(DoublePendulumComparePage);
+
+		expect(screen.getByTestId('config-corrected-notice')).toBeTruthy();
+	});
+
+	it('does not show notice when parameters are within valid ranges', () => {
+		setPageUrl('http://localhost/double-pendulum/compare?compare=true');
+		render(DoublePendulumComparePage);
+
+		expect(screen.queryByTestId('config-corrected-notice')).toBeNull();
+	});
+
+	it('uses default parameters when URL has no comparison state', () => {
+		setPageUrl('http://localhost/double-pendulum/compare');
+		render(DoublePendulumComparePage);
+
+		// Should render with default parameters
+		expect(document.getElementById('left-theta1')).toBeInTheDocument();
+		expect(document.getElementById('right-theta1')).toBeInTheDocument();
+	});
+
+	it('preserves non-slider parameters from left side', () => {
+		const state = encodeComparisonState({
+			compare: true,
+			left: {
+				type: 'double-pendulum',
+				theta1: Math.PI / 2,
+				theta2: Math.PI / 2,
+				omega1: 5,
+				omega2: -3,
+				l1: 1,
+				l2: 1,
+				m1: 1,
+				m2: 1,
+				gravity: 9.81,
+				damping: 0.5,
+				speed: 2,
+				trailLength: 500
+			},
+			right: {
+				type: 'double-pendulum',
+				theta1: Math.PI / 2,
+				theta2: Math.PI / 2,
+				omega1: 0,
+				omega2: 0,
+				l1: 1,
+				l2: 1,
+				m1: 1,
+				m2: 1,
+				gravity: 9.81,
+				damping: 0
+			}
+		});
+		setPageUrl(`http://localhost/double-pendulum/compare?${state.toString()}`);
+		render(DoublePendulumComparePage);
+
+		// Both sides should use the left side's non-slider parameters
+		const leftTheta1 = document.getElementById('left-theta1') as HTMLInputElement;
+		const rightTheta1 = document.getElementById('right-theta1') as HTMLInputElement;
+		expect(leftTheta1.value).toBe(rightTheta1.value);
+	});
 });
