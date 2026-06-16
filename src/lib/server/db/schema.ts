@@ -29,9 +29,11 @@ export type NewProfile = typeof profiles.$inferInsert;
 
 // Saved Configurations table - stores user's saved chaos map configurations
 // Each configuration stores map type and parameters as JSONB for flexibility
-// NOTE: map_type CHECK constraints are defined in migration files (drizzle/)
-// rather than in this schema definition because Drizzle ORM does not
-// natively support CHECK constraints on text columns in pgTable.
+// NOTE: map_type CHECK constraints live in migration files (drizzle/) rather
+// than here. Drizzle *does* support CHECK via `check()` from pg-core, but we
+// keep the constraint in SQL so VALID_MAP_TYPES (src/lib/types.ts) stays the
+// single source of truth and the DB list can't drift from the TS union.
+// schema.test.ts asserts the migration list matches VALID_MAP_TYPES exactly.
 export const savedConfigurations = pgTable(
 	'saved_configurations',
 	{
@@ -62,9 +64,8 @@ export type NewSavedConfiguration = typeof savedConfigurations.$inferInsert;
 
 // Shared Configurations table - public shareable links for chaos map configurations
 // Anyone can view these without authentication
-// NOTE: map_type CHECK constraints are defined in migration files (drizzle/)
-// rather than in this schema definition because Drizzle ORM does not
-// natively support CHECK constraints on text columns in pgTable.
+// NOTE: map_type CHECK constraints live in migration files (drizzle/) for the
+// same single-source-of-truth reason as saved_configurations (see above).
 export const sharedConfigurations = pgTable(
 	'shared_configurations',
 	{

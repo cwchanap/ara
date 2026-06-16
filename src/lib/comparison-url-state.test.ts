@@ -27,7 +27,8 @@ import type {
 	NewtonParameters,
 	BifurcationHenonParameters,
 	ChaosEsthetiqueParameters,
-	ChuaParameters
+	ChuaParameters,
+	DoublePendulumParameters
 } from './types';
 
 describe('getDefaultParameters', () => {
@@ -154,6 +155,22 @@ describe('getDefaultParameters', () => {
 		expect(params.a).toBeCloseTo(-8 / 7);
 		expect(params.b).toBeCloseTo(-5 / 7);
 	});
+
+	test('returns correct default parameters for double-pendulum', () => {
+		const params = getDefaultParameters('double-pendulum') as DoublePendulumParameters;
+		expect(params.type).toBe('double-pendulum');
+		// Defaults come from the 'classic' preset.
+		expect(params.theta1).toBeCloseTo(Math.PI / 2);
+		expect(params.theta2).toBeCloseTo(Math.PI / 2);
+		expect(params.omega1).toBe(0);
+		expect(params.omega2).toBe(0);
+		expect(params.l1).toBe(1);
+		expect(params.l2).toBe(1);
+		expect(params.m1).toBe(1);
+		expect(params.m2).toBe(1);
+		expect(params.gravity).toBeCloseTo(9.81);
+		expect(params.damping).toBe(0);
+	});
 });
 
 describe('getDefaultParameters – persistence round-trip', () => {
@@ -239,6 +256,8 @@ describe('decodeComparisonState', () => {
 		expect(result!.compare).toBe(true);
 		// Should fall back to defaults
 		expect((result!.left as LorenzParameters).sigma).toBe(10);
+		// Both encoded sides were present but unreadable → a correction happened.
+		expect(result!.corrected).toBe(true);
 	});
 
 	test('falls back to defaults when encoded parameters fail validation', () => {
@@ -255,6 +274,34 @@ describe('decodeComparisonState', () => {
 		// left should fall back to defaults because validation failed
 		expect((result!.left as LorenzParameters).sigma).toBe(10);
 		expect((result!.left as LorenzParameters).rho).toBe(28);
+		// Encoded left was present but failed validation → correction flagged.
+		expect(result!.corrected).toBe(true);
+	});
+
+	test('corrected is false for a clean, fully-valid link', () => {
+		const leftPayload = base64Encode(JSON.stringify({ sigma: 10, rho: 28, beta: 2.667 }));
+		const rightPayload = base64Encode(JSON.stringify({ sigma: 14, rho: 30, beta: 3 }));
+		const url = new URL(
+			`https://example.com/lorenz/compare?compare=true&left=${leftPayload}&right=${rightPayload}`
+		);
+		const result = decodeComparisonState(url, 'lorenz');
+		expect(result!.corrected).toBe(false);
+	});
+
+	test('corrected is false for a fresh compare entry with no encoded params', () => {
+		// Entering compare mode without left/right is normal, not a correction.
+		const url = new URL('https://example.com/lorenz/compare?compare=true');
+		const result = decodeComparisonState(url, 'lorenz');
+		expect(result!.corrected).toBe(false);
+	});
+
+	test('corrected is true when only one side fails to decode', () => {
+		const goodPayload = base64Encode(JSON.stringify({ sigma: 10, rho: 28, beta: 2.667 }));
+		const url = new URL(
+			`https://example.com/lorenz/compare?compare=true&left=${goodPayload}&right=garbage!!`
+		);
+		const result = decodeComparisonState(url, 'lorenz');
+		expect(result!.corrected).toBe(true);
 	});
 
 	test('prefers mapType over decoded type field', () => {
@@ -908,6 +955,50 @@ describe('decodeComparisonState – remaining map types round-trip', () => {
 		expect((decoded!.right as ChuaParameters).alpha).toBe(10);
 		expect((decoded!.right as ChuaParameters).gamma).toBe(1);
 	});
+
+	test('round-trips double-pendulum parameters', () => {
+		const state: ComparisonURLState = {
+			compare: true,
+			left: {
+				type: 'double-pendulum',
+				theta1: Math.PI / 2,
+				theta2: Math.PI / 3,
+				omega1: 0,
+				omega2: 0,
+				l1: 1.5,
+				l2: 0.8,
+				m1: 2,
+				m2: 1,
+				gravity: 9.81,
+				damping: 0.05
+			},
+			right: {
+				type: 'double-pendulum',
+				theta1: Math.PI,
+				theta2: Math.PI / 4,
+				omega1: 1,
+				omega2: -1,
+				l1: 1,
+				l2: 1,
+				m1: 1,
+				m2: 3,
+				gravity: 20,
+				damping: 0.2
+			}
+		};
+		const encoded = encodeComparisonState(state);
+		const url = new URL(`https://example.com/double-pendulum/compare?${encoded.toString()}`);
+		const decoded = decodeComparisonState(url, 'double-pendulum');
+
+		expect(decoded).not.toBeNull();
+		const left = decoded!.left as DoublePendulumParameters;
+		const right = decoded!.right as DoublePendulumParameters;
+		expect(left.l1).toBe(1.5);
+		expect(left.m2).toBe(1);
+		expect(left.gravity).toBeCloseTo(9.81);
+		expect(right.theta1).toBeCloseTo(Math.PI);
+		expect(right.damping).toBeCloseTo(0.2);
+	});
 });
 
 // ── buildComparisonUrl additional cases ───────────────────────────────────────
@@ -1013,12 +1104,16 @@ describe('createComparisonStateFromCurrent – additional cases', () => {
 		expect(state.compare).toBe(true);
 	});
 
-	test('works for all 11 map types without throwing', () => {
+	test('works for all map types without throwing', () => {
+		// Drives getDefaultParameters + createComparisonStateFromCurrent for every
+		// map type, so a newly added type that forgets a default (e.g. the
+		// double-pendulum throw path) fails here instead of at runtime.
 		const mapTypes = [
 			'lorenz',
 			'rossler',
 			'henon',
 			'lozi',
+			'ikeda',
 			'logistic',
 			'newton',
 			'standard',
@@ -1026,7 +1121,8 @@ describe('createComparisonStateFromCurrent – additional cases', () => {
 			'bifurcation-henon',
 			'chaos-esthetique',
 			'lyapunov',
-			'chua'
+			'chua',
+			'double-pendulum'
 		] as const;
 
 		for (const mapType of mapTypes) {

@@ -36,7 +36,7 @@ const BASE: Omit<DoublePendulumState, 'theta1' | 'theta2' | 'm1' | 'm2' | 'dampi
 	compareOffset: 0.001
 };
 
-export const DOUBLE_PENDULUM_PRESETS: DoublePendulumPreset[] = [
+export const DOUBLE_PENDULUM_PRESETS: readonly DoublePendulumPreset[] = [
 	{
 		id: 'classic',
 		label: 'Classic',
@@ -70,29 +70,50 @@ function numbersClose(a: number, b: number): boolean {
 	return Math.abs(a - b) < 1e-9;
 }
 
+/**
+ * Per-field comparison kind for EVERY field of DoublePendulumState. The
+ * `satisfies Record<keyof DoublePendulumState, ...>` guard makes this
+ * compile-complete: adding a field to DoublePendulumState without listing it
+ * here is a type error, so detectPresetId can never silently ignore a new
+ * field (which would cause a preset to mis-detect as "Custom").
+ */
+const FIELD_KIND = {
+	theta1: 'number',
+	theta2: 'number',
+	omega1: 'number',
+	omega2: 'number',
+	l1: 'number',
+	l2: 'number',
+	m1: 'number',
+	m2: 'number',
+	gravity: 'number',
+	damping: 'number',
+	speed: 'number',
+	showTrail: 'boolean',
+	trailLength: 'number',
+	compareMode: 'boolean',
+	compareOffset: 'number'
+} satisfies Record<keyof DoublePendulumState, 'number' | 'boolean'>;
+
+const STATE_FIELDS = Object.keys(FIELD_KIND) as Array<keyof DoublePendulumState>;
+
 /** Id of the preset whose state matches exactly, or null ("Custom"). */
 export function detectPresetId(state: DoublePendulumState): string | null {
 	for (const preset of DOUBLE_PENDULUM_PRESETS) {
 		const s = preset.state;
-		if (
-			numbersClose(s.theta1, state.theta1) &&
-			numbersClose(s.theta2, state.theta2) &&
-			numbersClose(s.omega1, state.omega1) &&
-			numbersClose(s.omega2, state.omega2) &&
-			numbersClose(s.l1, state.l1) &&
-			numbersClose(s.l2, state.l2) &&
-			numbersClose(s.m1, state.m1) &&
-			numbersClose(s.m2, state.m2) &&
-			numbersClose(s.gravity, state.gravity) &&
-			numbersClose(s.damping, state.damping) &&
-			numbersClose(s.speed, state.speed) &&
-			s.showTrail === state.showTrail &&
-			s.trailLength === state.trailLength &&
-			s.compareMode === state.compareMode &&
-			numbersClose(s.compareOffset, state.compareOffset)
-		) {
-			return preset.id;
-		}
+		const allMatch = STATE_FIELDS.every((key) => {
+			const a = s[key];
+			const b = state[key];
+			if (FIELD_KIND[key] === 'number') {
+				return (
+					typeof a === 'number' &&
+					typeof b === 'number' &&
+					numbersClose(a as number, b as number)
+				);
+			}
+			return a === b;
+		});
+		if (allMatch) return preset.id;
 	}
 	return null;
 }

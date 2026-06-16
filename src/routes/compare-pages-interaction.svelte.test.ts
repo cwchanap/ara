@@ -21,6 +21,7 @@ import LorenzComparePage from './lorenz/compare/+page.svelte';
 import LoziComparePage from './lozi/compare/+page.svelte';
 import StandardComparePage from './standard/compare/+page.svelte';
 import IkedaComparePage from './ikeda/compare/+page.svelte';
+import DoublePendulumComparePage from './double-pendulum/compare/+page.svelte';
 
 const gotoMock = vi.hoisted(() => vi.fn());
 
@@ -105,6 +106,12 @@ vi.mock('$lib/components/visualizations/StandardRenderer.svelte', async () => {
 });
 vi.mock('$lib/components/visualizations/IkedaRenderer.svelte', async () => {
 	const m = await import('$lib/components/testing/StubComponent.svelte');
+	return { default: m.default };
+});
+// The double-pendulum compare page two-way binds running/diverged on its
+// renderer, so it needs the bindable stub (not the plain StubComponent).
+vi.mock('$lib/components/visualizations/DoublePendulumRenderer.svelte', async () => {
+	const m = await import('$lib/components/testing/StubBindableRenderer.svelte');
 	return { default: m.default };
 });
 
@@ -656,5 +663,80 @@ describe('ComparisonLayout – exit compare button', () => {
 		await fireEvent.click(exitBtn);
 
 		expect(gotoMock).toHaveBeenCalledWith(expect.stringContaining('/henon'));
+	});
+});
+
+describe('double-pendulum compare – config-correction notice (#5)', () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+		gotoMock.mockReset();
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+		cleanup();
+	});
+
+	it('surfaces a notice when the shared link failed to decode', () => {
+		// 'left=garbage' is present but invalid base64 → decodeComparisonState
+		// sets corrected=true → the compare page must show the banner.
+		setPageUrl('http://localhost/double-pendulum/compare?compare=true&left=garbage!!');
+		render(DoublePendulumComparePage);
+
+		expect(screen.getByTestId('config-corrected-notice')).toBeTruthy();
+	});
+
+	it('does not surface a notice for a clean link', () => {
+		setPageUrl('http://localhost/double-pendulum/compare?compare=true');
+		render(DoublePendulumComparePage);
+
+		expect(screen.queryByTestId('config-corrected-notice')).toBeNull();
+	});
+
+	it('dismisses the notice on click', async () => {
+		setPageUrl('http://localhost/double-pendulum/compare?compare=true&left=garbage!!');
+		render(DoublePendulumComparePage);
+
+		const dismissBtn = screen.getByLabelText('Dismiss notice');
+		await fireEvent.click(dismissBtn);
+
+		expect(screen.queryByTestId('config-corrected-notice')).toBeNull();
+	});
+});
+
+describe('double-pendulum compare – per-side Play/Pause (#2)', () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+		gotoMock.mockReset();
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+		cleanup();
+	});
+
+	it('renders a Play/Pause button per side, initially showing Pause (running)', () => {
+		setPageUrl('http://localhost/double-pendulum/compare?compare=true');
+		render(DoublePendulumComparePage);
+
+		expect(screen.getByTestId('left-toggle-play').textContent).toContain('Pause');
+		expect(screen.getByTestId('right-toggle-play').textContent).toContain('Pause');
+	});
+
+	it('toggles a side to Play (paused) and back', async () => {
+		setPageUrl('http://localhost/double-pendulum/compare?compare=true');
+		render(DoublePendulumComparePage);
+
+		const leftBtn = screen.getByTestId('left-toggle-play');
+		const rightBtn = screen.getByTestId('right-toggle-play');
+
+		await fireEvent.click(leftBtn);
+		// left paused, right still running (independent per-side state)
+		expect(leftBtn.textContent).toContain('Play');
+		expect(rightBtn.textContent).toContain('Pause');
+
+		await fireEvent.click(leftBtn);
+		expect(leftBtn.textContent).toContain('Pause');
+		expect(rightBtn.textContent).toContain('Pause');
 	});
 });

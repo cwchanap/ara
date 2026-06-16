@@ -146,4 +146,33 @@ describe('DoublePendulumRenderer', () => {
 		await tick();
 		expect(container.textContent).toContain('SIMULATION DIVERGED');
 	});
+
+	it('halts and shows the divergence overlay when compareMode is on', async () => {
+		// With compareMode=true the frame loop also steps stateB. A degenerate
+		// l1=0 blows up both orbits; the loop must still halt and surface the
+		// overlay (covers the compareMode execution path through the rAF loop).
+		const queue: Array<{ id: number; cb: FrameRequestCallback }> = [];
+		let nextId = 0;
+		vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+			nextId += 1;
+			queue.push({ id: nextId, cb });
+			return nextId;
+		});
+		vi.stubGlobal('cancelAnimationFrame', (id: number) => {
+			const idx = queue.findIndex((q) => q.id === id);
+			if (idx !== -1) queue.splice(idx, 1);
+		});
+
+		const { container } = render(DoublePendulumRenderer, {
+			props: { ...baseProps, l1: 0, compareMode: true, compareOffset: 0.001 }
+		});
+
+		expect(queue.length).toBeGreaterThan(0);
+		queue.splice(0).forEach((q) => q.cb(16.67));
+		queue.splice(0).forEach((q) => q.cb(33.33));
+		await tick();
+
+		expect(container.textContent).toContain('SIMULATION DIVERGED');
+		expect(container.textContent).toContain('DIVERGENCE');
+	});
 });

@@ -40,6 +40,19 @@ export interface ComparisonURLState {
 }
 
 /**
+ * Result of decoding a comparison URL. Extends ComparisonURLState with a flag
+ * that lets callers surface (rather than silently swallow) link corrections.
+ */
+export interface DecodedComparisonState extends ComparisonURLState {
+	/**
+	 * True when an encoded side was present but unreadable/invalid (corrupt
+	 * base64, malformed JSON, or failed validation) and silently fell back to
+	 * defaults. A fresh compare entry with NO encoded params is NOT a correction.
+	 */
+	corrected: boolean;
+}
+
+/**
  * Default parameters for each chaos map type.
  * Used when URL parameters are missing or invalid.
  */
@@ -206,7 +219,7 @@ export function buildComparisonUrl(
 export function decodeComparisonState<T extends ChaosMapType>(
 	url: URL,
 	mapType: T
-): ComparisonURLState | null {
+): DecodedComparisonState | null {
 	const compare = url.searchParams.get('compare');
 	if (compare !== 'true') return null;
 
@@ -218,10 +231,17 @@ export function decodeComparisonState<T extends ChaosMapType>(
 	const left = leftEncoded ? decodeParams(leftEncoded, mapType) : defaultParams;
 	const right = rightEncoded ? decodeParams(rightEncoded, mapType) : defaultParams;
 
+	// A correction happened when an encoded side was supplied but could not be
+	// decoded (corrupt base64, invalid JSON, or failed validation) and so fell
+	// back to defaults. Lets compare pages surface a notice instead of failing
+	// silently. Missing encoded params (a fresh compare entry) are not a correction.
+	const corrected = (!!leftEncoded && !left) || (!!rightEncoded && !right);
+
 	return {
 		compare: true,
 		left: left ?? defaultParams,
-		right: right ?? defaultParams
+		right: right ?? defaultParams,
+		corrected
 	};
 }
 
