@@ -29,6 +29,9 @@
 	data-diverged={String(diverged)}
 	data-restart={String(restartSignal)}
 >
+	<button type="button" data-testid="stub-trigger-diverged" onclick={() => (diverged = true)}>
+		Simulate diverged
+	</button>
 	{#if children}
 		{@render children()}
 	{/if}

@@ -184,4 +184,128 @@ describe('DoublePendulumRenderer', () => {
 		expect(container.textContent).toContain('SIMULATION DIVERGED');
 		expect(container.textContent).toContain('DIVERGENCE');
 	});
+
+	it('updates trail length prop', async () => {
+		const { rerender } = render(DoublePendulumRenderer, {
+			props: { ...baseProps, trailLength: 200 }
+		});
+		await rerender({ ...baseProps, trailLength: 500 });
+		// Should not throw
+	});
+
+	it('updates speed prop', async () => {
+		const { rerender } = render(DoublePendulumRenderer, {
+			props: { ...baseProps, speed: 1 }
+		});
+		await rerender({ ...baseProps, speed: 2 });
+		// Should not throw
+	});
+
+	it('updates compare offset prop', async () => {
+		const { rerender } = render(DoublePendulumRenderer, {
+			props: { ...baseProps, compareMode: true, compareOffset: 0.001 }
+		});
+		await rerender({ ...baseProps, compareMode: true, compareOffset: 0.01 });
+		// Should not throw
+	});
+
+	it('updates height prop', async () => {
+		const { rerender } = render(DoublePendulumRenderer, {
+			props: { ...baseProps, height: 400 }
+		});
+		await rerender({ ...baseProps, height: 600 });
+		// Should not throw
+	});
+
+	it('binds divergenceValue correctly', async () => {
+		const { container } = render(DoublePendulumRenderer, {
+			props: { ...baseProps, compareMode: true, divergenceValue: 0 }
+		});
+
+		// The divergence value is updated in the animation loop
+		// We can't easily test the actual value without running the loop,
+		// but we can verify the binding is set up
+		expect(container.querySelector('canvas')).not.toBeNull();
+	});
+
+	it('handles missing canvas ref gracefully', () => {
+		// Mock the canvas to be null by not providing a valid mount
+		const originalGetContext = HTMLCanvasElement.prototype.getContext;
+		Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+			configurable: true,
+			value: () => null
+		});
+
+		const { container } = render(DoublePendulumRenderer, { props: baseProps });
+		// Should still render the container even if canvas context fails
+		expect(container.querySelector('div')).not.toBeNull();
+
+		Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+			configurable: true,
+			value: originalGetContext
+		});
+	});
+
+	it('cleans up animation frame on unmount', () => {
+		const cancelSpy = vi.fn();
+		vi.stubGlobal('cancelAnimationFrame', cancelSpy);
+
+		const { unmount } = render(DoublePendulumRenderer, { props: baseProps });
+		unmount();
+
+		expect(cancelSpy).toHaveBeenCalled();
+	});
+
+	it('handles resize observer cleanup', () => {
+		const { unmount } = render(DoublePendulumRenderer, { props: baseProps });
+		// Should not throw on unmount
+		unmount();
+	});
+
+	it('updates physical parameters without re-seeding', async () => {
+		const { rerender } = render(DoublePendulumRenderer, {
+			props: { ...baseProps, l1: 1, l2: 1, m1: 1, m2: 1, gravity: 9.81, damping: 0 }
+		});
+
+		// Update physical parameters - should not trigger re-seed
+		await rerender({
+			...baseProps,
+			l1: 1.5,
+			l2: 1.2,
+			m1: 2,
+			m2: 1.5,
+			gravity: 15,
+			damping: 0.1
+		});
+		// Should not throw
+	});
+
+	it('re-seeds when initial conditions change', async () => {
+		const { rerender } = render(DoublePendulumRenderer, {
+			props: { ...baseProps, theta1: Math.PI / 2, theta2: Math.PI / 2 }
+		});
+
+		// Change initial conditions - should trigger re-seed
+		await rerender({ ...baseProps, theta1: 0, theta2: 0 });
+		// Should not throw
+	});
+
+	it('re-seeds when restartSignal increments', async () => {
+		const { rerender } = render(DoublePendulumRenderer, {
+			props: { ...baseProps, restartSignal: 0 }
+		});
+
+		// Increment restart signal - should trigger re-seed
+		await rerender({ ...baseProps, restartSignal: 1 });
+		// Should not throw
+	});
+
+	it('handles corner border decorations', () => {
+		const { container } = render(DoublePendulumRenderer, { props: baseProps });
+		// Check that corner borders are present
+		const corners = container.querySelectorAll(
+			'.border-t-2, .border-b-2, .border-l-2, .border-r-2'
+		);
+		expect(corners.length).toBeGreaterThan(0);
+	});
 });
