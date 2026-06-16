@@ -137,6 +137,38 @@ describe('StandardRenderer (coverage)', () => {
 		await vi.advanceTimersByTimeAsync(200);
 	});
 
+	it('renders with zero iterations', async () => {
+		vi.useFakeTimers();
+		expect(() =>
+			render(StandardRenderer, {
+				props: {
+					k: 1,
+					numP: 1,
+					numQ: 1,
+					iterations: 0,
+					height: 200
+				}
+			})
+		).not.toThrow();
+		await vi.advanceTimersByTimeAsync(200);
+	});
+
+	it('renders with extreme numP and numQ values', async () => {
+		vi.useFakeTimers();
+		expect(() =>
+			render(StandardRenderer, {
+				props: {
+					k: 1,
+					numP: 20,
+					numQ: 20,
+					iterations: 5,
+					height: 200
+				}
+			})
+		).not.toThrow();
+		await vi.advanceTimersByTimeAsync(200);
+	});
+
 	it('handles worker error response via handleWorkerFailure', async () => {
 		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 		let workerInstance: {

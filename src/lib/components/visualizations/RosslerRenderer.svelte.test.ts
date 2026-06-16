@@ -112,4 +112,36 @@ describe('RosslerRenderer (smoke)', () => {
 		});
 		expect(container.querySelector('div')).not.toBeNull();
 	});
+
+	it('renders with different parameter combinations', () => {
+		expect(() =>
+			render(RosslerRenderer, {
+				props: { a: 0.1, b: 0.1, c: 6.0, height: 300 }
+			})
+		).not.toThrow();
+	});
+
+	it('renders with extreme parameter values', () => {
+		expect(() =>
+			render(RosslerRenderer, {
+				props: { a: 1.0, b: 1.0, c: 10.0, height: 500 }
+			})
+		).not.toThrow();
+	});
+
+	it('renders with minimal height', () => {
+		expect(() =>
+			render(RosslerRenderer, {
+				props: { a: 0.2, b: 0.2, c: 5.7, height: 50 }
+			})
+		).not.toThrow();
+	});
+
+	it('renders with negative parameters', () => {
+		expect(() =>
+			render(RosslerRenderer, {
+				props: { a: -0.1, b: -0.1, c: 5.7, height: 200 }
+			})
+		).not.toThrow();
+	});
 });
