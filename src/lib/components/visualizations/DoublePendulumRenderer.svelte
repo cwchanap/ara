@@ -185,10 +185,20 @@
 	}
 
 	onMount(() => {
-		if (!canvas || !container) return;
+		if (!canvas || !container) {
+			// bind:this failed (rare; e.g. SSR mismatch). Avoid a silent black
+			// canvas — log so a dead panel is debuggable. NOTE: sibling renderers
+			// (Newton/Ikeda/Standard/…) share this silent-return pattern; this is
+			// the first to surface it — consider a project-wide follow-up.
+			console.warn('DoublePendulumRenderer: canvas/container ref missing on mount');
+			return;
+		}
 		const cv = canvas;
 		const ctx = cv.getContext('2d');
-		if (!ctx) return;
+		if (!ctx) {
+			console.warn('DoublePendulumRenderer: 2D context unavailable; canvas will stay blank');
+			return;
+		}
 
 		let raf = 0;
 		let last = 0;

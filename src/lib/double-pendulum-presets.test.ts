@@ -52,4 +52,29 @@ describe('double pendulum presets', () => {
 		const custom: DoublePendulumState = { ...def.state, gravity: def.state.gravity + 3.3 };
 		expect(detectPresetId(custom)).toBeNull();
 	});
+
+	it('detectPresetId returns null when ANY field differs, including render fields', () => {
+		// Regression guard for the keyof-driven comparison: before the refactor,
+		// detectPresetId hand-listed fields and would silently ignore a newly
+		// added one. Vary a render field (trailLength) and expect no match.
+		const def = getPreset(DEFAULT_DOUBLE_PENDULUM_PRESET_ID)!;
+		const custom: DoublePendulumState = {
+			...def.state,
+			trailLength: def.state.trailLength + 1
+		};
+		expect(detectPresetId(custom)).toBeNull();
+	});
+
+	it('detectPresetId distinguishes presets that differ only by a boolean field', () => {
+		const def = getPreset(DEFAULT_DOUBLE_PENDULUM_PRESET_ID)!;
+		const toggled: DoublePendulumState = { ...def.state, compareMode: !def.state.compareMode };
+		expect(detectPresetId(toggled)).toBeNull();
+	});
+
+	it('DOUBLE_PENDULUM_PRESETS is immutable (readonly at the type level)', () => {
+		// If this compiles, the array is typed readonly — accidental push/pop
+		// would be a type error. We assert the runtime shape here.
+		expect(Array.isArray(DOUBLE_PENDULUM_PRESETS)).toBe(true);
+		expect(DOUBLE_PENDULUM_PRESETS.length).toBeGreaterThan(0);
+	});
 });

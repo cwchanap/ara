@@ -22,10 +22,27 @@
 		return Math.min(max, Math.max(min, value));
 	};
 
-	const clampParams = (params?: DoublePendulumParameters | null): DoublePendulumParameters => {
+	// Numeric fields that are clamped to stable ranges. Used to detect whether a
+	// shared link's values were silently clamped (correction #3 of the decode flow).
+	const CLAMPED_NUMERIC_KEYS = [
+		'theta1',
+		'theta2',
+		'omega1',
+		'omega2',
+		'l1',
+		'l2',
+		'm1',
+		'm2',
+		'gravity',
+		'damping'
+	] as const;
+
+	const clampParams = (
+		params: DoublePendulumParameters | null | undefined
+	): { params: DoublePendulumParameters; corrected: boolean } => {
 		const source = params ?? defaultParams;
-		if (!ranges) return source;
-		return {
+		if (!ranges) return { params: source, corrected: false };
+		const clamped: DoublePendulumParameters = {
 			type: 'double-pendulum',
 			theta1: clampValue(source.theta1, ranges.theta1.min, ranges.theta1.max, defaultParams.theta1),
 			theta2: clampValue(source.theta2, ranges.theta2.min, ranges.theta2.max, defaultParams.theta2),
@@ -53,10 +70,28 @@
 			compareMode: false,
 			compareOffset: source.compareOffset ?? defaultParams.compareOffset
 		};
+		// Correction = user-supplied params were present and a clamped numeric
+		// field changed value (out-of-range or non-finite).
+		const corrected =
+			params != null &&
+			CLAMPED_NUMERIC_KEYS.some(
+				(key) => clamped[key] !== (params as DoublePendulumParameters)[key]
+			);
+		return { params: clamped, corrected };
 	};
 
-	const leftInitial = clampParams(initialState?.left as DoublePendulumParameters | null);
-	const rightInitial = clampParams(initialState?.right as DoublePendulumParameters | null);
+	const leftResult = clampParams(initialState?.left as DoublePendulumParameters | null);
+	const rightResult = clampParams(initialState?.right as DoublePendulumParameters | null);
+	const leftInitial = leftResult.params;
+	const rightInitial = rightResult.params;
+
+	// Surface a non-blocking notice when a shared link's params were silently
+	// corrected (invalid decode → defaults, or out-of-range → clamped). The main
+	// single-view page surfaces config problems via VisualizationAlerts; this
+	// gives the compare view parity for the shared-link case.
+	const configCorrected =
+		(initialState?.corrected ?? false) || leftResult.corrected || rightResult.corrected;
+	let noticeDismissed = $state(false);
 
 	let leftTheta1 = $state(leftInitial.theta1);
 	let leftTheta2 = $state(leftInitial.theta2);
@@ -81,6 +116,18 @@
 	const damping = leftInitial.damping;
 	const speed = leftInitial.speed;
 	const trailLength = leftInitial.trailLength;
+
+	// Per-side playback state. The compare view previously mounted renderers
+	// without bind:running/bind:diverged, so a diverged side froze with a
+	// permanent "SIMULATION DIVERGED" overlay and no way out. These bindings +
+	// the per-side Play button below recover via re-seed, mirroring the
+	// single-view page's Play/Reset behavior.
+	let leftRunning = $state(true);
+	let leftDiverged = $state(false);
+	let leftRestartSignal = $state(0);
+	let rightRunning = $state(true);
+	let rightDiverged = $state(false);
+	let rightRestartSignal = $state(0);
 
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	$effect(() => {
@@ -176,7 +223,51 @@
 		rightM1 = p.m1;
 		rightM2 = p.m2;
 	}
+
+	// Play/Pause per side. If a side has diverged, Play clears the divergence,
+	// bumps restartSignal (re-seeds from current params), and resumes — same
+	// recovery path as the single-view page's Play button.
+	function toggleLeftPlay() {
+		if (leftDiverged) {
+			leftDiverged = false;
+			leftRestartSignal += 1;
+			leftRunning = true;
+		} else {
+			leftRunning = !leftRunning;
+		}
+	}
+	function toggleRightPlay() {
+		if (rightDiverged) {
+			rightDiverged = false;
+			rightRestartSignal += 1;
+			rightRunning = true;
+		} else {
+			rightRunning = !rightRunning;
+		}
+	}
 </script>
+
+{#if configCorrected && !noticeDismissed}
+	<div
+		role="status"
+		data-testid="config-corrected-notice"
+		class="flex items-start gap-3 bg-amber-500/10 border border-amber-500/40 rounded-sm px-4 py-3 text-amber-300 text-sm"
+	>
+		<span aria-hidden="true" class="mt-0.5">⚠</span>
+		<p class="flex-1">
+			This link contained invalid or out-of-range parameters. Default or clamped values were used so
+			the simulation stays stable.
+		</p>
+		<button
+			type="button"
+			onclick={() => (noticeDismissed = true)}
+			aria-label="Dismiss notice"
+			class="text-amber-300/70 hover:text-amber-200 transition-colors"
+		>
+			✕
+		</button>
+	</div>
+{/if}
 
 <ComparisonLayout
 	mapType="double-pendulum"
@@ -341,8 +432,20 @@
 				showTrail={true}
 				{trailLength}
 				compareMode={false}
+				restartSignal={leftRestartSignal}
+				bind:running={leftRunning}
+				bind:diverged={leftDiverged}
 				height={400}
 			/>
+			<div class="flex gap-3">
+				<button
+					data-testid="left-toggle-play"
+					onclick={toggleLeftPlay}
+					class="px-5 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm uppercase tracking-widest text-sm font-bold"
+				>
+					{leftRunning ? '⏸ Pause' : '▶ Play'}
+				</button>
+			</div>
 		</div>
 	{/snippet}
 
@@ -501,8 +604,20 @@
 				showTrail={true}
 				{trailLength}
 				compareMode={false}
+				restartSignal={rightRestartSignal}
+				bind:running={rightRunning}
+				bind:diverged={rightDiverged}
 				height={400}
 			/>
+			<div class="flex gap-3">
+				<button
+					data-testid="right-toggle-play"
+					onclick={toggleRightPlay}
+					class="px-5 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm uppercase tracking-widest text-sm font-bold"
+				>
+					{rightRunning ? '⏸ Pause' : '▶ Play'}
+				</button>
+			</div>
 		</div>
 	{/snippet}
 </ComparisonLayout>

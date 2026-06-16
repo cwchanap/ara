@@ -161,7 +161,10 @@
 		runStabilityCheck();
 	});
 
-	// Load config from URL reactively (mirrors the Ikeda page).
+	// Reactive URL config loader: applies ?share=, ?configId=, or ?config= once
+	// per distinct key (debounced + abortable), fetching/decoding params and
+	// pushing them into the sliders. Re-runs only when the resolved config key
+	// changes, so in-place slider edits don't re-trigger a load.
 	$effect(() => {
 		const configId = $page.url.searchParams.get('configId');
 		const shareCode = $page.url.searchParams.get('share');

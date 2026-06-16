@@ -374,6 +374,15 @@ export function checkParameterStability(
 			if (paramRecord.gravity === 0) {
 				warnings.push('gravity is 0; the pendulum will not swing');
 			}
+			// damping is a linear viscous term (-damping*omega). For typical
+			// lengths (l1+l2 ≈ 2, g ≈ 9.81) critical damping is ~2*sqrt(g/L) ≈ 4.4,
+			// so the slider's max of 2 is still *under*damped — but above ~1 the
+			// motion decays within a few swings, which looks like the sim "stopped".
+			if (paramRecord.damping > 1) {
+				warnings.push(
+					'damping is high; the pendulum will settle to rest within a few swings'
+				);
+			}
 			break;
 	}
 

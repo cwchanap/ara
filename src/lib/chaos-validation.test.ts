@@ -2925,6 +2925,48 @@ describe('double-pendulum validation', () => {
 		expect(result.warnings.join(' ')).toContain('gravity');
 	});
 
+	it('warns when damping is high (motion decays within a few swings)', () => {
+		const result = checkParameterStability('double-pendulum', { ...valid, damping: 1.5 });
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => /damping/i.test(w))).toBe(true);
+	});
+
+	it('does not warn about damping at the mild damped-preset value (0.1)', () => {
+		const result = checkParameterStability('double-pendulum', { ...valid, damping: 0.1 });
+		expect(result.warnings.some((w) => /damping/i.test(w))).toBe(false);
+	});
+
+	it('warns when a core physical param is below its stable range (l1=0)', () => {
+		// l1=0 is the degenerate divide-by-zero case; it must be flagged as
+		// unstable so a user is warned before saving a config that blows up.
+		const result = checkParameterStability('double-pendulum', { ...valid, l1: 0 });
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => /l1 \(0\)/.test(w))).toBe(true);
+	});
+
+	it('warns when an angular velocity exceeds its stable range (omega1=60)', () => {
+		const result = checkParameterStability('double-pendulum', { ...valid, omega1: 60 });
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => /omega1/.test(w))).toBe(true);
+	});
+
+	it('warns when mass is below its stable range (m1=0.01)', () => {
+		const result = checkParameterStability('double-pendulum', { ...valid, m1: 0.01 });
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => /m1/.test(w))).toBe(true);
+	});
+
+	it('warns for multiple out-of-range params at once', () => {
+		const result = checkParameterStability('double-pendulum', {
+			...valid,
+			l1: 0,
+			omega2: -100
+		});
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => /l1/.test(w))).toBe(true);
+		expect(result.warnings.some((w) => /omega2/.test(w))).toBe(true);
+	});
+
 	it('is stable for default chaotic parameters', () => {
 		const result = checkParameterStability('double-pendulum', valid);
 		expect(result.isStable).toBe(true);
