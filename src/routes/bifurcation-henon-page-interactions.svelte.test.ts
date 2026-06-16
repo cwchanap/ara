@@ -42,7 +42,7 @@ vi.mock('$app/stores', () => ({
 }));
 
 vi.mock('$app/paths', () => ({
-	base: ''
+	base: '/app'
 }));
 
 vi.mock('$app/navigation', () => ({
@@ -104,6 +104,8 @@ const pageProps = {
 	}
 };
 
+const originalFetch = global.fetch;
+
 describe('Bifurcation Henon page interactions', () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
@@ -122,6 +124,7 @@ describe('Bifurcation Henon page interactions', () => {
 
 	afterEach(() => {
 		vi.useRealTimers();
+		global.fetch = originalFetch;
 		cleanup();
 	});
 
@@ -161,13 +164,13 @@ describe('Bifurcation Henon page interactions', () => {
 
 		const dialogSaveBtn = screen.getByTestId('dialog-save-bifurcation-henon');
 		await fireEvent.click(dialogSaveBtn);
-		expect(global.fetch).toHaveBeenCalledWith('/api/save-config', expect.any(Object));
+		expect(global.fetch).toHaveBeenCalledWith('/app/api/save-config', expect.any(Object));
 
 		const shareTriggerBtn = screen.getByRole('button', { name: /Share/i });
 		await fireEvent.click(shareTriggerBtn);
 
 		const dialogShareBtn = screen.getByTestId('dialog-share-bifurcation-henon');
 		await fireEvent.click(dialogShareBtn);
-		expect(global.fetch).toHaveBeenCalledWith('/api/share', expect.any(Object));
+		expect(global.fetch).toHaveBeenCalledWith('/app/api/share', expect.any(Object));
 	});
 });

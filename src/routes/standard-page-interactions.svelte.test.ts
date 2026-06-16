@@ -42,7 +42,7 @@ vi.mock('$app/stores', () => ({
 }));
 
 vi.mock('$app/paths', () => ({
-	base: ''
+	base: '/app'
 }));
 
 vi.mock('$app/navigation', () => ({
@@ -104,6 +104,8 @@ const pageProps = {
 	}
 };
 
+const originalFetch = global.fetch;
+
 describe('Standard page interactions', () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
@@ -122,6 +124,7 @@ describe('Standard page interactions', () => {
 
 	afterEach(() => {
 		vi.useRealTimers();
+		global.fetch = originalFetch;
 		cleanup();
 	});
 
@@ -136,16 +139,14 @@ describe('Standard page interactions', () => {
 		const { container } = render(StandardPage, { props: pageProps });
 
 		const kSlider = container.querySelector('input[id="k"]') as HTMLInputElement;
-		await fireEvent.input(kSlider, { target: { value: '0.8' } });
-		// Verify slider interaction works
 		expect(kSlider).not.toBeNull();
+		await fireEvent.input(kSlider, { target: { value: '0.8' } });
 
 		const iterationsSlider = container.querySelector(
 			'input[id="iterations"]'
 		) as HTMLInputElement;
-		await fireEvent.input(iterationsSlider, { target: { value: '5000' } });
-		// Just verify the slider exists and can be interacted with
 		expect(iterationsSlider).not.toBeNull();
+		await fireEvent.input(iterationsSlider, { target: { value: '5000' } });
 	});
 
 	it('shows save and share dialogs, calls handleSave and handleShare callbacks', async () => {
@@ -157,13 +158,13 @@ describe('Standard page interactions', () => {
 
 		const dialogSaveBtn = screen.getByTestId('dialog-save-standard');
 		await fireEvent.click(dialogSaveBtn);
-		expect(global.fetch).toHaveBeenCalledWith('/api/save-config', expect.any(Object));
+		expect(global.fetch).toHaveBeenCalledWith('/app/api/save-config', expect.any(Object));
 
 		const shareTriggerBtn = screen.getByRole('button', { name: /Share/i });
 		await fireEvent.click(shareTriggerBtn);
 
 		const dialogShareBtn = screen.getByTestId('dialog-share-standard');
 		await fireEvent.click(dialogShareBtn);
-		expect(global.fetch).toHaveBeenCalledWith('/api/share', expect.any(Object));
+		expect(global.fetch).toHaveBeenCalledWith('/app/api/share', expect.any(Object));
 	});
 });
