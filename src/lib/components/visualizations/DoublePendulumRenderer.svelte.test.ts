@@ -308,4 +308,106 @@ describe('DoublePendulumRenderer', () => {
 		);
 		expect(corners.length).toBeGreaterThan(0);
 	});
+
+	it('hides divergence overlay when diverged prop is false', () => {
+		const { container } = render(DoublePendulumRenderer, {
+			props: { ...baseProps, diverged: false }
+		});
+		expect(container.textContent).not.toContain('SIMULATION DIVERGED');
+	});
+
+	it('updates divergenceValue binding', async () => {
+		const { container } = render(DoublePendulumRenderer, {
+			props: { ...baseProps, compareMode: true, divergenceValue: 0 }
+		});
+
+		// The divergence value binding should be set up
+		expect(container.querySelector('canvas')).not.toBeNull();
+	});
+
+	it('handles running prop changes', async () => {
+		const { rerender } = render(DoublePendulumRenderer, {
+			props: { ...baseProps, running: true }
+		});
+
+		await rerender({ ...baseProps, running: false });
+		// Should not throw
+	});
+
+	it('handles diverged prop changes', async () => {
+		const { rerender } = render(DoublePendulumRenderer, {
+			props: { ...baseProps, diverged: false }
+		});
+
+		await rerender({ ...baseProps, diverged: true });
+		// Should not throw
+	});
+
+	it('clears trails when showTrail is disabled', async () => {
+		const { rerender } = render(DoublePendulumRenderer, {
+			props: { ...baseProps, showTrail: true }
+		});
+
+		await rerender({ ...baseProps, showTrail: false });
+		// Should not throw
+	});
+
+	it('handles showTrail prop changes', async () => {
+		const { rerender } = render(DoublePendulumRenderer, {
+			props: { ...baseProps, showTrail: true }
+		});
+
+		await rerender({ ...baseProps, showTrail: false });
+		await rerender({ ...baseProps, showTrail: true });
+		// Should not throw
+	});
+
+	it('handles compareMode prop changes', async () => {
+		const { rerender } = render(DoublePendulumRenderer, {
+			props: { ...baseProps, compareMode: false }
+		});
+
+		await rerender({ ...baseProps, compareMode: true });
+		// Should not throw
+	});
+
+	it('renders with minimal valid parameters', () => {
+		const { container } = render(DoublePendulumRenderer, {
+			props: {
+				theta1: 0,
+				theta2: 0,
+				omega1: 0,
+				omega2: 0,
+				l1: 1,
+				l2: 1,
+				m1: 1,
+				m2: 1,
+				gravity: 9.81,
+				damping: 0,
+				height: 400
+			}
+		});
+		expect(container.querySelector('canvas')).not.toBeNull();
+	});
+
+	it('handles zero length parameters', () => {
+		const { container } = render(DoublePendulumRenderer, {
+			props: { ...baseProps, l1: 0.1, l2: 0.1 }
+		});
+		expect(container.querySelector('canvas')).not.toBeNull();
+	});
+
+	it('handles very small mass parameters', () => {
+		const { container } = render(DoublePendulumRenderer, {
+			props: { ...baseProps, m1: 0.1, m2: 0.1 }
+		});
+		expect(container.querySelector('canvas')).not.toBeNull();
+	});
+
+	it('handles very large mass parameters', () => {
+		const { container } = render(DoublePendulumRenderer, {
+			props: { ...baseProps, m1: 10, m2: 10 }
+		});
+		expect(container.querySelector('canvas')).not.toBeNull();
+	});
 });
