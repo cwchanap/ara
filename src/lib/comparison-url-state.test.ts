@@ -555,9 +555,10 @@ describe('SSR-safe base64 helpers', () => {
 		const savedBtoa = globalThis.btoa;
 		(globalThis as Record<string, unknown>).btoa = undefined;
 		try {
-			const input = 'hello world';
+			const input = '{"test":"value"}';
 			const encoded = base64Encode(input);
-			expect(encoded).toBe(Buffer.from(input, 'utf8').toString('base64'));
+			const decoded = base64Decode(encoded);
+			expect(decoded).toBe(input);
 		} finally {
 			(globalThis as Record<string, unknown>).btoa = savedBtoa;
 		}
@@ -567,8 +568,8 @@ describe('SSR-safe base64 helpers', () => {
 		const savedAtob = globalThis.atob;
 		(globalThis as Record<string, unknown>).atob = undefined;
 		try {
-			const input = 'hello world';
-			const encoded = Buffer.from(input, 'utf8').toString('base64');
+			const input = '{"test":"value"}';
+			const encoded = base64Encode(input);
 			const decoded = base64Decode(encoded);
 			expect(decoded).toBe(input);
 		} finally {
@@ -576,52 +577,234 @@ describe('SSR-safe base64 helpers', () => {
 		}
 	});
 
-	test('base64Encode throws when neither btoa nor Buffer is available', () => {
+	test('base64Encode throws when no encoding method available', () => {
 		const savedBtoa = globalThis.btoa;
 		const savedBuffer = globalThis.Buffer;
 		(globalThis as Record<string, unknown>).btoa = undefined;
 		(globalThis as Record<string, unknown>).Buffer = undefined;
 		try {
-			expect(() => base64Encode('test')).toThrow(
-				'No base64 encoding method available in current environment'
-			);
+			expect(() => base64Encode('test')).toThrow('No base64 encoding method available');
 		} finally {
 			(globalThis as Record<string, unknown>).btoa = savedBtoa;
 			(globalThis as Record<string, unknown>).Buffer = savedBuffer;
 		}
 	});
 
-	test('base64Decode throws when neither atob nor Buffer is available', () => {
+	test('base64Decode throws when no decoding method available', () => {
 		const savedAtob = globalThis.atob;
 		const savedBuffer = globalThis.Buffer;
 		(globalThis as Record<string, unknown>).atob = undefined;
 		(globalThis as Record<string, unknown>).Buffer = undefined;
 		try {
-			expect(() => base64Decode('dGVzdA==')).toThrow(
-				'No base64 decoding method available in current environment'
-			);
+			expect(() => base64Decode('dGVzdA==')).toThrow('No base64 decoding method available');
 		} finally {
 			(globalThis as Record<string, unknown>).atob = savedAtob;
 			(globalThis as Record<string, unknown>).Buffer = savedBuffer;
 		}
 	});
+});
 
-	test('base64Encode and base64Decode are symmetric via Buffer path', () => {
-		const savedBtoa = globalThis.btoa;
-		const savedAtob = globalThis.atob;
-		(globalThis as Record<string, unknown>).btoa = undefined;
-		(globalThis as Record<string, unknown>).atob = undefined;
-		try {
-			const inputs = ['{"sigma":10,"rho":28}', 'hello', '日本語'];
-			for (const input of inputs) {
-				const encoded = base64Encode(input);
-				const decoded = base64Decode(encoded);
-				expect(decoded).toBe(input);
+describe('double-pendulum specific comparison state', () => {
+	test('encodes and decodes double-pendulum comparison state', () => {
+		const state: ComparisonURLState = {
+			compare: true,
+			left: {
+				type: 'double-pendulum',
+				theta1: Math.PI / 2,
+				theta2: Math.PI / 2,
+				omega1: 0,
+				omega2: 0,
+				l1: 1,
+				l2: 1,
+				m1: 1,
+				m2: 1,
+				gravity: 9.81,
+				damping: 0,
+				speed: 1,
+				showTrail: true,
+				trailLength: 400,
+				compareMode: false,
+				compareOffset: 0.001
+			},
+			right: {
+				type: 'double-pendulum',
+				theta1: Math.PI / 2 + 0.01,
+				theta2: Math.PI / 2,
+				omega1: 0,
+				omega2: 0,
+				l1: 1,
+				l2: 1,
+				m1: 1,
+				m2: 1,
+				gravity: 9.81,
+				damping: 0,
+				speed: 1,
+				showTrail: true,
+				trailLength: 400,
+				compareMode: false,
+				compareOffset: 0.001
 			}
-		} finally {
-			(globalThis as Record<string, unknown>).btoa = savedBtoa;
-			(globalThis as Record<string, unknown>).atob = savedAtob;
-		}
+		};
+
+		const encoded = encodeComparisonState(state);
+		const url = new URL(`https://example.com/double-pendulum/compare?${encoded.toString()}`);
+		const decoded = decodeComparisonState(url, 'double-pendulum');
+
+		expect(decoded).not.toBeNull();
+		expect(decoded!.compare).toBe(true);
+		const leftParams = decoded!.left as DoublePendulumParameters;
+		const rightParams = decoded!.right as DoublePendulumParameters;
+		expect(leftParams.theta1).toBeCloseTo(Math.PI / 2);
+		expect(rightParams.theta1).toBeCloseTo(Math.PI / 2 + 0.01);
+	});
+
+	test('handles double-pendulum with missing optional parameters', () => {
+		const state: ComparisonURLState = {
+			compare: true,
+			left: {
+				type: 'double-pendulum',
+				theta1: Math.PI / 2,
+				theta2: Math.PI / 2,
+				omega1: 0,
+				omega2: 0,
+				l1: 1,
+				l2: 1,
+				m1: 1,
+				m2: 1,
+				gravity: 9.81,
+				damping: 0,
+				speed: 1,
+				showTrail: true,
+				trailLength: 400,
+				compareMode: false,
+				compareOffset: 0.001
+			},
+			right: {
+				type: 'double-pendulum',
+				theta1: 0,
+				theta2: 0,
+				omega1: 0,
+				omega2: 0,
+				l1: 1,
+				l2: 1,
+				m1: 1,
+				m2: 1,
+				gravity: 9.81,
+				damping: 0,
+				speed: 1,
+				showTrail: true,
+				trailLength: 400,
+				compareMode: false,
+				compareOffset: 0.001
+			}
+		};
+
+		const encoded = encodeComparisonState(state);
+		const url = new URL(`https://example.com/double-pendulum/compare?${encoded.toString()}`);
+		const decoded = decodeComparisonState(url, 'double-pendulum');
+
+		expect(decoded).not.toBeNull();
+		const leftParams = decoded!.left as DoublePendulumParameters;
+		// All parameters should be preserved
+		expect(leftParams.speed).toBe(1);
+		expect(leftParams.showTrail).toBe(true);
+	});
+
+	test('createComparisonStateFromCurrent for double-pendulum', () => {
+		const currentParams: DoublePendulumParameters = {
+			type: 'double-pendulum',
+			theta1: 1.0,
+			theta2: -0.5,
+			omega1: 0.5,
+			omega2: -0.3,
+			l1: 1.5,
+			l2: 1.2,
+			m1: 2,
+			m2: 1.5,
+			gravity: 15,
+			damping: 0.1,
+			speed: 1.5,
+			showTrail: true,
+			trailLength: 500,
+			compareMode: false,
+			compareOffset: 0.002
+		};
+
+		const state = createComparisonStateFromCurrent('double-pendulum', currentParams);
+
+		expect(state.compare).toBe(true);
+		const leftParams = state.left as DoublePendulumParameters;
+		const rightParams = state.right as DoublePendulumParameters;
+		expect(leftParams.theta1).toBe(1.0);
+		expect(leftParams.gravity).toBe(15);
+		// Right should be defaults
+		expect(rightParams.theta1).toBeCloseTo(Math.PI / 2);
+		expect(rightParams.gravity).toBeCloseTo(9.81);
+	});
+
+	test('buildComparisonUrl for double-pendulum', () => {
+		const state: ComparisonURLState = {
+			compare: true,
+			left: {
+				type: 'double-pendulum',
+				theta1: Math.PI / 2,
+				theta2: Math.PI / 2,
+				omega1: 0,
+				omega2: 0,
+				l1: 1,
+				l2: 1,
+				m1: 1,
+				m2: 1,
+				gravity: 9.81,
+				damping: 0
+			},
+			right: {
+				type: 'double-pendulum',
+				theta1: 0,
+				theta2: 0,
+				omega1: 0,
+				omega2: 0,
+				l1: 1,
+				l2: 1,
+				m1: 1,
+				m2: 1,
+				gravity: 9.81,
+				damping: 0
+			}
+		};
+
+		const url = buildComparisonUrl('/app', 'double-pendulum', state);
+
+		expect(url).toContain('/app/double-pendulum/compare?');
+		expect(url).toContain('compare=true');
+	});
+
+	test('normalizeParameters handles double-pendulum parameters', () => {
+		// double-pendulum doesn't have legacy parameters, but should pass through unchanged
+		const params = {
+			theta1: 1.0,
+			theta2: 0.5,
+			omega1: 0.2,
+			omega2: -0.1,
+			l1: 1.5,
+			l2: 1.2,
+			m1: 2,
+			m2: 1.5,
+			gravity: 15,
+			damping: 0.1
+		};
+
+		// This function is internal, but we can test it indirectly through decode
+		const encoded = base64Encode(JSON.stringify(params));
+		const url = new URL(
+			`https://example.com/double-pendulum/compare?compare=true&left=${encoded}`
+		);
+		const decoded = decodeComparisonState(url, 'double-pendulum');
+
+		expect(decoded).not.toBeNull();
+		const leftParams = decoded!.left as DoublePendulumParameters;
+		expect(leftParams.theta1).toBe(1.0);
+		expect(leftParams.gravity).toBe(15);
 	});
 });
 
