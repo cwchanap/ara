@@ -130,6 +130,7 @@ describe('BifurcationHenonRenderer', () => {
 		await vi.advanceTimersByTimeAsync(200);
 		const canvas = container.querySelector('canvas');
 		expect(canvas).not.toBeNull();
+		expect(canvas).toHaveClass('w-full', 'h-full', 'block');
 	});
 
 	it('renders with large maxIterations', async () => {
