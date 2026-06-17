@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render } from '@testing-library/svelte';
+import { cleanup, render, waitFor } from '@testing-library/svelte';
 
 vi.mock('$lib/stores/camera-sync', () => ({
 	cameraSyncStore: {
@@ -105,50 +105,60 @@ describe('RosslerRenderer (smoke)', () => {
 		cleanup();
 	});
 
-	it('renders without throwing', () => {
-		expect(() =>
-			render(RosslerRenderer, {
-				props: { a: 0.2, b: 0.2, c: 5.7, height: 200 }
-			})
-		).not.toThrow();
-	});
-
-	it('renders a container element', () => {
+	it('renders without throwing', async () => {
 		const { container } = render(RosslerRenderer, {
 			props: { a: 0.2, b: 0.2, c: 5.7, height: 200 }
 		});
-		expect(container.querySelector('div')).not.toBeNull();
+		// The Three.js renderer mounts a <canvas> (mocked domElement) into the container.
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
 	});
 
-	it('renders with different parameter combinations', () => {
-		expect(() =>
-			render(RosslerRenderer, {
-				props: { a: 0.1, b: 0.1, c: 6.0, height: 300 }
-			})
-		).not.toThrow();
+	it('renders a container element with the sci-fi panel styling', async () => {
+		const { container } = render(RosslerRenderer, {
+			props: { a: 0.2, b: 0.2, c: 5.7, height: 200 }
+		});
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+		const panel = container.firstElementChild as HTMLElement;
+		expect(panel?.classList.contains('bg-black/40')).toBe(true);
 	});
 
-	it('renders with extreme parameter values', () => {
-		expect(() =>
-			render(RosslerRenderer, {
-				props: { a: 1.0, b: 1.0, c: 10.0, height: 500 }
-			})
-		).not.toThrow();
+	it('renders with different parameter combinations', async () => {
+		const { container } = render(RosslerRenderer, {
+			props: { a: 0.1, b: 0.1, c: 6.0, height: 300 }
+		});
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
 	});
 
-	it('renders with minimal height', () => {
-		expect(() =>
-			render(RosslerRenderer, {
-				props: { a: 0.2, b: 0.2, c: 5.7, height: 50 }
-			})
-		).not.toThrow();
+	it('renders with extreme parameter values', async () => {
+		const { container } = render(RosslerRenderer, {
+			props: { a: 1.0, b: 1.0, c: 10.0, height: 500 }
+		});
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
 	});
 
-	it('renders with negative parameters', () => {
-		expect(() =>
-			render(RosslerRenderer, {
-				props: { a: -0.1, b: -0.1, c: 5.7, height: 200 }
-			})
-		).not.toThrow();
+	it('renders with minimal height', async () => {
+		const { container } = render(RosslerRenderer, {
+			props: { a: 0.2, b: 0.2, c: 5.7, height: 50 }
+		});
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+	});
+
+	it('renders with negative parameters', async () => {
+		const { container } = render(RosslerRenderer, {
+			props: { a: -0.1, b: -0.1, c: 5.7, height: 200 }
+		});
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
 	});
 });

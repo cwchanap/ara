@@ -135,7 +135,7 @@ describe('Lorenz page interactions', () => {
 		const { container } = render(LorenzPage, { props: authedPageProps });
 
 		// Trail Controls
-		const trailSlider = container.querySelector('input[type="range"][max="100000"]')!;
+		const trailSlider = screen.getByTestId('slider-trailLength');
 		await fireEvent.input(trailSlider, { target: { value: '25000' } });
 
 		const cumulativeBtn = screen.getByRole('button', { name: /Cumulative/i });
@@ -181,7 +181,7 @@ describe('Lorenz page interactions', () => {
 	});
 
 	it('checks stability alerts and allows dismissal', async () => {
-		const { container } = render(LorenzPage, { props: authedPageProps });
+		render(LorenzPage, { props: authedPageProps });
 
 		// Open ADVANCED to find dt input slider
 		const summary = screen.getByText(/ADVANCED/i);
@@ -192,7 +192,7 @@ describe('Lorenz page interactions', () => {
 		await fireEvent.change(solverSelect, { target: { value: 'euler' } });
 
 		// Set dt to 0.015 (which triggers Euler blow-up warning)
-		const dtSlider = container.querySelector('input[type="range"][max="0.02"]')!;
+		const dtSlider = screen.getByTestId('slider-dt');
 		await fireEvent.input(dtSlider, { target: { value: '0.015' } });
 
 		// Run timers to trigger debounced stability checker

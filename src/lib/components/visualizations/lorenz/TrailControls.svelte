@@ -29,6 +29,7 @@
 		step="1000"
 		value={trailLength}
 		oninput={(e) => onLengthChange(Number(e.currentTarget.value))}
+		data-testid="slider-trailLength"
 		class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
 	/>
 	<div class="flex gap-2">
