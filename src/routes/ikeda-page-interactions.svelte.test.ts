@@ -1,11 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import {
 	createUnauthedPageData,
 	resetMockPageStore,
 	unauthedPageProps
 } from '$lib/components/testing/page-test-helpers';
-import { vi } from 'vitest';
 import IkedaPage from './ikeda/+page.svelte';
 
 vi.mock('$app/stores', async () => {
