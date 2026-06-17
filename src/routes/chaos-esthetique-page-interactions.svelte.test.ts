@@ -1,49 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
-import type { Page } from '@sveltejs/kit';
+import {
+	authedPageProps,
+	resetMockPageStore,
+	restoreFetch,
+	setMockPageUrl,
+	setupApiFetchMock
+} from '$lib/components/testing/page-test-helpers';
 import ChaosEsthetiquePage from './chaos-esthetique/+page.svelte';
 
-const pageStore = vi.hoisted(() => {
-	let value: Page = {
-		url: new URL('http://localhost/chaos-esthetique') as Page['url'],
-		params: {},
-		route: { id: null },
-		status: 200,
-		error: null,
-		data: {
-			session: { user: { id: 'test' } },
-			user: { id: 'test' },
-			profile: {
-				id: 'test',
-				username: 'testuser',
-				createdAt: '2024-01-01',
-				updatedAt: '2024-01-01'
-			}
-		},
-		form: null,
-		state: {}
-	};
-	const subscribers = new Set<(value: Page) => void>();
-	return {
-		subscribe(run: (value: Page) => void) {
-			run(value);
-			subscribers.add(run);
-			return () => subscribers.delete(run);
-		},
-		set(next: Page) {
-			value = next;
-			subscribers.forEach((subscriber) => subscriber(value));
-		}
-	};
+vi.mock('$app/stores', async () => {
+	const { mockPageStore } = await import('$lib/components/testing/page-test-helpers');
+	return { page: mockPageStore };
 });
 
-vi.mock('$app/stores', () => ({
-	page: { subscribe: pageStore.subscribe }
-}));
-
-vi.mock('$app/paths', () => ({
-	base: '/app'
-}));
+vi.mock('$app/paths', async () => {
+	const { BASE_PATH } = await import('$lib/components/testing/page-test-helpers');
+	return { base: BASE_PATH };
+});
 
 vi.mock('$app/navigation', () => ({
 	goto: vi.fn()
@@ -69,87 +43,41 @@ vi.mock('$lib/components/visualizations/ChaosEsthetiqueRenderer.svelte', async (
 	return { default: module.default };
 });
 
-function setPageUrl(url: string) {
-	pageStore.set({
-		url: new URL(url) as Page['url'],
-		params: {},
-		route: { id: null },
-		status: 200,
-		error: null,
-		data: {
-			session: { user: { id: 'test' } },
-			user: { id: 'test' },
-			profile: {
-				id: 'test',
-				username: 'testuser',
-				createdAt: '2024-01-01',
-				updatedAt: '2024-01-01'
-			}
-		},
-		form: null,
-		state: {}
-	});
-}
-
-const pageProps = {
-	data: {
-		session: { user: { id: 'test' } },
-		user: { id: 'test' },
-		profile: {
-			id: 'test',
-			username: 'testuser',
-			createdAt: '2024-01-01',
-			updatedAt: '2024-01-01'
-		}
-	}
-};
-
-const originalFetch = global.fetch;
-
 describe('Chaos Esthetique page interactions', () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
-		global.fetch = vi.fn().mockImplementation(() =>
-			Promise.resolve({
-				ok: true,
-				json: () =>
-					Promise.resolve({
-						success: true,
-						shareUrl: 'http://loc/shared',
-						expiresAt: '2026-06-03'
-					})
-			} as Response)
-		) as unknown as typeof global.fetch;
+		setupApiFetchMock();
 	});
 
 	afterEach(() => {
 		vi.useRealTimers();
-		global.fetch = originalFetch;
+		restoreFetch();
+		resetMockPageStore();
 		cleanup();
 	});
 
 	it('renders correctly and has title', () => {
-		setPageUrl('http://localhost/chaos-esthetique');
-		render(ChaosEsthetiquePage, { props: pageProps });
+		setMockPageUrl('http://localhost/chaos-esthetique');
+		render(ChaosEsthetiquePage, { props: authedPageProps });
 		expect(screen.getByText('CHAOS_ESTHETIQUE')).toBeInTheDocument();
 	});
 
 	it('shows save and share dialogs, calls handleSave and handleShare callbacks', async () => {
-		setPageUrl('http://localhost/chaos-esthetique');
-		render(ChaosEsthetiquePage, { props: pageProps });
+		setMockPageUrl('http://localhost/chaos-esthetique');
+		render(ChaosEsthetiquePage, { props: authedPageProps });
 
 		const saveTriggerBtn = screen.getByRole('button', { name: /Save/i });
 		await fireEvent.click(saveTriggerBtn);
 
 		const dialogSaveBtn = screen.getByTestId('dialog-save-chaos-esthetique');
 		await fireEvent.click(dialogSaveBtn);
-		expect(global.fetch).toHaveBeenCalledWith('/app/api/save-config', expect.any(Object));
+		expect(global.fetch).toHaveBeenCalledWith('/api/save-config', expect.any(Object));
 
 		const shareTriggerBtn = screen.getByRole('button', { name: /Share/i });
 		await fireEvent.click(shareTriggerBtn);
 
 		const dialogShareBtn = screen.getByTestId('dialog-share-chaos-esthetique');
 		await fireEvent.click(dialogShareBtn);
-		expect(global.fetch).toHaveBeenCalledWith('/app/api/share', expect.any(Object));
+		expect(global.fetch).toHaveBeenCalledWith('/api/share', expect.any(Object));
 	});
 });

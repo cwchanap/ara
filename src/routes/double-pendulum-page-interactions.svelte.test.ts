@@ -1,49 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
-import type { Page } from '@sveltejs/kit';
+import {
+	authedPageProps,
+	resetMockPageStore,
+	restoreFetch,
+	setMockPageUrl,
+	setupApiFetchMock
+} from '$lib/components/testing/page-test-helpers';
 import DoublePendulumPage from './double-pendulum/+page.svelte';
 
-const pageStore = vi.hoisted(() => {
-	let value: Page = {
-		url: new URL('http://localhost/double-pendulum') as Page['url'],
-		params: {},
-		route: { id: null },
-		status: 200,
-		error: null,
-		data: {
-			session: { user: { id: 'test' } },
-			user: { id: 'test' },
-			profile: {
-				id: 'test',
-				username: 'testuser',
-				createdAt: '2024-01-01',
-				updatedAt: '2024-01-01'
-			}
-		},
-		form: null,
-		state: {}
-	};
-	const subscribers = new Set<(value: Page) => void>();
-	return {
-		subscribe(run: (value: Page) => void) {
-			run(value);
-			subscribers.add(run);
-			return () => subscribers.delete(run);
-		},
-		set(next: Page) {
-			value = next;
-			subscribers.forEach((subscriber) => subscriber(value));
-		}
-	};
+vi.mock('$app/stores', async () => {
+	const { mockPageStore } = await import('$lib/components/testing/page-test-helpers');
+	return { page: mockPageStore };
 });
 
-vi.mock('$app/stores', () => ({
-	page: { subscribe: pageStore.subscribe }
-}));
-
-vi.mock('$app/paths', () => ({
-	base: ''
-}));
+vi.mock('$app/paths', async () => {
+	const { BASE_PATH } = await import('$lib/components/testing/page-test-helpers');
+	return { base: BASE_PATH };
+});
 
 vi.mock('$app/navigation', () => ({
 	goto: vi.fn()
@@ -69,72 +43,28 @@ vi.mock('$lib/components/visualizations/DoublePendulumRenderer.svelte', async ()
 	return { default: module.default };
 });
 
-function setPageUrl(url: string) {
-	pageStore.set({
-		url: new URL(url) as Page['url'],
-		params: {},
-		route: { id: null },
-		status: 200,
-		error: null,
-		data: {
-			session: { user: { id: 'test' } },
-			user: { id: 'test' },
-			profile: {
-				id: 'test',
-				username: 'testuser',
-				createdAt: '2024-01-01',
-				updatedAt: '2024-01-01'
-			}
-		},
-		form: null,
-		state: {}
-	});
-}
-
-const pageProps = {
-	data: {
-		session: { user: { id: 'test' } },
-		user: { id: 'test' },
-		profile: {
-			id: 'test',
-			username: 'testuser',
-			createdAt: '2024-01-01',
-			updatedAt: '2024-01-01'
-		}
-	}
-};
-
 describe('Double pendulum page interactions', () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
-		// Mock fetch globally
-		global.fetch = vi.fn().mockImplementation(() =>
-			Promise.resolve({
-				ok: true,
-				json: () =>
-					Promise.resolve({
-						success: true,
-						shareUrl: 'http://loc/shared',
-						expiresAt: '2026-06-03'
-					})
-			} as Response)
-		) as unknown as typeof global.fetch;
+		setupApiFetchMock();
 	});
 
 	afterEach(() => {
 		vi.useRealTimers();
+		restoreFetch();
+		resetMockPageStore();
 		cleanup();
 	});
 
 	it('renders correctly and has title', () => {
-		setPageUrl('http://localhost/double-pendulum');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: authedPageProps });
 		expect(screen.getByText('DOUBLE_PENDULUM')).toBeInTheDocument();
 	});
 
 	it('applies a preset when clicked', async () => {
-		setPageUrl('http://localhost/double-pendulum');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		const presetBtn = screen.getByRole('button', { name: /Asymmetric/i });
 		await fireEvent.click(presetBtn);
@@ -144,8 +74,8 @@ describe('Double pendulum page interactions', () => {
 	});
 
 	it('randomizes initial conditions', async () => {
-		setPageUrl('http://localhost/double-pendulum');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		const randomizeBtn = screen.getByRole('button', { name: /Randomize/i });
 		await fireEvent.click(randomizeBtn);
@@ -158,8 +88,8 @@ describe('Double pendulum page interactions', () => {
 	});
 
 	it('resets to defaults', async () => {
-		setPageUrl('http://localhost/double-pendulum');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		const resetBtn = screen.getByTestId('reset');
 		await fireEvent.click(resetBtn);
@@ -169,8 +99,8 @@ describe('Double pendulum page interactions', () => {
 	});
 
 	it('handles playback toggling', async () => {
-		setPageUrl('http://localhost/double-pendulum');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		const pauseBtn = screen.getByRole('button', { name: /Pause/i });
 		await fireEvent.click(pauseBtn);
@@ -180,8 +110,8 @@ describe('Double pendulum page interactions', () => {
 	});
 
 	it('handles trail toggle', async () => {
-		setPageUrl('http://localhost/double-pendulum');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		const trailBtn = screen.getByRole('button', { name: /Trail On/i });
 		await fireEvent.click(trailBtn);
@@ -191,8 +121,8 @@ describe('Double pendulum page interactions', () => {
 	});
 
 	it('handles comparison mode toggle', async () => {
-		setPageUrl('http://localhost/double-pendulum');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		const compareBtn = screen.getByRole('button', { name: /Comparison Off/i });
 		await fireEvent.click(compareBtn);
@@ -202,8 +132,8 @@ describe('Double pendulum page interactions', () => {
 	});
 
 	it('handles slider parameter updates (theta1, theta2, gravity, speed)', async () => {
-		setPageUrl('http://localhost/double-pendulum');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		const theta1Slider = screen.getByTestId('slider-theta1');
 		await fireEvent.input(theta1Slider, { target: { value: '1.5' } });
@@ -223,8 +153,8 @@ describe('Double pendulum page interactions', () => {
 	});
 
 	it('handles advanced parameter updates (omega1, omega2, l1, l2, m1, m2)', async () => {
-		setPageUrl('http://localhost/double-pendulum');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		// Open advanced section
 		const advancedBtn = screen.getByRole('button', { name: /Show Advanced/i });
@@ -256,8 +186,8 @@ describe('Double pendulum page interactions', () => {
 	});
 
 	it('shows save and share dialogs, calls handleSave and handleShare callbacks', async () => {
-		setPageUrl('http://localhost/double-pendulum');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		// Click Save button in header
 		const saveTriggerBtn = screen.getByRole('button', { name: /Save/i });
@@ -279,7 +209,7 @@ describe('Double pendulum page interactions', () => {
 	});
 
 	it('checks stability alerts and allows dismissal', async () => {
-		const { container } = render(DoublePendulumPage, { props: pageProps });
+		const { container } = render(DoublePendulumPage, { props: authedPageProps });
 
 		// Open advanced section
 		const advancedBtn = screen.getByRole('button', { name: /Show Advanced/i });
@@ -304,16 +234,16 @@ describe('Double pendulum page interactions', () => {
 	});
 
 	it('handles compare button navigation', async () => {
-		setPageUrl('http://localhost/double-pendulum');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		const compareBtn = screen.getByRole('link', { name: /Compare/i });
 		expect(compareBtn).toHaveAttribute('href');
 	});
 
 	it('handles return button navigation', async () => {
-		setPageUrl('http://localhost/double-pendulum');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		const returnBtn = screen.getByRole('link', { name: /Return/i });
 		expect(returnBtn).toHaveAttribute('href', '/');
@@ -321,8 +251,8 @@ describe('Double pendulum page interactions', () => {
 
 	it('loads configuration from configId URL parameter', async () => {
 		vi.useFakeTimers();
-		setPageUrl('http://localhost/double-pendulum?configId=test-config-123');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum?configId=test-config-123');
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		await vi.runAllTimersAsync();
 		vi.useRealTimers();
@@ -330,16 +260,16 @@ describe('Double pendulum page interactions', () => {
 
 	it('loads configuration from share URL parameter', async () => {
 		vi.useFakeTimers();
-		setPageUrl('http://localhost/double-pendulum?share=test-share-code');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum?share=test-share-code');
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		await vi.runAllTimersAsync();
 		vi.useRealTimers();
 	});
 
 	it('loads configuration from config URL parameter', async () => {
-		setPageUrl('http://localhost/double-pendulum?config=eyJ0aGV0YTEiOjEuNX0=');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum?config=eyJ0aGV0YTEiOjEuNX0=');
+		render(DoublePendulumPage, { props: authedPageProps });
 	});
 
 	it('handles config load error and shows error alert', async () => {
@@ -351,8 +281,8 @@ describe('Double pendulum page interactions', () => {
 			} as Response)
 		) as unknown as typeof global.fetch;
 
-		setPageUrl('http://localhost/double-pendulum?configId=invalid-config');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum?configId=invalid-config');
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		await vi.runAllTimersAsync();
 		vi.useRealTimers();
@@ -367,8 +297,8 @@ describe('Double pendulum page interactions', () => {
 			} as Response)
 		) as unknown as typeof global.fetch;
 
-		setPageUrl('http://localhost/double-pendulum?configId=invalid-config');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum?configId=invalid-config');
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		await vi.runAllTimersAsync();
 
@@ -379,8 +309,8 @@ describe('Double pendulum page interactions', () => {
 	});
 
 	it('handles toggle play when diverged', async () => {
-		setPageUrl('http://localhost/double-pendulum');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		await fireEvent.click(screen.getByTestId('stub-trigger-diverged'));
 		const stubDiv = screen.getByTestId('stub-trigger-diverged').parentElement;
@@ -393,8 +323,8 @@ describe('Double pendulum page interactions', () => {
 	});
 
 	it('toggles advanced section visibility', async () => {
-		setPageUrl('http://localhost/double-pendulum');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		const showBtn = screen.getByRole('button', { name: /Show Advanced/i });
 		await fireEvent.click(showBtn);
@@ -407,8 +337,8 @@ describe('Double pendulum page interactions', () => {
 	});
 
 	it('handles damping parameter update', async () => {
-		setPageUrl('http://localhost/double-pendulum');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		const advancedBtn = screen.getByRole('button', { name: /Show Advanced/i });
 		await fireEvent.click(advancedBtn);
@@ -419,8 +349,8 @@ describe('Double pendulum page interactions', () => {
 	});
 
 	it('handles trail length parameter update', async () => {
-		setPageUrl('http://localhost/double-pendulum');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		const advancedBtn = screen.getByRole('button', { name: /Show Advanced/i });
 		await fireEvent.click(advancedBtn);
@@ -431,8 +361,8 @@ describe('Double pendulum page interactions', () => {
 	});
 
 	it('handles compare offset parameter update', async () => {
-		setPageUrl('http://localhost/double-pendulum');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		const advancedBtn = screen.getByRole('button', { name: /Show Advanced/i });
 		await fireEvent.click(advancedBtn);
@@ -460,11 +390,11 @@ describe('Double pendulum page interactions', () => {
 			originalAbort.call(this);
 		};
 
-		setPageUrl('http://localhost/double-pendulum?configId=first');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum?configId=first');
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		// Quickly change to another config
-		setPageUrl('http://localhost/double-pendulum?configId=second');
+		setMockPageUrl('http://localhost/double-pendulum?configId=second');
 		await vi.runAllTimersAsync();
 
 		AbortController.prototype.abort = originalAbort;
@@ -472,13 +402,13 @@ describe('Double pendulum page interactions', () => {
 	});
 
 	it('handles invalid config parameter gracefully', async () => {
-		setPageUrl('http://localhost/double-pendulum?config=invalid-json');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum?config=invalid-json');
+		render(DoublePendulumPage, { props: authedPageProps });
 	});
 
 	it('preserves running state when applying preset', async () => {
-		setPageUrl('http://localhost/double-pendulum');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		const pauseBtn = screen.getByRole('button', { name: /Pause/i });
 		await fireEvent.click(pauseBtn);
@@ -492,8 +422,8 @@ describe('Double pendulum page interactions', () => {
 	});
 
 	it('clears divergence when applying preset', async () => {
-		setPageUrl('http://localhost/double-pendulum');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		await fireEvent.click(screen.getByTestId('stub-trigger-diverged'));
 		const stubDiv = screen.getByTestId('stub-trigger-diverged').parentElement;
@@ -506,8 +436,8 @@ describe('Double pendulum page interactions', () => {
 	});
 
 	it('increments restart signal when applying preset', async () => {
-		setPageUrl('http://localhost/double-pendulum');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		const presetBtn = screen.getByRole('button', { name: /Asymmetric/i });
 		await fireEvent.click(presetBtn);
@@ -517,8 +447,8 @@ describe('Double pendulum page interactions', () => {
 	});
 
 	it('clears divergence when randomizing', async () => {
-		setPageUrl('http://localhost/double-pendulum');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		await fireEvent.click(screen.getByTestId('stub-trigger-diverged'));
 		const stubDiv = screen.getByTestId('stub-trigger-diverged').parentElement;
@@ -531,8 +461,8 @@ describe('Double pendulum page interactions', () => {
 	});
 
 	it('sets running to true when randomizing', async () => {
-		setPageUrl('http://localhost/double-pendulum');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		const pauseBtn = screen.getByRole('button', { name: /Pause/i });
 		await fireEvent.click(pauseBtn);
@@ -545,8 +475,8 @@ describe('Double pendulum page interactions', () => {
 	});
 
 	it('increments restart signal when randomizing', async () => {
-		setPageUrl('http://localhost/double-pendulum');
-		render(DoublePendulumPage, { props: pageProps });
+		setMockPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		const randomizeBtn = screen.getByRole('button', { name: /Randomize/i });
 		await fireEvent.click(randomizeBtn);
