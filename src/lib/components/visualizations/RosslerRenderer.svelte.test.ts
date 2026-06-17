@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render } from '@testing-library/svelte';
 
 vi.mock('$lib/stores/camera-sync', () => ({
@@ -94,7 +94,14 @@ vi.mock('three/examples/jsm/controls/OrbitControls.js', () => ({
 import RosslerRenderer from './RosslerRenderer.svelte';
 
 describe('RosslerRenderer (smoke)', () => {
+	// RosslerRenderer uses requestAnimationFrame internally (line 199).
+	// Fake timers prevent the animation loop from leaking across tests.
+	beforeEach(() => {
+		vi.useFakeTimers();
+	});
+
 	afterEach(() => {
+		vi.useRealTimers();
 		cleanup();
 	});
 

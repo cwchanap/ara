@@ -1,40 +1,24 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
-import type { Page } from '@sveltejs/kit';
+import {
+	createUnauthedPageData,
+	resetMockPageStore,
+	setMockPageUrl,
+	unauthedPageProps
+} from '$lib/components/testing/page-test-helpers';
 import ChuaPage from './chua/+page.svelte';
 
-const pageStore = vi.hoisted(() => {
-	let value: Page = {
-		url: new URL('http://localhost/chua') as Page['url'],
-		params: {},
-		route: { id: null },
-		status: 200,
-		error: null,
-		data: { session: null, user: null, profile: null },
-		form: null,
-		state: {}
-	};
-	const subscribers = new Set<(value: Page) => void>();
-	return {
-		subscribe(run: (value: Page) => void) {
-			run(value);
-			subscribers.add(run);
-			return () => subscribers.delete(run);
-		},
-		set(next: Page) {
-			value = next;
-			subscribers.forEach((subscriber) => subscriber(value));
-		}
-	};
+const setMockPageUrlUnauthed = (url: string) => setMockPageUrl(url, createUnauthedPageData());
+
+vi.mock('$app/stores', async () => {
+	const { mockPageStore } = await import('$lib/components/testing/page-test-helpers');
+	return { page: mockPageStore };
 });
 
-vi.mock('$app/stores', () => ({
-	page: { subscribe: pageStore.subscribe }
-}));
-
-vi.mock('$app/paths', () => ({
-	base: ''
-}));
+vi.mock('$app/paths', async () => {
+	const { BASE_PATH } = await import('$lib/components/testing/page-test-helpers');
+	return { base: BASE_PATH };
+});
 
 vi.mock('$app/navigation', () => ({
 	goto: vi.fn()
@@ -81,31 +65,15 @@ vi.mock('$lib/components/visualizations/ChuaRenderer.svelte', async () => {
 	return { default: module.default };
 });
 
-function setPageUrl(url: string) {
-	pageStore.set({
-		url: new URL(url) as Page['url'],
-		params: {},
-		route: { id: null },
-		status: 200,
-		error: null,
-		data: { session: null, user: null, profile: null },
-		form: null,
-		state: {}
-	});
-}
-
-const pageProps = {
-	data: { session: null, user: null, profile: null }
-};
-
 describe('Chua page interactions', () => {
 	afterEach(() => {
+		resetMockPageStore('http://localhost/', createUnauthedPageData());
 		cleanup();
 	});
 
 	it('applies a preset when clicked', async () => {
-		setPageUrl('http://localhost/chua');
-		render(ChuaPage, { props: pageProps });
+		setMockPageUrlUnauthed('http://localhost/chua');
+		render(ChuaPage, { props: unauthedPageProps });
 
 		const presetBtn = screen.getByRole('button', { name: /Periodic Orbit/i });
 		await fireEvent.click(presetBtn);
@@ -115,8 +83,8 @@ describe('Chua page interactions', () => {
 	});
 
 	it('switches to poincare view mode', async () => {
-		setPageUrl('http://localhost/chua');
-		render(ChuaPage, { props: pageProps });
+		setMockPageUrlUnauthed('http://localhost/chua');
+		render(ChuaPage, { props: unauthedPageProps });
 
 		const poincareBtn = screen.getByRole('button', { name: /POINCARÉ/i });
 		await fireEvent.click(poincareBtn);
@@ -125,8 +93,8 @@ describe('Chua page interactions', () => {
 	});
 
 	it('changes poincare plane selection', async () => {
-		setPageUrl('http://localhost/chua');
-		render(ChuaPage, { props: pageProps });
+		setMockPageUrlUnauthed('http://localhost/chua');
+		render(ChuaPage, { props: unauthedPageProps });
 
 		const poincareBtn = screen.getByRole('button', { name: /POINCARÉ/i });
 		await fireEvent.click(poincareBtn);
@@ -138,8 +106,8 @@ describe('Chua page interactions', () => {
 	});
 
 	it('toggles transient removal checkbox', async () => {
-		setPageUrl('http://localhost/chua');
-		render(ChuaPage, { props: pageProps });
+		setMockPageUrlUnauthed('http://localhost/chua');
+		render(ChuaPage, { props: unauthedPageProps });
 
 		const checkbox = screen.getByLabelText(/Discard initial transient/i);
 		await fireEvent.click(checkbox);
@@ -148,8 +116,8 @@ describe('Chua page interactions', () => {
 	});
 
 	it('changes color mode selection', async () => {
-		setPageUrl('http://localhost/chua');
-		render(ChuaPage, { props: pageProps });
+		setMockPageUrlUnauthed('http://localhost/chua');
+		render(ChuaPage, { props: unauthedPageProps });
 
 		const select = screen.getByLabelText(/Color By/i);
 		await fireEvent.change(select, { target: { value: 'velocity' } });
@@ -158,8 +126,8 @@ describe('Chua page interactions', () => {
 	});
 
 	it('switches between view modes', async () => {
-		setPageUrl('http://localhost/chua');
-		render(ChuaPage, { props: pageProps });
+		setMockPageUrlUnauthed('http://localhost/chua');
+		render(ChuaPage, { props: unauthedPageProps });
 
 		const xyBtn = screen.getByRole('button', { name: /XY/i });
 		await fireEvent.click(xyBtn);

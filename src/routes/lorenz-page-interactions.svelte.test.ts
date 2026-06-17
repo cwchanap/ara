@@ -1,49 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
-import type { Page } from '@sveltejs/kit';
+import {
+	authedPageProps,
+	resetMockPageStore,
+	restoreFetch,
+	setMockPageUrl,
+	setupApiFetchMock
+} from '$lib/components/testing/page-test-helpers';
 import LorenzPage from './lorenz/+page.svelte';
 
-const pageStore = vi.hoisted(() => {
-	let value: Page = {
-		url: new URL('http://localhost/lorenz') as Page['url'],
-		params: {},
-		route: { id: null },
-		status: 200,
-		error: null,
-		data: {
-			session: { user: { id: 'test' } },
-			user: { id: 'test' },
-			profile: {
-				id: 'test',
-				username: 'testuser',
-				createdAt: '2024-01-01',
-				updatedAt: '2024-01-01'
-			}
-		},
-		form: null,
-		state: {}
-	};
-	const subscribers = new Set<(value: Page) => void>();
-	return {
-		subscribe(run: (value: Page) => void) {
-			run(value);
-			subscribers.add(run);
-			return () => subscribers.delete(run);
-		},
-		set(next: Page) {
-			value = next;
-			subscribers.forEach((subscriber) => subscriber(value));
-		}
-	};
+vi.mock('$app/stores', async () => {
+	const { mockPageStore } = await import('$lib/components/testing/page-test-helpers');
+	return { page: mockPageStore };
 });
 
-vi.mock('$app/stores', () => ({
-	page: { subscribe: pageStore.subscribe }
-}));
-
-vi.mock('$app/paths', () => ({
-	base: ''
-}));
+vi.mock('$app/paths', async () => {
+	const { BASE_PATH } = await import('$lib/components/testing/page-test-helpers');
+	return { base: BASE_PATH };
+});
 
 vi.mock('$app/navigation', () => ({
 	goto: vi.fn()
@@ -69,72 +43,28 @@ vi.mock('$lib/components/visualizations/LorenzRenderer.svelte', async () => {
 	return { default: module.default };
 });
 
-function setPageUrl(url: string) {
-	pageStore.set({
-		url: new URL(url) as Page['url'],
-		params: {},
-		route: { id: null },
-		status: 200,
-		error: null,
-		data: {
-			session: { user: { id: 'test' } },
-			user: { id: 'test' },
-			profile: {
-				id: 'test',
-				username: 'testuser',
-				createdAt: '2024-01-01',
-				updatedAt: '2024-01-01'
-			}
-		},
-		form: null,
-		state: {}
-	});
-}
-
-const pageProps = {
-	data: {
-		session: { user: { id: 'test' } },
-		user: { id: 'test' },
-		profile: {
-			id: 'test',
-			username: 'testuser',
-			createdAt: '2024-01-01',
-			updatedAt: '2024-01-01'
-		}
-	}
-};
-
 describe('Lorenz page interactions', () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
-		// Mock fetch globally
-		global.fetch = vi.fn().mockImplementation(() =>
-			Promise.resolve({
-				ok: true,
-				json: () =>
-					Promise.resolve({
-						success: true,
-						shareUrl: 'http://loc/shared',
-						expiresAt: '2026-06-03'
-					})
-			} as Response)
-		) as unknown as typeof global.fetch;
+		setupApiFetchMock();
 	});
 
 	afterEach(() => {
 		vi.useRealTimers();
+		restoreFetch();
+		resetMockPageStore();
 		cleanup();
 	});
 
 	it('renders correctly and has title', () => {
-		setPageUrl('http://localhost/lorenz');
-		render(LorenzPage, { props: pageProps });
+		setMockPageUrl('http://localhost/lorenz');
+		render(LorenzPage, { props: authedPageProps });
 		expect(screen.getByText('LORENZ_ATTRACTOR')).toBeInTheDocument();
 	});
 
 	it('applies a preset when clicked', async () => {
-		setPageUrl('http://localhost/lorenz');
-		render(LorenzPage, { props: pageProps });
+		setMockPageUrl('http://localhost/lorenz');
+		render(LorenzPage, { props: authedPageProps });
 
 		const presetBtn = screen.getByRole('button', { name: /High Energy/i });
 		await fireEvent.click(presetBtn);
@@ -144,8 +74,8 @@ describe('Lorenz page interactions', () => {
 	});
 
 	it('randomizes and resets initial state', async () => {
-		setPageUrl('http://localhost/lorenz');
-		render(LorenzPage, { props: pageProps });
+		setMockPageUrl('http://localhost/lorenz');
+		render(LorenzPage, { props: authedPageProps });
 
 		const randomizeBtn = screen.getByRole('button', { name: /Randomize/i });
 		await fireEvent.click(randomizeBtn);
@@ -159,16 +89,16 @@ describe('Lorenz page interactions', () => {
 	});
 
 	it('resets camera zoom and view mode', async () => {
-		setPageUrl('http://localhost/lorenz');
-		render(LorenzPage, { props: pageProps });
+		setMockPageUrl('http://localhost/lorenz');
+		render(LorenzPage, { props: authedPageProps });
 
 		const resetCamBtn = screen.getByRole('button', { name: /Reset Camera/i });
 		await fireEvent.click(resetCamBtn);
 	});
 
 	it('handles playback toggling and step/reset triggers', async () => {
-		setPageUrl('http://localhost/lorenz');
-		render(LorenzPage, { props: pageProps });
+		setMockPageUrl('http://localhost/lorenz');
+		render(LorenzPage, { props: authedPageProps });
 
 		const pauseBtn = screen.getByRole('button', { name: /Pause/i });
 		await fireEvent.click(pauseBtn);
@@ -185,8 +115,8 @@ describe('Lorenz page interactions', () => {
 	});
 
 	it('handles slider parameter updates (sigma, rho, beta)', async () => {
-		setPageUrl('http://localhost/lorenz');
-		render(LorenzPage, { props: pageProps });
+		setMockPageUrl('http://localhost/lorenz');
+		render(LorenzPage, { props: authedPageProps });
 
 		const sigmaSlider = screen.getByLabelText(/sigma/i);
 		await fireEvent.input(sigmaSlider, { target: { value: '15' } });
@@ -202,7 +132,7 @@ describe('Lorenz page interactions', () => {
 	});
 
 	it('handles optional parameter controls (color mode, trail length, view mode, solver)', async () => {
-		const { container } = render(LorenzPage, { props: pageProps });
+		const { container } = render(LorenzPage, { props: authedPageProps });
 
 		// Trail Controls
 		const trailSlider = container.querySelector('input[type="range"][max="100000"]')!;
@@ -228,8 +158,8 @@ describe('Lorenz page interactions', () => {
 	});
 
 	it('shows save and share dialogs, calls handleSave and handleShare callbacks', async () => {
-		setPageUrl('http://localhost/lorenz');
-		render(LorenzPage, { props: pageProps });
+		setMockPageUrl('http://localhost/lorenz');
+		render(LorenzPage, { props: authedPageProps });
 
 		// Click Save button in header
 		const saveTriggerBtn = screen.getByRole('button', { name: /Save/i });
@@ -251,7 +181,7 @@ describe('Lorenz page interactions', () => {
 	});
 
 	it('checks stability alerts and allows dismissal', async () => {
-		const { container } = render(LorenzPage, { props: pageProps });
+		const { container } = render(LorenzPage, { props: authedPageProps });
 
 		// Open ADVANCED to find dt input slider
 		const summary = screen.getByText(/ADVANCED/i);
