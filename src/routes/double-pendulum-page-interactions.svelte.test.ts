@@ -209,14 +209,14 @@ describe('Double pendulum page interactions', () => {
 	});
 
 	it('checks stability alerts and allows dismissal', async () => {
-		const { container } = render(DoublePendulumPage, { props: authedPageProps });
+		render(DoublePendulumPage, { props: authedPageProps });
 
 		// Open advanced section
 		const advancedBtn = screen.getByRole('button', { name: /Show Advanced/i });
 		await fireEvent.click(advancedBtn);
 
 		// Set damping to a very high value (should trigger stability warning)
-		const dampingSlider = container.querySelector('input[type="range"][max="2"]')!;
+		const dampingSlider = screen.getByTestId('slider-damping');
 		await fireEvent.input(dampingSlider, { target: { value: '1.5' } });
 
 		// Run timers to trigger debounced stability checker
@@ -373,7 +373,6 @@ describe('Double pendulum page interactions', () => {
 	});
 
 	it('aborts previous config load when new config is loaded', async () => {
-		vi.useFakeTimers();
 		global.fetch = vi.fn().mockImplementation(() => {
 			return new Promise((resolve) => {
 				setTimeout(() => {
@@ -385,25 +384,31 @@ describe('Double pendulum page interactions', () => {
 			});
 		}) as unknown as typeof global.fetch;
 
-		const originalAbort = AbortController.prototype.abort;
-		AbortController.prototype.abort = function () {
-			originalAbort.call(this);
-		};
+		const abortSpy = vi.spyOn(AbortController.prototype, 'abort');
 
-		setMockPageUrl('http://localhost/double-pendulum?configId=first');
-		render(DoublePendulumPage, { props: authedPageProps });
+		try {
+			setMockPageUrl('http://localhost/double-pendulum?configId=first');
+			render(DoublePendulumPage, { props: authedPageProps });
 
-		// Quickly change to another config
-		setMockPageUrl('http://localhost/double-pendulum?configId=second');
-		await vi.runAllTimersAsync();
+			// Quickly change to another config — this should abort the first in-flight load.
+			setMockPageUrl('http://localhost/double-pendulum?configId=second');
+			await vi.runAllTimersAsync();
 
-		AbortController.prototype.abort = originalAbort;
-		vi.useRealTimers();
+			// The first config load's AbortController must have been aborted.
+			expect(abortSpy).toHaveBeenCalled();
+		} finally {
+			abortSpy.mockRestore();
+		}
 	});
 
 	it('handles invalid config parameter gracefully', async () => {
 		setMockPageUrl('http://localhost/double-pendulum?config=invalid-json');
 		render(DoublePendulumPage, { props: authedPageProps });
+
+		// Invalid config must not crash the page — it should fall back to defaults
+		// and still render the title and a default parameter value.
+		expect(screen.getByText('DOUBLE_PENDULUM')).toBeInTheDocument();
+		expect(screen.getByTestId('slider-theta1')).toBeInTheDocument();
 	});
 
 	it('preserves running state when applying preset', async () => {

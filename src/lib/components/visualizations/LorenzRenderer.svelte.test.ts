@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render } from '@testing-library/svelte';
+import { cleanup, render, waitFor } from '@testing-library/svelte';
 
 vi.mock('$lib/stores/camera-sync', () => ({
 	cameraSyncStore: {
@@ -155,19 +155,25 @@ describe('LorenzRenderer (smoke)', () => {
 		cleanup();
 	});
 
-	it('renders without throwing', () => {
-		expect(() =>
-			render(LorenzRenderer, {
-				props: { params: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 }, height: 200 }
-			})
-		).not.toThrow();
-	});
-
-	it('renders a container element', () => {
+	it('renders without throwing', async () => {
 		const { container } = render(LorenzRenderer, {
 			props: { params: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 }, height: 200 }
 		});
-		expect(container.querySelector('div')).not.toBeNull();
+		// The Three.js renderer mounts a <canvas> (mocked domElement) into the container.
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+	});
+
+	it('renders a container element with the sci-fi panel styling', async () => {
+		const { container } = render(LorenzRenderer, {
+			props: { params: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 }, height: 200 }
+		});
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+		const panel = container.firstElementChild as HTMLElement;
+		expect(panel?.classList.contains('bg-black/40')).toBe(true);
 	});
 });
 

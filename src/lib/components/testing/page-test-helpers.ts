@@ -114,11 +114,18 @@ export const unauthedPageProps = { data: createUnauthedPageData() };
 // ---------------------------------------------------------------------------
 // Fetch mock helpers
 // ---------------------------------------------------------------------------
+//
+// `savedFetch` is captured *inside* `setupApiFetchMock` rather than at module
+// load time. In the jsdom project `globalThis.fetch` is `undefined` at module
+// evaluation, so capturing at the top level would make `restoreFetch()` restore
+// `undefined` and silently lose any fetch implementation added later.
 
-const originalFetch = globalThis.fetch;
+let savedFetch: typeof globalThis.fetch | undefined;
 
 /** Install a global `fetch` mock returning a successful save/share response. */
 export function setupApiFetchMock(): void {
+	// Capture the current fetch at install time so restore is always correct.
+	savedFetch = globalThis.fetch;
 	globalThis.fetch = vi.fn().mockImplementation(() =>
 		Promise.resolve({
 			ok: true,
@@ -134,5 +141,8 @@ export function setupApiFetchMock(): void {
 
 /** Restore the original `fetch`. Call in `afterEach` when `setupApiFetchMock` was used. */
 export function restoreFetch(): void {
-	globalThis.fetch = originalFetch;
+	if (savedFetch !== undefined) {
+		globalThis.fetch = savedFetch;
+		savedFetch = undefined;
+	}
 }

@@ -41,6 +41,7 @@
 			step="0.001"
 			value={dt}
 			oninput={(e) => emit({ dt: Number(e.currentTarget.value) })}
+			data-testid="slider-dt"
 			class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
 		/>
 	</label>
