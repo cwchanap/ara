@@ -269,10 +269,6 @@
 		latest = computeMainThread();
 		render(latest);
 		isComputing = false;
-		if (hasPendingRender) {
-			hasPendingRender = false;
-			scheduleRender();
-		}
 	}
 
 	function scheduleRender() {

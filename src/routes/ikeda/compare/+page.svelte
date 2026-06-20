@@ -15,7 +15,7 @@
 
 	const initialState = decodeComparisonState($page.url, 'ikeda');
 	const defaultParams = getDefaultParameters('ikeda') as IkedaParameters;
-	const ranges = getStableRanges('ikeda');
+	const ranges = getStableRanges('ikeda')!;
 
 	const clampValue = (value: number, min: number, max: number, fallback: number) => {
 		if (!Number.isFinite(value)) return fallback;
@@ -24,7 +24,6 @@
 
 	const clampParams = (params?: IkedaParameters | null): IkedaParameters => {
 		const source = params ?? defaultParams;
-		if (!ranges) return source;
 		return {
 			type: 'ikeda',
 			u: clampValue(source.u, ranges.u.min, ranges.u.max, defaultParams.u),
@@ -65,10 +64,10 @@
 	// Styling params are intentionally shared from the left side only.
 	// Both panels render with identical visual settings so differences
 	// reflect mathematical parameters (u, iterations, burnIn), not styling.
-	const seeds = leftInitial.seeds ?? defaultParams.seeds ?? 250;
-	const colorMode = leftInitial.colorMode ?? defaultParams.colorMode ?? 'iteration';
-	const pointSize = leftInitial.pointSize ?? defaultParams.pointSize ?? 1.5;
-	const opacity = leftInitial.opacity ?? defaultParams.opacity ?? 0.6;
+	const seeds = leftInitial.seeds ?? defaultParams.seeds!;
+	const colorMode = leftInitial.colorMode ?? defaultParams.colorMode!;
+	const pointSize = leftInitial.pointSize ?? defaultParams.pointSize!;
+	const opacity = leftInitial.opacity ?? defaultParams.opacity!;
 
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	$effect(() => {

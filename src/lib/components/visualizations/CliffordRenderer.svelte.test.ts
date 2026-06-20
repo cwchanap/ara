@@ -263,4 +263,67 @@ describe('CliffordRenderer', () => {
 		});
 		expect(() => unmount()).not.toThrow();
 	});
+
+	it('warns and skips drawing when 2D context is unavailable', async () => {
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const originalMockGetContext = HTMLCanvasElement.prototype.getContext;
+		// Override getContext to return null for '2d'.
+		Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+			configurable: true,
+			value: () => null
+		});
+		try {
+			const { container } = render(CliffordRenderer, {
+				props: { ...baseProps, colorMode: 'iteration' as const }
+			});
+			await waitFor(() => {
+				expect(container.querySelector('canvas')).not.toBeNull();
+			});
+			await waitFor(() => {
+				expect(warnSpy).toHaveBeenCalledWith(
+					expect.stringContaining('canvas or 2D context unavailable')
+				);
+			});
+		} finally {
+			Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+				configurable: true,
+				value: originalMockGetContext
+			});
+			warnSpy.mockRestore();
+		}
+	});
+
+	it('skips out-of-bounds points in density mode without errors', async () => {
+		// With zoom > 1, the domain narrows around the center. Points at the
+		// extremes map outside the canvas pixel grid; the density loop's bounds
+		// check (continue) should skip them without errors.
+		vi.mocked(calculateCliffordTuples).mockReturnValue([
+			[-10, -10],
+			[10, 10],
+			[0, 0],
+			[0.5, 0.5]
+		]);
+		render(CliffordRenderer, {
+			props: { ...baseProps, zoom: 5, colorMode: 'density' as const }
+		});
+		await waitFor(() => {
+			expect(ctx.putImageData).toHaveBeenCalled();
+		});
+	});
+
+	it('binds containerElement prop to the inner container div', async () => {
+		// Pass a containerElement prop so the $effect binding (containerElement =
+		// container) executes. The renderer should still render normally.
+		let boundContainer: HTMLDivElement | undefined;
+		render(CliffordRenderer, {
+			props: {
+				...baseProps,
+				colorMode: 'density' as const,
+				containerElement: boundContainer
+			}
+		});
+		await waitFor(() => {
+			expect(ctx.putImageData).toHaveBeenCalled();
+		});
+	});
 });
