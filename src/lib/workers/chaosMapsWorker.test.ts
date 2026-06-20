@@ -765,3 +765,29 @@ describe('ikeda map messages', () => {
 		}
 	});
 });
+
+// ── clifford map messages ──────────────────────────────────────────────────────
+
+describe('handleWorkerMessage — clifford', () => {
+	test('returns a cliffordResult capped at maxPoints', () => {
+		responses.length = 0;
+		selfMock.onmessage?.({
+			data: {
+				type: 'clifford',
+				id: 7,
+				a: -1.4,
+				b: 1.6,
+				c: 1.0,
+				d: 0.7,
+				iterations: 1000,
+				maxPoints: 50
+			}
+		});
+		expect(responses[0]?.type).toBe('cliffordResult');
+		expect(responses[0]?.id).toBe(7);
+		if (responses[0]?.type === 'cliffordResult') {
+			expect(responses[0].points.length).toBe(50);
+			expect(responses[0].points[0].length).toBe(2);
+		}
+	});
+});

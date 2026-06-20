@@ -35,7 +35,22 @@ export interface IkedaRequest {
 	maxPoints: number;
 }
 
-export type ChaosMapsWorkerRequest = StandardMapRequest | ChaosEsthetiqueRequest | IkedaRequest;
+export interface CliffordRequest {
+	type: 'clifford';
+	id: number;
+	a: number;
+	b: number;
+	c: number;
+	d: number;
+	iterations: number;
+	maxPoints: number;
+}
+
+export type ChaosMapsWorkerRequest =
+	| StandardMapRequest
+	| ChaosEsthetiqueRequest
+	| IkedaRequest
+	| CliffordRequest;
 
 // Response types
 export interface StandardMapResponse {
@@ -57,6 +72,12 @@ export interface IkedaResponse {
 	seedIndices: number[];
 }
 
+export interface CliffordResponse {
+	type: 'cliffordResult';
+	id: number;
+	points: [number, number][];
+}
+
 export interface ErrorResponse {
 	type: 'error';
 	id: number;
@@ -67,4 +88,5 @@ export type ChaosMapsWorkerResponse =
 	| StandardMapResponse
 	| ChaosEsthetiqueResponse
 	| IkedaResponse
+	| CliffordResponse
 	| ErrorResponse;
