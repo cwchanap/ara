@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from 'vitest';
+import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest';
 import type {
 	ChaosMapsWorkerRequest,
 	ChaosMapsWorkerResponse,
@@ -7,6 +7,7 @@ import type {
 	ChaosEsthetiqueResponse,
 	IkedaResponse
 } from './types';
+import * as handlerModule from './chaosMapsHandler';
 
 type SuccessResponse = StandardMapResponse | ChaosEsthetiqueResponse | IkedaResponse;
 
@@ -789,5 +790,131 @@ describe('handleWorkerMessage — clifford', () => {
 			expect(responses[0].points.length).toBe(50);
 			expect(responses[0].points[0].length).toBe(2);
 		}
+	});
+});
+
+// ── handler throw → typed ErrorResponse ──────────────────────────────────────
+//
+// The worker's onmessage wraps dispatch in try/catch so a thrown handler
+// (or a future postMessage structured-clone failure) becomes a typed
+// ErrorResponse routed through the renderer's existing error branch,
+// instead of an uncaught worker ErrorEvent whose `message` is empty.
+
+describe('chaosMapsWorker — handler throw handling', () => {
+	test('converts a thrown Error into a typed ErrorResponse with its message', () => {
+		responses.length = 0;
+		const spy = vi.spyOn(handlerModule, 'handleWorkerMessage').mockImplementation(() => {
+			throw new Error('handler boom');
+		});
+
+		selfMock.onmessage?.({
+			data: {
+				type: 'clifford',
+				id: 999,
+				a: -1.4,
+				b: 1.6,
+				c: 1.0,
+				d: 0.7,
+				iterations: 1000,
+				maxPoints: 50
+			}
+		});
+
+		expect(responses).toHaveLength(1);
+		const r = responses[0] as ErrorResponse;
+		expect(r.type).toBe('error');
+		expect(r.id).toBe(999);
+		expect(r.message).toBe('handler boom');
+
+		spy.mockRestore();
+	});
+
+	test('echoes the request id when the thrown request has a numeric id', () => {
+		responses.length = 0;
+		const spy = vi.spyOn(handlerModule, 'handleWorkerMessage').mockImplementation(() => {
+			throw new Error('ikeda boom');
+		});
+
+		selfMock.onmessage?.({
+			data: {
+				type: 'ikeda',
+				id: 4242,
+				u: 0.918,
+				iterations: 10,
+				burnIn: 1,
+				seeds: 1,
+				maxPoints: 1
+			}
+		});
+
+		const r = responses[0] as ErrorResponse;
+		expect(r.type).toBe('error');
+		expect(r.id).toBe(4242);
+		expect(r.message).toBe('ikeda boom');
+
+		spy.mockRestore();
+	});
+
+	test('falls back to id -1 when the thrown request has no numeric id', () => {
+		responses.length = 0;
+		const spy = vi.spyOn(handlerModule, 'handleWorkerMessage').mockImplementation(() => {
+			throw new Error('no-id boom');
+		});
+
+		selfMock.onmessage?.({
+			data: { type: 'clifford' } as unknown as ChaosMapsWorkerRequest
+		});
+
+		const r = responses[0] as ErrorResponse;
+		expect(r.type).toBe('error');
+		expect(r.id).toBe(-1);
+		expect(r.message).toBe('no-id boom');
+
+		spy.mockRestore();
+	});
+
+	test('stringifies non-Error throw values into the message', () => {
+		responses.length = 0;
+		const spy = vi.spyOn(handlerModule, 'handleWorkerMessage').mockImplementation(() => {
+			throw 'string thrown value';
+		});
+
+		selfMock.onmessage?.({
+			data: {
+				type: 'clifford',
+				id: 7,
+				a: 1,
+				b: 1,
+				c: 1,
+				d: 1,
+				iterations: 1,
+				maxPoints: 1
+			}
+		});
+
+		const r = responses[0] as ErrorResponse;
+		expect(r.type).toBe('error');
+		expect(r.id).toBe(7);
+		expect(r.message).toBe('string thrown value');
+
+		spy.mockRestore();
+	});
+
+	test('still dispatches normally after a spy is restored (no regression)', () => {
+		responses.length = 0;
+		selfMock.onmessage?.({
+			data: {
+				type: 'clifford',
+				id: 11,
+				a: -1.4,
+				b: 1.6,
+				c: 1.0,
+				d: 0.7,
+				iterations: 5,
+				maxPoints: 5
+			}
+		});
+		expect(responses[0]?.type).toBe('cliffordResult');
+		expect(responses[0]?.id).toBe(11);
 	});
 });

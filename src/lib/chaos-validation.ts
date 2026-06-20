@@ -5,7 +5,7 @@
  * about potentially unstable configurations (FR-019).
  */
 
-import type { ChaosMapType, ChaosMapParameters } from '$lib/types';
+import { CLIFFORD_COLOR_MODES, type ChaosMapType, type ChaosMapParameters } from '$lib/types';
 
 // Stable parameter ranges for each chaos map type
 // Values outside these ranges may produce unstable or undefined behavior
@@ -155,7 +155,7 @@ const OPTIONAL_FIELDS: Partial<Record<ChaosMapType, Record<string, OptionalField
 		opacity: { kind: 'number', min: 0, max: 1 }
 	},
 	clifford: {
-		colorMode: { kind: 'enum', values: ['single', 'iteration', 'radius', 'angle', 'density'] },
+		colorMode: { kind: 'enum', values: [...CLIFFORD_COLOR_MODES] },
 		zoom: { kind: 'number', min: 0.5, max: 5 },
 		pointSize: { kind: 'number', min: 0.5, max: 6 },
 		opacity: { kind: 'number', min: 0, max: 1 }
