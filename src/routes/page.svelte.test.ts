@@ -26,10 +26,10 @@ describe('Homepage (+page.svelte)', () => {
 		).toBeInTheDocument();
 	});
 
-	it('renders all 14 visualization cards', () => {
+	it('renders all 15 visualization cards', () => {
 		render(Page);
 		const links = screen.getAllByRole('link');
-		expect(links).toHaveLength(14);
+		expect(links).toHaveLength(15);
 	});
 
 	it('shows the Ikeda Map card linking to /ikeda', () => {
@@ -38,11 +38,18 @@ describe('Homepage (+page.svelte)', () => {
 		expect(link.getAttribute('href')).toContain('/ikeda');
 	});
 
+	it('shows the Clifford Attractor card linking to /clifford', () => {
+		render(Page);
+		const link = screen.getByRole('link', { name: /Clifford Attractor/i });
+		expect(link.getAttribute('href')).toContain('/clifford');
+	});
+
 	const visualizations = [
 		{ name: 'Lorenz Attractor', url: '/lorenz' },
 		{ name: 'Hénon Map', url: '/henon' },
 		{ name: 'Lozi Map', url: '/lozi' },
 		{ name: 'Ikeda Map', url: '/ikeda' },
+		{ name: 'Clifford Attractor', url: '/clifford' },
 		{ name: 'Logistic Map', url: '/logistic' },
 		{ name: 'Bifurcation (Logistic)', url: '/bifurcation-logistic' },
 		{ name: 'Bifurcation (Hénon)', url: '/bifurcation-henon' },
@@ -69,7 +76,7 @@ describe('Homepage (+page.svelte)', () => {
 	it('renders "Initialize Module" call-to-action on each card', () => {
 		render(Page);
 		const ctaElements = screen.getAllByText('Initialize Module');
-		expect(ctaElements).toHaveLength(14);
+		expect(ctaElements).toHaveLength(15);
 	});
 
 	it('renders card descriptions', () => {

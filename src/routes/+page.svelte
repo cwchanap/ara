@@ -27,6 +27,12 @@
 			color: 'from-sky-500 to-cyan-600'
 		},
 		{
+			name: 'Clifford Attractor',
+			description: 'A generative chaotic attractor formed from sine and cosine iteration',
+			url: '/clifford',
+			color: 'from-purple-500 to-fuchsia-600'
+		},
+		{
 			name: 'Logistic Map',
 			description: 'Population growth model showing chaotic behavior',
 			url: '/logistic',
