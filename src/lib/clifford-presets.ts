@@ -109,8 +109,12 @@ function numbersClose(a: number, b: number): boolean {
 }
 
 /**
- * Return the id of the preset whose state matches `state` exactly, or null
+ * Return the id of the preset whose state matches `state`, or null
  * (meaning the user is in a "Custom" state).
+ *
+ * Numeric fields (a, b, c, d, zoom, pointSize, opacity) compare within a
+ * small floating-point tolerance (1e-9) via `numbersClose`; `iterations`
+ * and `colorMode` use strict equality.
  */
 export function detectPresetId(state: CliffordPresetState): string | null {
 	for (const preset of CLIFFORD_PRESETS) {

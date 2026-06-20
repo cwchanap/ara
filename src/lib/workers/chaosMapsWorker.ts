@@ -17,6 +17,17 @@ self.onmessage = (event: MessageEvent<ChaosMapsWorkerRequest>) => {
 		self.postMessage({ type: 'error', id: -1, message: 'Empty worker payload' });
 		return;
 	}
-	const response = handleWorkerMessage(data);
-	self.postMessage(response);
+	// Wrap dispatch + postMessage so a thrown handler or a structured-clone
+	// failure becomes a typed ErrorResponse on the main thread (where the
+	// renderer already routes it through its existing error branch) instead
+	// of an uncaught worker error whose ErrorEvent.message is typically
+	// empty/"Script error." and useless for debugging.
+	try {
+		const response = handleWorkerMessage(data);
+		self.postMessage(response);
+	} catch (err) {
+		const id = typeof data.id === 'number' ? data.id : -1;
+		const message = err instanceof Error ? err.message : String(err);
+		self.postMessage({ type: 'error', id, message });
+	}
 };

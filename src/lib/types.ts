@@ -99,7 +99,20 @@ export interface IkedaParameters {
 	opacity?: number;
 }
 
-export type CliffordColorMode = 'single' | 'iteration' | 'radius' | 'angle' | 'density';
+/**
+ * Source of truth for the Clifford color-mode set. The union is derived from
+ * this tuple so the runtime validator (chaos-validation.ts) can reuse the
+ * same values without restating them.
+ */
+export const CLIFFORD_COLOR_MODES = [
+	'single',
+	'iteration',
+	'radius',
+	'angle',
+	'density'
+] as const satisfies readonly string[];
+
+export type CliffordColorMode = (typeof CLIFFORD_COLOR_MODES)[number];
 
 export interface CliffordParameters {
 	type: 'clifford';
