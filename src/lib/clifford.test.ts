@@ -44,4 +44,15 @@ describe('calculateCliffordTuples', () => {
 			}
 		}
 	});
+
+	test('stops early (defensive break) when an iterate becomes non-finite', () => {
+		// Math.sin(Infinity) === NaN in JS, so an infinite coefficient produces
+		// a non-finite iterate on the first step and triggers the guard break.
+		const pts = calculateCliffordTuples({
+			...CLASSIC,
+			a: Number.POSITIVE_INFINITY,
+			iterations: 100
+		});
+		expect(pts).toEqual([]);
+	});
 });
