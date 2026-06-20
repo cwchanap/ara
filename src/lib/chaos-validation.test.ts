@@ -2977,3 +2977,54 @@ describe('double-pendulum validation', () => {
 		expect(isValidMapType('double-pendulum')).toBe(true);
 	});
 });
+
+describe('clifford validation', () => {
+	const valid = {
+		type: 'clifford' as const,
+		a: -1.4,
+		b: 1.6,
+		c: 1.0,
+		d: 0.7,
+		iterations: 120000
+	};
+
+	test('accepts a valid clifford config', () => {
+		const result = validateParameters('clifford', valid);
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toEqual([]);
+	});
+
+	test('reports missing required parameters', () => {
+		const { a, ...missingA } = valid;
+		void a;
+		const result = validateParameters('clifford', { ...missingA, type: 'clifford' });
+		expect(result.isValid).toBe(false);
+		expect(result.errors.join(' ')).toMatch(/Missing required parameters/);
+	});
+
+	test('rejects an invalid colorMode enum value', () => {
+		const result = validateParameters('clifford', { ...valid, colorMode: 'rainbow' });
+		expect(result.isValid).toBe(false);
+		expect(result.errors.join(' ')).toMatch(/colorMode/);
+	});
+
+	test('accepts a valid colorMode and clamps zoom into range', () => {
+		const result = validateParameters('clifford', {
+			...valid,
+			colorMode: 'density',
+			zoom: 999
+		});
+		expect(result.isValid).toBe(true);
+		expect((result.parameters as Record<string, number>).zoom).toBe(5);
+	});
+
+	test('warns when a shape parameter is outside the stable range', () => {
+		const result = checkParameterStability('clifford', { ...valid, a: 99 });
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.join(' ')).toMatch(/a \(99\)/);
+	});
+
+	test('classic defaults are stable', () => {
+		expect(checkParameterStability('clifford', valid).isStable).toBe(true);
+	});
+});
