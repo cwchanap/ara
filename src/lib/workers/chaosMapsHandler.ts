@@ -5,6 +5,7 @@
 
 import type { ChaosMapsWorkerRequest, ChaosMapsWorkerResponse, ErrorResponse } from './types';
 import { calculateIkedaMultiSeed } from '../ikeda';
+import { calculateCliffordTuples } from '../clifford';
 
 function standardMap(
 	numP: number,
@@ -100,6 +101,16 @@ export function handleWorkerMessage(data: ChaosMapsWorkerRequest): ChaosMapsWork
 			maxPoints: data.maxPoints
 		});
 		return { type: 'ikedaResult', id: data.id, points, seedIndices };
+	} else if (data.type === 'clifford') {
+		const points = calculateCliffordTuples({
+			a: data.a,
+			b: data.b,
+			c: data.c,
+			d: data.d,
+			iterations: data.iterations,
+			maxPoints: data.maxPoints
+		});
+		return { type: 'cliffordResult', id: data.id, points };
 	} else {
 		const fallback = data as Record<string, unknown>;
 		return {

@@ -281,6 +281,7 @@ describe('API Validation Logic', () => {
 				'henon',
 				'lozi',
 				'ikeda',
+				'clifford',
 				'logistic',
 				'newton',
 				'standard',
