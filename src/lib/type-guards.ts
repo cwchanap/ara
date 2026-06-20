@@ -6,6 +6,7 @@ import type {
 	LogisticParameters,
 	LoziParameters,
 	IkedaParameters,
+	CliffordParameters,
 	NewtonParameters,
 	StandardParameters,
 	BifurcationLogisticParameters,
@@ -68,6 +69,15 @@ export function isIkedaParameters(
 	params: ChaosMapParameters | null | undefined
 ): params is IkedaParameters {
 	return params?.type === 'ikeda';
+}
+
+/**
+ * Type guard for Clifford parameters.
+ */
+export function isCliffordParameters(
+	params: ChaosMapParameters | null | undefined
+): params is CliffordParameters {
+	return params?.type === 'clifford';
 }
 
 /**

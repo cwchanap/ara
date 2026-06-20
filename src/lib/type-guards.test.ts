@@ -14,6 +14,7 @@ import {
 	isChuaParameters,
 	isIkedaParameters,
 	isDoublePendulumParameters,
+	isCliffordParameters,
 	isParametersOfType
 } from './type-guards';
 import type { ChaosMapParameters, IkedaParameters, DoublePendulumParameters } from './types';
@@ -369,5 +370,22 @@ describe('isDoublePendulumParameters', () => {
 		expect(isDoublePendulumParameters(params)).toBe(true);
 		expect(isDoublePendulumParameters({ type: 'chua' } as never)).toBe(false);
 		expect(isDoublePendulumParameters(null)).toBe(false);
+	});
+});
+
+describe('isCliffordParameters', () => {
+	test('returns true for clifford params', () => {
+		const p = { type: 'clifford', a: -1.4, b: 1.6, c: 1, d: 0.7, iterations: 1000 } as const;
+		expect(isCliffordParameters(p)).toBe(true);
+	});
+
+	test('returns false for a different map type', () => {
+		const p = { type: 'ikeda', u: 0.9, x0: 0.1, y0: 0, iterations: 800, burnIn: 100 } as const;
+		expect(isCliffordParameters(p)).toBe(false);
+	});
+
+	test('returns false for null/undefined', () => {
+		expect(isCliffordParameters(null)).toBe(false);
+		expect(isCliffordParameters(undefined)).toBe(false);
 	});
 });
