@@ -1430,6 +1430,25 @@ describe('decodeComparisonState – optional field clamping', () => {
 
 // ── getDefaultParameters derives from presets ─────────────────────────────────
 
+describe('clifford comparison defaults', () => {
+	test('getDefaultParameters returns the classic clifford preset', () => {
+		const params = getDefaultParameters('clifford');
+		expect(params.type).toBe('clifford');
+		expect(params).toMatchObject({ a: -1.4, b: 1.6, c: 1.0, d: 0.7 });
+	});
+
+	test('round-trips a clifford comparison state through the URL', () => {
+		const left = getDefaultParameters('clifford');
+		const right = { ...getDefaultParameters('clifford'), a: 1.5 } as typeof left;
+		const encoded = encodeComparisonState({ compare: true, left, right });
+		const url = new URL(`http://localhost/clifford/compare?${encoded.toString()}`);
+		const decoded = decodeComparisonState(url, 'clifford');
+		expect(decoded?.left).toMatchObject({ type: 'clifford', a: -1.4 });
+		expect(decoded?.right).toMatchObject({ type: 'clifford', a: 1.5 });
+		expect(decoded?.corrected).toBe(false);
+	});
+});
+
 describe('getDefaultParameters – preset derivation', () => {
 	test('ikeda defaults match the classic-ikeda preset', () => {
 		const defaults = getDefaultParameters('ikeda');
