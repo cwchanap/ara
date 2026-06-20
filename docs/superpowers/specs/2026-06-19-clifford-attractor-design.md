@@ -188,8 +188,17 @@ Rössler) and from other discrete maps.
 ## Compare Page (`src/routes/clifford/compare/+page.svelte` — new)
 
 Copied from `src/routes/ikeda/compare/+page.svelte`, reusing `buildComparisonUrl`
-and `createComparisonStateFromCurrent`. Supports comparing two parameter sets,
-preset vs custom, and different color modes side by side.
+and `createComparisonStateFromCurrent`. Supports comparing two parameter sets
+(preset vs custom) side by side.
+
+**Shared styling state (deliberate):** as on the Ikeda compare page, the render
+settings (`colorMode`, `zoom`, `pointSize`, `opacity`) are taken from the left
+panel only and applied to both panels, so any visual difference between the two
+panels reflects the mathematical parameters (`a`, `b`, `c`, `d`, `iterations`)
+and not rendering config. Color mode is controlled on the main `/clifford` page.
+Per-panel color modes are out of scope: allowing them would conflate "which
+parameters look better" with "which color mode do I prefer", defeating the
+purpose of an A/B comparison.
 
 ## Persisted Parameter Shape (`CliffordParameters`)
 
