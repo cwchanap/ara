@@ -15,6 +15,7 @@ const EXPECTED_MAP_TYPES: ChaosMapType[] = [
 	'henon',
 	'lozi',
 	'ikeda',
+	'clifford',
 	'logistic',
 	'newton',
 	'standard',
@@ -27,8 +28,8 @@ const EXPECTED_MAP_TYPES: ChaosMapType[] = [
 ];
 
 describe('VALID_MAP_TYPES', () => {
-	test('contains exactly 14 map types', () => {
-		expect(VALID_MAP_TYPES).toHaveLength(14);
+	test('contains exactly 15 map types', () => {
+		expect(VALID_MAP_TYPES).toHaveLength(15);
 	});
 
 	test('contains all expected map types', () => {
@@ -62,8 +63,8 @@ describe('CHAOS_MAP_DISPLAY_NAMES', () => {
 		}
 	});
 
-	test('has exactly 14 entries', () => {
-		expect(Object.keys(CHAOS_MAP_DISPLAY_NAMES)).toHaveLength(14);
+	test('has exactly 15 entries', () => {
+		expect(Object.keys(CHAOS_MAP_DISPLAY_NAMES)).toHaveLength(15);
 	});
 
 	test('all display names are non-empty strings', () => {
@@ -92,6 +93,7 @@ describe('CHAOS_MAP_DISPLAY_NAMES', () => {
 		expect(CHAOS_MAP_DISPLAY_NAMES['henon']).toBe('HÉNON_MAP');
 		expect(CHAOS_MAP_DISPLAY_NAMES['lozi']).toBe('LOZI_MAP');
 		expect(CHAOS_MAP_DISPLAY_NAMES['ikeda']).toBe('IKEDA_MAP');
+		expect(CHAOS_MAP_DISPLAY_NAMES['clifford']).toBe('CLIFFORD_ATTRACTOR');
 		expect(CHAOS_MAP_DISPLAY_NAMES['logistic']).toBe('LOGISTIC_MAP');
 		expect(CHAOS_MAP_DISPLAY_NAMES['newton']).toBe('NEWTON_FRACTAL');
 		expect(CHAOS_MAP_DISPLAY_NAMES['standard']).toBe('STANDARD_MAP');
@@ -107,6 +109,13 @@ describe('CHAOS_MAP_DISPLAY_NAMES', () => {
 		const displayNameKeys = Object.keys(CHAOS_MAP_DISPLAY_NAMES).sort();
 		const validMapTypesSorted = [...VALID_MAP_TYPES].sort();
 		expect(displayNameKeys).toEqual(validMapTypesSorted);
+	});
+});
+
+describe('clifford registration', () => {
+	test('clifford is a valid map type with the correct display name', () => {
+		expect(VALID_MAP_TYPES).toContain('clifford');
+		expect(CHAOS_MAP_DISPLAY_NAMES.clifford).toBe('CLIFFORD_ATTRACTOR');
 	});
 });
 
