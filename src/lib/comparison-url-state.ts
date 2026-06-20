@@ -12,6 +12,7 @@ import {
 	getPreset as getDoublePendulumPreset,
 	DEFAULT_DOUBLE_PENDULUM_PRESET_ID
 } from './double-pendulum-presets';
+import { getPreset as getCliffordPreset, DEFAULT_CLIFFORD_PRESET_ID } from './clifford-presets';
 import { LORENZ_PRESETS } from './lorenz/presets';
 
 /**
@@ -104,6 +105,12 @@ export function getDefaultParameters(mapType: ChaosMapType): ChaosMapParameters 
 				);
 			}
 			return { type: 'double-pendulum', ...preset.state };
+		}
+		case 'clifford': {
+			const preset = getCliffordPreset(DEFAULT_CLIFFORD_PRESET_ID);
+			if (!preset)
+				throw new Error(`Missing default Clifford preset: ${DEFAULT_CLIFFORD_PRESET_ID}`);
+			return { type: 'clifford', ...preset.state };
 		}
 	}
 }
