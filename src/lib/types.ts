@@ -8,13 +8,14 @@ export interface Profile {
 	updatedAt: string;
 }
 
-// Chaos Map Types - the 14 supported visualization types
+// Chaos Map Types - the 15 supported visualization types
 export type ChaosMapType =
 	| 'lorenz'
 	| 'rossler'
 	| 'henon'
 	| 'lozi'
 	| 'ikeda'
+	| 'clifford'
 	| 'logistic'
 	| 'newton'
 	| 'standard'
@@ -94,6 +95,23 @@ export interface IkedaParameters {
 	renderMode?: IkedaRenderMode;
 	seeds?: number;
 	colorMode?: IkedaColorMode;
+	pointSize?: number;
+	opacity?: number;
+}
+
+export type CliffordColorMode = 'single' | 'iteration' | 'radius' | 'angle' | 'density';
+
+export interface CliffordParameters {
+	type: 'clifford';
+	// Required shape + iteration parameters
+	a: number;
+	b: number;
+	c: number;
+	d: number;
+	iterations: number;
+	// Optional render state — persisted so save/share/snapshot reproduce exactly.
+	colorMode?: CliffordColorMode;
+	zoom?: number;
 	pointSize?: number;
 	opacity?: number;
 }
@@ -207,6 +225,7 @@ export type ChaosMapParameters =
 	| HenonParameters
 	| LoziParameters
 	| IkedaParameters
+	| CliffordParameters
 	| LogisticParameters
 	| NewtonParameters
 	| StandardParameters
@@ -224,6 +243,7 @@ export const CHAOS_MAP_DISPLAY_NAMES: Record<ChaosMapType, string> = {
 	henon: 'HÉNON_MAP',
 	lozi: 'LOZI_MAP',
 	ikeda: 'IKEDA_MAP',
+	clifford: 'CLIFFORD_ATTRACTOR',
 	logistic: 'LOGISTIC_MAP',
 	newton: 'NEWTON_FRACTAL',
 	standard: 'STANDARD_MAP',
@@ -242,6 +262,7 @@ export const VALID_MAP_TYPES: ChaosMapType[] = [
 	'henon',
 	'lozi',
 	'ikeda',
+	'clifford',
 	'logistic',
 	'newton',
 	'standard',
@@ -280,6 +301,10 @@ export type SavedConfiguration = {
 	| {
 			mapType: 'ikeda';
 			parameters: IkedaParameters;
+	  }
+	| {
+			mapType: 'clifford';
+			parameters: CliffordParameters;
 	  }
 	| {
 			mapType: 'logistic';
