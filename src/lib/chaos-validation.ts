@@ -48,6 +48,13 @@ const STABLE_RANGES: Record<ChaosMapType, StableRanges<Record<string, number>>> 
 		iterations: { min: 1, max: 50000 },
 		burnIn: { min: 0, max: 10000 }
 	},
+	clifford: {
+		a: { min: -3, max: 3 },
+		b: { min: -3, max: 3 },
+		c: { min: -3, max: 3 },
+		d: { min: -3, max: 3 },
+		iterations: { min: 1, max: 250000 }
+	},
 	logistic: {
 		r: { min: 0, max: 4 },
 		x0: { min: 0, max: 1 },
@@ -144,6 +151,12 @@ const OPTIONAL_FIELDS: Partial<Record<ChaosMapType, Record<string, OptionalField
 		renderMode: { kind: 'enum', values: ['single', 'multi'] },
 		seeds: { kind: 'number', min: 1, max: 5000 },
 		colorMode: { kind: 'enum', values: ['single', 'iteration', 'seed', 'radius'] },
+		pointSize: { kind: 'number', min: 0.5, max: 6 },
+		opacity: { kind: 'number', min: 0, max: 1 }
+	},
+	clifford: {
+		colorMode: { kind: 'enum', values: ['single', 'iteration', 'radius', 'angle', 'density'] },
+		zoom: { kind: 'number', min: 0.5, max: 5 },
 		pointSize: { kind: 'number', min: 0.5, max: 6 },
 		opacity: { kind: 'number', min: 0, max: 1 }
 	},
