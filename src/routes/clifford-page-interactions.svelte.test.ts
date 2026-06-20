@@ -107,6 +107,19 @@ describe('Clifford page interactions', () => {
 		expect(select.value).toBe('iteration');
 	});
 
+	it('disables pointSize and opacity sliders in density mode and enables them otherwise', async () => {
+		render(CliffordPage, { props: unauthedPageProps });
+		// default colorMode is 'density' → both controls start disabled
+		expect((screen.getByTestId('slider-pointSize') as HTMLInputElement).disabled).toBe(true);
+		expect((screen.getByTestId('slider-opacity') as HTMLInputElement).disabled).toBe(true);
+		// switch to a per-point mode → both controls become enabled
+		await fireEvent.change(screen.getByTestId('select-color-mode'), {
+			target: { value: 'iteration' }
+		});
+		expect((screen.getByTestId('slider-pointSize') as HTMLInputElement).disabled).toBe(false);
+		expect((screen.getByTestId('slider-opacity') as HTMLInputElement).disabled).toBe(false);
+	});
+
 	it('renders all five preset buttons', () => {
 		render(CliffordPage, { props: unauthedPageProps });
 		for (const name of [/Classic/i, /Wings/i, /Web/i, /Swirl/i, /Ribbons/i]) {

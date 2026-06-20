@@ -533,6 +533,7 @@
 				</div>
 				<input
 					id="pointSize"
+					data-testid="slider-pointSize"
 					type="range"
 					bind:value={pointSize}
 					disabled={colorMode === 'density'}
@@ -551,6 +552,7 @@
 				</div>
 				<input
 					id="opacity"
+					data-testid="slider-opacity"
 					type="range"
 					bind:value={opacity}
 					disabled={colorMode === 'density'}
