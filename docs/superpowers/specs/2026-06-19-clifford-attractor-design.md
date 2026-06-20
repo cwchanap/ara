@@ -219,12 +219,21 @@ still loads and renders with sensible defaults.
 ## Registration Touch-Points (modify)
 
 The save / share / compare / snapshot stack is **generic** and registry-driven.
-Adding `clifford` to the registries below makes the entire stack work
-automatically — **no database migration** is required (`map_type` is a
-free-text column; the save-config API validates against `VALID_MAP_TYPES` +
-`validateParameters`, and the loaders are generic over `ChaosMapType`).
-`saved-config-loader.ts`, `use-visualization-save`, and `use-visualization-share`
-need **no changes**.
+Adding `clifford` to the registries below makes the application stack work
+automatically. `saved-config-loader.ts`, `use-visualization-save`, and
+`use-visualization-share` need **no changes**.
+
+**One database migration IS required** (`drizzle/0009_add_clifford_map_type.sql`):
+although `map_type` is a `text` column, both `saved_configurations` and
+`shared_configurations` enforce it through `CHECK` constraints that live in the
+migration files (not in `schema.ts`, by design — see the comment in
+`src/lib/server/db/schema.ts`). The migration drops and re-adds the
+`check_valid_map_type` / `chk_shared_configurations_map_type` constraints so
+their `IN (...)` lists include `'clifford'` alongside the other 14 map types,
+keeping the DB allow-list in lock-step with `VALID_MAP_TYPES` (`schema.test.ts`
+asserts the migration list matches `VALID_MAP_TYPES` exactly). At the API layer,
+the save-config endpoint additionally validates against `VALID_MAP_TYPES` +
+`validateParameters`, and the loaders are generic over `ChaosMapType`.
 
 - `src/lib/types.ts`
   - `CliffordColorMode` type + `CliffordParameters` interface
