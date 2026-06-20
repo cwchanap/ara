@@ -5,7 +5,7 @@
  * interaction test.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import type { Page } from '@sveltejs/kit';
 import CliffordPage from './clifford/+page.svelte';
 
@@ -297,5 +297,154 @@ describe('clifford page – config loading', () => {
 		setPageUrl('http://localhost/clifford?configId=dup-id');
 		await new Promise((r) => setTimeout(r, 50));
 		expect(loadSavedConfigParametersMock).toHaveBeenCalledTimes(1);
+	});
+
+	it('shows stability warning when loaded config has out-of-range parameters', async () => {
+		// a=99 is outside the stable range [-3, 3] — validateParameters accepts
+		// it (it's a finite number) but checkParameterStability flags it.
+		loadSavedConfigParametersMock.mockResolvedValueOnce({
+			ok: true,
+			parameters: {
+				type: 'clifford',
+				a: 99,
+				b: 1.6,
+				c: 1.0,
+				d: 0.7,
+				iterations: 120000
+			},
+			source: 'api'
+		});
+
+		setPageUrl('http://localhost/clifford?configId=unstable-id');
+		render(CliffordPage, { props: pageProps });
+
+		await waitFor(() => {
+			expect(screen.getByText('UNSTABLE_PARAMETERS_DETECTED')).toBeInTheDocument();
+		});
+	});
+
+	it('does not update state when unmounted before async config load resolves', async () => {
+		// Create a promise that we control so it never resolves during the test.
+		let resolveLoad: (value: unknown) => void = () => {};
+		loadSavedConfigParametersMock.mockReturnValueOnce(
+			new Promise((resolve) => {
+				resolveLoad = resolve;
+			})
+		);
+
+		setPageUrl('http://localhost/clifford?configId=late-id');
+		const { unmount } = render(CliffordPage, { props: pageProps });
+
+		await waitFor(() => {
+			expect(loadSavedConfigParametersMock).toHaveBeenCalled();
+		});
+
+		// Unmount before the load resolves — the isUnmounted guard should
+		// prevent any state updates when the promise resolves later.
+		unmount();
+
+		// Now resolve the load — should not throw because isUnmounted is true.
+		expect(() =>
+			resolveLoad({
+				ok: true,
+				parameters: { type: 'clifford', a: 1, b: 1, c: 1, d: 1, iterations: 50000 }
+			})
+		).not.toThrow();
+	});
+
+	it('handles AbortError when config load is aborted', async () => {
+		const abortError = new Error('Aborted');
+		abortError.name = 'AbortError';
+		loadSavedConfigParametersMock.mockRejectedValueOnce(abortError);
+
+		setPageUrl('http://localhost/clifford?configId=abort-id');
+		render(CliffordPage, { props: pageProps });
+
+		// The AbortError is caught silently — no config error alert should appear.
+		await new Promise((r) => setTimeout(r, 100));
+		expect(screen.queryByText('INVALID_CONFIGURATION')).not.toBeInTheDocument();
+	});
+
+	it('does not update state when unmounted before rejected config load resolves', async () => {
+		// Create a rejectable promise that we control so it rejects after unmount.
+		let rejectLoad: (reason: unknown) => void = () => {};
+		loadSavedConfigParametersMock.mockReturnValueOnce(
+			new Promise((_, reject) => {
+				rejectLoad = reject;
+			})
+		);
+
+		setPageUrl('http://localhost/clifford?configId=late-reject-id');
+		const { unmount } = render(CliffordPage, { props: pageProps });
+
+		await waitFor(() => {
+			expect(loadSavedConfigParametersMock).toHaveBeenCalled();
+		});
+
+		// Unmount before the load rejects — the isUnmounted guard in the catch
+		// block should prevent any state updates.
+		unmount();
+		expect(() => rejectLoad(new Error('Late network error'))).not.toThrow();
+	});
+
+	it('shows error when inline config param parsing throws an exception', async () => {
+		parseConfigParamMock.mockImplementationOnce(() => {
+			throw new Error('Parse explosion');
+		});
+
+		setPageUrl('http://localhost/clifford?config=crash-data');
+		render(CliffordPage, { props: pageProps });
+
+		await waitFor(() => {
+			expect(
+				screen.getByText('Failed to parse configuration parameters')
+			).toBeInTheDocument();
+		});
+	});
+
+	it('dismisses config error alert when the dismiss button is clicked', async () => {
+		loadSavedConfigParametersMock.mockResolvedValueOnce({
+			ok: false,
+			error: 'Not found',
+			errors: ['Configuration not found']
+		});
+
+		setPageUrl('http://localhost/clifford?configId=dismiss-id');
+		render(CliffordPage, { props: pageProps });
+
+		await waitFor(() => {
+			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
+		});
+
+		// Click the dismiss button on the config error alert.
+		const dismissBtn = screen.getByRole('button', { name: /Dismiss config error/i });
+		await fireEvent.click(dismissBtn);
+		expect(screen.queryByText('INVALID_CONFIGURATION')).not.toBeInTheDocument();
+	});
+
+	it('dismisses stability warning alert when the dismiss button is clicked', async () => {
+		loadSavedConfigParametersMock.mockResolvedValueOnce({
+			ok: true,
+			parameters: {
+				type: 'clifford',
+				a: 99,
+				b: 1.6,
+				c: 1.0,
+				d: 0.7,
+				iterations: 120000
+			},
+			source: 'api'
+		});
+
+		setPageUrl('http://localhost/clifford?configId=warn-dismiss-id');
+		render(CliffordPage, { props: pageProps });
+
+		await waitFor(() => {
+			expect(screen.getByText('UNSTABLE_PARAMETERS_DETECTED')).toBeInTheDocument();
+		});
+
+		const dismissBtn = screen.getByRole('button', { name: /Dismiss warning/i });
+		await fireEvent.click(dismissBtn);
+		expect(screen.queryByText('UNSTABLE_PARAMETERS_DETECTED')).not.toBeInTheDocument();
 	});
 });

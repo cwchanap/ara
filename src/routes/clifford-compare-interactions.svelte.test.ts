@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import type { Page } from '@sveltejs/kit';
 import CliffordComparePage from './clifford/compare/+page.svelte';
 
@@ -243,5 +243,77 @@ describe('Clifford compare page interactions', () => {
 	it('cleans up on unmount without throwing', () => {
 		const { unmount } = render(CliffordComparePage);
 		expect(() => unmount()).not.toThrow();
+	});
+
+	it('swaps left and right parameters via the Swap button', async () => {
+		// Encode distinct left/right params so we can verify the swap.
+		const leftParams = encodeParams({
+			a: 1.5,
+			b: -1.2,
+			c: 0.8,
+			d: -0.5,
+			iterations: 50000
+		});
+		const rightParams = encodeParams({
+			a: -1.4,
+			b: 1.6,
+			c: 1.0,
+			d: 0.7,
+			iterations: 120000
+		});
+		setPageUrl(
+			`http://localhost/clifford/compare?compare=true&left=${leftParams}&right=${rightParams}`
+		);
+		const { container } = render(CliffordComparePage);
+		const leftA = container.querySelector('#left-a') as HTMLInputElement;
+		const rightA = container.querySelector('#right-a') as HTMLInputElement;
+		// Before swap: left a=1.5, right a=-1.4
+		expect(Number(leftA.value)).toBeCloseTo(1.5, 5);
+		expect(Number(rightA.value)).toBeCloseTo(-1.4, 5);
+
+		// Click Swap — ComparisonLayout calls onLeftParamsChange/onRightParamsChange
+		// with the swapped params, which updates leftA/rightA etc.
+		await fireEvent.click(screen.getByRole('button', { name: /Swap/i }));
+
+		// After swap: left a=-1.4, right a=1.5 (values swapped)
+		await waitFor(() => {
+			expect(
+				Number((container.querySelector('#left-a') as HTMLInputElement).value)
+			).toBeCloseTo(-1.4, 5);
+			expect(
+				Number((container.querySelector('#right-a') as HTMLInputElement).value)
+			).toBeCloseTo(1.5, 5);
+		});
+	});
+
+	it('fires oninput on all left and right shape sliders without throwing', async () => {
+		const { container } = render(CliffordComparePage);
+		for (const id of ['left-a', 'left-b', 'left-c', 'left-d']) {
+			const slider = container.querySelector(`#${id}`) as HTMLInputElement;
+			await fireEvent.input(slider, { target: { value: '0.5' } });
+		}
+		for (const id of ['right-a', 'right-b', 'right-c', 'right-d']) {
+			const slider = container.querySelector(`#${id}`) as HTMLInputElement;
+			await fireEvent.input(slider, { target: { value: '-0.5' } });
+		}
+		// Verify one slider reflected the change.
+		expect(Number((container.querySelector('#left-a') as HTMLInputElement).value)).toBeCloseTo(
+			0.5,
+			5
+		);
+		expect(Number((container.querySelector('#right-d') as HTMLInputElement).value)).toBeCloseTo(
+			-0.5,
+			5
+		);
+	});
+
+	it('updates URL via goto when a left iterations slider changes with bind', async () => {
+		vi.useFakeTimers();
+		const { container } = render(CliffordComparePage);
+		const leftIterations = container.querySelector('#left-iterations') as HTMLInputElement;
+		await fireEvent.input(leftIterations, { target: { value: '80000' } });
+		vi.advanceTimersByTime(400);
+		expect(mockGoto).toHaveBeenCalled();
+		vi.useRealTimers();
 	});
 });

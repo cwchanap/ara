@@ -149,6 +149,12 @@ describe('Clifford page interactions', () => {
 		expect(screen.queryByTestId('dialog-stub-clifford')).toBeNull();
 	});
 
+	it('opens the share dialog when Share button is clicked', async () => {
+		render(CliffordPage, { props: unauthedPageProps });
+		await fireEvent.click(screen.getByRole('button', { name: /Share/i }));
+		expect(screen.getByTestId('dialog-stub-clifford')).toBeTruthy();
+	});
+
 	it('cleans up on unmount without throwing', () => {
 		const { unmount } = render(CliffordPage, { props: unauthedPageProps });
 		expect(() => unmount()).not.toThrow();
