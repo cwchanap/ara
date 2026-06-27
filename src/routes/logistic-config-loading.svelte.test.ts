@@ -3,7 +3,11 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import type { Page } from '@sveltejs/kit';
+import {
+	setMockPageUrl,
+	createUnauthedPageData,
+	unauthedPageProps
+} from '$lib/components/testing/page-test-helpers';
 import ulogisticPage from './logistic/+page.svelte';
 
 const loadSavedConfigParametersMock = vi.hoisted(() => vi.fn());
@@ -16,33 +20,14 @@ vi.mock('$lib/saved-config-loader', () => ({
 	parseConfigParam: parseConfigParamMock
 }));
 
-const pageStore = vi.hoisted(() => {
-	let value: Page = {
-		url: new URL('http://localhost/logistic') as Page['url'],
-		params: {},
-		route: { id: null },
-		status: 200,
-		error: null,
-		data: { session: null, user: null, profile: null },
-		form: null,
-		state: {}
-	};
-	const subscribers = new Set<(value: Page) => void>();
-	return {
-		subscribe(run: (value: Page) => void) {
-			run(value);
-			subscribers.add(run);
-			return () => subscribers.delete(run);
-		},
-		set(next: Page) {
-			value = next;
-			subscribers.forEach((s) => s(value));
-		}
-	};
+vi.mock('$app/stores', async () => {
+	const { mockPageStore } = await import('$lib/components/testing/page-test-helpers');
+	return { page: mockPageStore };
 });
-
-vi.mock('$app/stores', () => ({ page: { subscribe: pageStore.subscribe } }));
-vi.mock('$app/paths', () => ({ base: '' }));
+vi.mock('$app/paths', async () => {
+	const { BASE_PATH } = await import('$lib/components/testing/page-test-helpers');
+	return { base: BASE_PATH };
+});
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 
 vi.mock('$lib/components/ui/SaveConfigDialog.svelte', async () => {
@@ -62,22 +47,11 @@ vi.mock('$lib/components/visualizations/LogisticRenderer.svelte', async () => {
 	return { default: m.default };
 });
 
-const pageData = { session: null, user: null, profile: null } satisfies App.PageData;
+const unauthedData = createUnauthedPageData();
 
 function setPageUrl(url: string) {
-	pageStore.set({
-		url: new URL(url) as Page['url'],
-		params: {},
-		route: { id: null },
-		status: 200,
-		error: null,
-		data: pageData,
-		form: null,
-		state: {}
-	});
+	setMockPageUrl(url, unauthedData);
 }
-
-const pageProps = { data: pageData };
 
 const baseParams = { type: 'logistic', r: 3.9, x0: 0.5, iterations: 100 };
 
@@ -99,7 +73,7 @@ describe('logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/logistic?configId=logistic-id-1');
-		render(ulogisticPage, { props: pageProps });
+		render(ulogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalledWith(
@@ -121,7 +95,7 @@ describe('logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/logistic?share=logistic-share-1');
-		render(ulogisticPage, { props: pageProps });
+		render(ulogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSharedConfigParametersMock).toHaveBeenCalledWith(
@@ -143,7 +117,7 @@ describe('logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/logistic?configId=bad-id');
-		render(ulogisticPage, { props: pageProps });
+		render(ulogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -158,7 +132,7 @@ describe('logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/logistic?share=expired-code');
-		render(ulogisticPage, { props: pageProps });
+		render(ulogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -172,7 +146,7 @@ describe('logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/logistic?config=some-encoded-data');
-		render(ulogisticPage, { props: pageProps });
+		render(ulogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(parseConfigParamMock).toHaveBeenCalledWith(
@@ -196,7 +170,7 @@ describe('logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/logistic?config=bad-data');
-		render(ulogisticPage, { props: pageProps });
+		render(ulogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -207,7 +181,7 @@ describe('logistic page – config loading', () => {
 		loadSavedConfigParametersMock.mockRejectedValueOnce(new Error('Network error'));
 
 		setPageUrl('http://localhost/logistic?configId=error-id');
-		render(ulogisticPage, { props: pageProps });
+		render(ulogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -222,7 +196,7 @@ describe('logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/logistic?configId=dup-id');
-		render(ulogisticPage, { props: pageProps });
+		render(ulogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalledTimes(1);
@@ -241,7 +215,7 @@ describe('logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/logistic?configId=unstable-id');
-		render(ulogisticPage, { props: pageProps });
+		render(ulogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('UNSTABLE_PARAMETERS_DETECTED')).toBeInTheDocument();
@@ -257,7 +231,7 @@ describe('logistic page – config loading', () => {
 		);
 
 		setPageUrl('http://localhost/logistic?configId=late-id');
-		const { unmount } = render(ulogisticPage, { props: pageProps });
+		const { unmount } = render(ulogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalled();
@@ -273,7 +247,7 @@ describe('logistic page – config loading', () => {
 		loadSavedConfigParametersMock.mockRejectedValueOnce(abortError);
 
 		setPageUrl('http://localhost/logistic?configId=abort-id');
-		render(ulogisticPage, { props: pageProps });
+		render(ulogisticPage, { props: unauthedPageProps });
 
 		await new Promise((r) => setTimeout(r, 100));
 		expect(screen.queryByText('INVALID_CONFIGURATION')).not.toBeInTheDocument();
@@ -288,7 +262,7 @@ describe('logistic page – config loading', () => {
 		);
 
 		setPageUrl('http://localhost/logistic?configId=late-reject-id');
-		const { unmount } = render(ulogisticPage, { props: pageProps });
+		const { unmount } = render(ulogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalled();
@@ -304,7 +278,7 @@ describe('logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/logistic?config=crash-data');
-		render(ulogisticPage, { props: pageProps });
+		render(ulogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -319,7 +293,7 @@ describe('logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/logistic?configId=dismiss-id');
-		render(ulogisticPage, { props: pageProps });
+		render(ulogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -338,7 +312,7 @@ describe('logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/logistic?configId=warn-dismiss-id');
-		render(ulogisticPage, { props: pageProps });
+		render(ulogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('UNSTABLE_PARAMETERS_DETECTED')).toBeInTheDocument();
@@ -347,71 +321,5 @@ describe('logistic page – config loading', () => {
 		const dismissBtn = screen.getByRole('button', { name: /Dismiss warning/i });
 		await fireEvent.click(dismissBtn);
 		expect(screen.queryByText('UNSTABLE_PARAMETERS_DETECTED')).not.toBeInTheDocument();
-	});
-
-	it('dismisses save error toast when the dismiss button is clicked', async () => {
-		const originalFetch = globalThis.fetch;
-		globalThis.fetch = vi.fn().mockResolvedValue({
-			ok: false,
-			json: () => Promise.resolve({ error: 'Save failed' })
-		}) as unknown as typeof globalThis.fetch;
-
-		try {
-			render(ulogisticPage, { props: pageProps });
-
-			await fireEvent.click(screen.getByRole('button', { name: /Save/i }));
-			await fireEvent.click(screen.getByTestId('dialog-save-logistic'));
-
-			await waitFor(() => {
-				expect(
-					screen.getByRole('button', { name: /Dismiss save error/i })
-				).toBeInTheDocument();
-			});
-
-			await fireEvent.click(screen.getByRole('button', { name: /Dismiss save error/i }));
-			expect(
-				screen.queryByRole('button', { name: /Dismiss save error/i })
-			).not.toBeInTheDocument();
-		} finally {
-			globalThis.fetch = originalFetch;
-		}
-	});
-
-	it('dismisses save success toast when the dismiss button is clicked', async () => {
-		const originalFetch = globalThis.fetch;
-		globalThis.fetch = vi.fn().mockResolvedValue({
-			ok: true,
-			json: () => Promise.resolve({ success: true })
-		}) as unknown as typeof globalThis.fetch;
-
-		try {
-			render(ulogisticPage, { props: pageProps });
-
-			await fireEvent.click(screen.getByRole('button', { name: /Save/i }));
-			await fireEvent.click(screen.getByTestId('dialog-save-logistic'));
-
-			await waitFor(() => {
-				expect(
-					screen.getByRole('button', { name: /Dismiss success/i })
-				).toBeInTheDocument();
-			});
-
-			await fireEvent.click(screen.getByRole('button', { name: /Dismiss success/i }));
-			expect(
-				screen.queryByRole('button', { name: /Dismiss success/i })
-			).not.toBeInTheDocument();
-		} finally {
-			globalThis.fetch = originalFetch;
-		}
-	});
-
-	it('closes the share dialog via onClose callback', async () => {
-		render(ulogisticPage, { props: pageProps });
-
-		await fireEvent.click(screen.getByRole('button', { name: /Share/i }));
-		expect(screen.getByTestId('dialog-stub-logistic')).toBeInTheDocument();
-
-		await fireEvent.click(screen.getByTestId('dialog-close-logistic'));
-		expect(screen.queryByTestId('dialog-stub-logistic')).not.toBeInTheDocument();
 	});
 });

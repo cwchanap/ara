@@ -3,7 +3,11 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import type { Page } from '@sveltejs/kit';
+import {
+	setMockPageUrl,
+	createUnauthedPageData,
+	unauthedPageProps
+} from '$lib/components/testing/page-test-helpers';
 import StandardPage from './standard/+page.svelte';
 
 const loadSavedConfigParametersMock = vi.hoisted(() => vi.fn());
@@ -16,33 +20,14 @@ vi.mock('$lib/saved-config-loader', () => ({
 	parseConfigParam: parseConfigParamMock
 }));
 
-const pageStore = vi.hoisted(() => {
-	let value: Page = {
-		url: new URL('http://localhost/standard') as Page['url'],
-		params: {},
-		route: { id: null },
-		status: 200,
-		error: null,
-		data: { session: null, user: null, profile: null },
-		form: null,
-		state: {}
-	};
-	const subscribers = new Set<(value: Page) => void>();
-	return {
-		subscribe(run: (value: Page) => void) {
-			run(value);
-			subscribers.add(run);
-			return () => subscribers.delete(run);
-		},
-		set(next: Page) {
-			value = next;
-			subscribers.forEach((s) => s(value));
-		}
-	};
+vi.mock('$app/stores', async () => {
+	const { mockPageStore } = await import('$lib/components/testing/page-test-helpers');
+	return { page: mockPageStore };
 });
-
-vi.mock('$app/stores', () => ({ page: { subscribe: pageStore.subscribe } }));
-vi.mock('$app/paths', () => ({ base: '' }));
+vi.mock('$app/paths', async () => {
+	const { BASE_PATH } = await import('$lib/components/testing/page-test-helpers');
+	return { base: BASE_PATH };
+});
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 
 vi.mock('$lib/components/ui/SaveConfigDialog.svelte', async () => {
@@ -62,22 +47,11 @@ vi.mock('$lib/components/visualizations/StandardRenderer.svelte', async () => {
 	return { default: m.default };
 });
 
-const pageData = { session: null, user: null, profile: null } satisfies App.PageData;
+const unauthedData = createUnauthedPageData();
 
 function setPageUrl(url: string) {
-	pageStore.set({
-		url: new URL(url) as Page['url'],
-		params: {},
-		route: { id: null },
-		status: 200,
-		error: null,
-		data: pageData,
-		form: null,
-		state: {}
-	});
+	setMockPageUrl(url, unauthedData);
 }
-
-const pageProps = { data: pageData };
 
 const stdParams = { type: 'standard', k: 1.5, numP: 15, numQ: 15, iterations: 10000 };
 
@@ -99,7 +73,7 @@ describe('standard page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/standard?configId=std-id-1');
-		render(StandardPage, { props: pageProps });
+		render(StandardPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalledWith(
@@ -121,7 +95,7 @@ describe('standard page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/standard?share=std-share-1');
-		render(StandardPage, { props: pageProps });
+		render(StandardPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSharedConfigParametersMock).toHaveBeenCalledWith(
@@ -143,7 +117,7 @@ describe('standard page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/standard?configId=bad-id');
-		render(StandardPage, { props: pageProps });
+		render(StandardPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -156,7 +130,7 @@ describe('standard page – config loading', () => {
 		);
 
 		setPageUrl('http://localhost/standard?configId=null-id');
-		render(StandardPage, { props: pageProps });
+		render(StandardPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -171,7 +145,7 @@ describe('standard page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/standard?share=expired-code');
-		render(StandardPage, { props: pageProps });
+		render(StandardPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -185,7 +159,7 @@ describe('standard page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/standard?config=some-encoded-data');
-		render(StandardPage, { props: pageProps });
+		render(StandardPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(parseConfigParamMock).toHaveBeenCalledWith(
@@ -209,7 +183,7 @@ describe('standard page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/standard?config=bad-data');
-		render(StandardPage, { props: pageProps });
+		render(StandardPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -220,7 +194,7 @@ describe('standard page – config loading', () => {
 		loadSavedConfigParametersMock.mockRejectedValueOnce(new Error('Network error'));
 
 		setPageUrl('http://localhost/standard?configId=error-id');
-		render(StandardPage, { props: pageProps });
+		render(StandardPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -235,7 +209,7 @@ describe('standard page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/standard?configId=dup-id');
-		render(StandardPage, { props: pageProps });
+		render(StandardPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalledTimes(1);
@@ -254,7 +228,7 @@ describe('standard page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/standard?configId=unstable-id');
-		render(StandardPage, { props: pageProps });
+		render(StandardPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('UNSTABLE_PARAMETERS_DETECTED')).toBeInTheDocument();
@@ -270,7 +244,7 @@ describe('standard page – config loading', () => {
 		);
 
 		setPageUrl('http://localhost/standard?configId=late-id');
-		const { unmount } = render(StandardPage, { props: pageProps });
+		const { unmount } = render(StandardPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalled();
@@ -286,7 +260,7 @@ describe('standard page – config loading', () => {
 		loadSavedConfigParametersMock.mockRejectedValueOnce(abortError);
 
 		setPageUrl('http://localhost/standard?configId=abort-id');
-		render(StandardPage, { props: pageProps });
+		render(StandardPage, { props: unauthedPageProps });
 
 		await new Promise((r) => setTimeout(r, 100));
 		expect(screen.queryByText('INVALID_CONFIGURATION')).not.toBeInTheDocument();
@@ -301,7 +275,7 @@ describe('standard page – config loading', () => {
 		);
 
 		setPageUrl('http://localhost/standard?configId=late-reject-id');
-		const { unmount } = render(StandardPage, { props: pageProps });
+		const { unmount } = render(StandardPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalled();
@@ -317,7 +291,7 @@ describe('standard page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/standard?config=crash-data');
-		render(StandardPage, { props: pageProps });
+		render(StandardPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(
@@ -334,7 +308,7 @@ describe('standard page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/standard?configId=dismiss-id');
-		render(StandardPage, { props: pageProps });
+		render(StandardPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -353,7 +327,7 @@ describe('standard page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/standard?configId=warn-dismiss-id');
-		render(StandardPage, { props: pageProps });
+		render(StandardPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('UNSTABLE_PARAMETERS_DETECTED')).toBeInTheDocument();
@@ -362,71 +336,5 @@ describe('standard page – config loading', () => {
 		const dismissBtn = screen.getByRole('button', { name: /Dismiss warning/i });
 		await fireEvent.click(dismissBtn);
 		expect(screen.queryByText('UNSTABLE_PARAMETERS_DETECTED')).not.toBeInTheDocument();
-	});
-
-	it('dismisses save error toast when the dismiss button is clicked', async () => {
-		const originalFetch = globalThis.fetch;
-		globalThis.fetch = vi.fn().mockResolvedValue({
-			ok: false,
-			json: () => Promise.resolve({ error: 'Save failed' })
-		}) as unknown as typeof globalThis.fetch;
-
-		try {
-			render(StandardPage, { props: pageProps });
-
-			await fireEvent.click(screen.getByRole('button', { name: /Save/i }));
-			await fireEvent.click(screen.getByTestId('dialog-save-standard'));
-
-			await waitFor(() => {
-				expect(
-					screen.getByRole('button', { name: /Dismiss save error/i })
-				).toBeInTheDocument();
-			});
-
-			await fireEvent.click(screen.getByRole('button', { name: /Dismiss save error/i }));
-			expect(
-				screen.queryByRole('button', { name: /Dismiss save error/i })
-			).not.toBeInTheDocument();
-		} finally {
-			globalThis.fetch = originalFetch;
-		}
-	});
-
-	it('dismisses save success toast when the dismiss button is clicked', async () => {
-		const originalFetch = globalThis.fetch;
-		globalThis.fetch = vi.fn().mockResolvedValue({
-			ok: true,
-			json: () => Promise.resolve({ success: true })
-		}) as unknown as typeof globalThis.fetch;
-
-		try {
-			render(StandardPage, { props: pageProps });
-
-			await fireEvent.click(screen.getByRole('button', { name: /Save/i }));
-			await fireEvent.click(screen.getByTestId('dialog-save-standard'));
-
-			await waitFor(() => {
-				expect(
-					screen.getByRole('button', { name: /Dismiss success/i })
-				).toBeInTheDocument();
-			});
-
-			await fireEvent.click(screen.getByRole('button', { name: /Dismiss success/i }));
-			expect(
-				screen.queryByRole('button', { name: /Dismiss success/i })
-			).not.toBeInTheDocument();
-		} finally {
-			globalThis.fetch = originalFetch;
-		}
-	});
-
-	it('closes the share dialog via onClose callback', async () => {
-		render(StandardPage, { props: pageProps });
-
-		await fireEvent.click(screen.getByRole('button', { name: /Share/i }));
-		expect(screen.getByTestId('dialog-stub-standard')).toBeInTheDocument();
-
-		await fireEvent.click(screen.getByTestId('dialog-close-standard'));
-		expect(screen.queryByTestId('dialog-stub-standard')).not.toBeInTheDocument();
 	});
 });

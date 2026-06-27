@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
-import type { Page } from '@sveltejs/kit';
+import { setMockPageUrl, createUnauthedPageData } from '$lib/components/testing/page-test-helpers';
 
 import LoziComparePage from './lozi/compare/+page.svelte';
 import IkedaComparePage from './ikeda/compare/+page.svelte';
@@ -27,34 +27,14 @@ import NewtonComparePage from './newton/compare/+page.svelte';
 
 const gotoMock = vi.hoisted(() => vi.fn());
 
-const pageStore = vi.hoisted(() => {
-	const baseData = { session: null, user: null, profile: null };
-	let value: Page = {
-		url: new URL('http://localhost/') as Page['url'],
-		params: {},
-		route: { id: null },
-		status: 200,
-		error: null,
-		data: baseData,
-		form: null,
-		state: {}
-	};
-	const subscribers = new Set<(value: Page) => void>();
-	return {
-		subscribe(run: (value: Page) => void) {
-			run(value);
-			subscribers.add(run);
-			return () => subscribers.delete(run);
-		},
-		set(next: Page) {
-			value = next;
-			subscribers.forEach((s) => s(value));
-		}
-	};
+vi.mock('$app/stores', async () => {
+	const { mockPageStore } = await import('$lib/components/testing/page-test-helpers');
+	return { page: mockPageStore };
 });
-
-vi.mock('$app/stores', () => ({ page: { subscribe: pageStore.subscribe } }));
-vi.mock('$app/paths', () => ({ base: '' }));
+vi.mock('$app/paths', async () => {
+	const { BASE_PATH } = await import('$lib/components/testing/page-test-helpers');
+	return { base: BASE_PATH };
+});
 vi.mock('$app/navigation', () => ({ goto: gotoMock }));
 
 // Mock all renderers used by compare pages
@@ -119,19 +99,10 @@ vi.mock('$lib/components/visualizations/NewtonRenderer.svelte', async () => {
 	return { default: m.default };
 });
 
-const baseData = { session: null, user: null, profile: null } satisfies App.PageData;
+const unauthedData = createUnauthedPageData();
 
 function setPageUrl(url: string) {
-	pageStore.set({
-		url: new URL(url) as Page['url'],
-		params: {},
-		route: { id: null },
-		status: 200,
-		error: null,
-		data: baseData,
-		form: null,
-		state: {}
-	});
+	setMockPageUrl(url, unauthedData);
 }
 
 function getSliderValue(id: string): string | null {

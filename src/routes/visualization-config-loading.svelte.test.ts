@@ -4,7 +4,11 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
-import type { Page } from '@sveltejs/kit';
+import {
+	setMockPageUrl,
+	createUnauthedPageData,
+	unauthedPageProps
+} from '$lib/components/testing/page-test-helpers';
 
 import RosslerPage from './rossler/+page.svelte';
 import LoziPage from './lozi/+page.svelte';
@@ -30,36 +34,15 @@ vi.mock('$lib/saved-config-loader', () => ({
 }));
 
 // --- Page store ---
-const pageStore = vi.hoisted(() => {
-	let value: Page = {
-		url: new URL('http://localhost/') as Page['url'],
-		params: {},
-		route: { id: null },
-		status: 200,
-		error: null,
-		data: { session: null, user: null, profile: null },
-		form: null,
-		state: {}
-	};
-	const subscribers = new Set<(value: Page) => void>();
-	return {
-		subscribe(run: (value: Page) => void) {
-			run(value);
-			subscribers.add(run);
-			return () => subscribers.delete(run);
-		},
-		set(next: Page) {
-			value = next;
-			subscribers.forEach((s) => s(value));
-		}
-	};
+vi.mock('$app/stores', async () => {
+	const { mockPageStore } = await import('$lib/components/testing/page-test-helpers');
+	return { page: mockPageStore };
 });
 
-vi.mock('$app/stores', () => ({
-	page: { subscribe: pageStore.subscribe }
-}));
-
-vi.mock('$app/paths', () => ({ base: '' }));
+vi.mock('$app/paths', async () => {
+	const { BASE_PATH } = await import('$lib/components/testing/page-test-helpers');
+	return { base: BASE_PATH };
+});
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 
 // --- Dialog / UI stubs ---
@@ -123,22 +106,11 @@ vi.mock('$lib/components/visualizations/IkedaRenderer.svelte', async () => {
 });
 
 // --- Helpers ---
-const pageData = { session: null, user: null, profile: null } satisfies App.PageData;
+const unauthedData = createUnauthedPageData();
 
 function setPageUrl(url: string) {
-	pageStore.set({
-		url: new URL(url) as Page['url'],
-		params: {},
-		route: { id: null },
-		status: 200,
-		error: null,
-		data: pageData,
-		form: null,
-		state: {}
-	});
+	setMockPageUrl(url, unauthedData);
 }
-
-const pageProps = { data: pageData };
 
 // ============================================================
 // ROSSLER – uses onMount() for config loading
@@ -162,7 +134,7 @@ describe('rossler page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/rossler?configId=test-id-1');
-		render(RosslerPage, { props: pageProps });
+		render(RosslerPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalledWith(
@@ -185,7 +157,7 @@ describe('rossler page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/rossler?share=abc123');
-		render(RosslerPage, { props: pageProps });
+		render(RosslerPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSharedConfigParametersMock).toHaveBeenCalledWith(
@@ -207,7 +179,7 @@ describe('rossler page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/rossler?configId=bad-id');
-		render(RosslerPage, { props: pageProps });
+		render(RosslerPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -224,7 +196,7 @@ describe('rossler page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/rossler?configId=unstable-id');
-		render(RosslerPage, { props: pageProps });
+		render(RosslerPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('UNSTABLE_PARAMETERS_DETECTED')).toBeInTheDocument();
@@ -241,7 +213,7 @@ describe('rossler page – config loading', () => {
 			JSON.stringify({ type: 'rossler', a: 0.2, b: 0.8, c: 12.0 })
 		);
 		setPageUrl(`http://localhost/rossler?config=${encoded}`);
-		render(RosslerPage, { props: pageProps });
+		render(RosslerPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(parseConfigParamMock).toHaveBeenCalledWith(
@@ -265,7 +237,7 @@ describe('rossler page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/rossler?config=invalid-data');
-		render(RosslerPage, { props: pageProps });
+		render(RosslerPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -295,7 +267,7 @@ describe('lozi page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/lozi?configId=lozi-id-1');
-		render(LoziPage, { props: pageProps });
+		render(LoziPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalledWith(
@@ -312,7 +284,7 @@ describe('lozi page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/lozi?share=lozi-share-1');
-		render(LoziPage, { props: pageProps });
+		render(LoziPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSharedConfigParametersMock).toHaveBeenCalledWith(
@@ -329,7 +301,7 @@ describe('lozi page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/lozi?configId=bad-lozi-id');
-		render(LoziPage, { props: pageProps });
+		render(LoziPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -346,7 +318,7 @@ describe('lozi page – config loading', () => {
 			JSON.stringify({ type: 'lozi', a: 1.2, b: 0.4, x0: 0.1, y0: 0.1, iterations: 1500 })
 		);
 		setPageUrl(`http://localhost/lozi?config=${encoded}`);
-		render(LoziPage, { props: pageProps });
+		render(LoziPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(parseConfigParamMock).toHaveBeenCalledWith(
@@ -365,7 +337,7 @@ describe('lozi page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/lozi?config=bad-data');
-		render(LoziPage, { props: pageProps });
+		render(LoziPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -381,7 +353,7 @@ describe('lozi page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/lozi?configId=unstable-lozi');
-		render(LoziPage, { props: pageProps });
+		render(LoziPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('UNSTABLE_PARAMETERS_DETECTED')).toBeInTheDocument();
@@ -411,7 +383,7 @@ describe('standard page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/standard?configId=std-id-1');
-		render(StandardPage, { props: pageProps });
+		render(StandardPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalledWith(
@@ -428,7 +400,7 @@ describe('standard page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/standard?share=std-share');
-		render(StandardPage, { props: pageProps });
+		render(StandardPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSharedConfigParametersMock).toHaveBeenCalledWith(
@@ -445,7 +417,7 @@ describe('standard page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/standard?configId=bad-std-id');
-		render(StandardPage, { props: pageProps });
+		render(StandardPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -462,7 +434,7 @@ describe('standard page – config loading', () => {
 			JSON.stringify({ type: 'standard', k: 0.5, numP: 5, numQ: 5, iterations: 1000 })
 		);
 		setPageUrl(`http://localhost/standard?config=${encoded}`);
-		render(StandardPage, { props: pageProps });
+		render(StandardPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(parseConfigParamMock).toHaveBeenCalledWith(
@@ -481,7 +453,7 @@ describe('standard page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/standard?config=bad-data');
-		render(StandardPage, { props: pageProps });
+		render(StandardPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -517,7 +489,7 @@ describe('lyapunov page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/lyapunov?configId=lyap-id-1');
-		render(LyapunovPage, { props: pageProps });
+		render(LyapunovPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalledWith(
@@ -540,7 +512,7 @@ describe('lyapunov page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/lyapunov?share=lyap-share');
-		render(LyapunovPage, { props: pageProps });
+		render(LyapunovPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSharedConfigParametersMock).toHaveBeenCalledWith(
@@ -557,7 +529,7 @@ describe('lyapunov page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/lyapunov?configId=bad-lyap-id');
-		render(LyapunovPage, { props: pageProps });
+		render(LyapunovPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -586,7 +558,7 @@ describe('lyapunov page – config loading', () => {
 			})
 		);
 		setPageUrl(`http://localhost/lyapunov?config=${encoded}`);
-		render(LyapunovPage, { props: pageProps });
+		render(LyapunovPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(parseConfigParamMock).toHaveBeenCalledWith(
@@ -618,7 +590,7 @@ describe('bifurcation-logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/bifurcation-logistic?configId=biflog-id');
-		render(BifurcationLogisticPage, { props: pageProps });
+		render(BifurcationLogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalledWith(
@@ -635,7 +607,7 @@ describe('bifurcation-logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/bifurcation-logistic?configId=bad-id');
-		render(BifurcationLogisticPage, { props: pageProps });
+		render(BifurcationLogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -657,7 +629,7 @@ describe('bifurcation-logistic page – config loading', () => {
 			})
 		);
 		setPageUrl(`http://localhost/bifurcation-logistic?config=${encoded}`);
-		render(BifurcationLogisticPage, { props: pageProps });
+		render(BifurcationLogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(parseConfigParamMock).toHaveBeenCalledWith(
@@ -689,7 +661,7 @@ describe('henon page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/henon?configId=henon-id');
-		render(HenonPage, { props: pageProps });
+		render(HenonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalledWith(
@@ -706,7 +678,7 @@ describe('henon page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/henon?configId=bad-henon-id');
-		render(HenonPage, { props: pageProps });
+		render(HenonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -723,7 +695,7 @@ describe('henon page – config loading', () => {
 			JSON.stringify({ type: 'henon', a: 1.2, b: 0.4, iterations: 5000 })
 		);
 		setPageUrl(`http://localhost/henon?config=${encoded}`);
-		render(HenonPage, { props: pageProps });
+		render(HenonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(parseConfigParamMock).toHaveBeenCalledWith(
@@ -755,7 +727,7 @@ describe('logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/logistic?configId=log-id');
-		render(LogisticPage, { props: pageProps });
+		render(LogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalledWith(
@@ -772,7 +744,7 @@ describe('logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/logistic?configId=bad-log-id');
-		render(LogisticPage, { props: pageProps });
+		render(LogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -789,7 +761,7 @@ describe('logistic page – config loading', () => {
 			JSON.stringify({ type: 'logistic', r: 3.8, x0: 0.3, iterations: 100 })
 		);
 		setPageUrl(`http://localhost/logistic?config=${encoded}`);
-		render(LogisticPage, { props: pageProps });
+		render(LogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(parseConfigParamMock).toHaveBeenCalledWith(
@@ -827,7 +799,7 @@ describe('bifurcation-henon page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/bifurcation-henon?configId=bh-id-1');
-		render(BifurcationHenonPage, { props: pageProps });
+		render(BifurcationHenonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalledWith(
@@ -850,7 +822,7 @@ describe('bifurcation-henon page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/bifurcation-henon?share=bh-share-1');
-		render(BifurcationHenonPage, { props: pageProps });
+		render(BifurcationHenonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSharedConfigParametersMock).toHaveBeenCalledWith(
@@ -867,7 +839,7 @@ describe('bifurcation-henon page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/bifurcation-henon?configId=bad-bh-id');
-		render(BifurcationHenonPage, { props: pageProps });
+		render(BifurcationHenonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -896,7 +868,7 @@ describe('bifurcation-henon page – config loading', () => {
 			})
 		);
 		setPageUrl(`http://localhost/bifurcation-henon?config=${encoded}`);
-		render(BifurcationHenonPage, { props: pageProps });
+		render(BifurcationHenonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(parseConfigParamMock).toHaveBeenCalledWith(
@@ -915,7 +887,7 @@ describe('bifurcation-henon page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/bifurcation-henon?config=bad-data');
-		render(BifurcationHenonPage, { props: pageProps });
+		render(BifurcationHenonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -938,7 +910,7 @@ describe('bifurcation-henon page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/bifurcation-henon?configId=unstable-bh');
-		render(BifurcationHenonPage, { props: pageProps });
+		render(BifurcationHenonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('UNSTABLE_PARAMETERS_DETECTED')).toBeInTheDocument();
@@ -975,7 +947,7 @@ describe('chaos-esthetique page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/chaos-esthetique?configId=ce-id-1');
-		render(ChaosEsthetiquePage, { props: pageProps });
+		render(ChaosEsthetiquePage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalledWith(
@@ -999,7 +971,7 @@ describe('chaos-esthetique page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/chaos-esthetique?share=ce-share-1');
-		render(ChaosEsthetiquePage, { props: pageProps });
+		render(ChaosEsthetiquePage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSharedConfigParametersMock).toHaveBeenCalledWith(
@@ -1016,7 +988,7 @@ describe('chaos-esthetique page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/chaos-esthetique?configId=bad-ce-id');
-		render(ChaosEsthetiquePage, { props: pageProps });
+		render(ChaosEsthetiquePage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -1047,7 +1019,7 @@ describe('chaos-esthetique page – config loading', () => {
 			})
 		);
 		setPageUrl(`http://localhost/chaos-esthetique?config=${encoded}`);
-		render(ChaosEsthetiquePage, { props: pageProps });
+		render(ChaosEsthetiquePage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(parseConfigParamMock).toHaveBeenCalledWith(
@@ -1066,7 +1038,7 @@ describe('chaos-esthetique page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/chaos-esthetique?config=bad-data');
-		render(ChaosEsthetiquePage, { props: pageProps });
+		render(ChaosEsthetiquePage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -1103,7 +1075,7 @@ describe('newton page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/newton?configId=newton-id-1');
-		render(NewtonPage, { props: pageProps });
+		render(NewtonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalledWith(
@@ -1127,7 +1099,7 @@ describe('newton page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/newton?share=newton-share');
-		render(NewtonPage, { props: pageProps });
+		render(NewtonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSharedConfigParametersMock).toHaveBeenCalledWith(
@@ -1144,7 +1116,7 @@ describe('newton page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/newton?configId=bad-newton-id');
-		render(NewtonPage, { props: pageProps });
+		render(NewtonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -1168,7 +1140,7 @@ describe('newton page – config loading', () => {
 			})
 		);
 		setPageUrl(`http://localhost/newton?config=${encoded}`);
-		render(NewtonPage, { props: pageProps });
+		render(NewtonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(parseConfigParamMock).toHaveBeenCalledWith(
@@ -1187,7 +1159,7 @@ describe('newton page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/newton?config=bad-data');
-		render(NewtonPage, { props: pageProps });
+		render(NewtonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -1229,7 +1201,7 @@ describe('ikeda page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/ikeda?configId=ikeda-id-1');
-		render(IkedaPage, { props: pageProps });
+		render(IkedaPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalledWith(
@@ -1263,7 +1235,7 @@ describe('ikeda page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/ikeda?share=ikeda-share-1');
-		render(IkedaPage, { props: pageProps });
+		render(IkedaPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSharedConfigParametersMock).toHaveBeenCalledWith(
@@ -1285,7 +1257,7 @@ describe('ikeda page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/ikeda?configId=bad-id');
-		render(IkedaPage, { props: pageProps });
+		render(IkedaPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -1298,7 +1270,7 @@ describe('ikeda page – config loading', () => {
 		);
 
 		setPageUrl('http://localhost/ikeda?configId=null-id');
-		render(IkedaPage, { props: pageProps });
+		render(IkedaPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -1313,7 +1285,7 @@ describe('ikeda page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/ikeda?share=expired-code');
-		render(IkedaPage, { props: pageProps });
+		render(IkedaPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -1335,7 +1307,7 @@ describe('ikeda page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/ikeda?configId=unstable-ikeda');
-		render(IkedaPage, { props: pageProps });
+		render(IkedaPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('UNSTABLE_PARAMETERS_DETECTED')).toBeInTheDocument();
@@ -1361,7 +1333,7 @@ describe('ikeda page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/ikeda?config=some-encoded-data');
-		render(IkedaPage, { props: pageProps });
+		render(IkedaPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(parseConfigParamMock).toHaveBeenCalledWith(
@@ -1385,7 +1357,7 @@ describe('ikeda page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/ikeda?config=bad-data');
-		render(IkedaPage, { props: pageProps });
+		render(IkedaPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -1396,7 +1368,7 @@ describe('ikeda page – config loading', () => {
 		loadSavedConfigParametersMock.mockRejectedValueOnce(new Error('Network error'));
 
 		setPageUrl('http://localhost/ikeda?configId=error-id');
-		render(IkedaPage, { props: pageProps });
+		render(IkedaPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
