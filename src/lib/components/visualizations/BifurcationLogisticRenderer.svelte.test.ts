@@ -151,4 +151,82 @@ describe('BifurcationLogisticRenderer canvas rendering', () => {
 		expect(getContextSpy).toHaveBeenCalledWith('2d');
 		getContextSpy.mockRestore();
 	});
+
+	it('skips rendering when 2D context is unavailable', async () => {
+		vi.useFakeTimers();
+		const savedGetContext = HTMLCanvasElement.prototype.getContext;
+		Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+			configurable: true,
+			value: () => null
+		});
+		try {
+			expect(() =>
+				render(BifurcationLogisticRenderer, {
+					props: { rMin: 3.5, rMax: 4.0, maxIterations: 10, height: 200 }
+				})
+			).not.toThrow();
+			await vi.advanceTimersByTimeAsync(200);
+			expect(mockCtx.putImageData).not.toHaveBeenCalled();
+		} finally {
+			Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+				configurable: true,
+				value: savedGetContext
+			});
+		}
+	});
+
+	it('binds containerElement to the rendered div', async () => {
+		vi.useFakeTimers();
+		let containerEl: HTMLDivElement | undefined;
+		render(BifurcationLogisticRenderer, {
+			props: {
+				rMin: 3.5,
+				rMax: 4.0,
+				maxIterations: 10,
+				height: 200,
+				get containerElement() {
+					return containerEl;
+				},
+				set containerElement(next: HTMLDivElement | undefined) {
+					containerEl = next;
+				}
+			}
+		});
+		await vi.advanceTimersByTimeAsync(200);
+		expect(containerEl).toBeInstanceOf(HTMLDivElement);
+	});
+
+	it('re-renders when rMin/rMax change via rerender', async () => {
+		vi.useFakeTimers();
+		const { rerender } = render(BifurcationLogisticRenderer, {
+			props: { rMin: 3.5, rMax: 4.0, maxIterations: 10, height: 200 }
+		});
+		await vi.advanceTimersByTimeAsync(200);
+		const putCallsAfterFirst = vi.mocked(mockCtx.putImageData).mock.calls.length;
+		await rerender({ rMin: 2.5, rMax: 3.5, maxIterations: 10, height: 200 });
+		await vi.advanceTimersByTimeAsync(200);
+		expect(vi.mocked(mockCtx.putImageData).mock.calls.length).toBeGreaterThan(
+			putCallsAfterFirst
+		);
+	});
+
+	it('re-renders when maxIterations changes via rerender', async () => {
+		vi.useFakeTimers();
+		const { rerender } = render(BifurcationLogisticRenderer, {
+			props: { rMin: 3.5, rMax: 4.0, maxIterations: 10, height: 200 }
+		});
+		await vi.advanceTimersByTimeAsync(200);
+		await rerender({ rMin: 3.5, rMax: 4.0, maxIterations: 50, height: 200 });
+		// Should not throw — the effect re-runs render().
+		expect(mockCtx.putImageData).toHaveBeenCalled();
+	});
+
+	it('cleans up on unmount without throwing', async () => {
+		vi.useFakeTimers();
+		const { unmount } = render(BifurcationLogisticRenderer, {
+			props: { rMin: 3.5, rMax: 4.0, maxIterations: 10, height: 200 }
+		});
+		await vi.advanceTimersByTimeAsync(200);
+		expect(() => unmount()).not.toThrow();
+	});
 });

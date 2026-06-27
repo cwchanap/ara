@@ -39,7 +39,11 @@ vi.mock('$lib/components/ui/SnapshotButton.svelte', async () => {
 });
 
 vi.mock('$lib/components/visualizations/LogisticRenderer.svelte', async () => {
-	const module = await import('$lib/components/testing/StubComponent.svelte');
+	const module = await import('$lib/components/testing/BindableAllStub.svelte');
+	return { default: module.default };
+});
+vi.mock('$lib/components/ui/VisualizationAlerts.svelte', async () => {
+	const module = await import('$lib/components/testing/VisualizationAlertsStub.svelte');
 	return { default: module.default };
 });
 

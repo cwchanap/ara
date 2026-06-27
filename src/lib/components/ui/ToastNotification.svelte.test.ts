@@ -120,4 +120,120 @@ describe('ToastNotification', () => {
 		expect(onDismiss).not.toHaveBeenCalled();
 		expect(screen.getByText('Persistent')).toBeInTheDocument();
 	});
+
+	it('auto-dismisses after the warning duration and calls onDismiss', () => {
+		vi.useFakeTimers();
+		const onDismiss = vi.fn();
+		render(ToastNotification, {
+			props: {
+				variant: 'warning',
+				message: 'Warning!',
+				show: true,
+				autoDismiss: true,
+				onDismiss
+			}
+		});
+		vi.advanceTimersByTime(5001); // TOAST_WARNING_DURATION_MS is 5000
+		expect(onDismiss).toHaveBeenCalledTimes(1);
+	});
+
+	it('renders success icon (✓) for success variant', () => {
+		render(ToastNotification, {
+			props: { variant: 'success', message: 'Done', show: true, autoDismiss: false }
+		});
+		expect(screen.getByText('✓')).toBeInTheDocument();
+	});
+
+	it('renders error icon (✕) for error variant', () => {
+		render(ToastNotification, {
+			props: { variant: 'error', message: 'Failed', show: true, autoDismiss: false }
+		});
+		// The icon is ✕ and the dismiss button also contains ✕, so there are two
+		expect(screen.getAllByText('✕').length).toBeGreaterThanOrEqual(1);
+	});
+
+	it('renders warning icon (⚠️) for warning variant', () => {
+		render(ToastNotification, {
+			props: { variant: 'warning', message: 'Careful', show: true, autoDismiss: false }
+		});
+		expect(screen.getByText('⚠️')).toBeInTheDocument();
+	});
+
+	it('has aria-live="polite" for accessibility', () => {
+		render(ToastNotification, {
+			props: { variant: 'success', message: 'Hello', show: true, autoDismiss: false }
+		});
+		expect(screen.getByRole('alert')).toHaveAttribute('aria-live', 'polite');
+	});
+
+	it('clears the timer and hides when show transitions to false', async () => {
+		vi.useFakeTimers();
+		const onDismiss = vi.fn();
+		const { rerender } = render(ToastNotification, {
+			props: {
+				variant: 'success',
+				message: 'Timer test',
+				show: true,
+				autoDismiss: true,
+				onDismiss
+			}
+		});
+		// Transition show to false before the timer fires
+		rerender({
+			variant: 'success',
+			message: 'Timer test',
+			show: false,
+			autoDismiss: true,
+			onDismiss
+		});
+		// Advance past the duration — onDismiss should NOT be called because timer was cleared
+		vi.advanceTimersByTime(5000);
+		expect(onDismiss).not.toHaveBeenCalled();
+	});
+
+	it('manual dismiss via button clears the timer and calls onDismiss', async () => {
+		vi.useFakeTimers();
+		const onDismiss = vi.fn();
+		render(ToastNotification, {
+			props: {
+				variant: 'success',
+				message: 'Dismiss me',
+				show: true,
+				autoDismiss: true,
+				onDismiss
+			}
+		});
+		await fireEvent.click(screen.getByRole('button', { name: /dismiss notification/i }));
+		expect(onDismiss).toHaveBeenCalledTimes(1);
+		// Advance timers — should not fire again
+		vi.advanceTimersByTime(5000);
+		expect(onDismiss).toHaveBeenCalledTimes(1);
+	});
+
+	it('toggling autoDismiss from false to true starts the auto-dismiss timer', () => {
+		vi.useFakeTimers();
+		const onDismiss = vi.fn();
+		const { rerender } = render(ToastNotification, {
+			props: {
+				variant: 'success',
+				message: 'Toggle',
+				show: true,
+				autoDismiss: false,
+				onDismiss
+			}
+		});
+		vi.advanceTimersByTime(10000);
+		expect(onDismiss).not.toHaveBeenCalled();
+
+		// Now toggle autoDismiss to true — should start timer
+		rerender({
+			variant: 'success',
+			message: 'Toggle',
+			show: true,
+			autoDismiss: true,
+			onDismiss
+		});
+		vi.advanceTimersByTime(3001); // TOAST_SUCCESS_DURATION_MS
+		expect(onDismiss).toHaveBeenCalledTimes(1);
+	});
 });

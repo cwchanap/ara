@@ -107,4 +107,33 @@ describe('DeleteConfirmDialog', () => {
 			expect(screen.queryByText('DELETING...')).not.toBeInTheDocument();
 		});
 	});
+
+	it('handleCancel calls preventDefault when isDeleting is true', () => {
+		render(DeleteConfirmDialog, {
+			props: { ...defaultProps, isDeleting: true }
+		});
+		const dialog = document.querySelector('dialog')!;
+		const event = new Event('cancel', { cancelable: true, bubbles: true });
+		const preventDefault = vi.spyOn(event, 'preventDefault');
+		dialog.dispatchEvent(event);
+		expect(preventDefault).toHaveBeenCalled();
+		expect(screen.getByText('DELETING...')).toBeInTheDocument();
+	});
+
+	it('handleKeyDown Escape closes dialog when not deleting', async () => {
+		const onClose = vi.fn();
+		render(DeleteConfirmDialog, { props: { ...defaultProps, onClose } });
+		const dialog = document.querySelector('dialog')!;
+		await fireEvent.keyDown(dialog, { key: 'Escape' });
+		expect(onClose).toHaveBeenCalled();
+	});
+
+	it('handleKeyDown Escape does not close dialog when isDeleting', async () => {
+		const onClose = vi.fn();
+		render(DeleteConfirmDialog, { props: { ...defaultProps, isDeleting: true, onClose } });
+		const dialog = document.querySelector('dialog')!;
+		await fireEvent.keyDown(dialog, { key: 'Escape' });
+		expect(onClose).not.toHaveBeenCalled();
+		expect(screen.getByText('DELETING...')).toBeInTheDocument();
+	});
 });

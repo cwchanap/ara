@@ -10,7 +10,26 @@
 		name?: string;
 	};
 
-	let { open = false, onClose, onSave, onShare, mapType = '' }: Props = $props();
+	let {
+		open = false,
+		onClose,
+		onSave,
+		onShare,
+		mapType = '',
+		currentPath = '',
+		isAuthenticated = false,
+		name = ''
+	}: Props = $props();
+
+	// Reference all props to ensure parent expressions are evaluated
+	void open;
+	void onClose;
+	void onSave;
+	void onShare;
+	void mapType;
+	void currentPath;
+	void isAuthenticated;
+	void name;
 </script>
 
 {#if open}

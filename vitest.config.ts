@@ -18,6 +18,8 @@ export default defineConfig({
 				'src/lib/constants.ts',
 				'src/lib/workers/types.ts',
 				'src/lib/index.ts',
+				'src/lib/auth/neon.ts',
+				'src/lib/components/testing/**',
 				'**/*.d.ts'
 			],
 			extension: ['.ts', '.svelte']

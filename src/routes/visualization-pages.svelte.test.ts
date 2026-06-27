@@ -107,27 +107,27 @@ vi.mock('$lib/components/ui/SnapshotButton.svelte', async () => {
 });
 
 vi.mock('$lib/components/visualizations/BifurcationHenonRenderer.svelte', async () => {
-	const module = await import('$lib/components/testing/StubComponent.svelte');
+	const module = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: module.default };
 });
 
 vi.mock('$lib/components/visualizations/BifurcationLogisticRenderer.svelte', async () => {
-	const module = await import('$lib/components/testing/StubComponent.svelte');
+	const module = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: module.default };
 });
 
 vi.mock('$lib/components/visualizations/ChaosEsthetiqueRenderer.svelte', async () => {
-	const module = await import('$lib/components/testing/StubComponent.svelte');
+	const module = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: module.default };
 });
 
 vi.mock('$lib/components/visualizations/HenonRenderer.svelte', async () => {
-	const module = await import('$lib/components/testing/StubComponent.svelte');
+	const module = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: module.default };
 });
 
 vi.mock('$lib/components/visualizations/LogisticRenderer.svelte', async () => {
-	const module = await import('$lib/components/testing/StubComponent.svelte');
+	const module = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: module.default };
 });
 
@@ -137,37 +137,37 @@ vi.mock('$lib/components/visualizations/LorenzRenderer.svelte', async () => {
 });
 
 vi.mock('$lib/components/visualizations/LoziRenderer.svelte', async () => {
-	const module = await import('$lib/components/testing/StubComponent.svelte');
+	const module = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: module.default };
 });
 
 vi.mock('$lib/components/visualizations/LyapunovRenderer.svelte', async () => {
-	const module = await import('$lib/components/testing/StubComponent.svelte');
+	const module = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: module.default };
 });
 
 vi.mock('$lib/components/visualizations/NewtonRenderer.svelte', async () => {
-	const module = await import('$lib/components/testing/StubComponent.svelte');
+	const module = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: module.default };
 });
 
 vi.mock('$lib/components/visualizations/RosslerRenderer.svelte', async () => {
-	const module = await import('$lib/components/testing/StubComponent.svelte');
+	const module = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: module.default };
 });
 
 vi.mock('$lib/components/visualizations/StandardRenderer.svelte', async () => {
-	const module = await import('$lib/components/testing/StubComponent.svelte');
+	const module = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: module.default };
 });
 
 vi.mock('$lib/components/visualizations/ChuaRenderer.svelte', async () => {
-	const module = await import('$lib/components/testing/StubComponent.svelte');
+	const module = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: module.default };
 });
 
 vi.mock('$lib/components/visualizations/DoublePendulumRenderer.svelte', async () => {
-	const module = await import('$lib/components/testing/StubComponent.svelte');
+	const module = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: module.default };
 });
 

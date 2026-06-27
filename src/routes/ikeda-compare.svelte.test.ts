@@ -32,7 +32,7 @@ vi.mock('$app/stores', () => ({ page: { subscribe: pageStore.subscribe } }));
 vi.mock('$app/paths', () => ({ base: '' }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('$lib/components/visualizations/IkedaRenderer.svelte', async () => {
-	const m = await import('$lib/components/testing/StubComponent.svelte');
+	const m = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: m.default };
 });
 vi.mock('$lib/components/comparison/ComparisonLayout.svelte', async () => {

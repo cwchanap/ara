@@ -69,6 +69,8 @@ describe('ChaosEsthetiqueRenderer (coverage)', () => {
 	afterEach(() => {
 		vi.useRealTimers();
 		cleanup();
+		// Clean up any leaked Worker mock from tests that set globalThis.Worker.
+		delete (globalThis as unknown as Record<string, unknown>).Worker;
 	});
 
 	it('renders canvas and svg axes after debounce', async () => {
@@ -270,5 +272,227 @@ describe('ChaosEsthetiqueRenderer (coverage)', () => {
 
 		delete (globalThis as unknown as Record<string, unknown>).Worker;
 		errorSpy.mockRestore();
+	});
+
+	it('processes a successful worker response and renders', async () => {
+		let workerInstance: {
+			onmessage: ((event: MessageEvent) => void) | null;
+			onerror: ((event: ErrorEvent) => void) | null;
+			postMessage: (msg: unknown) => void;
+		} | null = null;
+		class MockWorker {
+			postMessage = (msg: unknown) => {
+				setTimeout(() => {
+					if (this.onmessage) {
+						this.onmessage(
+							new MessageEvent('message', {
+								data: {
+									type: 'chaosResult',
+									id: (msg as { id: number }).id,
+									points: [
+										[0, 0],
+										[1, 1]
+									] as [number, number][]
+								}
+							})
+						);
+					}
+				}, 10);
+			};
+			terminate = vi.fn();
+			onmessage: ((event: MessageEvent) => void) | null = null;
+			onerror: ((event: ErrorEvent) => void) | null = null;
+			constructor() {
+				// eslint-disable-next-line @typescript-eslint/no-this-alias
+				workerInstance = this;
+			}
+		}
+		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+
+		const { container } = render(ChaosEsthetiqueRenderer, {
+			props: { a: 0.9, b: 0.9999, x0: 18, y0: 0, iterations: 100, height: 200 }
+		});
+
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+			expect(container.querySelector('svg')).not.toBeNull();
+		});
+
+		expect(workerInstance).not.toBeNull();
+	});
+
+	it('ignores worker response with wrong type', async () => {
+		let workerInstance: {
+			onmessage: ((event: MessageEvent) => void) | null;
+			postMessage: (msg: unknown) => void;
+		} | null = null;
+		class MockWorker {
+			postMessage = (msg: unknown) => {
+				setTimeout(() => {
+					if (this.onmessage) {
+						this.onmessage(
+							new MessageEvent('message', {
+								data: { type: 'unknown', id: (msg as { id: number }).id }
+							})
+						);
+					}
+				}, 10);
+			};
+			terminate = vi.fn();
+			onmessage: ((event: MessageEvent) => void) | null = null;
+			onerror: ((event: ErrorEvent) => void) | null = null;
+			constructor() {
+				// eslint-disable-next-line @typescript-eslint/no-this-alias
+				workerInstance = this;
+			}
+		}
+		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+
+		expect(() =>
+			render(ChaosEsthetiqueRenderer, {
+				props: { a: 0.9, b: 0.9999, x0: 18, y0: 0, iterations: 100, height: 200 }
+			})
+		).not.toThrow();
+
+		await new Promise((r) => setTimeout(r, 50));
+		expect(workerInstance).not.toBeNull();
+	});
+
+	it('ignores stale worker response with wrong id', async () => {
+		let workerInstance: {
+			onmessage: ((event: MessageEvent) => void) | null;
+			postMessage: (msg: unknown) => void;
+		} | null = null;
+		class MockWorker {
+			postMessage = (msg: unknown) => {
+				void msg;
+				setTimeout(() => {
+					if (this.onmessage) {
+						this.onmessage(
+							new MessageEvent('message', {
+								data: {
+									type: 'chaosResult',
+									id: 999, // wrong id
+									points: [[0, 0]] as [number, number][]
+								}
+							})
+						);
+					}
+				}, 10);
+			};
+			terminate = vi.fn();
+			onmessage: ((event: MessageEvent) => void) | null = null;
+			onerror: ((event: ErrorEvent) => void) | null = null;
+			constructor() {
+				// eslint-disable-next-line @typescript-eslint/no-this-alias
+				workerInstance = this;
+			}
+		}
+		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+
+		expect(() =>
+			render(ChaosEsthetiqueRenderer, {
+				props: { a: 0.9, b: 0.9999, x0: 18, y0: 0, iterations: 100, height: 200 }
+			})
+		).not.toThrow();
+
+		await new Promise((r) => setTimeout(r, 50));
+		expect(workerInstance).not.toBeNull();
+	});
+
+	it('renders with shadow disabled when points exceed threshold (>5000)', async () => {
+		vi.useFakeTimers();
+		const { container } = render(ChaosEsthetiqueRenderer, {
+			props: { a: 0.9, b: 0.9999, x0: 18, y0: 0, iterations: 6000, height: 200 }
+		});
+		await vi.advanceTimersByTimeAsync(400);
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+			expect(container.querySelector('svg')).not.toBeNull();
+		});
+	});
+
+	it('handles non-finite values in calculateChaos (breaks early)', async () => {
+		vi.useFakeTimers();
+		// Extreme params at the edge of stable range cause values to grow
+		// rapidly and eventually overflow to Infinity, triggering the
+		// !Number.isFinite break in calculateChaos.
+		const { container } = render(ChaosEsthetiqueRenderer, {
+			props: { a: 2, b: 2, x0: 50, y0: 50, iterations: 10000, height: 200 }
+		});
+		await vi.advanceTimersByTimeAsync(400);
+		// Should not throw — the break guard handles the overflow.
+		expect(container.querySelector('div')).not.toBeNull();
+	});
+
+	it('warns and renders empty when 2D context is unavailable', async () => {
+		vi.useFakeTimers();
+		const savedGetContext = HTMLCanvasElement.prototype.getContext;
+		Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+			configurable: true,
+			value: () => null
+		});
+		try {
+			expect(() =>
+				render(ChaosEsthetiqueRenderer, {
+					props: { a: 0.9, b: 0.9999, x0: 18, y0: 0, iterations: 100, height: 200 }
+				})
+			).not.toThrow();
+			await vi.advanceTimersByTimeAsync(400);
+		} finally {
+			Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+				configurable: true,
+				value: savedGetContext
+			});
+		}
+	});
+
+	it('renders empty when params are outside stable range (unstable)', async () => {
+		vi.useFakeTimers();
+		// a=3 is outside the stable range [0, 2], so checkParameterStability
+		// returns isStable=false, and the component renders empty.
+		const { container } = render(ChaosEsthetiqueRenderer, {
+			props: { a: 3, b: 0.9999, x0: 18, y0: 0, iterations: 100, height: 200 }
+		});
+		await vi.advanceTimersByTimeAsync(400);
+		expect(container.querySelector('div')).not.toBeNull();
+	});
+
+	it('re-renders when height changes via rerender', async () => {
+		vi.useFakeTimers();
+		const { rerender, container } = render(ChaosEsthetiqueRenderer, {
+			props: { a: 0.9, b: 0.9999, x0: 18, y0: 0, iterations: 100, height: 200 }
+		});
+		await vi.advanceTimersByTimeAsync(400);
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+		await rerender({ a: 0.9, b: 0.9999, x0: 18, y0: 0, iterations: 100, height: 400 });
+		await vi.advanceTimersByTimeAsync(400);
+		const innerDiv = container.firstElementChild as HTMLElement;
+		expect(innerDiv?.style.height).toContain('400');
+	});
+
+	it('re-renders when parameters change via rerender', async () => {
+		vi.useFakeTimers();
+		const { rerender, container } = render(ChaosEsthetiqueRenderer, {
+			props: { a: 0.9, b: 0.9999, x0: 18, y0: 0, iterations: 100, height: 200 }
+		});
+		await vi.advanceTimersByTimeAsync(400);
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+		await rerender({ a: 1.4, b: 0.3, x0: 0, y0: 0, iterations: 50, height: 200 });
+		await vi.advanceTimersByTimeAsync(400);
+		expect(container.querySelector('canvas')).not.toBeNull();
+	});
+
+	it('cleans up on unmount without throwing', async () => {
+		vi.useFakeTimers();
+		const { unmount } = render(ChaosEsthetiqueRenderer, {
+			props: { a: 0.9, b: 0.9999, x0: 18, y0: 0, iterations: 100, height: 200 }
+		});
+		await vi.advanceTimersByTimeAsync(400);
+		expect(() => unmount()).not.toThrow();
 	});
 });

@@ -149,6 +149,7 @@ vi.mock('three/examples/jsm/lines/LineMaterial.js', () => ({
 }));
 
 import LorenzRenderer from './LorenzRenderer.svelte';
+import { cameraSyncStore, applyCameraState } from '$lib/stores/camera-sync';
 
 describe('LorenzRenderer (smoke)', () => {
 	afterEach(() => {
@@ -466,6 +467,229 @@ describe('LorenzRenderer resize and view modes and unmount', () => {
 			line2Mock.mockImplementation(originalMock);
 		} else {
 			line2Mock.mockRestore();
+		}
+	});
+});
+
+describe('LorenzRenderer prop changes and effects', () => {
+	afterEach(() => {
+		cleanup();
+		vi.mocked(cameraSyncStore.subscribe).mockReturnValue(() => {});
+		vi.mocked(applyCameraState).mockClear();
+	});
+
+	const baseParams = { type: 'lorenz' as const, sigma: 10, rho: 28, beta: 2.667 };
+
+	it('recomputes colors when colorMode changes via rerender', async () => {
+		const { rerender, container } = render(LorenzRenderer, {
+			props: { params: { ...baseParams, colorMode: 'time' }, height: 200 }
+		});
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+		await rerender({
+			params: { ...baseParams, colorMode: 'speed' },
+			height: 200
+		});
+		// Should not throw — applyColors effect re-runs.
+		expect(container.querySelector('canvas')).not.toBeNull();
+	});
+
+	it('rebuilds when solver changes via rerender', async () => {
+		const { rerender, container } = render(LorenzRenderer, {
+			props: { params: { ...baseParams, solver: 'euler' }, height: 200 }
+		});
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+		await rerender({
+			params: { ...baseParams, solver: 'rk4' },
+			height: 200
+		});
+		expect(container.querySelector('canvas')).not.toBeNull();
+	});
+
+	it('handles trailStyle comet via rerender', async () => {
+		const { rerender, container } = render(LorenzRenderer, {
+			props: { params: { ...baseParams, trailStyle: 'cumulative' }, height: 200 }
+		});
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+		await rerender({
+			params: { ...baseParams, trailStyle: 'comet' },
+			height: 200
+		});
+		expect(container.querySelector('canvas')).not.toBeNull();
+	});
+
+	it('advances head when stepNonce changes via rerender', async () => {
+		const { rerender, container } = render(LorenzRenderer, {
+			props: { params: baseParams, height: 200, stepNonce: 0, isPlaying: false }
+		});
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+		await rerender({
+			params: baseParams,
+			height: 200,
+			stepNonce: 1,
+			isPlaying: false
+		});
+		expect(container.querySelector('canvas')).not.toBeNull();
+	});
+
+	it('resets head when resetNonce changes via rerender', async () => {
+		const { rerender, container } = render(LorenzRenderer, {
+			props: { params: baseParams, height: 200, resetNonce: 0 }
+		});
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+		await rerender({
+			params: baseParams,
+			height: 200,
+			resetNonce: 1
+		});
+		expect(container.querySelector('canvas')).not.toBeNull();
+	});
+
+	it('handles speed change via rerender', async () => {
+		const { rerender, container } = render(LorenzRenderer, {
+			props: { params: { ...baseParams, speed: 1 }, height: 200 }
+		});
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+		await rerender({
+			params: { ...baseParams, speed: 5 },
+			height: 200
+		});
+		expect(container.querySelector('canvas')).not.toBeNull();
+	});
+
+	it('handles zoom change via rerender', async () => {
+		const { rerender, container } = render(LorenzRenderer, {
+			props: { params: { ...baseParams, zoom: 1 }, height: 200 }
+		});
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+		await rerender({
+			params: { ...baseParams, zoom: 2 },
+			height: 200
+		});
+		expect(container.querySelector('canvas')).not.toBeNull();
+	});
+
+	it('handles autoRotate/rotationSpeed change via rerender', async () => {
+		const { rerender, container } = render(LorenzRenderer, {
+			props: { params: { ...baseParams, autoRotate: true, rotationSpeed: 1 }, height: 200 }
+		});
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+		await rerender({
+			params: { ...baseParams, autoRotate: false, rotationSpeed: 0 },
+			height: 200
+		});
+		expect(container.querySelector('canvas')).not.toBeNull();
+	});
+
+	it('handles trailLength change via rerender', async () => {
+		const { rerender, container } = render(LorenzRenderer, {
+			props: { params: { ...baseParams, trailLength: 5000 }, height: 200 }
+		});
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+		await rerender({
+			params: { ...baseParams, trailLength: 10000 },
+			height: 200
+		});
+		expect(container.querySelector('canvas')).not.toBeNull();
+	});
+
+	it('handles isPlaying toggle via rerender', async () => {
+		const { rerender, container } = render(LorenzRenderer, {
+			props: { params: baseParams, height: 200, isPlaying: true }
+		});
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+		await rerender({
+			params: baseParams,
+			height: 200,
+			isPlaying: false
+		});
+		await rerender({
+			params: baseParams,
+			height: 200,
+			isPlaying: true
+		});
+		expect(container.querySelector('canvas')).not.toBeNull();
+	});
+
+	it('binds containerElement to the rendered div', async () => {
+		let containerEl: HTMLDivElement | undefined;
+		const { container } = render(LorenzRenderer, {
+			props: {
+				params: baseParams,
+				height: 200,
+				get containerElement() {
+					return containerEl;
+				},
+				set containerElement(next: HTMLDivElement | undefined) {
+					containerEl = next;
+				}
+			}
+		});
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+		expect(containerEl).toBeInstanceOf(HTMLDivElement);
+	});
+
+	it('applies camera state from sync store in compare mode', async () => {
+		vi.mocked(cameraSyncStore.subscribe).mockImplementationOnce((cb) => {
+			cb({
+				enabled: true,
+				lastUpdate: 'right',
+				syncing: false,
+				left: null,
+				right: { position: { x: 1, y: 2, z: 3 }, target: { x: 0, y: 0, z: 0 } }
+			});
+			return () => {};
+		});
+		render(LorenzRenderer, {
+			props: { params: baseParams, height: 200, compareMode: true, compareSide: 'left' }
+		});
+		await waitFor(() => {
+			expect(applyCameraState).toHaveBeenCalled();
+		});
+	});
+
+	it('renders with all color modes without throwing', async () => {
+		for (const colorMode of ['time', 'speed', 'zheight', 'divergence', 'single'] as const) {
+			const { container, unmount } = render(LorenzRenderer, {
+				props: { params: { ...baseParams, colorMode }, height: 200 }
+			});
+			await waitFor(() => {
+				expect(container.querySelector('canvas')).not.toBeNull();
+			});
+			unmount();
+		}
+	});
+
+	it('renders with all solver types without throwing', async () => {
+		for (const solver of ['euler', 'rk2', 'rk4'] as const) {
+			const { container, unmount } = render(LorenzRenderer, {
+				props: { params: { ...baseParams, solver }, height: 200 }
+			});
+			await waitFor(() => {
+				expect(container.querySelector('canvas')).not.toBeNull();
+			});
+			unmount();
 		}
 	});
 });

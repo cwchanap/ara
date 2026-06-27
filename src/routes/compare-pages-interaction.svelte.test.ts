@@ -61,57 +61,57 @@ vi.mock('$app/navigation', () => ({
 }));
 
 vi.mock('$lib/components/visualizations/LyapunovRenderer.svelte', async () => {
-	const m = await import('$lib/components/testing/StubComponent.svelte');
+	const m = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: m.default };
 });
 vi.mock('$lib/components/visualizations/NewtonRenderer.svelte', async () => {
-	const m = await import('$lib/components/testing/StubComponent.svelte');
+	const m = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: m.default };
 });
 vi.mock('$lib/components/visualizations/RosslerRenderer.svelte', async () => {
-	const m = await import('$lib/components/testing/StubComponent.svelte');
+	const m = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: m.default };
 });
 vi.mock('$lib/components/visualizations/HenonRenderer.svelte', async () => {
-	const m = await import('$lib/components/testing/StubComponent.svelte');
+	const m = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: m.default };
 });
 vi.mock('$lib/components/visualizations/LogisticRenderer.svelte', async () => {
-	const m = await import('$lib/components/testing/StubComponent.svelte');
+	const m = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: m.default };
 });
 vi.mock('$lib/components/visualizations/BifurcationLogisticRenderer.svelte', async () => {
-	const m = await import('$lib/components/testing/StubComponent.svelte');
+	const m = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: m.default };
 });
 vi.mock('$lib/components/visualizations/BifurcationHenonRenderer.svelte', async () => {
-	const m = await import('$lib/components/testing/StubComponent.svelte');
+	const m = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: m.default };
 });
 vi.mock('$lib/components/visualizations/ChaosEsthetiqueRenderer.svelte', async () => {
-	const m = await import('$lib/components/testing/StubComponent.svelte');
+	const m = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: m.default };
 });
 vi.mock('$lib/components/visualizations/LorenzRenderer.svelte', async () => {
-	const m = await import('$lib/components/testing/StubComponent.svelte');
+	const m = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: m.default };
 });
 vi.mock('$lib/components/visualizations/LoziRenderer.svelte', async () => {
-	const m = await import('$lib/components/testing/StubComponent.svelte');
+	const m = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: m.default };
 });
 vi.mock('$lib/components/visualizations/StandardRenderer.svelte', async () => {
-	const m = await import('$lib/components/testing/StubComponent.svelte');
+	const m = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: m.default };
 });
 vi.mock('$lib/components/visualizations/IkedaRenderer.svelte', async () => {
-	const m = await import('$lib/components/testing/StubComponent.svelte');
+	const m = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: m.default };
 });
 // The double-pendulum compare page two-way binds running/diverged on its
 // renderer, so it needs the bindable stub (not the plain StubComponent).
 vi.mock('$lib/components/visualizations/DoublePendulumRenderer.svelte', async () => {
-	const m = await import('$lib/components/testing/StubBindableRenderer.svelte');
+	const m = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: m.default };
 });
 

@@ -37,12 +37,12 @@ vi.mock('$lib/components/ui/SnapshotButton.svelte', async () => {
 });
 
 vi.mock('$lib/components/ui/VisualizationAlerts.svelte', async () => {
-	const m = await import('$lib/components/testing/StubComponent.svelte');
+	const m = await import('$lib/components/testing/VisualizationAlertsStub.svelte');
 	return { default: m.default };
 });
 
 vi.mock('$lib/components/visualizations/IkedaRenderer.svelte', async () => {
-	const m = await import('$lib/components/testing/StubComponent.svelte');
+	const m = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: m.default };
 });
 
