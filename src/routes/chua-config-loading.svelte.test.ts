@@ -8,7 +8,7 @@ import {
 	createUnauthedPageData,
 	unauthedPageProps
 } from '$lib/components/testing/page-test-helpers';
-import uchuaPage from './chua/+page.svelte';
+import ChuaPage from './chua/+page.svelte';
 
 const loadSavedConfigParametersMock = vi.hoisted(() => vi.fn());
 const loadSharedConfigParametersMock = vi.hoisted(() => vi.fn());
@@ -73,7 +73,7 @@ describe('chua page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/chua?configId=chua-id-1');
-		render(uchuaPage, { props: unauthedPageProps });
+		render(ChuaPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalledWith(
@@ -95,7 +95,7 @@ describe('chua page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/chua?share=chua-share-1');
-		render(uchuaPage, { props: unauthedPageProps });
+		render(ChuaPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSharedConfigParametersMock).toHaveBeenCalledWith(
@@ -117,7 +117,7 @@ describe('chua page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/chua?configId=bad-id');
-		render(uchuaPage, { props: unauthedPageProps });
+		render(ChuaPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -132,7 +132,7 @@ describe('chua page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/chua?share=expired-code');
-		render(uchuaPage, { props: unauthedPageProps });
+		render(ChuaPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -146,7 +146,7 @@ describe('chua page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/chua?config=some-encoded-data');
-		render(uchuaPage, { props: unauthedPageProps });
+		render(ChuaPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(parseConfigParamMock).toHaveBeenCalledWith(
@@ -170,7 +170,7 @@ describe('chua page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/chua?config=bad-data');
-		render(uchuaPage, { props: unauthedPageProps });
+		render(ChuaPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -181,7 +181,7 @@ describe('chua page – config loading', () => {
 		loadSavedConfigParametersMock.mockRejectedValueOnce(new Error('Network error'));
 
 		setPageUrl('http://localhost/chua?configId=error-id');
-		render(uchuaPage, { props: unauthedPageProps });
+		render(ChuaPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -196,7 +196,7 @@ describe('chua page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/chua?configId=dup-id');
-		render(uchuaPage, { props: unauthedPageProps });
+		render(ChuaPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalledTimes(1);
@@ -215,7 +215,7 @@ describe('chua page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/chua?configId=unstable-id');
-		render(uchuaPage, { props: unauthedPageProps });
+		render(ChuaPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('UNSTABLE_PARAMETERS_DETECTED')).toBeInTheDocument();
@@ -231,7 +231,7 @@ describe('chua page – config loading', () => {
 		);
 
 		setPageUrl('http://localhost/chua?configId=late-id');
-		const { unmount } = render(uchuaPage, { props: unauthedPageProps });
+		const { unmount } = render(ChuaPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalled();
@@ -247,7 +247,7 @@ describe('chua page – config loading', () => {
 		loadSavedConfigParametersMock.mockRejectedValueOnce(abortError);
 
 		setPageUrl('http://localhost/chua?configId=abort-id');
-		render(uchuaPage, { props: unauthedPageProps });
+		render(ChuaPage, { props: unauthedPageProps });
 
 		await new Promise((r) => setTimeout(r, 100));
 		expect(screen.queryByText('INVALID_CONFIGURATION')).not.toBeInTheDocument();
@@ -262,7 +262,7 @@ describe('chua page – config loading', () => {
 		);
 
 		setPageUrl('http://localhost/chua?configId=late-reject-id');
-		const { unmount } = render(uchuaPage, { props: unauthedPageProps });
+		const { unmount } = render(ChuaPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalled();
@@ -278,7 +278,7 @@ describe('chua page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/chua?config=crash-data');
-		render(uchuaPage, { props: unauthedPageProps });
+		render(ChuaPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -293,7 +293,7 @@ describe('chua page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/chua?configId=dismiss-id');
-		render(uchuaPage, { props: unauthedPageProps });
+		render(ChuaPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -312,7 +312,7 @@ describe('chua page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/chua?configId=warn-dismiss-id');
-		render(uchuaPage, { props: unauthedPageProps });
+		render(ChuaPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('UNSTABLE_PARAMETERS_DETECTED')).toBeInTheDocument();

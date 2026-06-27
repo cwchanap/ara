@@ -8,7 +8,7 @@ import {
 	createUnauthedPageData,
 	unauthedPageProps
 } from '$lib/components/testing/page-test-helpers';
-import ulyapunovPage from './lyapunov/+page.svelte';
+import LyapunovPage from './lyapunov/+page.svelte';
 
 const loadSavedConfigParametersMock = vi.hoisted(() => vi.fn());
 const loadSharedConfigParametersMock = vi.hoisted(() => vi.fn());
@@ -75,7 +75,7 @@ describe('lyapunov page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/lyapunov?configId=lyapunov-id-1');
-		render(ulyapunovPage, { props: unauthedPageProps });
+		render(LyapunovPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalledWith(
@@ -97,7 +97,7 @@ describe('lyapunov page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/lyapunov?share=lyapunov-share-1');
-		render(ulyapunovPage, { props: unauthedPageProps });
+		render(LyapunovPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSharedConfigParametersMock).toHaveBeenCalledWith(
@@ -119,7 +119,7 @@ describe('lyapunov page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/lyapunov?configId=bad-id');
-		render(ulyapunovPage, { props: unauthedPageProps });
+		render(LyapunovPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -134,7 +134,7 @@ describe('lyapunov page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/lyapunov?share=expired-code');
-		render(ulyapunovPage, { props: unauthedPageProps });
+		render(LyapunovPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -148,7 +148,7 @@ describe('lyapunov page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/lyapunov?config=some-encoded-data');
-		render(ulyapunovPage, { props: unauthedPageProps });
+		render(LyapunovPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(parseConfigParamMock).toHaveBeenCalledWith(
@@ -172,7 +172,7 @@ describe('lyapunov page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/lyapunov?config=bad-data');
-		render(ulyapunovPage, { props: unauthedPageProps });
+		render(LyapunovPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -183,7 +183,7 @@ describe('lyapunov page – config loading', () => {
 		loadSavedConfigParametersMock.mockRejectedValueOnce(new Error('Network error'));
 
 		setPageUrl('http://localhost/lyapunov?configId=error-id');
-		render(ulyapunovPage, { props: unauthedPageProps });
+		render(LyapunovPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -198,7 +198,7 @@ describe('lyapunov page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/lyapunov?configId=dup-id');
-		render(ulyapunovPage, { props: unauthedPageProps });
+		render(LyapunovPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalledTimes(1);
@@ -217,7 +217,7 @@ describe('lyapunov page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/lyapunov?configId=unstable-id');
-		render(ulyapunovPage, { props: unauthedPageProps });
+		render(LyapunovPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('UNSTABLE_PARAMETERS_DETECTED')).toBeInTheDocument();
@@ -233,7 +233,7 @@ describe('lyapunov page – config loading', () => {
 		);
 
 		setPageUrl('http://localhost/lyapunov?configId=late-id');
-		const { unmount } = render(ulyapunovPage, { props: unauthedPageProps });
+		const { unmount } = render(LyapunovPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalled();
@@ -249,7 +249,7 @@ describe('lyapunov page – config loading', () => {
 		loadSavedConfigParametersMock.mockRejectedValueOnce(abortError);
 
 		setPageUrl('http://localhost/lyapunov?configId=abort-id');
-		render(ulyapunovPage, { props: unauthedPageProps });
+		render(LyapunovPage, { props: unauthedPageProps });
 
 		await new Promise((r) => setTimeout(r, 100));
 		expect(screen.queryByText('INVALID_CONFIGURATION')).not.toBeInTheDocument();
@@ -264,7 +264,7 @@ describe('lyapunov page – config loading', () => {
 		);
 
 		setPageUrl('http://localhost/lyapunov?configId=late-reject-id');
-		const { unmount } = render(ulyapunovPage, { props: unauthedPageProps });
+		const { unmount } = render(LyapunovPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalled();
@@ -280,7 +280,7 @@ describe('lyapunov page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/lyapunov?config=crash-data');
-		render(ulyapunovPage, { props: unauthedPageProps });
+		render(LyapunovPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -295,7 +295,7 @@ describe('lyapunov page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/lyapunov?configId=dismiss-id');
-		render(ulyapunovPage, { props: unauthedPageProps });
+		render(LyapunovPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -314,7 +314,7 @@ describe('lyapunov page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/lyapunov?configId=warn-dismiss-id');
-		render(ulyapunovPage, { props: unauthedPageProps });
+		render(LyapunovPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('UNSTABLE_PARAMETERS_DETECTED')).toBeInTheDocument();

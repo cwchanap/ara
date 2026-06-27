@@ -8,7 +8,7 @@ import {
 	createUnauthedPageData,
 	unauthedPageProps
 } from '$lib/components/testing/page-test-helpers';
-import ubifurcationlogisticPage from './bifurcation-logistic/+page.svelte';
+import BifurcationLogisticPage from './bifurcation-logistic/+page.svelte';
 
 const loadSavedConfigParametersMock = vi.hoisted(() => vi.fn());
 const loadSharedConfigParametersMock = vi.hoisted(() => vi.fn());
@@ -73,7 +73,7 @@ describe('bifurcation-logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/bifurcation-logistic?configId=bifurcation-logistic-id-1');
-		render(ubifurcationlogisticPage, { props: unauthedPageProps });
+		render(BifurcationLogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalledWith(
@@ -98,7 +98,7 @@ describe('bifurcation-logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/bifurcation-logistic?share=bifurcation-logistic-share-1');
-		render(ubifurcationlogisticPage, { props: unauthedPageProps });
+		render(BifurcationLogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSharedConfigParametersMock).toHaveBeenCalledWith(
@@ -123,7 +123,7 @@ describe('bifurcation-logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/bifurcation-logistic?configId=bad-id');
-		render(ubifurcationlogisticPage, { props: unauthedPageProps });
+		render(BifurcationLogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -138,7 +138,7 @@ describe('bifurcation-logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/bifurcation-logistic?share=expired-code');
-		render(ubifurcationlogisticPage, { props: unauthedPageProps });
+		render(BifurcationLogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -152,7 +152,7 @@ describe('bifurcation-logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/bifurcation-logistic?config=some-encoded-data');
-		render(ubifurcationlogisticPage, { props: unauthedPageProps });
+		render(BifurcationLogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(parseConfigParamMock).toHaveBeenCalledWith(
@@ -179,7 +179,7 @@ describe('bifurcation-logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/bifurcation-logistic?config=bad-data');
-		render(ubifurcationlogisticPage, { props: unauthedPageProps });
+		render(BifurcationLogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -190,7 +190,7 @@ describe('bifurcation-logistic page – config loading', () => {
 		loadSavedConfigParametersMock.mockRejectedValueOnce(new Error('Network error'));
 
 		setPageUrl('http://localhost/bifurcation-logistic?configId=error-id');
-		render(ubifurcationlogisticPage, { props: unauthedPageProps });
+		render(BifurcationLogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -205,7 +205,7 @@ describe('bifurcation-logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/bifurcation-logistic?configId=dup-id');
-		render(ubifurcationlogisticPage, { props: unauthedPageProps });
+		render(BifurcationLogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalledTimes(1);
@@ -224,7 +224,7 @@ describe('bifurcation-logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/bifurcation-logistic?configId=unstable-id');
-		render(ubifurcationlogisticPage, { props: unauthedPageProps });
+		render(BifurcationLogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('UNSTABLE_PARAMETERS_DETECTED')).toBeInTheDocument();
@@ -240,7 +240,7 @@ describe('bifurcation-logistic page – config loading', () => {
 		);
 
 		setPageUrl('http://localhost/bifurcation-logistic?configId=late-id');
-		const { unmount } = render(ubifurcationlogisticPage, { props: unauthedPageProps });
+		const { unmount } = render(BifurcationLogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalled();
@@ -256,7 +256,7 @@ describe('bifurcation-logistic page – config loading', () => {
 		loadSavedConfigParametersMock.mockRejectedValueOnce(abortError);
 
 		setPageUrl('http://localhost/bifurcation-logistic?configId=abort-id');
-		render(ubifurcationlogisticPage, { props: unauthedPageProps });
+		render(BifurcationLogisticPage, { props: unauthedPageProps });
 
 		await new Promise((r) => setTimeout(r, 100));
 		expect(screen.queryByText('INVALID_CONFIGURATION')).not.toBeInTheDocument();
@@ -271,7 +271,7 @@ describe('bifurcation-logistic page – config loading', () => {
 		);
 
 		setPageUrl('http://localhost/bifurcation-logistic?configId=late-reject-id');
-		const { unmount } = render(ubifurcationlogisticPage, { props: unauthedPageProps });
+		const { unmount } = render(BifurcationLogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalled();
@@ -287,7 +287,7 @@ describe('bifurcation-logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/bifurcation-logistic?config=crash-data');
-		render(ubifurcationlogisticPage, { props: unauthedPageProps });
+		render(BifurcationLogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -302,7 +302,7 @@ describe('bifurcation-logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/bifurcation-logistic?configId=dismiss-id');
-		render(ubifurcationlogisticPage, { props: unauthedPageProps });
+		render(BifurcationLogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -321,7 +321,7 @@ describe('bifurcation-logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/bifurcation-logistic?configId=warn-dismiss-id');
-		render(ubifurcationlogisticPage, { props: unauthedPageProps });
+		render(BifurcationLogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('UNSTABLE_PARAMETERS_DETECTED')).toBeInTheDocument();

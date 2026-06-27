@@ -1,6 +1,15 @@
 <!--
-  Test stub for VisualizationAlerts that reads all props so parent
-  expressions (callbacks, currentPath, etc.) are evaluated for coverage.
+  Test stub for VisualizationAlerts (src/lib/components/ui/VisualizationAlerts.svelte).
+
+  Stub-vs-real split:
+  - Props contract is identical (same 11 props, same types) so parent pages under
+    test can mock the real component without altering their prop wiring.
+  - The real component renders the actual toasts/alerts and wires dismiss callbacks
+    to interactive DOM. This stub renders an empty div and only `void`-references
+    every prop so parent expressions (callbacks, currentPath, etc.) are evaluated
+    for coverage without exercising alert rendering/dismissal logic.
+
+  Use via: vi.mock('$lib/components/ui/VisualizationAlerts.svelte', () => ({ default: ... }))
 -->
 <script lang="ts">
 	type Props = {

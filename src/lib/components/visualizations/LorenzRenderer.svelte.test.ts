@@ -12,6 +12,12 @@ vi.mock('$lib/stores/camera-sync', () => ({
 	applyCameraState: vi.fn()
 }));
 
+// Shared spy for PerspectiveCamera.position.set so the zoom/viewMode rerender
+// test can verify the synchronous applyCameraPosition effect actually ran.
+const { perspectiveCameraPositionSet } = vi.hoisted(() => ({
+	perspectiveCameraPositionSet: vi.fn()
+}));
+
 vi.mock('three', () => ({
 	// Use mockImplementation(function(){}) so constructors work with `new`
 	WebGLRenderer: vi.fn().mockImplementation(function () {
@@ -26,7 +32,7 @@ vi.mock('three', () => ({
 	}),
 	PerspectiveCamera: vi.fn().mockImplementation(function () {
 		return {
-			position: { set: vi.fn(), x: 0, y: 0, z: 30 },
+			position: { set: perspectiveCameraPositionSet, x: 0, y: 0, z: 30 },
 			aspect: 1,
 			updateProjectionMatrix: vi.fn()
 		};
@@ -120,14 +126,24 @@ vi.mock('three/examples/jsm/controls/OrbitControls.js', () => {
 	};
 });
 
+// Shared spies for Line2 geometry methods, hoisted so they are available inside
+// the vi.mock factory below and in test bodies. Using shared spies (instead of a
+// fresh vi.fn() per `new Line2()` instance) lets rerender tests assert that the
+// rAF-driven updateDraw() pipeline actually pushed new geometry/colors after a
+// prop change — verifying the effect ran, not just that the rerender didn't throw.
+const { line2SetPositions, line2SetColors } = vi.hoisted(() => ({
+	line2SetPositions: vi.fn(),
+	line2SetColors: vi.fn()
+}));
+
 vi.mock('three/examples/jsm/lines/Line2.js', () => ({
 	Line2: vi.fn().mockImplementation(function () {
 		return {
 			visible: true,
 			geometry: {
 				dispose: vi.fn(),
-				setPositions: vi.fn(),
-				setColors: vi.fn(),
+				setPositions: line2SetPositions,
+				setColors: line2SetColors,
 				instanceCount: 10
 			},
 			material: { dispose: vi.fn(), resolution: { set: vi.fn() } },
@@ -476,6 +492,9 @@ describe('LorenzRenderer prop changes and effects', () => {
 		cleanup();
 		vi.mocked(cameraSyncStore.subscribe).mockReturnValue(() => {});
 		vi.mocked(applyCameraState).mockClear();
+		line2SetPositions.mockClear();
+		line2SetColors.mockClear();
+		perspectiveCameraPositionSet.mockClear();
 	});
 
 	const baseParams = { type: 'lorenz' as const, sigma: 10, rho: 28, beta: 2.667 };
@@ -487,11 +506,17 @@ describe('LorenzRenderer prop changes and effects', () => {
 		await waitFor(() => {
 			expect(container.querySelector('canvas')).not.toBeNull();
 		});
+		line2SetPositions.mockClear();
+		line2SetColors.mockClear();
 		await rerender({
 			params: { ...baseParams, colorMode: 'speed' },
 			height: 200
 		});
-		// Should not throw — applyColors effect re-runs.
+		// applyColors() invalidates the draw cache; the next updateDraw() (rAF)
+		// must push the recomputed colors. Verifies the colorMode effect ran.
+		await waitFor(() => {
+			expect(line2SetColors).toHaveBeenCalled();
+		});
 		expect(container.querySelector('canvas')).not.toBeNull();
 	});
 
@@ -502,14 +527,27 @@ describe('LorenzRenderer prop changes and effects', () => {
 		await waitFor(() => {
 			expect(container.querySelector('canvas')).not.toBeNull();
 		});
+		// Reset after initial mount so we only observe post-rerender activity.
+		line2SetPositions.mockClear();
+		line2SetColors.mockClear();
 		await rerender({
 			params: { ...baseParams, solver: 'rk4' },
 			height: 200
+		});
+		// rebuild() invalidates the draw cache; the next updateDraw() (rAF) must
+		// push the new trajectory geometry to the line. Verifies the rebuild effect
+		// propagated to the render pipeline, not just that rerender didn't throw.
+		await waitFor(() => {
+			expect(line2SetPositions).toHaveBeenCalled();
 		});
 		expect(container.querySelector('canvas')).not.toBeNull();
 	});
 
 	it('handles trailStyle comet via rerender', async () => {
+		// trailStyle is not in any $effect dependency list; it is only read inside
+		// updateDraw() (rAF loop). There is no synchronous mock-level observable for
+		// a trailStyle rerender, so this remains a smoke check (rerender + canvas
+		// survives). The comet windowing is exercised indirectly via the rAF loop.
 		const { rerender, container } = render(LorenzRenderer, {
 			props: { params: { ...baseParams, trailStyle: 'cumulative' }, height: 200 }
 		});
@@ -530,16 +568,28 @@ describe('LorenzRenderer prop changes and effects', () => {
 		await waitFor(() => {
 			expect(container.querySelector('canvas')).not.toBeNull();
 		});
+		line2SetPositions.mockClear();
+		line2SetColors.mockClear();
 		await rerender({
 			params: baseParams,
 			height: 200,
 			stepNonce: 1,
 			isPlaying: false
 		});
+		// isPlaying=false means the rAF loop's advanceHead(false) is a no-op, so
+		// the only thing that advances head is the stepNonce effect's
+		// advanceHead(true). The next updateDraw() must push the new slice.
+		await waitFor(() => {
+			expect(line2SetPositions).toHaveBeenCalled();
+		});
 		expect(container.querySelector('canvas')).not.toBeNull();
 	});
 
 	it('resets head when resetNonce changes via rerender', async () => {
+		// resetNonce sets head=0; updateDraw() then early-returns (slice count < 2)
+		// without calling setPositions/setColors, so the Line2 geometry spies cannot
+		// observe the reset. The observable would be line.visible=false, but
+		// `visible` is a plain property on the mock, not a spy. Smoke check only.
 		const { rerender, container } = render(LorenzRenderer, {
 			props: { params: baseParams, height: 200, resetNonce: 0 }
 		});
@@ -555,6 +605,10 @@ describe('LorenzRenderer prop changes and effects', () => {
 	});
 
 	it('handles speed change via rerender', async () => {
+		// speed is not tracked by any $effect; it is read inside advanceHead()
+		// (rAF loop). With isPlaying defaulting to true the loop advances head
+		// every frame regardless of speed, so a setPositions spy assertion could
+		// pass for the wrong reason (animation ticked). Smoke check only.
 		const { rerender, container } = render(LorenzRenderer, {
 			props: { params: { ...baseParams, speed: 1 }, height: 200 }
 		});
@@ -575,14 +629,24 @@ describe('LorenzRenderer prop changes and effects', () => {
 		await waitFor(() => {
 			expect(container.querySelector('canvas')).not.toBeNull();
 		});
+		perspectiveCameraPositionSet.mockClear();
 		await rerender({
 			params: { ...baseParams, zoom: 2 },
 			height: 200
+		});
+		// The zoom effect calls applyCameraPosition() synchronously, which sets
+		// the perspective camera position. Verifies the camera effect ran.
+		await waitFor(() => {
+			expect(perspectiveCameraPositionSet).toHaveBeenCalled();
 		});
 		expect(container.querySelector('canvas')).not.toBeNull();
 	});
 
 	it('handles autoRotate/rotationSpeed change via rerender', async () => {
+		// applyOrbitSettings() runs synchronously and assigns orbit.autoRotate /
+		// autoRotateSpeed, but those are plain-property assignments on the
+		// OrbitControls mock (no setter/spy), so they are not observable without
+		// invasive mock surgery. Smoke check only.
 		const { rerender, container } = render(LorenzRenderer, {
 			props: { params: { ...baseParams, autoRotate: true, rotationSpeed: 1 }, height: 200 }
 		});
@@ -603,14 +667,25 @@ describe('LorenzRenderer prop changes and effects', () => {
 		await waitFor(() => {
 			expect(container.querySelector('canvas')).not.toBeNull();
 		});
+		line2SetPositions.mockClear();
+		line2SetColors.mockClear();
 		await rerender({
 			params: { ...baseParams, trailLength: 10000 },
 			height: 200
+		});
+		// trailLength is in the rebuild effect's dependency list; rebuild()
+		// invalidates the draw cache so the next updateDraw() pushes new geometry.
+		await waitFor(() => {
+			expect(line2SetPositions).toHaveBeenCalled();
 		});
 		expect(container.querySelector('canvas')).not.toBeNull();
 	});
 
 	it('handles isPlaying toggle via rerender', async () => {
+		// isPlaying gates advanceHead() inside the rAF loop. Asserting the
+		// stop/resume of setPositions calls across a true→false→true toggle is
+		// timing-fragile (depends on exactly which rAF tick fires between
+		// rerenders), so this remains a smoke check.
 		const { rerender, container } = render(LorenzRenderer, {
 			props: { params: baseParams, height: 200, isPlaying: true }
 		});
