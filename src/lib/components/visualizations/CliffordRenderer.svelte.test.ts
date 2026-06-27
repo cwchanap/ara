@@ -85,6 +85,85 @@ const baseProps = {
 	height: 200
 };
 
+// Hoisted worker mocks shared across worker-path tests. The holder lets each
+// test read back the instance the renderer constructed without re-declaring a
+// class inside the test body (avoids perf_avoid_nested_class warnings).
+interface CapturedWorker {
+	postMessage: (msg: unknown) => void;
+	terminate: () => void;
+	onmessage: ((event: MessageEvent) => void) | null;
+	onerror: ((event: ErrorEvent) => void) | null;
+}
+
+const workerHolder: { instance: CapturedWorker | null } = { instance: null };
+
+// Basic worker: postMessage is a no-op spy. Tests manually fire onmessage/onerror.
+class MockWorker {
+	postMessage = vi.fn();
+	terminate = vi.fn();
+	onmessage: ((event: MessageEvent) => void) | null = null;
+	onerror: ((event: ErrorEvent) => void) | null = null;
+	constructor() {
+		workerHolder.instance = this;
+	}
+}
+
+// Worker whose constructor throws, exercising the init-failure fallback.
+class FailingWorker {
+	constructor() {
+		throw new Error('Worker init failed');
+	}
+}
+
+// Auto-responds to postMessage with a cliffordResult message.
+class AutoRespondCliffordWorker {
+	postMessage = (msg: unknown) => {
+		setTimeout(() => {
+			if (this.onmessage) {
+				this.onmessage(
+					new MessageEvent('message', {
+						data: {
+							type: 'cliffordResult',
+							id: (msg as { id: number }).id,
+							points: [
+								[0, 0],
+								[0.5, 0.5]
+							] as [number, number][]
+						}
+					})
+				);
+			}
+		}, 10);
+	};
+	terminate = vi.fn();
+	onmessage: ((event: MessageEvent) => void) | null = null;
+	onerror: ((event: ErrorEvent) => void) | null = null;
+	constructor() {
+		workerHolder.instance = this;
+	}
+}
+
+// Auto-responds with an unknown message type (ignored by the renderer).
+class AutoRespondUnknownWorker {
+	postMessage = (msg: unknown) => {
+		setTimeout(() => {
+			if (this.onmessage) {
+				this.onmessage(
+					new MessageEvent('message', {
+						data: { type: 'unknown', id: (msg as { id: number }).id }
+					})
+				);
+			}
+		}, 10);
+	};
+	terminate = vi.fn();
+	onmessage: ((event: MessageEvent) => void) | null = null;
+	onerror: ((event: ErrorEvent) => void) | null = null;
+	constructor() {
+		workerHolder.instance = this;
+	}
+}
+
 describe('CliffordRenderer', () => {
 	afterEach(() => {
 		cleanup();
@@ -329,21 +408,7 @@ describe('CliffordRenderer', () => {
 
 	it('handles worker error response and falls back to main thread', async () => {
 		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-		let workerInstance: {
-			onmessage: ((event: MessageEvent) => void) | null;
-			onerror: ((event: ErrorEvent) => void) | null;
-			terminate: () => void;
-		} | null = null;
-		class MockWorker {
-			postMessage = vi.fn();
-			terminate = vi.fn();
-			onmessage: ((event: MessageEvent) => void) | null = null;
-			onerror: ((event: ErrorEvent) => void) | null = null;
-			constructor() {
-				// eslint-disable-next-line @typescript-eslint/no-this-alias
-				workerInstance = this;
-			}
-		}
+		workerHolder.instance = null;
 		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
 
 		vi.mocked(calculateCliffordTuples).mockReturnValueOnce([
@@ -357,8 +422,8 @@ describe('CliffordRenderer', () => {
 
 		await new Promise((r) => setTimeout(r, 50));
 
-		if (workerInstance!.onmessage) {
-			workerInstance!.onmessage(
+		if (workerHolder.instance!.onmessage) {
+			workerHolder.instance!.onmessage(
 				new MessageEvent('message', {
 					data: { type: 'error', message: 'clifford worker failed' }
 				})
@@ -372,28 +437,14 @@ describe('CliffordRenderer', () => {
 			);
 		});
 
-		expect(workerInstance!.terminate).toHaveBeenCalled();
+		expect(workerHolder.instance!.terminate).toHaveBeenCalled();
 		delete (globalThis as unknown as Record<string, unknown>).Worker;
 		errorSpy.mockRestore();
 	});
 
 	it('handles worker onerror and falls back to main thread', async () => {
 		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-		let workerInstance: {
-			onmessage: ((event: MessageEvent) => void) | null;
-			onerror: ((event: ErrorEvent) => void) | null;
-			terminate: () => void;
-		} | null = null;
-		class MockWorker {
-			postMessage = vi.fn();
-			terminate = vi.fn();
-			onmessage: ((event: MessageEvent) => void) | null = null;
-			onerror: ((event: ErrorEvent) => void) | null = null;
-			constructor() {
-				// eslint-disable-next-line @typescript-eslint/no-this-alias
-				workerInstance = this;
-			}
-		}
+		workerHolder.instance = null;
 		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
 
 		vi.mocked(calculateCliffordTuples).mockReturnValueOnce([
@@ -407,8 +458,10 @@ describe('CliffordRenderer', () => {
 
 		await new Promise((r) => setTimeout(r, 50));
 
-		if (workerInstance!.onerror) {
-			workerInstance!.onerror(new ErrorEvent('error', { message: 'clifford runtime error' }));
+		if (workerHolder.instance!.onerror) {
+			workerHolder.instance!.onerror(
+				new ErrorEvent('error', { message: 'clifford runtime error' })
+			);
 		}
 
 		await waitFor(() => {
@@ -418,18 +471,13 @@ describe('CliffordRenderer', () => {
 			);
 		});
 
-		expect(workerInstance!.terminate).toHaveBeenCalled();
+		expect(workerHolder.instance!.terminate).toHaveBeenCalled();
 		delete (globalThis as unknown as Record<string, unknown>).Worker;
 		errorSpy.mockRestore();
 	});
 
 	it('handles worker initialization failure gracefully', async () => {
 		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-		class FailingWorker {
-			constructor() {
-				throw new Error('Worker init failed');
-			}
-		}
 		(globalThis as unknown as Record<string, unknown>).Worker = FailingWorker;
 
 		const { container } = render(CliffordRenderer, {
@@ -449,39 +497,8 @@ describe('CliffordRenderer', () => {
 	});
 
 	it('processes a successful worker response and renders', async () => {
-		let workerInstance: {
-			onmessage: ((event: MessageEvent) => void) | null;
-			onerror: ((event: ErrorEvent) => void) | null;
-			postMessage: (msg: unknown) => void;
-		} | null = null;
-		class MockWorker {
-			postMessage = (msg: unknown) => {
-				setTimeout(() => {
-					if (this.onmessage) {
-						this.onmessage(
-							new MessageEvent('message', {
-								data: {
-									type: 'cliffordResult',
-									id: (msg as { id: number }).id,
-									points: [
-										[0, 0],
-										[0.5, 0.5]
-									] as [number, number][]
-								}
-							})
-						);
-					}
-				}, 10);
-			};
-			terminate = vi.fn();
-			onmessage: ((event: MessageEvent) => void) | null = null;
-			onerror: ((event: ErrorEvent) => void) | null = null;
-			constructor() {
-				// eslint-disable-next-line @typescript-eslint/no-this-alias
-				workerInstance = this;
-			}
-		}
-		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+		workerHolder.instance = null;
+		(globalThis as unknown as Record<string, unknown>).Worker = AutoRespondCliffordWorker;
 
 		const { container } = render(CliffordRenderer, {
 			props: { ...baseProps, colorMode: 'iteration' as const }
@@ -491,36 +508,13 @@ describe('CliffordRenderer', () => {
 			expect(container.querySelector('canvas')).not.toBeNull();
 		});
 
-		expect(workerInstance).not.toBeNull();
+		expect(workerHolder.instance).not.toBeNull();
 		delete (globalThis as unknown as Record<string, unknown>).Worker;
 	});
 
 	it('ignores worker response with wrong type without throwing', async () => {
-		let workerInstance: {
-			onmessage: ((event: MessageEvent) => void) | null;
-			postMessage: (msg: unknown) => void;
-		} | null = null;
-		class MockWorker {
-			postMessage = (msg: unknown) => {
-				setTimeout(() => {
-					if (this.onmessage) {
-						this.onmessage(
-							new MessageEvent('message', {
-								data: { type: 'unknown', id: (msg as { id: number }).id }
-							})
-						);
-					}
-				}, 10);
-			};
-			terminate = vi.fn();
-			onmessage: ((event: MessageEvent) => void) | null = null;
-			onerror: ((event: ErrorEvent) => void) | null = null;
-			constructor() {
-				// eslint-disable-next-line @typescript-eslint/no-this-alias
-				workerInstance = this;
-			}
-		}
-		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+		workerHolder.instance = null;
+		(globalThis as unknown as Record<string, unknown>).Worker = AutoRespondUnknownWorker;
 
 		vi.mocked(calculateCliffordTuples).mockReturnValueOnce([
 			[0, 0],
@@ -536,7 +530,7 @@ describe('CliffordRenderer', () => {
 		await new Promise((r) => setTimeout(r, 50));
 
 		// The wrong-type response is ignored; component should not throw.
-		expect(workerInstance).not.toBeNull();
+		expect(workerHolder.instance).not.toBeNull();
 
 		delete (globalThis as unknown as Record<string, unknown>).Worker;
 	});

@@ -1,12 +1,9 @@
 <!--
   Test stub for renderers that need two-way bindable props.
   Declares all commonly-bound props as $bindable() so parent pages under
-  test can two-way bind to them. Exposes a button that, when clicked,
-  writes to every numeric bindable prop — triggering the parent's setter
-  and covering the bind: directive lines.
+  test can two-way bind to them.
 -->
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
@@ -124,64 +121,6 @@
 		seeds = $bindable<unknown>(undefined),
 		children
 	}: Props = $props();
-
-	function touchAll() {
-		// Write back to every bindable prop to trigger parent setters
-		a = a;
-		b = b;
-		c = c;
-		d = d;
-		u = u;
-		r = r;
-		k = k;
-		alpha = alpha;
-		beta = beta;
-		gamma = gamma;
-		x0 = x0;
-		y0 = y0;
-		iterations = iterations;
-		burnIn = burnIn;
-		numP = numP;
-		numQ = numQ;
-		maxIterations = maxIterations;
-		rMin = rMin;
-		rMax = rMax;
-		aMin = aMin;
-		aMax = aMax;
-		xMin = xMin;
-		xMax = xMax;
-		yMin = yMin;
-		yMax = yMax;
-		transientIterations = transientIterations;
-		theta1 = theta1;
-		theta2 = theta2;
-		omega1 = omega1;
-		omega2 = omega2;
-		l1 = l1;
-		l2 = l2;
-		m1 = m1;
-		m2 = m2;
-		gravity = gravity;
-		damping = damping;
-		speed = speed;
-		trailLength = trailLength;
-		renderMode = renderMode;
-		colorMode = colorMode;
-		opacity = opacity;
-		pointSize = pointSize;
-		zoom = zoom;
-		running = running;
-		diverged = diverged;
-		restartSignal = restartSignal;
-		divergenceValue = divergenceValue;
-		value = value;
-		head = head;
-		seeds = seeds;
-		containerElement = containerElement;
-	}
-
-	// Write to all bindable props on mount so parent bind: setters are exercised
-	onMount(touchAll);
 </script>
 
 <div
@@ -190,7 +129,6 @@
 	data-diverged={String(diverged)}
 	data-restart-signal={String(restartSignal)}
 >
-	<button type="button" data-testid="bindable-stub-touch" onclick={touchAll}> Touch </button>
 	<button type="button" data-testid="stub-trigger-diverged" onclick={() => (diverged = true)}>
 		Simulate diverged
 	</button>

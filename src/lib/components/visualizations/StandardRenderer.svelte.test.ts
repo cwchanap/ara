@@ -43,6 +43,50 @@ afterAll(() => {
 	}
 });
 
+// Hoisted worker mocks shared across worker-path tests. The holder lets each
+// test read back the instance the renderer constructed without re-declaring a
+// class inside the test body (avoids perf_avoid_nested_class warnings).
+interface CapturedWorker {
+	postMessage: (msg: unknown) => void;
+	terminate: () => void;
+	onmessage: ((event: MessageEvent) => void) | null;
+	onerror: ((event: ErrorEvent) => void) | null;
+	onmessageerror: ((event: MessageEvent) => void) | null;
+}
+
+const workerHolder: { instance: CapturedWorker | null } = { instance: null };
+
+// Basic worker: postMessage is a no-op spy. Tests manually fire onmessage/onerror/onmessageerror.
+class MockWorker {
+	postMessage = vi.fn();
+	terminate = vi.fn();
+	onmessage: ((event: MessageEvent) => void) | null = null;
+	onerror: ((event: ErrorEvent) => void) | null = null;
+	onmessageerror: ((event: MessageEvent) => void) | null = null;
+	constructor() {
+		workerHolder.instance = this;
+	}
+}
+
+// Worker whose constructor throws, exercising the init-failure fallback.
+class FailingWorker {
+	constructor() {
+		throw new Error('Worker init failed');
+	}
+}
+
+// Captures the ResizeObserver callback so a test can fire it manually.
+const roHolder: { callback: (() => void) | null } = { callback: null };
+
+class CapturingResizeObserver {
+	constructor(cb: () => void) {
+		roHolder.callback = cb;
+	}
+	observe() {}
+	unobserve() {}
+	disconnect() {}
+}
+
 describe('StandardRenderer', () => {
 	afterEach(() => {
 		vi.useRealTimers();
@@ -186,21 +230,7 @@ describe('StandardRenderer (coverage)', () => {
 
 	it('handles worker error response via handleWorkerFailure', async () => {
 		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-		let workerInstance: {
-			onmessage: ((event: MessageEvent) => void) | null;
-			terminate: () => void;
-		} | null = null;
-		class MockWorker {
-			postMessage = vi.fn();
-			terminate = vi.fn();
-			onmessage: ((event: MessageEvent) => void) | null = null;
-			onerror: ((event: ErrorEvent) => void) | null = null;
-			onmessageerror: ((event: MessageEvent) => void) | null = null;
-			constructor() {
-				// eslint-disable-next-line @typescript-eslint/no-this-alias
-				workerInstance = this;
-			}
-		}
+		workerHolder.instance = null;
 		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
 
 		render(StandardRenderer, {
@@ -215,8 +245,8 @@ describe('StandardRenderer (coverage)', () => {
 
 		await new Promise((r) => setTimeout(r, 50));
 
-		if (workerInstance!.onmessage) {
-			workerInstance!.onmessage(
+		if (workerHolder.instance!.onmessage) {
+			workerHolder.instance!.onmessage(
 				new MessageEvent('message', {
 					data: { type: 'error', message: 'standard worker failed' }
 				})
@@ -230,28 +260,14 @@ describe('StandardRenderer (coverage)', () => {
 			);
 		});
 
-		expect(workerInstance!.terminate).toHaveBeenCalled();
+		expect(workerHolder.instance!.terminate).toHaveBeenCalled();
 		delete (globalThis as unknown as Record<string, unknown>).Worker;
 		errorSpy.mockRestore();
 	});
 
 	it('handles worker onerror and falls back to main thread', async () => {
 		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-		let workerInstance: {
-			onerror: ((event: ErrorEvent) => void) | null;
-			terminate: () => void;
-		} | null = null;
-		class MockWorker {
-			postMessage = vi.fn();
-			terminate = vi.fn();
-			onmessage: ((event: MessageEvent) => void) | null = null;
-			onerror: ((event: ErrorEvent) => void) | null = null;
-			onmessageerror: ((event: MessageEvent) => void) | null = null;
-			constructor() {
-				// eslint-disable-next-line @typescript-eslint/no-this-alias
-				workerInstance = this;
-			}
-		}
+		workerHolder.instance = null;
 		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
 
 		render(StandardRenderer, {
@@ -266,8 +282,8 @@ describe('StandardRenderer (coverage)', () => {
 
 		await new Promise((r) => setTimeout(r, 50));
 
-		if (workerInstance!.onerror) {
-			workerInstance!.onerror(
+		if (workerHolder.instance!.onerror) {
+			workerHolder.instance!.onerror(
 				new ErrorEvent('error', { message: 'standard worker runtime error' })
 			);
 		}
@@ -279,18 +295,13 @@ describe('StandardRenderer (coverage)', () => {
 			);
 		});
 
-		expect(workerInstance!.terminate).toHaveBeenCalled();
+		expect(workerHolder.instance!.terminate).toHaveBeenCalled();
 		delete (globalThis as unknown as Record<string, unknown>).Worker;
 		errorSpy.mockRestore();
 	});
 
 	it('handles worker initialization failure gracefully', async () => {
 		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-		class FailingWorker {
-			constructor() {
-				throw new Error('Worker init failed');
-			}
-		}
 		(globalThis as unknown as Record<string, unknown>).Worker = FailingWorker;
 
 		const { container } = render(StandardRenderer, {
@@ -558,21 +569,7 @@ describe('StandardRenderer full render path', () => {
 
 	it('handles worker onmessageerror and falls back to main thread', async () => {
 		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-		let workerInstance: {
-			onmessageerror: ((event: MessageEvent) => void) | null;
-			terminate: () => void;
-		} | null = null;
-		class MockWorker {
-			postMessage = vi.fn();
-			terminate = vi.fn();
-			onmessage: ((event: MessageEvent) => void) | null = null;
-			onerror: ((event: ErrorEvent) => void) | null = null;
-			onmessageerror: ((event: MessageEvent) => void) | null = null;
-			constructor() {
-				// eslint-disable-next-line @typescript-eslint/no-this-alias
-				workerInstance = this;
-			}
-		}
+		workerHolder.instance = null;
 		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
 
 		render(StandardRenderer, {
@@ -587,36 +584,21 @@ describe('StandardRenderer full render path', () => {
 
 		await new Promise((r) => setTimeout(r, 50));
 
-		if (workerInstance!.onmessageerror) {
-			workerInstance!.onmessageerror(new MessageEvent('messageerror'));
+		if (workerHolder.instance!.onmessageerror) {
+			workerHolder.instance!.onmessageerror(new MessageEvent('messageerror'));
 		}
 
 		await waitFor(() => {
 			expect(errorSpy).toHaveBeenCalled();
 		});
 
-		expect(workerInstance!.terminate).toHaveBeenCalled();
+		expect(workerHolder.instance!.terminate).toHaveBeenCalled();
 		delete (globalThis as unknown as Record<string, unknown>).Worker;
 		errorSpy.mockRestore();
 	});
 
 	it('handles worker standardResult message and renders points', async () => {
-		let workerInstance: {
-			postMessage: ReturnType<typeof vi.fn>;
-			terminate: () => void;
-			onmessage: ((event: MessageEvent) => void) | null;
-		} | null = null;
-		class MockWorker {
-			postMessage = vi.fn();
-			terminate = vi.fn();
-			onmessage: ((event: MessageEvent) => void) | null = null;
-			onerror: ((event: ErrorEvent) => void) | null = null;
-			onmessageerror: ((event: MessageEvent) => void) | null = null;
-			constructor() {
-				// eslint-disable-next-line @typescript-eslint/no-this-alias
-				workerInstance = this;
-			}
-		}
+		workerHolder.instance = null;
 		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
 
 		const { container } = render(StandardRenderer, {
@@ -633,8 +615,8 @@ describe('StandardRenderer full render path', () => {
 		await new Promise((r) => setTimeout(r, 200));
 
 		// Simulate worker returning standard result with matching id
-		if (workerInstance!.onmessage) {
-			workerInstance!.onmessage(
+		if (workerHolder.instance!.onmessage) {
+			workerHolder.instance!.onmessage(
 				new MessageEvent('message', {
 					data: {
 						type: 'standardResult',
@@ -657,22 +639,7 @@ describe('StandardRenderer full render path', () => {
 	});
 
 	it('ignores worker result with stale id without crashing', async () => {
-		let workerInstance: {
-			postMessage: ReturnType<typeof vi.fn>;
-			terminate: () => void;
-			onmessage: ((event: MessageEvent) => void) | null;
-		} | null = null;
-		class MockWorker {
-			postMessage = vi.fn();
-			terminate = vi.fn();
-			onmessage: ((event: MessageEvent) => void) | null = null;
-			onerror: ((event: ErrorEvent) => void) | null = null;
-			onmessageerror: ((event: MessageEvent) => void) | null = null;
-			constructor() {
-				// eslint-disable-next-line @typescript-eslint/no-this-alias
-				workerInstance = this;
-			}
-		}
+		workerHolder.instance = null;
 		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
 
 		render(StandardRenderer, {
@@ -689,8 +656,8 @@ describe('StandardRenderer full render path', () => {
 		await new Promise((r) => setTimeout(r, 200));
 
 		// Send a result with a stale id (999 instead of 1)
-		if (workerInstance!.onmessage) {
-			workerInstance!.onmessage(
+		if (workerHolder.instance!.onmessage) {
+			workerHolder.instance!.onmessage(
 				new MessageEvent('message', {
 					data: {
 						type: 'standardResult',
@@ -706,30 +673,14 @@ describe('StandardRenderer full render path', () => {
 
 		// The stale result should be ignored — verify postMessage was called
 		// but the component didn't crash
-		expect(workerInstance!.postMessage).toHaveBeenCalled();
+		expect(workerHolder.instance!.postMessage).toHaveBeenCalled();
 
 		delete (globalThis as unknown as Record<string, unknown>).Worker;
 	});
 
 	it('covers handleWorkerFailure hasPendingRender branch (worker fails while render pending)', async () => {
 		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-		let workerInstance: {
-			postMessage: ReturnType<typeof vi.fn>;
-			terminate: () => void;
-			onmessage: ((event: MessageEvent) => void) | null;
-			onerror: ((event: ErrorEvent) => void) | null;
-		} | null = null;
-		class MockWorker {
-			postMessage = vi.fn();
-			terminate = vi.fn();
-			onmessage: ((event: MessageEvent) => void) | null = null;
-			onerror: ((event: ErrorEvent) => void) | null = null;
-			onmessageerror: ((event: MessageEvent) => void) | null = null;
-			constructor() {
-				// eslint-disable-next-line @typescript-eslint/no-this-alias
-				workerInstance = this;
-			}
-		}
+		workerHolder.instance = null;
 		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
 
 		const { container, rerender } = render(StandardRenderer, {
@@ -746,8 +697,8 @@ describe('StandardRenderer full render path', () => {
 
 		// Now make the worker fail → handleWorkerFailure sees hasPendingRender true
 		// and reschedules a render.
-		if (workerInstance!.onerror) {
-			workerInstance!.onerror(new ErrorEvent('error', { message: 'fail-pending' }));
+		if (workerHolder.instance!.onerror) {
+			workerHolder.instance!.onerror(new ErrorEvent('error', { message: 'fail-pending' }));
 		}
 
 		// Allow the rescheduled render (main-thread fallback) to complete.
@@ -763,23 +714,7 @@ describe('StandardRenderer full render path', () => {
 
 	it('covers handleWorkerFailure latestPoints branch (worker fails after a result)', async () => {
 		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-		let workerInstance: {
-			postMessage: ReturnType<typeof vi.fn>;
-			terminate: () => void;
-			onmessage: ((event: MessageEvent) => void) | null;
-			onerror: ((event: ErrorEvent) => void) | null;
-		} | null = null;
-		class MockWorker {
-			postMessage = vi.fn();
-			terminate = vi.fn();
-			onmessage: ((event: MessageEvent) => void) | null = null;
-			onerror: ((event: ErrorEvent) => void) | null = null;
-			onmessageerror: ((event: MessageEvent) => void) | null = null;
-			constructor() {
-				// eslint-disable-next-line @typescript-eslint/no-this-alias
-				workerInstance = this;
-			}
-		}
+		workerHolder.instance = null;
 		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
 
 		const { container } = render(StandardRenderer, {
@@ -790,8 +725,8 @@ describe('StandardRenderer full render path', () => {
 		await new Promise((r) => setTimeout(r, 200));
 
 		// Deliver a result so latestPoints is populated.
-		if (workerInstance!.onmessage) {
-			workerInstance!.onmessage(
+		if (workerHolder.instance!.onmessage) {
+			workerHolder.instance!.onmessage(
 				new MessageEvent('message', {
 					data: {
 						type: 'standardResult',
@@ -806,8 +741,10 @@ describe('StandardRenderer full render path', () => {
 		}
 
 		// Now fail the worker → handleWorkerFailure re-renders from latestPoints.
-		if (workerInstance!.onerror) {
-			workerInstance!.onerror(new ErrorEvent('error', { message: 'fail-after-result' }));
+		if (workerHolder.instance!.onerror) {
+			workerHolder.instance!.onerror(
+				new ErrorEvent('error', { message: 'fail-after-result' })
+			);
 		}
 
 		await waitFor(() => {
@@ -819,22 +756,7 @@ describe('StandardRenderer full render path', () => {
 	});
 
 	it('covers onmessage hasPendingRender branch (result arrives while render pending)', async () => {
-		let workerInstance: {
-			postMessage: ReturnType<typeof vi.fn>;
-			terminate: () => void;
-			onmessage: ((event: MessageEvent) => void) | null;
-		} | null = null;
-		class MockWorker {
-			postMessage = vi.fn();
-			terminate = vi.fn();
-			onmessage: ((event: MessageEvent) => void) | null = null;
-			onerror: ((event: ErrorEvent) => void) | null = null;
-			onmessageerror: ((event: MessageEvent) => void) | null = null;
-			constructor() {
-				// eslint-disable-next-line @typescript-eslint/no-this-alias
-				workerInstance = this;
-			}
-		}
+		workerHolder.instance = null;
 		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
 
 		const { container, rerender } = render(StandardRenderer, {
@@ -848,8 +770,8 @@ describe('StandardRenderer full render path', () => {
 		rerender({ k: 2, numP: 1, numQ: 1, iterations: 5, height: 400 });
 
 		// Deliver the result → onmessage clears hasPendingRender and reschedules.
-		if (workerInstance!.onmessage) {
-			workerInstance!.onmessage(
+		if (workerHolder.instance!.onmessage) {
+			workerHolder.instance!.onmessage(
 				new MessageEvent('message', {
 					data: {
 						type: 'standardResult',
@@ -872,16 +794,8 @@ describe('StandardRenderer full render path', () => {
 
 	it('covers ResizeObserver callback branches (with and without latestPoints)', async () => {
 		vi.useFakeTimers();
-		let roCallback: (() => void) | null = null;
+		roHolder.callback = null;
 		const OriginalRO = globalThis.ResizeObserver;
-		class CapturingResizeObserver {
-			constructor(cb: () => void) {
-				roCallback = cb;
-			}
-			observe() {}
-			unobserve() {}
-			disconnect() {}
-		}
 		globalThis.ResizeObserver = CapturingResizeObserver as unknown as typeof ResizeObserver;
 
 		const { container } = render(StandardRenderer, {
@@ -890,13 +804,13 @@ describe('StandardRenderer full render path', () => {
 
 		// Before the debounce fires, latestPoints is null → the ResizeObserver
 		// callback takes the scheduleRender() branch.
-		roCallback!();
+		roHolder.callback!();
 
 		// Advance timers so the main-thread fallback computes points and renders.
 		await vi.advanceTimersByTimeAsync(200);
 
 		// Now latestPoints is populated → the callback takes the render() branch.
-		roCallback!();
+		roHolder.callback!();
 
 		await waitFor(() => {
 			expect(container.querySelector('canvas')).not.toBeNull();
@@ -954,21 +868,7 @@ describe('StandardRenderer additional statement coverage', () => {
 
 	it('handles worker failure after unmount (isUnmounted guard)', async () => {
 		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-		let workerInstance: {
-			onmessage: ((event: MessageEvent) => void) | null;
-			onerror: ((event: ErrorEvent) => void) | null;
-		} | null = null;
-		class MockWorker {
-			postMessage = vi.fn();
-			terminate = vi.fn();
-			onmessage: ((event: MessageEvent) => void) | null = null;
-			onerror: ((event: ErrorEvent) => void) | null = null;
-			onmessageerror: ((event: MessageEvent) => void) | null = null;
-			constructor() {
-				// eslint-disable-next-line @typescript-eslint/no-this-alias
-				workerInstance = this;
-			}
-		}
+		workerHolder.instance = null;
 		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
 
 		const { unmount } = render(StandardRenderer, {
@@ -983,7 +883,7 @@ describe('StandardRenderer additional statement coverage', () => {
 
 		// Firing the worker error after unmount exercises the isUnmounted guard.
 		expect(() => {
-			workerInstance!.onerror?.(new ErrorEvent('error', { message: 'post-unmount' }));
+			workerHolder.instance!.onerror?.(new ErrorEvent('error', { message: 'post-unmount' }));
 		}).not.toThrow();
 
 		delete (globalThis as unknown as Record<string, unknown>).Worker;
@@ -991,20 +891,7 @@ describe('StandardRenderer additional statement coverage', () => {
 	});
 
 	it('ignores worker message with null data (data guard)', async () => {
-		let workerInstance: {
-			onmessage: ((event: MessageEvent) => void) | null;
-		} | null = null;
-		class MockWorker {
-			postMessage = vi.fn();
-			terminate = vi.fn();
-			onmessage: ((event: MessageEvent) => void) | null = null;
-			onerror: ((event: ErrorEvent) => void) | null = null;
-			onmessageerror: ((event: MessageEvent) => void) | null = null;
-			constructor() {
-				// eslint-disable-next-line @typescript-eslint/no-this-alias
-				workerInstance = this;
-			}
-		}
+		workerHolder.instance = null;
 		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
 
 		render(StandardRenderer, {
@@ -1014,27 +901,14 @@ describe('StandardRenderer additional statement coverage', () => {
 
 		// Send a message with null data → onmessage returns early.
 		expect(() => {
-			workerInstance!.onmessage?.(new MessageEvent('message', { data: null }));
+			workerHolder.instance!.onmessage?.(new MessageEvent('message', { data: null }));
 		}).not.toThrow();
 
 		delete (globalThis as unknown as Record<string, unknown>).Worker;
 	});
 
 	it('ignores worker message with non-standardResult type', async () => {
-		let workerInstance: {
-			onmessage: ((event: MessageEvent) => void) | null;
-		} | null = null;
-		class MockWorker {
-			postMessage = vi.fn();
-			terminate = vi.fn();
-			onmessage: ((event: MessageEvent) => void) | null = null;
-			onerror: ((event: ErrorEvent) => void) | null = null;
-			onmessageerror: ((event: MessageEvent) => void) | null = null;
-			constructor() {
-				// eslint-disable-next-line @typescript-eslint/no-this-alias
-				workerInstance = this;
-			}
-		}
+		workerHolder.instance = null;
 		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
 
 		render(StandardRenderer, {
@@ -1044,7 +918,7 @@ describe('StandardRenderer additional statement coverage', () => {
 
 		// Send a message with an unrecognized type → onmessage returns early.
 		expect(() => {
-			workerInstance!.onmessage?.(
+			workerHolder.instance!.onmessage?.(
 				new MessageEvent('message', { data: { type: 'unknown', id: 1 } })
 			);
 		}).not.toThrow();

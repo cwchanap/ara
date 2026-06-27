@@ -43,6 +43,113 @@ vi.mock('$lib/ikeda', () => ({
 	}))
 }));
 
+// Hoisted worker mocks shared across worker-path tests. The holder lets each
+// test read back the instance the renderer constructed without re-declaring a
+// class inside the test body (avoids perf_avoid_nested_class warnings).
+interface CapturedWorker {
+	postMessage: (msg: unknown) => void;
+	terminate: () => void;
+	onmessage: ((event: MessageEvent) => void) | null;
+	onerror: ((event: ErrorEvent) => void) | null;
+}
+
+const workerHolder: { instance: CapturedWorker | null } = { instance: null };
+
+// Basic worker: postMessage is a no-op spy. Tests manually fire onmessage/onerror.
+class MockWorker {
+	postMessage = vi.fn();
+	terminate = vi.fn();
+	onmessage: ((event: MessageEvent) => void) | null = null;
+	onerror: ((event: ErrorEvent) => void) | null = null;
+	constructor() {
+		workerHolder.instance = this;
+	}
+}
+
+// Worker whose constructor throws, exercising the init-failure fallback.
+class FailingWorker {
+	constructor() {
+		throw new Error('Worker init failed');
+	}
+}
+
+// Auto-responds to postMessage with an ikedaResult message (correct id).
+class AutoRespondIkedaWorker {
+	postMessage = (msg: unknown) => {
+		setTimeout(() => {
+			if (this.onmessage) {
+				this.onmessage(
+					new MessageEvent('message', {
+						data: {
+							type: 'ikedaResult',
+							id: (msg as { id: number }).id,
+							points: [
+								[0, 0],
+								[1, 0.5]
+							],
+							seedIndices: [0, 1]
+						}
+					})
+				);
+			}
+		}, 10);
+	};
+	terminate = vi.fn();
+	onmessage: ((event: MessageEvent) => void) | null = null;
+	onerror: ((event: ErrorEvent) => void) | null = null;
+	constructor() {
+		workerHolder.instance = this;
+	}
+}
+
+// Auto-responds with an ikedaResult carrying a stale id (999) — ignored by the renderer.
+class AutoRespondStaleIkedaWorker {
+	postMessage = (msg: unknown) => {
+		void msg;
+		setTimeout(() => {
+			if (this.onmessage) {
+				this.onmessage(
+					new MessageEvent('message', {
+						data: {
+							type: 'ikedaResult',
+							id: 999,
+							points: [[0, 0]] as [number, number][],
+							seedIndices: [0]
+						}
+					})
+				);
+			}
+		}, 10);
+	};
+	terminate = vi.fn();
+	onmessage: ((event: MessageEvent) => void) | null = null;
+	onerror: ((event: ErrorEvent) => void) | null = null;
+	constructor() {
+		workerHolder.instance = this;
+	}
+}
+
+// Auto-responds with an unknown message type (ignored by the renderer).
+class AutoRespondUnknownWorker {
+	postMessage = (msg: unknown) => {
+		setTimeout(() => {
+			if (this.onmessage) {
+				this.onmessage(
+					new MessageEvent('message', {
+						data: { type: 'unknown', id: (msg as { id: number }).id }
+					})
+				);
+			}
+		}, 10);
+	};
+	terminate = vi.fn();
+	onmessage: ((event: MessageEvent) => void) | null = null;
+	onerror: ((event: ErrorEvent) => void) | null = null;
+	constructor() {
+		workerHolder.instance = this;
+	}
+}
+
 describe('IkedaRenderer', () => {
 	afterEach(() => {
 		cleanup();
@@ -485,21 +592,7 @@ describe('IkedaRenderer', () => {
 
 	it('handles worker error response and falls back to main thread', async () => {
 		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-		let workerInstance: {
-			onmessage: ((event: MessageEvent) => void) | null;
-			onerror: ((event: ErrorEvent) => void) | null;
-			terminate: () => void;
-		} | null = null;
-		class MockWorker {
-			postMessage = vi.fn();
-			terminate = vi.fn();
-			onmessage: ((event: MessageEvent) => void) | null = null;
-			onerror: ((event: ErrorEvent) => void) | null = null;
-			constructor() {
-				// eslint-disable-next-line @typescript-eslint/no-this-alias
-				workerInstance = this;
-			}
-		}
+		workerHolder.instance = null;
 		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
 
 		const { calculateIkedaMultiSeed } = await import('$lib/ikeda');
@@ -528,8 +621,8 @@ describe('IkedaRenderer', () => {
 		await new Promise((r) => setTimeout(r, 50));
 
 		// Simulate worker error response before DOM is rendered
-		if (workerInstance!.onmessage) {
-			workerInstance!.onmessage(
+		if (workerHolder.instance!.onmessage) {
+			workerHolder.instance!.onmessage(
 				new MessageEvent('message', {
 					data: { type: 'error', message: 'worker failed' }
 				})
@@ -540,7 +633,7 @@ describe('IkedaRenderer', () => {
 			expect(errorSpy).toHaveBeenCalledWith('Ikeda worker error response:', 'worker failed');
 		});
 
-		expect(workerInstance!.terminate).toHaveBeenCalled();
+		expect(workerHolder.instance!.terminate).toHaveBeenCalled();
 
 		delete (globalThis as unknown as Record<string, unknown>).Worker;
 		errorSpy.mockRestore();
@@ -548,21 +641,7 @@ describe('IkedaRenderer', () => {
 
 	it('handles worker onerror and falls back to main thread', async () => {
 		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-		let workerInstance: {
-			onmessage: ((event: MessageEvent) => void) | null;
-			onerror: ((event: ErrorEvent) => void) | null;
-			terminate: () => void;
-		} | null = null;
-		class MockWorker {
-			postMessage = vi.fn();
-			terminate = vi.fn();
-			onmessage: ((event: MessageEvent) => void) | null = null;
-			onerror: ((event: ErrorEvent) => void) | null = null;
-			constructor() {
-				// eslint-disable-next-line @typescript-eslint/no-this-alias
-				workerInstance = this;
-			}
-		}
+		workerHolder.instance = null;
 		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
 
 		const { calculateIkedaMultiSeed } = await import('$lib/ikeda');
@@ -590,15 +669,17 @@ describe('IkedaRenderer', () => {
 		await new Promise((r) => setTimeout(r, 50));
 
 		// Simulate worker runtime error
-		if (workerInstance!.onerror) {
-			workerInstance!.onerror(new ErrorEvent('error', { message: 'worker runtime error' }));
+		if (workerHolder.instance!.onerror) {
+			workerHolder.instance!.onerror(
+				new ErrorEvent('error', { message: 'worker runtime error' })
+			);
 		}
 
 		await waitFor(() => {
 			expect(errorSpy).toHaveBeenCalledWith('Ikeda worker error:', 'worker runtime error');
 		});
 
-		expect(workerInstance!.terminate).toHaveBeenCalled();
+		expect(workerHolder.instance!.terminate).toHaveBeenCalled();
 
 		delete (globalThis as unknown as Record<string, unknown>).Worker;
 		errorSpy.mockRestore();
@@ -606,11 +687,6 @@ describe('IkedaRenderer', () => {
 
 	it('handles worker initialization failure gracefully', async () => {
 		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-		class FailingWorker {
-			constructor() {
-				throw new Error('Worker init failed');
-			}
-		}
 		(globalThis as unknown as Record<string, unknown>).Worker = FailingWorker;
 
 		const { container } = render(IkedaRenderer, {
@@ -642,41 +718,8 @@ describe('IkedaRenderer', () => {
 	});
 
 	it('processes a successful worker response and renders', async () => {
-		let workerInstance: {
-			onmessage: ((event: MessageEvent) => void) | null;
-			onerror: ((event: ErrorEvent) => void) | null;
-			postMessage: (msg: unknown) => void;
-		} | null = null;
-		class MockWorker {
-			postMessage = (msg: unknown) => {
-				// auto-respond with success after a tick
-				setTimeout(() => {
-					if (this.onmessage) {
-						this.onmessage(
-							new MessageEvent('message', {
-								data: {
-									type: 'ikedaResult',
-									id: (msg as { id: number }).id,
-									points: [
-										[0, 0],
-										[1, 0.5]
-									],
-									seedIndices: [0, 1]
-								}
-							})
-						);
-					}
-				}, 10);
-			};
-			terminate = vi.fn();
-			onmessage: ((event: MessageEvent) => void) | null = null;
-			onerror: ((event: ErrorEvent) => void) | null = null;
-			constructor() {
-				// eslint-disable-next-line @typescript-eslint/no-this-alias
-				workerInstance = this;
-			}
-		}
-		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+		workerHolder.instance = null;
+		(globalThis as unknown as Record<string, unknown>).Worker = AutoRespondIkedaWorker;
 
 		const { container } = render(IkedaRenderer, {
 			props: {
@@ -699,44 +742,15 @@ describe('IkedaRenderer', () => {
 		});
 
 		// Verify worker posted a message with correct parameters
-		expect(workerInstance).not.toBeNull();
+		expect(workerHolder.instance).not.toBeNull();
 
 		delete (globalThis as unknown as Record<string, unknown>).Worker;
 	});
 
 	it('ignores stale worker response with wrong id', async () => {
 		const { calculateIkedaMultiSeed } = await import('$lib/ikeda');
-		let workerInstance: {
-			onmessage: ((event: MessageEvent) => void) | null;
-			postMessage: (msg: unknown) => void;
-		} | null = null;
-		class MockWorker {
-			postMessage = (msg: unknown) => {
-				void msg;
-				setTimeout(() => {
-					if (this.onmessage) {
-						this.onmessage(
-							new MessageEvent('message', {
-								data: {
-									type: 'ikedaResult',
-									id: 999, // wrong id — should be ignored
-									points: [[0, 0]] as [number, number][],
-									seedIndices: [0]
-								}
-							})
-						);
-					}
-				}, 10);
-			};
-			terminate = vi.fn();
-			onmessage: ((event: MessageEvent) => void) | null = null;
-			onerror: ((event: ErrorEvent) => void) | null = null;
-			constructor() {
-				// eslint-disable-next-line @typescript-eslint/no-this-alias
-				workerInstance = this;
-			}
-		}
-		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+		workerHolder.instance = null;
+		(globalThis as unknown as Record<string, unknown>).Worker = AutoRespondStaleIkedaWorker;
 
 		vi.mocked(calculateIkedaMultiSeed).mockReturnValueOnce({
 			points: [[0, 0]],
@@ -762,39 +776,13 @@ describe('IkedaRenderer', () => {
 		).not.toThrow();
 
 		await new Promise((r) => setTimeout(r, 50));
-		expect(workerInstance).not.toBeNull();
+		expect(workerHolder.instance).not.toBeNull();
 	});
 
 	it('ignores worker response with wrong type', async () => {
 		const { calculateIkedaMultiSeed } = await import('$lib/ikeda');
-		let workerInstance: {
-			onmessage: ((event: MessageEvent) => void) | null;
-			postMessage: (msg: unknown) => void;
-		} | null = null;
-		class MockWorker {
-			postMessage = (msg: unknown) => {
-				setTimeout(() => {
-					if (this.onmessage) {
-						this.onmessage(
-							new MessageEvent('message', {
-								data: {
-									type: 'unknown',
-									id: (msg as { id: number }).id
-								}
-							})
-						);
-					}
-				}, 10);
-			};
-			terminate = vi.fn();
-			onmessage: ((event: MessageEvent) => void) | null = null;
-			onerror: ((event: ErrorEvent) => void) | null = null;
-			constructor() {
-				// eslint-disable-next-line @typescript-eslint/no-this-alias
-				workerInstance = this;
-			}
-		}
-		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+		workerHolder.instance = null;
+		(globalThis as unknown as Record<string, unknown>).Worker = AutoRespondUnknownWorker;
 
 		vi.mocked(calculateIkedaMultiSeed).mockReturnValueOnce({
 			points: [[0, 0]],
@@ -820,7 +808,7 @@ describe('IkedaRenderer', () => {
 		).not.toThrow();
 
 		await new Promise((r) => setTimeout(r, 50));
-		expect(workerInstance).not.toBeNull();
+		expect(workerHolder.instance).not.toBeNull();
 	});
 
 	it('warns and renders empty when 2D context is unavailable', async () => {
