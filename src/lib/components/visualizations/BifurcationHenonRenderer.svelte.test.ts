@@ -178,4 +178,98 @@ describe('BifurcationHenonRenderer', () => {
 		).not.toThrow();
 		await vi.advanceTimersByTimeAsync(200);
 	});
+
+	it('skips rendering when 2D context is unavailable', async () => {
+		vi.useFakeTimers();
+		// Temporarily override getContext to return null.
+		const savedGetContext = HTMLCanvasElement.prototype.getContext;
+		Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+			configurable: true,
+			value: () => null
+		});
+		try {
+			expect(() =>
+				render(BifurcationHenonRenderer, {
+					props: { aMin: 1.04, aMax: 1.1, b: 0.3, maxIterations: 10, height: 200 }
+				})
+			).not.toThrow();
+			await vi.advanceTimersByTimeAsync(200);
+			// ctx is null so no drawing should occur.
+			expect(mockCtx.fillRect).not.toHaveBeenCalled();
+		} finally {
+			Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+				configurable: true,
+				value: savedGetContext
+			});
+		}
+	});
+
+	it('skips rendering when canvas dimensions are zero (height=32)', async () => {
+		vi.useFakeTimers();
+		expect(() =>
+			render(BifurcationHenonRenderer, {
+				props: { aMin: 1.04, aMax: 1.1, b: 0.3, maxIterations: 10, height: 32 }
+			})
+		).not.toThrow();
+		await vi.advanceTimersByTimeAsync(200);
+		// With height=32, imgHeight = 0, so the guard returns early — no drawing.
+		expect(mockCtx.fillRect).not.toHaveBeenCalled();
+	});
+
+	it('cleans up on unmount without throwing', async () => {
+		vi.useFakeTimers();
+		const { unmount } = render(BifurcationHenonRenderer, {
+			props: { aMin: 1.04, aMax: 1.1, b: 0.3, maxIterations: 10, height: 200 }
+		});
+		await vi.advanceTimersByTimeAsync(200);
+		expect(() => unmount()).not.toThrow();
+	});
+
+	it('binds containerElement to the rendered div', async () => {
+		vi.useFakeTimers();
+		let containerEl: HTMLDivElement | undefined;
+		render(BifurcationHenonRenderer, {
+			props: {
+				aMin: 1.04,
+				aMax: 1.1,
+				b: 0.3,
+				maxIterations: 10,
+				height: 200,
+				get containerElement() {
+					return containerEl;
+				},
+				set containerElement(next: HTMLDivElement | undefined) {
+					containerEl = next;
+				}
+			}
+		});
+		await vi.advanceTimersByTimeAsync(200);
+		expect(containerEl).toBeInstanceOf(HTMLDivElement);
+	});
+
+	it('handles pending render when a re-render is scheduled during active render', async () => {
+		vi.useFakeTimers();
+		const { rerender } = render(BifurcationHenonRenderer, {
+			props: { aMin: 1.04, aMax: 1.1, b: 0.3, maxIterations: 10, height: 200 }
+		});
+		// Advance just enough to start the debounced render (100ms) but not
+		// enough to finish all rAF chunks.
+		await vi.advanceTimersByTimeAsync(100);
+		// Now isRendering should be true (drawChunk is processing via rAF).
+		// Trigger a new scheduleRender by changing a prop.
+		await rerender({ aMin: 1.05, aMax: 1.1, b: 0.3, maxIterations: 10, height: 200 });
+		// Advance enough time to finish all chunks and the pending render.
+		await vi.advanceTimersByTimeAsync(500);
+		expect(mockCtx.fillRect).toHaveBeenCalled();
+	});
+
+	it('responds to window resize event', async () => {
+		vi.useFakeTimers();
+		render(BifurcationHenonRenderer, {
+			props: { aMin: 1.04, aMax: 1.1, b: 0.3, maxIterations: 10, height: 200 }
+		});
+		await vi.advanceTimersByTimeAsync(200);
+		// Dispatch a resize event — should not throw.
+		expect(() => window.dispatchEvent(new Event('resize'))).not.toThrow();
+	});
 });

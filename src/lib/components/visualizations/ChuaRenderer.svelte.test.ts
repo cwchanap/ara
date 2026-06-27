@@ -144,6 +144,8 @@ vi.mock('three/examples/jsm/controls/OrbitControls.js', () => ({
 }));
 
 import ChuaRenderer from './ChuaRenderer.svelte';
+import { calculateChua, computePoincareSection } from '$lib/chua';
+import { cameraSyncStore, applyCameraState } from '$lib/stores/camera-sync';
 
 describe('ChuaRenderer (smoke)', () => {
 	afterEach(() => {
@@ -275,5 +277,158 @@ describe('ChuaRenderer Three.js integration', () => {
 		expect(THREE.GridHelper).toHaveBeenCalled();
 		expect(THREE.Line).toHaveBeenCalled();
 		expect(THREE.Points).toHaveBeenCalled();
+	});
+});
+
+describe('ChuaRenderer advanced coverage', () => {
+	afterEach(() => {
+		cleanup();
+		vi.mocked(calculateChua).mockReturnValue({
+			points: [
+				{ x: 1, y: 2, z: 3 },
+				{ x: 4, y: 5, z: 6 },
+				{ x: 7, y: 8, z: 9 }
+			],
+			diverged: true
+		});
+		vi.mocked(computePoincareSection).mockReturnValue([
+			{ u: 1, v: 2 },
+			{ u: 3, v: 4 }
+		]);
+		vi.mocked(cameraSyncStore.subscribe).mockReturnValue(() => {});
+		vi.mocked(applyCameraState).mockClear();
+	});
+
+	it('renders with transientRemoval enabled', () => {
+		expect(() =>
+			render(ChuaRenderer, { props: { height: 200, transientRemoval: true } })
+		).not.toThrow();
+	});
+
+	it('cleans up on unmount without throwing', () => {
+		const { unmount } = render(ChuaRenderer, { props: { height: 200 } });
+		expect(() => unmount()).not.toThrow();
+	});
+
+	it('responds to window resize event', () => {
+		render(ChuaRenderer, { props: { height: 200 } });
+		expect(() => window.dispatchEvent(new Event('resize'))).not.toThrow();
+	});
+
+	it('binds containerElement to the rendered div', () => {
+		let containerEl: HTMLDivElement | undefined;
+		render(ChuaRenderer, {
+			props: {
+				height: 200,
+				get containerElement() {
+					return containerEl;
+				},
+				set containerElement(next: HTMLDivElement | undefined) {
+					containerEl = next;
+				}
+			}
+		});
+		expect(containerEl).toBeInstanceOf(HTMLDivElement);
+	});
+
+	it('applies camera state from sync store in compare mode', () => {
+		vi.mocked(applyCameraState).mockClear();
+		vi.mocked(cameraSyncStore.subscribe).mockImplementationOnce((cb) => {
+			cb({
+				enabled: true,
+				lastUpdate: 'right',
+				syncing: false,
+				left: null,
+				right: { position: { x: 1, y: 2, z: 3 }, target: { x: 0, y: 0, z: 0 } }
+			});
+			return () => {};
+		});
+		render(ChuaRenderer, {
+			props: { height: 200, compareMode: true, compareSide: 'left' }
+		});
+		expect(applyCameraState).toHaveBeenCalled();
+	});
+
+	it('skips camera sync when state is disabled', () => {
+		vi.mocked(cameraSyncStore.subscribe).mockImplementationOnce((cb) => {
+			cb({ enabled: false, lastUpdate: 'right', syncing: false, left: null, right: null });
+			return () => {};
+		});
+		render(ChuaRenderer, {
+			props: { height: 200, compareMode: true, compareSide: 'left' }
+		});
+		expect(applyCameraState).not.toHaveBeenCalled();
+	});
+
+	it('skips camera sync when lastUpdate matches side', () => {
+		vi.mocked(cameraSyncStore.subscribe).mockImplementationOnce((cb) => {
+			cb({
+				enabled: true,
+				lastUpdate: 'left',
+				syncing: false,
+				left: { position: { x: 1, y: 2, z: 3 }, target: { x: 0, y: 0, z: 0 } },
+				right: null
+			});
+			return () => {};
+		});
+		render(ChuaRenderer, {
+			props: { height: 200, compareMode: true, compareSide: 'left' }
+		});
+		expect(applyCameraState).not.toHaveBeenCalled();
+	});
+
+	it('handles empty poincare section (frameBounds non-finite fallback)', () => {
+		vi.mocked(computePoincareSection).mockReturnValueOnce([]);
+		expect(() =>
+			render(ChuaRenderer, {
+				props: { height: 200, viewMode: 'poincare', poincarePlane: 'y=0' }
+			})
+		).not.toThrow();
+	});
+
+	it('handles single-point trajectory (colorArrayFor pts.length <= 1)', () => {
+		vi.mocked(calculateChua).mockReturnValueOnce({
+			points: [{ x: 1, y: 2, z: 3 }],
+			diverged: false
+		});
+		expect(() =>
+			render(ChuaRenderer, { props: { height: 200, colorMode: 'time' } })
+		).not.toThrow();
+	});
+
+	it('handles single-point trajectory with z-height color mode', () => {
+		vi.mocked(calculateChua).mockReturnValueOnce({
+			points: [{ x: 1, y: 2, z: 3 }],
+			diverged: false
+		});
+		expect(() =>
+			render(ChuaRenderer, { props: { height: 200, colorMode: 'z-height' } })
+		).not.toThrow();
+	});
+
+	it('handles single-point trajectory with velocity color mode', () => {
+		vi.mocked(calculateChua).mockReturnValueOnce({
+			points: [{ x: 1, y: 2, z: 3 }],
+			diverged: false
+		});
+		expect(() =>
+			render(ChuaRenderer, { props: { height: 200, colorMode: 'velocity' } })
+		).not.toThrow();
+	});
+
+	it('rebuilds when math parameters change via rerender', async () => {
+		const { rerender } = render(ChuaRenderer, {
+			props: { height: 200, alpha: 15.6 }
+		});
+		await rerender({ height: 200, alpha: 16 });
+		expect(vi.mocked(calculateChua).mock.calls.length).toBeGreaterThanOrEqual(2);
+	});
+
+	it('applies view mode change via rerender', async () => {
+		const { rerender, container } = render(ChuaRenderer, {
+			props: { height: 200, viewMode: '3d' }
+		});
+		await rerender({ height: 200, viewMode: 'xy' });
+		expect(container.querySelector('div')).not.toBeNull();
 	});
 });

@@ -318,4 +318,99 @@ describe('SnapshotButton', () => {
 		resolveCapture!({ success: true, dataUrl: 'data:image/png;base64,test' });
 		await waitFor(() => expect(screen.queryByText('Capturing...')).not.toBeInTheDocument());
 	});
+
+	it('hides success message after timeout (2000ms)', async () => {
+		vi.useFakeTimers();
+		const mockCanvas = document.createElement('canvas');
+		vi.mocked(captureCanvas).mockResolvedValue({
+			success: true,
+			dataUrl: 'data:image/png;base64,test'
+		});
+
+		render(SnapshotButton, {
+			props: {
+				target: mockCanvas,
+				targetType: 'canvas',
+				mapType: 'henon'
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button'));
+		await vi.advanceTimersByTimeAsync(0);
+		expect(screen.getByText('✓ Saved')).toBeInTheDocument();
+
+		vi.advanceTimersByTime(2000);
+		await vi.advanceTimersByTimeAsync(0);
+		expect(screen.queryByText('✓ Saved')).not.toBeInTheDocument();
+		vi.useRealTimers();
+	});
+
+	it('hides error message after timeout (4000ms) when result has error', async () => {
+		vi.useFakeTimers();
+		const mockCanvas = document.createElement('canvas');
+		vi.mocked(captureCanvas).mockResolvedValue({
+			success: false,
+			error: 'Capture failed'
+		});
+
+		render(SnapshotButton, {
+			props: {
+				target: mockCanvas,
+				targetType: 'canvas',
+				mapType: 'henon'
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button'));
+		await vi.advanceTimersByTimeAsync(0);
+		expect(screen.getByText('✗ Capture failed')).toBeInTheDocument();
+
+		vi.advanceTimersByTime(4000);
+		await vi.advanceTimersByTimeAsync(0);
+		expect(screen.queryByText('✗ Capture failed')).not.toBeInTheDocument();
+		vi.useRealTimers();
+	});
+
+	it('hides error message after timeout (4000ms) when capture throws', async () => {
+		vi.useFakeTimers();
+		const mockCanvas = document.createElement('canvas');
+		vi.mocked(captureCanvas).mockRejectedValue(new Error('out of memory'));
+
+		render(SnapshotButton, {
+			props: {
+				target: mockCanvas,
+				targetType: 'canvas',
+				mapType: 'henon'
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button'));
+		await vi.advanceTimersByTimeAsync(0);
+		expect(screen.getByText('✗ out of memory')).toBeInTheDocument();
+
+		vi.advanceTimersByTime(4000);
+		await vi.advanceTimersByTimeAsync(0);
+		expect(screen.queryByText('✗ out of memory')).not.toBeInTheDocument();
+		vi.useRealTimers();
+	});
+
+	it('shows fallback error message when result.error is undefined', async () => {
+		const mockCanvas = document.createElement('canvas');
+		vi.mocked(captureCanvas).mockResolvedValue({
+			success: false
+			// error is undefined
+		});
+
+		render(SnapshotButton, {
+			props: {
+				target: mockCanvas,
+				targetType: 'canvas',
+				mapType: 'henon'
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button'));
+
+		await screen.findByText('✗ Failed to capture snapshot');
+	});
 });

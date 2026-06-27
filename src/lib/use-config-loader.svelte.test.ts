@@ -1058,5 +1058,52 @@ describe('useConfigLoader', () => {
 			expect(state.showError).toBe(false);
 			cleanup();
 		});
+
+		it('baseFetch invokes fetch with the abort signal', async () => {
+			const pageStore = writable<Page>(makePage('http://localhost/lorenz'));
+			const state = createInitialConfigLoaderState();
+			const onParametersLoaded = vi.fn((p: LorenzParameters) => p);
+
+			// Capture the fetchFn passed to loadSavedConfigParameters and call it
+			// to verify it invokes global fetch with the signal
+			const fetchSpy = vi.fn(async () => new Response('{}'));
+			const originalFetch = globalThis.fetch;
+			globalThis.fetch = fetchSpy as unknown as typeof fetch;
+
+			mockLoadSaved.mockImplementation(async (args) => {
+				// Call the fetchFn to verify it invokes fetch
+				await args.fetchFn('http://localhost/test-url', { method: 'GET' });
+				return {
+					ok: true,
+					parameters: defaultParams,
+					source: 'api'
+				};
+			});
+
+			const { cleanup } = useConfigLoader(
+				{
+					page: pageStore,
+					mapType: 'lorenz' as const,
+					base: '/base',
+					onParametersLoaded
+				},
+				state
+			);
+
+			pageStore.set(makePage('http://localhost/lorenz?configId=fetch-test'));
+			await new Promise((r) => setTimeout(r, 0));
+
+			expect(fetchSpy).toHaveBeenCalledWith(
+				'http://localhost/test-url',
+				expect.objectContaining({ method: 'GET' })
+			);
+			// Verify the signal was passed
+			const [, init] = fetchSpy.mock.calls[0] as unknown as [string, RequestInit];
+			expect(init).toHaveProperty('signal');
+			expect(init.signal).toBeInstanceOf(AbortSignal);
+
+			globalThis.fetch = originalFetch;
+			cleanup();
+		});
 	});
 });

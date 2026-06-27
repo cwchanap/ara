@@ -43,7 +43,7 @@ vi.mock('$app/navigation', () => ({
 }));
 
 vi.mock('$lib/components/visualizations/CliffordRenderer.svelte', async () => {
-	const module = await import('$lib/components/testing/StubComponent.svelte');
+	const module = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: module.default };
 });
 

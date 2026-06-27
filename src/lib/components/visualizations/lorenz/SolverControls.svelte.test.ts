@@ -25,4 +25,33 @@ describe('SolverControls', () => {
 		await fireEvent.change(getByLabelText(/Solver/i), { target: { value: 'euler' } });
 		expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ solver: 'euler' }));
 	});
+
+	it('emits a solver change to rk2', async () => {
+		const onChange = vi.fn();
+		const { getByLabelText } = render(SolverControls, { props: { ...base, onChange } });
+		await fireEvent.change(getByLabelText(/Solver/i), { target: { value: 'rk2' } });
+		expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ solver: 'rk2' }));
+	});
+
+	it('emits dt change when dt slider is moved', async () => {
+		const onChange = vi.fn();
+		const { container } = render(SolverControls, {
+			props: { ...base, dt: 0.005, onChange }
+		});
+		const dtSlider = container.querySelector('[data-testid="slider-dt"]') as HTMLInputElement;
+		await fireEvent.input(dtSlider, { target: { value: '0.01' } });
+		expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ dt: 0.01 }));
+	});
+
+	it('emits stepsPerFrame change when stepsPerFrame slider is moved', async () => {
+		const onChange = vi.fn();
+		const { container } = render(SolverControls, {
+			props: { ...base, stepsPerFrame: 5, onChange }
+		});
+		// The stepsPerFrame slider is the second range input
+		const sliders = container.querySelectorAll('input[type="range"]');
+		const stepsSlider = sliders[1] as HTMLInputElement;
+		await fireEvent.input(stepsSlider, { target: { value: '20' } });
+		expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ stepsPerFrame: 20 }));
+	});
 });

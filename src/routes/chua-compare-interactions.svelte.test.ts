@@ -54,7 +54,7 @@ vi.mock('$lib/chua', () => ({
 }));
 
 vi.mock('$lib/components/visualizations/ChuaRenderer.svelte', async () => {
-	const module = await import('$lib/components/testing/StubComponent.svelte');
+	const module = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: module.default };
 });
 

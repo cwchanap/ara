@@ -154,3 +154,33 @@ describe('schema column defaults and update callbacks', () => {
 		expect(new Date(result).toISOString()).toBe(result);
 	});
 });
+
+describe('foreign key reference callbacks', () => {
+	test('saved_configurations.userId references profiles.id with cascade delete', () => {
+		const config = getTableConfig(savedConfigurations);
+		expect(config.foreignKeys).toHaveLength(1);
+		const fk = config.foreignKeys[0] as unknown as {
+			reference: () => { foreignTable: typeof profiles; foreignColumns: unknown[] };
+			onDelete: string;
+		};
+		expect(typeof fk.reference).toBe('function');
+		const ref = fk.reference();
+		expect(ref.foreignTable).toBe(profiles);
+		expect(ref.foreignColumns[0]).toBe(profiles.id);
+		expect(fk.onDelete).toBe('cascade');
+	});
+
+	test('shared_configurations.userId references profiles.id with cascade delete', () => {
+		const config = getTableConfig(sharedConfigurations);
+		expect(config.foreignKeys).toHaveLength(1);
+		const fk = config.foreignKeys[0] as unknown as {
+			reference: () => { foreignTable: typeof profiles; foreignColumns: unknown[] };
+			onDelete: string;
+		};
+		expect(typeof fk.reference).toBe('function');
+		const ref = fk.reference();
+		expect(ref.foreignTable).toBe(profiles);
+		expect(ref.foreignColumns[0]).toBe(profiles.id);
+		expect(fk.onDelete).toBe('cascade');
+	});
+});

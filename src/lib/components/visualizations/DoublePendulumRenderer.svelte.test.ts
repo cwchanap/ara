@@ -410,4 +410,131 @@ describe('DoublePendulumRenderer', () => {
 		});
 		expect(container.querySelector('canvas')).not.toBeNull();
 	});
+
+	it('handles non-finite frame delta (NaN timestamp) without throwing', async () => {
+		const queue: Array<{ id: number; cb: FrameRequestCallback }> = [];
+		let nextId = 0;
+		vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+			nextId += 1;
+			queue.push({ id: nextId, cb });
+			return nextId;
+		});
+		vi.stubGlobal('cancelAnimationFrame', (id: number) => {
+			const idx = queue.findIndex((q) => q.id === id);
+			if (idx !== -1) queue.splice(idx, 1);
+		});
+
+		const { container } = render(DoublePendulumRenderer, { props: baseProps });
+
+		// First frame initializes `last`.
+		queue.splice(0).forEach((q) => q.cb(16.67));
+		// Second frame with NaN timestamp — exercises the non-finite frameDt guard.
+		expect(() => queue.splice(0).forEach((q) => q.cb(Number.NaN))).not.toThrow();
+		// Third frame with normal timestamp — should recover.
+		expect(() => queue.splice(0).forEach((q) => q.cb(33.33))).not.toThrow();
+		await tick();
+		expect(container.querySelector('canvas')).not.toBeNull();
+	});
+
+	it('handles negative frame delta (decreasing timestamp) without throwing', async () => {
+		const queue: Array<{ id: number; cb: FrameRequestCallback }> = [];
+		let nextId = 0;
+		vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+			nextId += 1;
+			queue.push({ id: nextId, cb });
+			return nextId;
+		});
+		vi.stubGlobal('cancelAnimationFrame', (id: number) => {
+			const idx = queue.findIndex((q) => q.id === id);
+			if (idx !== -1) queue.splice(idx, 1);
+		});
+
+		render(DoublePendulumRenderer, { props: baseProps });
+
+		queue.splice(0).forEach((q) => q.cb(100));
+		// Frame with earlier timestamp — frameDt < 0, should be clamped to 0.
+		expect(() => queue.splice(0).forEach((q) => q.cb(50))).not.toThrow();
+		await tick();
+	});
+
+	it('triggers acc overflow guard with high speed', async () => {
+		const queue: Array<{ id: number; cb: FrameRequestCallback }> = [];
+		let nextId = 0;
+		vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+			nextId += 1;
+			queue.push({ id: nextId, cb });
+			return nextId;
+		});
+		vi.stubGlobal('cancelAnimationFrame', (id: number) => {
+			const idx = queue.findIndex((q) => q.id === id);
+			if (idx !== -1) queue.splice(idx, 1);
+		});
+
+		render(DoublePendulumRenderer, {
+			props: { ...baseProps, speed: 100 }
+		});
+
+		// First frame initializes `last`.
+		queue.splice(0).forEach((q) => q.cb(16.67));
+		// Second frame with large dt and high speed — acc accumulates beyond
+		// FIXED_DT * MAX_STEPS_PER_FRAME, triggering the overflow guard.
+		expect(() => queue.splice(0).forEach((q) => q.cb(1000))).not.toThrow();
+		await tick();
+	});
+
+	it('runs physics with compareMode and computes divergence', async () => {
+		const queue: Array<{ id: number; cb: FrameRequestCallback }> = [];
+		let nextId = 0;
+		vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+			nextId += 1;
+			queue.push({ id: nextId, cb });
+			return nextId;
+		});
+		vi.stubGlobal('cancelAnimationFrame', (id: number) => {
+			const idx = queue.findIndex((q) => q.id === id);
+			if (idx !== -1) queue.splice(idx, 1);
+		});
+
+		const { container } = render(DoublePendulumRenderer, {
+			props: { ...baseProps, compareMode: true, compareOffset: 0.001 }
+		});
+
+		// Pump several frames to run physics with compareMode.
+		queue.splice(0).forEach((q) => q.cb(16.67));
+		for (let i = 0; i < 5; i++) {
+			queue.splice(0).forEach((q) => q.cb(16.67 * (i + 2)));
+		}
+		await tick();
+
+		// The divergence readout should show a non-zero value.
+		const readout = container.querySelector('[data-testid="divergence-readout"]');
+		expect(readout).not.toBeNull();
+		expect(readout?.textContent).toContain('DIVERGENCE');
+	});
+
+	it('handles running=false (paused) in frame loop', async () => {
+		const queue: Array<{ id: number; cb: FrameRequestCallback }> = [];
+		let nextId = 0;
+		vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+			nextId += 1;
+			queue.push({ id: nextId, cb });
+			return nextId;
+		});
+		vi.stubGlobal('cancelAnimationFrame', (id: number) => {
+			const idx = queue.findIndex((q) => q.id === id);
+			if (idx !== -1) queue.splice(idx, 1);
+		});
+
+		const { container } = render(DoublePendulumRenderer, {
+			props: { ...baseProps, running: false }
+		});
+
+		// Pump frames — physics should NOT run (running=false).
+		queue.splice(0).forEach((q) => q.cb(16.67));
+		queue.splice(0).forEach((q) => q.cb(33.33));
+		await tick();
+
+		// Should not show divergence overlay.
+		expect(container.textContent).not.toContain('SIMULATION DIVERGED');
+	});
 });

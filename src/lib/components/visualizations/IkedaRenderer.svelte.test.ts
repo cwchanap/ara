@@ -46,6 +46,8 @@ vi.mock('$lib/ikeda', () => ({
 describe('IkedaRenderer', () => {
 	afterEach(() => {
 		cleanup();
+		// Clean up any leaked Worker mock from tests that set globalThis.Worker.
+		delete (globalThis as unknown as Record<string, unknown>).Worker;
 	});
 
 	it('renders an svg (axes) and a canvas in multi-seed mode', async () => {
@@ -700,5 +702,257 @@ describe('IkedaRenderer', () => {
 		expect(workerInstance).not.toBeNull();
 
 		delete (globalThis as unknown as Record<string, unknown>).Worker;
+	});
+
+	it('ignores stale worker response with wrong id', async () => {
+		const { calculateIkedaMultiSeed } = await import('$lib/ikeda');
+		let workerInstance: {
+			onmessage: ((event: MessageEvent) => void) | null;
+			postMessage: (msg: unknown) => void;
+		} | null = null;
+		class MockWorker {
+			postMessage = (msg: unknown) => {
+				void msg;
+				setTimeout(() => {
+					if (this.onmessage) {
+						this.onmessage(
+							new MessageEvent('message', {
+								data: {
+									type: 'ikedaResult',
+									id: 999, // wrong id — should be ignored
+									points: [[0, 0]] as [number, number][],
+									seedIndices: [0]
+								}
+							})
+						);
+					}
+				}, 10);
+			};
+			terminate = vi.fn();
+			onmessage: ((event: MessageEvent) => void) | null = null;
+			onerror: ((event: ErrorEvent) => void) | null = null;
+			constructor() {
+				// eslint-disable-next-line @typescript-eslint/no-this-alias
+				workerInstance = this;
+			}
+		}
+		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+
+		vi.mocked(calculateIkedaMultiSeed).mockReturnValueOnce({
+			points: [[0, 0]],
+			seedIndices: [0]
+		});
+
+		expect(() =>
+			render(IkedaRenderer, {
+				props: {
+					u: 0.918,
+					x0: 0.1,
+					y0: 0,
+					iterations: 100,
+					burnIn: 10,
+					renderMode: 'multi',
+					seeds: 2,
+					colorMode: 'iteration',
+					pointSize: 1.5,
+					opacity: 0.6,
+					height: 200
+				}
+			})
+		).not.toThrow();
+
+		await new Promise((r) => setTimeout(r, 50));
+		expect(workerInstance).not.toBeNull();
+	});
+
+	it('ignores worker response with wrong type', async () => {
+		const { calculateIkedaMultiSeed } = await import('$lib/ikeda');
+		let workerInstance: {
+			onmessage: ((event: MessageEvent) => void) | null;
+			postMessage: (msg: unknown) => void;
+		} | null = null;
+		class MockWorker {
+			postMessage = (msg: unknown) => {
+				setTimeout(() => {
+					if (this.onmessage) {
+						this.onmessage(
+							new MessageEvent('message', {
+								data: {
+									type: 'unknown',
+									id: (msg as { id: number }).id
+								}
+							})
+						);
+					}
+				}, 10);
+			};
+			terminate = vi.fn();
+			onmessage: ((event: MessageEvent) => void) | null = null;
+			onerror: ((event: ErrorEvent) => void) | null = null;
+			constructor() {
+				// eslint-disable-next-line @typescript-eslint/no-this-alias
+				workerInstance = this;
+			}
+		}
+		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+
+		vi.mocked(calculateIkedaMultiSeed).mockReturnValueOnce({
+			points: [[0, 0]],
+			seedIndices: [0]
+		});
+
+		expect(() =>
+			render(IkedaRenderer, {
+				props: {
+					u: 0.918,
+					x0: 0.1,
+					y0: 0,
+					iterations: 100,
+					burnIn: 10,
+					renderMode: 'multi',
+					seeds: 2,
+					colorMode: 'iteration',
+					pointSize: 1.5,
+					opacity: 0.6,
+					height: 200
+				}
+			})
+		).not.toThrow();
+
+		await new Promise((r) => setTimeout(r, 50));
+		expect(workerInstance).not.toBeNull();
+	});
+
+	it('warns and renders empty when 2D context is unavailable', async () => {
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const savedGetContext = HTMLCanvasElement.prototype.getContext;
+		Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+			configurable: true,
+			value: () => null
+		});
+		vi.useFakeTimers();
+		try {
+			render(IkedaRenderer, {
+				props: {
+					u: 0.918,
+					x0: 0.1,
+					y0: 0,
+					iterations: 100,
+					burnIn: 10,
+					renderMode: 'multi',
+					seeds: 2,
+					colorMode: 'iteration',
+					pointSize: 1.5,
+					opacity: 0.6,
+					height: 200
+				}
+			});
+			// Flush the debounced render (250ms) to trigger the ctx null warning.
+			await vi.advanceTimersByTimeAsync(300);
+			expect(warnSpy).toHaveBeenCalledWith('IkedaRenderer: canvas or 2D context unavailable');
+		} finally {
+			vi.useRealTimers();
+			Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+				configurable: true,
+				value: savedGetContext
+			});
+			warnSpy.mockRestore();
+		}
+	});
+
+	it('re-renders when height changes (style-only effect)', async () => {
+		const { rerender, container } = render(IkedaRenderer, {
+			props: {
+				u: 0.918,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 10,
+				renderMode: 'multi',
+				seeds: 2,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				opacity: 0.6,
+				height: 200
+			}
+		});
+		await waitFor(() => {
+			expect(container.querySelector('svg')).not.toBeNull();
+		});
+		await rerender({
+			u: 0.918,
+			x0: 0.1,
+			y0: 0,
+			iterations: 100,
+			burnIn: 10,
+			renderMode: 'multi',
+			seeds: 2,
+			colorMode: 'iteration',
+			pointSize: 1.5,
+			opacity: 0.6,
+			height: 400
+		});
+		await waitFor(() => {
+			const wrapper = container.firstElementChild as HTMLElement;
+			const inner = wrapper?.firstElementChild as HTMLElement;
+			expect(inner?.style.height).toContain('400');
+		});
+	});
+
+	it('re-renders when pointSize and opacity change (style-only effect)', async () => {
+		const { rerender, container } = render(IkedaRenderer, {
+			props: {
+				u: 0.918,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 10,
+				renderMode: 'multi',
+				seeds: 2,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				opacity: 0.6,
+				height: 200
+			}
+		});
+		await waitFor(() => {
+			expect(container.querySelector('svg')).not.toBeNull();
+		});
+		await rerender({
+			u: 0.918,
+			x0: 0.1,
+			y0: 0,
+			iterations: 100,
+			burnIn: 10,
+			renderMode: 'multi',
+			seeds: 2,
+			colorMode: 'iteration',
+			pointSize: 3,
+			opacity: 0.2,
+			height: 200
+		});
+		expect(container.querySelector('svg')).not.toBeNull();
+	});
+
+	it('cleans up on unmount without throwing', async () => {
+		const { unmount, container } = render(IkedaRenderer, {
+			props: {
+				u: 0.918,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 10,
+				renderMode: 'multi',
+				seeds: 2,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				opacity: 0.6,
+				height: 200
+			}
+		});
+		await waitFor(() => {
+			expect(container.querySelector('svg')).not.toBeNull();
+		});
+		expect(() => unmount()).not.toThrow();
 	});
 });

@@ -326,4 +326,218 @@ describe('CliffordRenderer', () => {
 			expect(ctx.putImageData).toHaveBeenCalled();
 		});
 	});
+
+	it('handles worker error response and falls back to main thread', async () => {
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		let workerInstance: {
+			onmessage: ((event: MessageEvent) => void) | null;
+			onerror: ((event: ErrorEvent) => void) | null;
+			terminate: () => void;
+		} | null = null;
+		class MockWorker {
+			postMessage = vi.fn();
+			terminate = vi.fn();
+			onmessage: ((event: MessageEvent) => void) | null = null;
+			onerror: ((event: ErrorEvent) => void) | null = null;
+			constructor() {
+				// eslint-disable-next-line @typescript-eslint/no-this-alias
+				workerInstance = this;
+			}
+		}
+		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+
+		vi.mocked(calculateCliffordTuples).mockReturnValueOnce([
+			[0, 0],
+			[0.5, 0.5]
+		]);
+
+		render(CliffordRenderer, {
+			props: { ...baseProps, colorMode: 'iteration' as const }
+		});
+
+		await new Promise((r) => setTimeout(r, 50));
+
+		if (workerInstance!.onmessage) {
+			workerInstance!.onmessage(
+				new MessageEvent('message', {
+					data: { type: 'error', message: 'clifford worker failed' }
+				})
+			);
+		}
+
+		await waitFor(() => {
+			expect(errorSpy).toHaveBeenCalledWith(
+				'Clifford worker error response:',
+				'clifford worker failed'
+			);
+		});
+
+		expect(workerInstance!.terminate).toHaveBeenCalled();
+		delete (globalThis as unknown as Record<string, unknown>).Worker;
+		errorSpy.mockRestore();
+	});
+
+	it('handles worker onerror and falls back to main thread', async () => {
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		let workerInstance: {
+			onmessage: ((event: MessageEvent) => void) | null;
+			onerror: ((event: ErrorEvent) => void) | null;
+			terminate: () => void;
+		} | null = null;
+		class MockWorker {
+			postMessage = vi.fn();
+			terminate = vi.fn();
+			onmessage: ((event: MessageEvent) => void) | null = null;
+			onerror: ((event: ErrorEvent) => void) | null = null;
+			constructor() {
+				// eslint-disable-next-line @typescript-eslint/no-this-alias
+				workerInstance = this;
+			}
+		}
+		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+
+		vi.mocked(calculateCliffordTuples).mockReturnValueOnce([
+			[0, 0],
+			[0.5, 0.5]
+		]);
+
+		render(CliffordRenderer, {
+			props: { ...baseProps, colorMode: 'iteration' as const }
+		});
+
+		await new Promise((r) => setTimeout(r, 50));
+
+		if (workerInstance!.onerror) {
+			workerInstance!.onerror(new ErrorEvent('error', { message: 'clifford runtime error' }));
+		}
+
+		await waitFor(() => {
+			expect(errorSpy).toHaveBeenCalledWith(
+				'Clifford worker error:',
+				'clifford runtime error'
+			);
+		});
+
+		expect(workerInstance!.terminate).toHaveBeenCalled();
+		delete (globalThis as unknown as Record<string, unknown>).Worker;
+		errorSpy.mockRestore();
+	});
+
+	it('handles worker initialization failure gracefully', async () => {
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		class FailingWorker {
+			constructor() {
+				throw new Error('Worker init failed');
+			}
+		}
+		(globalThis as unknown as Record<string, unknown>).Worker = FailingWorker;
+
+		const { container } = render(CliffordRenderer, {
+			props: { ...baseProps, colorMode: 'iteration' as const }
+		});
+
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+		expect(errorSpy).toHaveBeenCalledWith(
+			'Failed to initialize clifford web worker:',
+			expect.any(Error)
+		);
+
+		delete (globalThis as unknown as Record<string, unknown>).Worker;
+		errorSpy.mockRestore();
+	});
+
+	it('processes a successful worker response and renders', async () => {
+		let workerInstance: {
+			onmessage: ((event: MessageEvent) => void) | null;
+			onerror: ((event: ErrorEvent) => void) | null;
+			postMessage: (msg: unknown) => void;
+		} | null = null;
+		class MockWorker {
+			postMessage = (msg: unknown) => {
+				setTimeout(() => {
+					if (this.onmessage) {
+						this.onmessage(
+							new MessageEvent('message', {
+								data: {
+									type: 'cliffordResult',
+									id: (msg as { id: number }).id,
+									points: [
+										[0, 0],
+										[0.5, 0.5]
+									] as [number, number][]
+								}
+							})
+						);
+					}
+				}, 10);
+			};
+			terminate = vi.fn();
+			onmessage: ((event: MessageEvent) => void) | null = null;
+			onerror: ((event: ErrorEvent) => void) | null = null;
+			constructor() {
+				// eslint-disable-next-line @typescript-eslint/no-this-alias
+				workerInstance = this;
+			}
+		}
+		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+
+		const { container } = render(CliffordRenderer, {
+			props: { ...baseProps, colorMode: 'iteration' as const }
+		});
+
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+
+		expect(workerInstance).not.toBeNull();
+		delete (globalThis as unknown as Record<string, unknown>).Worker;
+	});
+
+	it('ignores worker response with wrong type without throwing', async () => {
+		let workerInstance: {
+			onmessage: ((event: MessageEvent) => void) | null;
+			postMessage: (msg: unknown) => void;
+		} | null = null;
+		class MockWorker {
+			postMessage = (msg: unknown) => {
+				setTimeout(() => {
+					if (this.onmessage) {
+						this.onmessage(
+							new MessageEvent('message', {
+								data: { type: 'unknown', id: (msg as { id: number }).id }
+							})
+						);
+					}
+				}, 10);
+			};
+			terminate = vi.fn();
+			onmessage: ((event: MessageEvent) => void) | null = null;
+			onerror: ((event: ErrorEvent) => void) | null = null;
+			constructor() {
+				// eslint-disable-next-line @typescript-eslint/no-this-alias
+				workerInstance = this;
+			}
+		}
+		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+
+		vi.mocked(calculateCliffordTuples).mockReturnValueOnce([
+			[0, 0],
+			[0.5, 0.5]
+		]);
+
+		expect(() =>
+			render(CliffordRenderer, {
+				props: { ...baseProps, colorMode: 'iteration' as const }
+			})
+		).not.toThrow();
+
+		await new Promise((r) => setTimeout(r, 50));
+
+		// The wrong-type response is ignored; component should not throw.
+		expect(workerInstance).not.toBeNull();
+
+		delete (globalThis as unknown as Record<string, unknown>).Worker;
+	});
 });

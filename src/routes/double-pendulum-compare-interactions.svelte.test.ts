@@ -35,7 +35,7 @@ vi.mock('$app/stores', () => ({ page: { subscribe: pageStore.subscribe } }));
 vi.mock('$app/paths', () => ({ base: '' }));
 vi.mock('$app/navigation', () => ({ goto: mockGoto }));
 vi.mock('$lib/components/visualizations/DoublePendulumRenderer.svelte', async () => {
-	const m = await import('$lib/components/testing/StubBindableRenderer.svelte');
+	const m = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: m.default };
 });
 
