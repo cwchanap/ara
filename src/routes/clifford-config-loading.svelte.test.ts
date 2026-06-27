@@ -315,12 +315,28 @@ describe('clifford page – config loading', () => {
 		unmount();
 
 		// Now resolve the load — should not throw because isUnmounted is true.
-		expect(() =>
-			resolveLoad({
-				ok: true,
-				parameters: { type: 'clifford', a: 1, b: 1, c: 1, d: 1, iterations: 50000 }
-			})
-		).not.toThrow();
+		// Verify unmount aborted the loader's AbortController (the observable
+		// post-unmount effect): the signal embedded in fetchFn is now aborted.
+		const { fetchFn } = loadSavedConfigParametersMock.mock.calls[0][0] as {
+			fetchFn: typeof fetch;
+		};
+		const fetchSpy = vi.fn(async () => new Response('{}'));
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = fetchSpy as unknown as typeof fetch;
+		try {
+			await fetchFn('http://test');
+			expect(
+				(fetchSpy.mock.calls[0] as unknown as [RequestInfo | URL, RequestInit])[1]?.signal
+					?.aborted
+			).toBe(true);
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+		// Settling the pending load after unmount is a no-op via the isUnmounted guard.
+		resolveLoad({
+			ok: true,
+			parameters: { type: 'clifford', a: 1, b: 1, c: 1, d: 1, iterations: 50000 }
+		});
 	});
 
 	it('handles AbortError when config load is aborted', async () => {
@@ -355,7 +371,25 @@ describe('clifford page – config loading', () => {
 		// Unmount before the load rejects — the isUnmounted guard in the catch
 		// block should prevent any state updates.
 		unmount();
-		expect(() => rejectLoad(new Error('Late network error'))).not.toThrow();
+		// Verify unmount aborted the loader's AbortController (the observable
+		// post-unmount effect): the signal embedded in fetchFn is now aborted.
+		const { fetchFn } = loadSavedConfigParametersMock.mock.calls[0][0] as {
+			fetchFn: typeof fetch;
+		};
+		const fetchSpy = vi.fn(async () => new Response('{}'));
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = fetchSpy as unknown as typeof fetch;
+		try {
+			await fetchFn('http://test');
+			expect(
+				(fetchSpy.mock.calls[0] as unknown as [RequestInfo | URL, RequestInit])[1]?.signal
+					?.aborted
+			).toBe(true);
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+		// Settling the pending load after unmount is a no-op via the isUnmounted guard.
+		rejectLoad(new Error('Late network error'));
 	});
 
 	it('shows error when inline config param parsing throws an exception', async () => {

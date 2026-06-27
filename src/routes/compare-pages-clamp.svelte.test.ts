@@ -1124,11 +1124,21 @@ describe('compare pages – clamp and edge cases', () => {
 
 		vi.advanceTimersByTime(300);
 
+		// Both sides start running (leftRunning/rightRunning default true).
 		const leftPlayBtn = screen.getByTestId('left-toggle-play');
+		expect(leftPlayBtn.textContent).toContain('⏸ Pause');
+
 		await fireEvent.click(leftPlayBtn);
+		await tick();
+		// Toggling pauses the left side — label and data-running both flip.
+		expect(leftPlayBtn.textContent).toContain('▶ Play');
+		expect(screen.getAllByTestId('stub')[0]).toHaveAttribute('data-running', 'false');
 
 		const rightPlayBtn = screen.getByTestId('right-toggle-play');
 		await fireEvent.click(rightPlayBtn);
+		await tick();
+		expect(rightPlayBtn.textContent).toContain('▶ Play');
+		expect(screen.getAllByTestId('stub')[1]).toHaveAttribute('data-running', 'false');
 	});
 
 	it('double-pendulum compare toggle play recovers from divergence', async () => {
@@ -1172,13 +1182,27 @@ describe('compare pages – clamp and edge cases', () => {
 		const divergedBtns = screen.getAllByTestId('stub-trigger-diverged');
 		await fireEvent.click(divergedBtns[0]);
 		await fireEvent.click(divergedBtns[1]);
+		await tick();
+		// Both sides now show diverged state.
+		const stubs = screen.getAllByTestId('stub');
+		expect(stubs[0]).toHaveAttribute('data-diverged', 'true');
+		expect(stubs[1]).toHaveAttribute('data-diverged', 'true');
 
 		// Click play to recover from divergence
 		const leftPlayBtn = screen.getByTestId('left-toggle-play');
 		await fireEvent.click(leftPlayBtn);
+		await tick();
+		// Recovery clears divergence on the left side and resumes running.
+		expect(stubs[0]).toHaveAttribute('data-diverged', 'false');
+		expect(stubs[0]).toHaveAttribute('data-running', 'true');
+		expect(leftPlayBtn.textContent).toContain('⏸ Pause');
 
 		const rightPlayBtn = screen.getByTestId('right-toggle-play');
 		await fireEvent.click(rightPlayBtn);
+		await tick();
+		expect(stubs[1]).toHaveAttribute('data-diverged', 'false');
+		expect(stubs[1]).toHaveAttribute('data-running', 'true');
+		expect(rightPlayBtn.textContent).toContain('⏸ Pause');
 	});
 
 	// ── Debounce cleanup coverage: swap + tick triggers $effect re-run ──

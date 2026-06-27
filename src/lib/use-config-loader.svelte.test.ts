@@ -1070,40 +1070,43 @@ describe('useConfigLoader', () => {
 			const originalFetch = globalThis.fetch;
 			globalThis.fetch = fetchSpy as unknown as typeof fetch;
 
-			mockLoadSaved.mockImplementation(async (args) => {
-				// Call the fetchFn to verify it invokes fetch
-				await args.fetchFn('http://localhost/test-url', { method: 'GET' });
-				return {
-					ok: true,
-					parameters: defaultParams,
-					source: 'api'
-				};
-			});
+			let cleanup: () => void = () => {};
+			try {
+				mockLoadSaved.mockImplementation(async (args) => {
+					// Call the fetchFn to verify it invokes fetch
+					await args.fetchFn('http://localhost/test-url', { method: 'GET' });
+					return {
+						ok: true,
+						parameters: defaultParams,
+						source: 'api'
+					};
+				});
 
-			const { cleanup } = useConfigLoader(
-				{
-					page: pageStore,
-					mapType: 'lorenz' as const,
-					base: '/base',
-					onParametersLoaded
-				},
-				state
-			);
+				({ cleanup } = useConfigLoader(
+					{
+						page: pageStore,
+						mapType: 'lorenz' as const,
+						base: '/base',
+						onParametersLoaded
+					},
+					state
+				));
 
-			pageStore.set(makePage('http://localhost/lorenz?configId=fetch-test'));
-			await new Promise((r) => setTimeout(r, 0));
+				pageStore.set(makePage('http://localhost/lorenz?configId=fetch-test'));
+				await new Promise((r) => setTimeout(r, 0));
 
-			expect(fetchSpy).toHaveBeenCalledWith(
-				'http://localhost/test-url',
-				expect.objectContaining({ method: 'GET' })
-			);
-			// Verify the signal was passed
-			const [, init] = fetchSpy.mock.calls[0] as unknown as [string, RequestInit];
-			expect(init).toHaveProperty('signal');
-			expect(init.signal).toBeInstanceOf(AbortSignal);
-
-			globalThis.fetch = originalFetch;
-			cleanup();
+				expect(fetchSpy).toHaveBeenCalledWith(
+					'http://localhost/test-url',
+					expect.objectContaining({ method: 'GET' })
+				);
+				// Verify the signal was passed
+				const [, init] = fetchSpy.mock.calls[0] as unknown as [string, RequestInit];
+				expect(init).toHaveProperty('signal');
+				expect(init.signal).toBeInstanceOf(AbortSignal);
+			} finally {
+				globalThis.fetch = originalFetch;
+				cleanup();
+			}
 		});
 	});
 });

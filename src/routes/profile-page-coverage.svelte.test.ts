@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import ProfilePage from './profile/+page.svelte';
+import type { Profile } from '$lib/types';
 
 // Capture the enhance submit callback so we can invoke it directly.
 const enhanceState = vi.hoisted(() => ({
@@ -28,24 +29,20 @@ afterEach(() => {
 	cleanup();
 });
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 function makeProfileData(overrides?: {
-	profile?: { id: string; username: string } | null;
-	user?: { id: string; email: string } | null;
-}): any {
-	const profile =
-		overrides !== undefined && 'profile' in overrides
-			? overrides.profile === null
-				? null
-				: { createdAt: '', updatedAt: '', ...overrides.profile }
-			: { id: 'user-1', username: 'chaos_user', createdAt: '', updatedAt: '' };
+	profile?: Profile | null;
+	user?: App.PageData['user'];
+}): App.PageData {
+	const profile: Profile | null =
+		overrides?.profile === undefined
+			? { id: 'user-1', username: 'chaos_user', createdAt: '', updatedAt: '' }
+			: overrides.profile;
 	return {
-		session: { access_token: 'token' },
+		session: null,
 		user: overrides?.user ?? { id: 'user-1', email: 'user@example.com' },
 		profile
 	};
 }
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 describe('profile page – form.updateError and enhance callback', () => {
 	it('displays updateError from form prop when username differs from profile', async () => {

@@ -851,18 +851,21 @@ describe('StandardRenderer additional statement coverage', () => {
 			value: () => null
 		});
 
-		const { container } = render(StandardRenderer, {
-			props: { k: 1, numP: 1, numQ: 1, iterations: 5, height: 400 }
-		});
-		await vi.advanceTimersByTimeAsync(200);
-		// canvas/svg are still created, but the point-drawing loop is skipped.
-		await waitFor(() => {
-			expect(container.querySelector('canvas')).not.toBeNull();
-			expect(container.querySelector('svg')).not.toBeNull();
-		});
-
-		if (savedGetContext) {
-			Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', savedGetContext);
+		try {
+			const { container } = render(StandardRenderer, {
+				props: { k: 1, numP: 1, numQ: 1, iterations: 5, height: 400 }
+			});
+			await vi.advanceTimersByTimeAsync(200);
+			// canvas/svg are still created, but the point-drawing loop is skipped.
+			await waitFor(() => {
+				expect(container.querySelector('canvas')).not.toBeNull();
+				expect(container.querySelector('svg')).not.toBeNull();
+			});
+		} finally {
+			vi.useRealTimers();
+			if (savedGetContext) {
+				Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', savedGetContext);
+			}
 		}
 	});
 

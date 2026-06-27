@@ -149,7 +149,7 @@ describe('newton page – config loading', () => {
 	it('applies config from inline config param', async () => {
 		parseConfigParamMock.mockReturnValueOnce({
 			ok: true,
-			parameters: { ...baseParams, maxIterations: 50 }
+			parameters: { ...baseParams, maxIterations: 75 }
 		});
 
 		setPageUrl('http://localhost/newton?config=some-encoded-data');
@@ -163,7 +163,7 @@ describe('newton page – config loading', () => {
 
 		await waitFor(() => {
 			const slider = document.getElementById('maxIterations') as HTMLInputElement;
-			expect(slider.value).toBe('50');
+			expect(slider.value).toBe('75');
 		});
 	});
 
@@ -245,7 +245,25 @@ describe('newton page – config loading', () => {
 		});
 
 		unmount();
-		expect(() => resolveLoad({ ok: true, parameters: baseParams })).not.toThrow();
+		// Verify unmount aborted the loader's AbortController (the observable
+		// post-unmount effect): the signal embedded in fetchFn is now aborted.
+		const { fetchFn } = loadSavedConfigParametersMock.mock.calls[0][0] as {
+			fetchFn: typeof fetch;
+		};
+		const fetchSpy = vi.fn(async () => new Response('{}'));
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = fetchSpy as unknown as typeof fetch;
+		try {
+			await fetchFn('http://test');
+			expect(
+				(fetchSpy.mock.calls[0] as unknown as [RequestInfo | URL, RequestInit])[1]?.signal
+					?.aborted
+			).toBe(true);
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+		// Settling the pending load after unmount is a no-op via the isUnmounted guard.
+		resolveLoad({ ok: true, parameters: baseParams });
 	});
 
 	it('handles AbortError when config load is aborted', async () => {
@@ -276,7 +294,25 @@ describe('newton page – config loading', () => {
 		});
 
 		unmount();
-		expect(() => rejectLoad(new Error('Late network error'))).not.toThrow();
+		// Verify unmount aborted the loader's AbortController (the observable
+		// post-unmount effect): the signal embedded in fetchFn is now aborted.
+		const { fetchFn } = loadSavedConfigParametersMock.mock.calls[0][0] as {
+			fetchFn: typeof fetch;
+		};
+		const fetchSpy = vi.fn(async () => new Response('{}'));
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = fetchSpy as unknown as typeof fetch;
+		try {
+			await fetchFn('http://test');
+			expect(
+				(fetchSpy.mock.calls[0] as unknown as [RequestInfo | URL, RequestInit])[1]?.signal
+					?.aborted
+			).toBe(true);
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+		// Settling the pending load after unmount is a no-op via the isUnmounted guard.
+		rejectLoad(new Error('Late network error'));
 	});
 
 	it('shows error when inline config param parsing throws an exception', async () => {
