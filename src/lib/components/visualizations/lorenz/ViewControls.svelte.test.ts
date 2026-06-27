@@ -62,22 +62,20 @@ describe('ViewControls', () => {
 
 	it('emits rotationSpeed change when slider is moved', async () => {
 		const onChange = vi.fn();
-		const { container } = render(ViewControls, {
+		const { getByLabelText } = render(ViewControls, {
 			props: { ...base, rotationSpeed: 0.5, onChange }
 		});
-		const slider = container.querySelector('input[type="range"]') as HTMLInputElement;
+		const slider = getByLabelText(/rotation/i) as HTMLInputElement;
 		await fireEvent.input(slider, { target: { value: '1.5' } });
 		expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ rotationSpeed: 1.5 }));
 	});
 
 	it('emits zoom change when zoom slider is moved', async () => {
 		const onChange = vi.fn();
-		const { container } = render(ViewControls, {
+		const { getByLabelText } = render(ViewControls, {
 			props: { ...base, zoom: 1, onChange }
 		});
-		// The zoom slider is the second range input
-		const sliders = container.querySelectorAll('input[type="range"]');
-		const zoomSlider = sliders[1] as HTMLInputElement;
+		const zoomSlider = getByLabelText(/zoom/i) as HTMLInputElement;
 		await fireEvent.input(zoomSlider, { target: { value: '2.0' } });
 		expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ zoom: 2.0 }));
 	});

@@ -39,6 +39,111 @@ afterAll(() => {
 	});
 });
 
+// Hoisted worker mocks. Defining these at file scope (instead of inside each
+// test body) avoids Vitest's perf_avoid_nested_class warnings. Mirrors the
+// pattern used in CliffordRenderer.svelte.test.ts.
+interface CapturedWorker {
+	postMessage: (msg: unknown) => void;
+	terminate: () => void;
+	onmessage: ((event: MessageEvent) => void) | null;
+	onerror: ((event: ErrorEvent) => void) | null;
+}
+
+const workerHolder: { instance: CapturedWorker | null } = { instance: null };
+
+// Basic worker: postMessage is a no-op spy. Tests manually fire onmessage/onerror.
+class MockWorker {
+	postMessage = vi.fn();
+	terminate = vi.fn();
+	onmessage: ((event: MessageEvent) => void) | null = null;
+	onerror: ((event: ErrorEvent) => void) | null = null;
+	constructor() {
+		workerHolder.instance = this;
+	}
+}
+
+// Worker whose constructor throws, exercising the init-failure fallback.
+class FailingWorker {
+	constructor() {
+		throw new Error('Worker init failed');
+	}
+}
+
+// Auto-responds to postMessage with a chaosResult message.
+class AutoRespondChaosResultWorker {
+	postMessage = (msg: unknown) => {
+		setTimeout(() => {
+			if (this.onmessage) {
+				this.onmessage(
+					new MessageEvent('message', {
+						data: {
+							type: 'chaosResult',
+							id: (msg as { id: number }).id,
+							points: [
+								[0, 0],
+								[1, 1]
+							] as [number, number][]
+						}
+					})
+				);
+			}
+		}, 10);
+	};
+	terminate = vi.fn();
+	onmessage: ((event: MessageEvent) => void) | null = null;
+	onerror: ((event: ErrorEvent) => void) | null = null;
+	constructor() {
+		workerHolder.instance = this;
+	}
+}
+
+// Auto-responds with an unknown message type (ignored by the renderer).
+class AutoRespondUnknownWorker {
+	postMessage = (msg: unknown) => {
+		setTimeout(() => {
+			if (this.onmessage) {
+				this.onmessage(
+					new MessageEvent('message', {
+						data: { type: 'unknown', id: (msg as { id: number }).id }
+					})
+				);
+			}
+		}, 10);
+	};
+	terminate = vi.fn();
+	onmessage: ((event: MessageEvent) => void) | null = null;
+	onerror: ((event: ErrorEvent) => void) | null = null;
+	constructor() {
+		workerHolder.instance = this;
+	}
+}
+
+// Auto-responds with a chaosResult carrying a stale (wrong) id.
+class AutoRespondStaleIdWorker {
+	postMessage = (msg: unknown) => {
+		void msg;
+		setTimeout(() => {
+			if (this.onmessage) {
+				this.onmessage(
+					new MessageEvent('message', {
+						data: {
+							type: 'chaosResult',
+							id: 999, // wrong id
+							points: [[0, 0]] as [number, number][]
+						}
+					})
+				);
+			}
+		}, 10);
+	};
+	terminate = vi.fn();
+	onmessage: ((event: MessageEvent) => void) | null = null;
+	onerror: ((event: ErrorEvent) => void) | null = null;
+	constructor() {
+		workerHolder.instance = this;
+	}
+}
+
 describe('ChaosEsthetiqueRenderer (smoke)', () => {
 	afterEach(() => {
 		vi.useRealTimers();
@@ -165,20 +270,7 @@ describe('ChaosEsthetiqueRenderer (coverage)', () => {
 
 	it('handles worker error response and falls back to main thread', async () => {
 		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-		let workerInstance: {
-			onmessage: ((event: MessageEvent) => void) | null;
-			terminate: () => void;
-		} | null = null;
-		class MockWorker {
-			postMessage = vi.fn();
-			terminate = vi.fn();
-			onmessage: ((event: MessageEvent) => void) | null = null;
-			onerror: ((event: ErrorEvent) => void) | null = null;
-			constructor() {
-				// eslint-disable-next-line @typescript-eslint/no-this-alias
-				workerInstance = this;
-			}
-		}
+		workerHolder.instance = null;
 		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
 
 		render(ChaosEsthetiqueRenderer, {
@@ -187,8 +279,8 @@ describe('ChaosEsthetiqueRenderer (coverage)', () => {
 
 		await new Promise((r) => setTimeout(r, 50));
 
-		if (workerInstance!.onmessage) {
-			workerInstance!.onmessage(
+		if (workerHolder.instance!.onmessage) {
+			workerHolder.instance!.onmessage(
 				new MessageEvent('message', {
 					data: { type: 'error', message: 'chaos worker failed' }
 				})
@@ -202,27 +294,14 @@ describe('ChaosEsthetiqueRenderer (coverage)', () => {
 			);
 		});
 
-		expect(workerInstance!.terminate).toHaveBeenCalled();
+		expect(workerHolder.instance!.terminate).toHaveBeenCalled();
 		delete (globalThis as unknown as Record<string, unknown>).Worker;
 		errorSpy.mockRestore();
 	});
 
 	it('handles worker onerror and falls back to main thread', async () => {
 		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-		let workerInstance: {
-			onerror: ((event: ErrorEvent) => void) | null;
-			terminate: () => void;
-		} | null = null;
-		class MockWorker {
-			postMessage = vi.fn();
-			terminate = vi.fn();
-			onmessage: ((event: MessageEvent) => void) | null = null;
-			onerror: ((event: ErrorEvent) => void) | null = null;
-			constructor() {
-				// eslint-disable-next-line @typescript-eslint/no-this-alias
-				workerInstance = this;
-			}
-		}
+		workerHolder.instance = null;
 		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
 
 		render(ChaosEsthetiqueRenderer, {
@@ -231,8 +310,8 @@ describe('ChaosEsthetiqueRenderer (coverage)', () => {
 
 		await new Promise((r) => setTimeout(r, 50));
 
-		if (workerInstance!.onerror) {
-			workerInstance!.onerror(
+		if (workerHolder.instance!.onerror) {
+			workerHolder.instance!.onerror(
 				new ErrorEvent('error', { message: 'chaos worker runtime error' })
 			);
 		}
@@ -244,18 +323,13 @@ describe('ChaosEsthetiqueRenderer (coverage)', () => {
 			);
 		});
 
-		expect(workerInstance!.terminate).toHaveBeenCalled();
+		expect(workerHolder.instance!.terminate).toHaveBeenCalled();
 		delete (globalThis as unknown as Record<string, unknown>).Worker;
 		errorSpy.mockRestore();
 	});
 
 	it('handles worker initialization failure gracefully', async () => {
 		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-		class FailingWorker {
-			constructor() {
-				throw new Error('Worker init failed');
-			}
-		}
 		(globalThis as unknown as Record<string, unknown>).Worker = FailingWorker;
 
 		const { container } = render(ChaosEsthetiqueRenderer, {
@@ -275,39 +349,8 @@ describe('ChaosEsthetiqueRenderer (coverage)', () => {
 	});
 
 	it('processes a successful worker response and renders', async () => {
-		let workerInstance: {
-			onmessage: ((event: MessageEvent) => void) | null;
-			onerror: ((event: ErrorEvent) => void) | null;
-			postMessage: (msg: unknown) => void;
-		} | null = null;
-		class MockWorker {
-			postMessage = (msg: unknown) => {
-				setTimeout(() => {
-					if (this.onmessage) {
-						this.onmessage(
-							new MessageEvent('message', {
-								data: {
-									type: 'chaosResult',
-									id: (msg as { id: number }).id,
-									points: [
-										[0, 0],
-										[1, 1]
-									] as [number, number][]
-								}
-							})
-						);
-					}
-				}, 10);
-			};
-			terminate = vi.fn();
-			onmessage: ((event: MessageEvent) => void) | null = null;
-			onerror: ((event: ErrorEvent) => void) | null = null;
-			constructor() {
-				// eslint-disable-next-line @typescript-eslint/no-this-alias
-				workerInstance = this;
-			}
-		}
-		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+		workerHolder.instance = null;
+		(globalThis as unknown as Record<string, unknown>).Worker = AutoRespondChaosResultWorker;
 
 		const { container } = render(ChaosEsthetiqueRenderer, {
 			props: { a: 0.9, b: 0.9999, x0: 18, y0: 0, iterations: 100, height: 200 }
@@ -318,35 +361,12 @@ describe('ChaosEsthetiqueRenderer (coverage)', () => {
 			expect(container.querySelector('svg')).not.toBeNull();
 		});
 
-		expect(workerInstance).not.toBeNull();
+		expect(workerHolder.instance).not.toBeNull();
 	});
 
 	it('ignores worker response with wrong type', async () => {
-		let workerInstance: {
-			onmessage: ((event: MessageEvent) => void) | null;
-			postMessage: (msg: unknown) => void;
-		} | null = null;
-		class MockWorker {
-			postMessage = (msg: unknown) => {
-				setTimeout(() => {
-					if (this.onmessage) {
-						this.onmessage(
-							new MessageEvent('message', {
-								data: { type: 'unknown', id: (msg as { id: number }).id }
-							})
-						);
-					}
-				}, 10);
-			};
-			terminate = vi.fn();
-			onmessage: ((event: MessageEvent) => void) | null = null;
-			onerror: ((event: ErrorEvent) => void) | null = null;
-			constructor() {
-				// eslint-disable-next-line @typescript-eslint/no-this-alias
-				workerInstance = this;
-			}
-		}
-		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+		workerHolder.instance = null;
+		(globalThis as unknown as Record<string, unknown>).Worker = AutoRespondUnknownWorker;
 
 		expect(() =>
 			render(ChaosEsthetiqueRenderer, {
@@ -355,40 +375,12 @@ describe('ChaosEsthetiqueRenderer (coverage)', () => {
 		).not.toThrow();
 
 		await new Promise((r) => setTimeout(r, 50));
-		expect(workerInstance).not.toBeNull();
+		expect(workerHolder.instance).not.toBeNull();
 	});
 
 	it('ignores stale worker response with wrong id', async () => {
-		let workerInstance: {
-			onmessage: ((event: MessageEvent) => void) | null;
-			postMessage: (msg: unknown) => void;
-		} | null = null;
-		class MockWorker {
-			postMessage = (msg: unknown) => {
-				void msg;
-				setTimeout(() => {
-					if (this.onmessage) {
-						this.onmessage(
-							new MessageEvent('message', {
-								data: {
-									type: 'chaosResult',
-									id: 999, // wrong id
-									points: [[0, 0]] as [number, number][]
-								}
-							})
-						);
-					}
-				}, 10);
-			};
-			terminate = vi.fn();
-			onmessage: ((event: MessageEvent) => void) | null = null;
-			onerror: ((event: ErrorEvent) => void) | null = null;
-			constructor() {
-				// eslint-disable-next-line @typescript-eslint/no-this-alias
-				workerInstance = this;
-			}
-		}
-		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+		workerHolder.instance = null;
+		(globalThis as unknown as Record<string, unknown>).Worker = AutoRespondStaleIdWorker;
 
 		expect(() =>
 			render(ChaosEsthetiqueRenderer, {
@@ -397,7 +389,7 @@ describe('ChaosEsthetiqueRenderer (coverage)', () => {
 		).not.toThrow();
 
 		await new Promise((r) => setTimeout(r, 50));
-		expect(workerInstance).not.toBeNull();
+		expect(workerHolder.instance).not.toBeNull();
 	});
 
 	it('renders with shadow disabled when points exceed threshold (>5000)', async () => {

@@ -260,7 +260,25 @@ describe('bifurcation-henon page – config loading', () => {
 		});
 
 		unmount();
-		expect(() => resolveLoad({ ok: true, parameters: bhParams })).not.toThrow();
+		// Verify unmount aborted the loader's AbortController (the observable
+		// post-unmount effect): the signal embedded in fetchFn is now aborted.
+		const { fetchFn } = loadSavedConfigParametersMock.mock.calls[0][0] as {
+			fetchFn: typeof fetch;
+		};
+		const fetchSpy = vi.fn(async () => new Response('{}'));
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = fetchSpy as unknown as typeof fetch;
+		try {
+			await fetchFn('http://test');
+			expect(
+				(fetchSpy.mock.calls[0] as unknown as [RequestInfo | URL, RequestInit])[1]?.signal
+					?.aborted
+			).toBe(true);
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+		// Settling the pending load after unmount is a no-op via the isUnmounted guard.
+		resolveLoad({ ok: true, parameters: bhParams });
 	});
 
 	it('handles AbortError when config load is aborted', async () => {
@@ -291,7 +309,25 @@ describe('bifurcation-henon page – config loading', () => {
 		});
 
 		unmount();
-		expect(() => rejectLoad(new Error('Late network error'))).not.toThrow();
+		// Verify unmount aborted the loader's AbortController (the observable
+		// post-unmount effect): the signal embedded in fetchFn is now aborted.
+		const { fetchFn } = loadSavedConfigParametersMock.mock.calls[0][0] as {
+			fetchFn: typeof fetch;
+		};
+		const fetchSpy = vi.fn(async () => new Response('{}'));
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = fetchSpy as unknown as typeof fetch;
+		try {
+			await fetchFn('http://test');
+			expect(
+				(fetchSpy.mock.calls[0] as unknown as [RequestInfo | URL, RequestInit])[1]?.signal
+					?.aborted
+			).toBe(true);
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+		// Settling the pending load after unmount is a no-op via the isUnmounted guard.
+		rejectLoad(new Error('Late network error'));
 	});
 
 	it('shows error when inline config param parsing throws an exception', async () => {

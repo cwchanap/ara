@@ -146,10 +146,15 @@ describe('ToastNotification', () => {
 
 	it('renders error icon (✕) for error variant', () => {
 		render(ToastNotification, {
-			props: { variant: 'error', message: 'Failed', show: true, autoDismiss: false }
+			props: {
+				variant: 'error',
+				message: 'Failed',
+				show: true,
+				autoDismiss: false,
+				dismissable: false
+			}
 		});
-		// The icon is ✕ and the dismiss button also contains ✕, so there are two
-		expect(screen.getAllByText('✕').length).toBeGreaterThanOrEqual(1);
+		expect(screen.getByText('✕')).toBeInTheDocument();
 	});
 
 	it('renders warning icon (⚠️) for warning variant', () => {
@@ -179,7 +184,7 @@ describe('ToastNotification', () => {
 			}
 		});
 		// Transition show to false before the timer fires
-		rerender({
+		await rerender({
 			variant: 'success',
 			message: 'Timer test',
 			show: false,
@@ -210,7 +215,7 @@ describe('ToastNotification', () => {
 		expect(onDismiss).toHaveBeenCalledTimes(1);
 	});
 
-	it('toggling autoDismiss from false to true starts the auto-dismiss timer', () => {
+	it('toggling autoDismiss from false to true starts the auto-dismiss timer', async () => {
 		vi.useFakeTimers();
 		const onDismiss = vi.fn();
 		const { rerender } = render(ToastNotification, {
@@ -226,7 +231,7 @@ describe('ToastNotification', () => {
 		expect(onDismiss).not.toHaveBeenCalled();
 
 		// Now toggle autoDismiss to true — should start timer
-		rerender({
+		await rerender({
 			variant: 'success',
 			message: 'Toggle',
 			show: true,

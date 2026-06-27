@@ -19,6 +19,7 @@ describe('SnapshotButton', () => {
 	});
 
 	afterEach(() => {
+		vi.useRealTimers();
 		cleanup();
 	});
 
@@ -342,7 +343,6 @@ describe('SnapshotButton', () => {
 		vi.advanceTimersByTime(2000);
 		await vi.advanceTimersByTimeAsync(0);
 		expect(screen.queryByText('✓ Saved')).not.toBeInTheDocument();
-		vi.useRealTimers();
 	});
 
 	it('hides error message after timeout (4000ms) when result has error', async () => {
@@ -368,7 +368,6 @@ describe('SnapshotButton', () => {
 		vi.advanceTimersByTime(4000);
 		await vi.advanceTimersByTimeAsync(0);
 		expect(screen.queryByText('✗ Capture failed')).not.toBeInTheDocument();
-		vi.useRealTimers();
 	});
 
 	it('hides error message after timeout (4000ms) when capture throws', async () => {
@@ -391,7 +390,6 @@ describe('SnapshotButton', () => {
 		vi.advanceTimersByTime(4000);
 		await vi.advanceTimersByTimeAsync(0);
 		expect(screen.queryByText('✗ out of memory')).not.toBeInTheDocument();
-		vi.useRealTimers();
 	});
 
 	it('shows fallback error message when result.error is undefined', async () => {

@@ -81,6 +81,7 @@ describe('saved-configs page – additional coverage', () => {
 	});
 
 	afterEach(() => {
+		vi.useRealTimers();
 		HTMLDialogElement.prototype.showModal = originalShowModal;
 		HTMLDialogElement.prototype.close = originalClose;
 		globalThis.fetch = originalFetch;
@@ -130,7 +131,6 @@ describe('saved-configs page – additional coverage', () => {
 		vi.advanceTimersByTime(3000);
 		await vi.advanceTimersByTimeAsync(0);
 		expect(screen.queryByText('Configuration renamed successfully!')).not.toBeInTheDocument();
-		vi.useRealTimers();
 	});
 
 	it('rename enhance callback clears renamingConfigId on success', async () => {

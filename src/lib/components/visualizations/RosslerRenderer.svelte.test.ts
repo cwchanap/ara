@@ -103,10 +103,10 @@ vi.mock('three/examples/jsm/controls/OrbitControls.js', () => ({
 }));
 
 import RosslerRenderer from './RosslerRenderer.svelte';
-
-// Store the original clientWidth/clientHeight descriptors so we can restore them.
-const originalClientWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth');
-const originalClientHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientHeight');
+import {
+	stubClientDimensions,
+	restoreClientDimensions
+} from '$lib/components/testing/dom-test-helpers';
 
 describe('RosslerRenderer (smoke)', () => {
 	// RosslerRenderer uses requestAnimationFrame internally (line 199).
@@ -116,32 +116,12 @@ describe('RosslerRenderer (smoke)', () => {
 		// jsdom reports clientWidth/clientHeight as 0 (no layout engine). Give
 		// the container non-zero dimensions so the Three.js camera aspect ratio
 		// and renderer size calculations don't produce NaN/0.
-		Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
-			configurable: true,
-			get() {
-				return 500;
-			}
-		});
-		Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
-			configurable: true,
-			get() {
-				return 400;
-			}
-		});
+		stubClientDimensions(500, 400);
 	});
 
 	afterEach(() => {
 		vi.useRealTimers();
-		if (originalClientWidth) {
-			Object.defineProperty(HTMLElement.prototype, 'clientWidth', originalClientWidth);
-		} else {
-			delete (HTMLElement.prototype as unknown as Record<string, unknown>).clientWidth;
-		}
-		if (originalClientHeight) {
-			Object.defineProperty(HTMLElement.prototype, 'clientHeight', originalClientHeight);
-		} else {
-			delete (HTMLElement.prototype as unknown as Record<string, unknown>).clientHeight;
-		}
+		restoreClientDimensions();
 		cleanup();
 	});
 
@@ -206,32 +186,12 @@ describe('RosslerRenderer (smoke)', () => {
 describe('RosslerRenderer full render path', () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
-		Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
-			configurable: true,
-			get() {
-				return 500;
-			}
-		});
-		Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
-			configurable: true,
-			get() {
-				return 400;
-			}
-		});
+		stubClientDimensions(500, 400);
 	});
 
 	afterEach(() => {
 		vi.useRealTimers();
-		if (originalClientWidth) {
-			Object.defineProperty(HTMLElement.prototype, 'clientWidth', originalClientWidth);
-		} else {
-			delete (HTMLElement.prototype as unknown as Record<string, unknown>).clientWidth;
-		}
-		if (originalClientHeight) {
-			Object.defineProperty(HTMLElement.prototype, 'clientHeight', originalClientHeight);
-		} else {
-			delete (HTMLElement.prototype as unknown as Record<string, unknown>).clientHeight;
-		}
+		restoreClientDimensions();
 		cleanup();
 	});
 
@@ -354,32 +314,12 @@ describe('RosslerRenderer full render path', () => {
 describe('RosslerRenderer camera sync and resize coverage', () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
-		Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
-			configurable: true,
-			get() {
-				return 500;
-			}
-		});
-		Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
-			configurable: true,
-			get() {
-				return 400;
-			}
-		});
+		stubClientDimensions(500, 400);
 	});
 
 	afterEach(() => {
 		vi.useRealTimers();
-		if (originalClientWidth) {
-			Object.defineProperty(HTMLElement.prototype, 'clientWidth', originalClientWidth);
-		} else {
-			delete (HTMLElement.prototype as unknown as Record<string, unknown>).clientWidth;
-		}
-		if (originalClientHeight) {
-			Object.defineProperty(HTMLElement.prototype, 'clientHeight', originalClientHeight);
-		} else {
-			delete (HTMLElement.prototype as unknown as Record<string, unknown>).clientHeight;
-		}
+		restoreClientDimensions();
 		cleanup();
 	});
 
@@ -460,32 +400,12 @@ describe('RosslerRenderer camera sync and resize coverage', () => {
 describe('RosslerRenderer dispose coverage (array materials and textures)', () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
-		Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
-			configurable: true,
-			get() {
-				return 500;
-			}
-		});
-		Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
-			configurable: true,
-			get() {
-				return 400;
-			}
-		});
+		stubClientDimensions(500, 400);
 	});
 
 	afterEach(() => {
 		vi.useRealTimers();
-		if (originalClientWidth) {
-			Object.defineProperty(HTMLElement.prototype, 'clientWidth', originalClientWidth);
-		} else {
-			delete (HTMLElement.prototype as unknown as Record<string, unknown>).clientWidth;
-		}
-		if (originalClientHeight) {
-			Object.defineProperty(HTMLElement.prototype, 'clientHeight', originalClientHeight);
-		} else {
-			delete (HTMLElement.prototype as unknown as Record<string, unknown>).clientHeight;
-		}
+		restoreClientDimensions();
 		cleanup();
 	});
 

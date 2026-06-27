@@ -58,24 +58,26 @@ describe('database client initialization – missing DATABASE_URL', () => {
 			}
 		}));
 
-		await expect(import('./index.js')).rejects.toThrow(
-			'DATABASE_URL environment variable is required'
-		);
+		try {
+			await expect(import('./index.js')).rejects.toThrow(
+				'DATABASE_URL environment variable is required'
+			);
+		} finally {
+			// Clean up
+			vi.doUnmock('$env/dynamic/private');
+			vi.resetModules();
 
-		// Clean up
-		vi.doUnmock('$env/dynamic/private');
-		vi.resetModules();
-
-		// Restore env vars for subsequent tests
-		if (originalDatabaseUrl !== undefined) {
-			process.env.DATABASE_URL = originalDatabaseUrl;
-		}
-		if (originalNetlifyDatabaseUrl !== undefined) {
-			process.env.NETLIFY_DATABASE_URL = originalNetlifyDatabaseUrl;
-		}
-		// Re-import to warm the cache with valid env vars
-		if (process.env.DATABASE_URL || process.env.NETLIFY_DATABASE_URL) {
-			await import('./index.js');
+			// Restore env vars for subsequent tests
+			if (originalDatabaseUrl !== undefined) {
+				process.env.DATABASE_URL = originalDatabaseUrl;
+			}
+			if (originalNetlifyDatabaseUrl !== undefined) {
+				process.env.NETLIFY_DATABASE_URL = originalNetlifyDatabaseUrl;
+			}
+			// Re-import to warm the cache with valid env vars
+			if (process.env.DATABASE_URL || process.env.NETLIFY_DATABASE_URL) {
+				await import('./index.js');
+			}
 		}
 	});
 });

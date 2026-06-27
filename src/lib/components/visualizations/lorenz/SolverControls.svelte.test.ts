@@ -45,12 +45,10 @@ describe('SolverControls', () => {
 
 	it('emits stepsPerFrame change when stepsPerFrame slider is moved', async () => {
 		const onChange = vi.fn();
-		const { container } = render(SolverControls, {
+		const { getByLabelText } = render(SolverControls, {
 			props: { ...base, stepsPerFrame: 5, onChange }
 		});
-		// The stepsPerFrame slider is the second range input
-		const sliders = container.querySelectorAll('input[type="range"]');
-		const stepsSlider = sliders[1] as HTMLInputElement;
+		const stepsSlider = getByLabelText(/iterations\/frame/i) as HTMLInputElement;
 		await fireEvent.input(stepsSlider, { target: { value: '20' } });
 		expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ stepsPerFrame: 20 }));
 	});
