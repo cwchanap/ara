@@ -8,7 +8,7 @@ import {
 	createUnauthedPageData,
 	unauthedPageProps
 } from '$lib/components/testing/page-test-helpers';
-import ulogisticPage from './logistic/+page.svelte';
+import LogisticPage from './logistic/+page.svelte';
 
 const loadSavedConfigParametersMock = vi.hoisted(() => vi.fn());
 const loadSharedConfigParametersMock = vi.hoisted(() => vi.fn());
@@ -73,7 +73,7 @@ describe('logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/logistic?configId=logistic-id-1');
-		render(ulogisticPage, { props: unauthedPageProps });
+		render(LogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalledWith(
@@ -95,7 +95,7 @@ describe('logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/logistic?share=logistic-share-1');
-		render(ulogisticPage, { props: unauthedPageProps });
+		render(LogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSharedConfigParametersMock).toHaveBeenCalledWith(
@@ -117,7 +117,7 @@ describe('logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/logistic?configId=bad-id');
-		render(ulogisticPage, { props: unauthedPageProps });
+		render(LogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -132,7 +132,7 @@ describe('logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/logistic?share=expired-code');
-		render(ulogisticPage, { props: unauthedPageProps });
+		render(LogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -146,7 +146,7 @@ describe('logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/logistic?config=some-encoded-data');
-		render(ulogisticPage, { props: unauthedPageProps });
+		render(LogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(parseConfigParamMock).toHaveBeenCalledWith(
@@ -170,7 +170,7 @@ describe('logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/logistic?config=bad-data');
-		render(ulogisticPage, { props: unauthedPageProps });
+		render(LogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -181,7 +181,7 @@ describe('logistic page – config loading', () => {
 		loadSavedConfigParametersMock.mockRejectedValueOnce(new Error('Network error'));
 
 		setPageUrl('http://localhost/logistic?configId=error-id');
-		render(ulogisticPage, { props: unauthedPageProps });
+		render(LogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -196,7 +196,7 @@ describe('logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/logistic?configId=dup-id');
-		render(ulogisticPage, { props: unauthedPageProps });
+		render(LogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalledTimes(1);
@@ -215,7 +215,7 @@ describe('logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/logistic?configId=unstable-id');
-		render(ulogisticPage, { props: unauthedPageProps });
+		render(LogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('UNSTABLE_PARAMETERS_DETECTED')).toBeInTheDocument();
@@ -231,7 +231,7 @@ describe('logistic page – config loading', () => {
 		);
 
 		setPageUrl('http://localhost/logistic?configId=late-id');
-		const { unmount } = render(ulogisticPage, { props: unauthedPageProps });
+		const { unmount } = render(LogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalled();
@@ -247,7 +247,7 @@ describe('logistic page – config loading', () => {
 		loadSavedConfigParametersMock.mockRejectedValueOnce(abortError);
 
 		setPageUrl('http://localhost/logistic?configId=abort-id');
-		render(ulogisticPage, { props: unauthedPageProps });
+		render(LogisticPage, { props: unauthedPageProps });
 
 		await new Promise((r) => setTimeout(r, 100));
 		expect(screen.queryByText('INVALID_CONFIGURATION')).not.toBeInTheDocument();
@@ -262,7 +262,7 @@ describe('logistic page – config loading', () => {
 		);
 
 		setPageUrl('http://localhost/logistic?configId=late-reject-id');
-		const { unmount } = render(ulogisticPage, { props: unauthedPageProps });
+		const { unmount } = render(LogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalled();
@@ -278,7 +278,7 @@ describe('logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/logistic?config=crash-data');
-		render(ulogisticPage, { props: unauthedPageProps });
+		render(LogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -293,7 +293,7 @@ describe('logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/logistic?configId=dismiss-id');
-		render(ulogisticPage, { props: unauthedPageProps });
+		render(LogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -312,7 +312,7 @@ describe('logistic page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/logistic?configId=warn-dismiss-id');
-		render(ulogisticPage, { props: unauthedPageProps });
+		render(LogisticPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('UNSTABLE_PARAMETERS_DETECTED')).toBeInTheDocument();

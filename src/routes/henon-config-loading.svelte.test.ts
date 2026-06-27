@@ -8,7 +8,7 @@ import {
 	createUnauthedPageData,
 	unauthedPageProps
 } from '$lib/components/testing/page-test-helpers';
-import uhenonPage from './henon/+page.svelte';
+import HenonPage from './henon/+page.svelte';
 
 const loadSavedConfigParametersMock = vi.hoisted(() => vi.fn());
 const loadSharedConfigParametersMock = vi.hoisted(() => vi.fn());
@@ -73,7 +73,7 @@ describe('henon page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/henon?configId=henon-id-1');
-		render(uhenonPage, { props: unauthedPageProps });
+		render(HenonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalledWith(
@@ -95,7 +95,7 @@ describe('henon page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/henon?share=henon-share-1');
-		render(uhenonPage, { props: unauthedPageProps });
+		render(HenonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSharedConfigParametersMock).toHaveBeenCalledWith(
@@ -117,7 +117,7 @@ describe('henon page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/henon?configId=bad-id');
-		render(uhenonPage, { props: unauthedPageProps });
+		render(HenonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -132,7 +132,7 @@ describe('henon page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/henon?share=expired-code');
-		render(uhenonPage, { props: unauthedPageProps });
+		render(HenonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -146,7 +146,7 @@ describe('henon page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/henon?config=some-encoded-data');
-		render(uhenonPage, { props: unauthedPageProps });
+		render(HenonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(parseConfigParamMock).toHaveBeenCalledWith(
@@ -170,7 +170,7 @@ describe('henon page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/henon?config=bad-data');
-		render(uhenonPage, { props: unauthedPageProps });
+		render(HenonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -181,7 +181,7 @@ describe('henon page – config loading', () => {
 		loadSavedConfigParametersMock.mockRejectedValueOnce(new Error('Network error'));
 
 		setPageUrl('http://localhost/henon?configId=error-id');
-		render(uhenonPage, { props: unauthedPageProps });
+		render(HenonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -196,7 +196,7 @@ describe('henon page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/henon?configId=dup-id');
-		render(uhenonPage, { props: unauthedPageProps });
+		render(HenonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalledTimes(1);
@@ -215,7 +215,7 @@ describe('henon page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/henon?configId=unstable-id');
-		render(uhenonPage, { props: unauthedPageProps });
+		render(HenonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('UNSTABLE_PARAMETERS_DETECTED')).toBeInTheDocument();
@@ -231,7 +231,7 @@ describe('henon page – config loading', () => {
 		);
 
 		setPageUrl('http://localhost/henon?configId=late-id');
-		const { unmount } = render(uhenonPage, { props: unauthedPageProps });
+		const { unmount } = render(HenonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalled();
@@ -247,7 +247,7 @@ describe('henon page – config loading', () => {
 		loadSavedConfigParametersMock.mockRejectedValueOnce(abortError);
 
 		setPageUrl('http://localhost/henon?configId=abort-id');
-		render(uhenonPage, { props: unauthedPageProps });
+		render(HenonPage, { props: unauthedPageProps });
 
 		await new Promise((r) => setTimeout(r, 100));
 		expect(screen.queryByText('INVALID_CONFIGURATION')).not.toBeInTheDocument();
@@ -262,7 +262,7 @@ describe('henon page – config loading', () => {
 		);
 
 		setPageUrl('http://localhost/henon?configId=late-reject-id');
-		const { unmount } = render(uhenonPage, { props: unauthedPageProps });
+		const { unmount } = render(HenonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalled();
@@ -278,7 +278,7 @@ describe('henon page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/henon?config=crash-data');
-		render(uhenonPage, { props: unauthedPageProps });
+		render(HenonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -293,7 +293,7 @@ describe('henon page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/henon?configId=dismiss-id');
-		render(uhenonPage, { props: unauthedPageProps });
+		render(HenonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -312,7 +312,7 @@ describe('henon page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/henon?configId=warn-dismiss-id');
-		render(uhenonPage, { props: unauthedPageProps });
+		render(HenonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('UNSTABLE_PARAMETERS_DETECTED')).toBeInTheDocument();

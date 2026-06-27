@@ -7,18 +7,16 @@
 		onClose?: () => void;
 		onSave?: (name: string) => Promise<void>;
 		onShare?: () => Promise<void>;
-		name?: string;
 	};
 
 	let {
-		open = false,
+		open = $bindable(false),
 		onClose,
 		onSave,
 		onShare,
 		mapType = '',
 		currentPath = '',
-		isAuthenticated = false,
-		name = ''
+		isAuthenticated = false
 	}: Props = $props();
 
 	// Reference all props to ensure parent expressions are evaluated
@@ -29,7 +27,6 @@
 	void mapType;
 	void currentPath;
 	void isAuthenticated;
-	void name;
 </script>
 
 {#if open}

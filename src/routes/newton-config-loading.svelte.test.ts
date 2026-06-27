@@ -8,7 +8,7 @@ import {
 	createUnauthedPageData,
 	unauthedPageProps
 } from '$lib/components/testing/page-test-helpers';
-import unewtonPage from './newton/+page.svelte';
+import NewtonPage from './newton/+page.svelte';
 
 const loadSavedConfigParametersMock = vi.hoisted(() => vi.fn());
 const loadSharedConfigParametersMock = vi.hoisted(() => vi.fn());
@@ -80,7 +80,7 @@ describe('newton page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/newton?configId=newton-id-1');
-		render(unewtonPage, { props: unauthedPageProps });
+		render(NewtonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalledWith(
@@ -102,7 +102,7 @@ describe('newton page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/newton?share=newton-share-1');
-		render(unewtonPage, { props: unauthedPageProps });
+		render(NewtonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSharedConfigParametersMock).toHaveBeenCalledWith(
@@ -124,7 +124,7 @@ describe('newton page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/newton?configId=bad-id');
-		render(unewtonPage, { props: unauthedPageProps });
+		render(NewtonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -139,7 +139,7 @@ describe('newton page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/newton?share=expired-code');
-		render(unewtonPage, { props: unauthedPageProps });
+		render(NewtonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -153,7 +153,7 @@ describe('newton page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/newton?config=some-encoded-data');
-		render(unewtonPage, { props: unauthedPageProps });
+		render(NewtonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(parseConfigParamMock).toHaveBeenCalledWith(
@@ -177,7 +177,7 @@ describe('newton page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/newton?config=bad-data');
-		render(unewtonPage, { props: unauthedPageProps });
+		render(NewtonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -188,7 +188,7 @@ describe('newton page – config loading', () => {
 		loadSavedConfigParametersMock.mockRejectedValueOnce(new Error('Network error'));
 
 		setPageUrl('http://localhost/newton?configId=error-id');
-		render(unewtonPage, { props: unauthedPageProps });
+		render(NewtonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -203,7 +203,7 @@ describe('newton page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/newton?configId=dup-id');
-		render(unewtonPage, { props: unauthedPageProps });
+		render(NewtonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalledTimes(1);
@@ -222,7 +222,7 @@ describe('newton page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/newton?configId=unstable-id');
-		render(unewtonPage, { props: unauthedPageProps });
+		render(NewtonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('UNSTABLE_PARAMETERS_DETECTED')).toBeInTheDocument();
@@ -238,7 +238,7 @@ describe('newton page – config loading', () => {
 		);
 
 		setPageUrl('http://localhost/newton?configId=late-id');
-		const { unmount } = render(unewtonPage, { props: unauthedPageProps });
+		const { unmount } = render(NewtonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalled();
@@ -254,7 +254,7 @@ describe('newton page – config loading', () => {
 		loadSavedConfigParametersMock.mockRejectedValueOnce(abortError);
 
 		setPageUrl('http://localhost/newton?configId=abort-id');
-		render(unewtonPage, { props: unauthedPageProps });
+		render(NewtonPage, { props: unauthedPageProps });
 
 		await new Promise((r) => setTimeout(r, 100));
 		expect(screen.queryByText('INVALID_CONFIGURATION')).not.toBeInTheDocument();
@@ -269,7 +269,7 @@ describe('newton page – config loading', () => {
 		);
 
 		setPageUrl('http://localhost/newton?configId=late-reject-id');
-		const { unmount } = render(unewtonPage, { props: unauthedPageProps });
+		const { unmount } = render(NewtonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalled();
@@ -285,7 +285,7 @@ describe('newton page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/newton?config=crash-data');
-		render(unewtonPage, { props: unauthedPageProps });
+		render(NewtonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -300,7 +300,7 @@ describe('newton page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/newton?configId=dismiss-id');
-		render(unewtonPage, { props: unauthedPageProps });
+		render(NewtonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
@@ -319,7 +319,7 @@ describe('newton page – config loading', () => {
 		});
 
 		setPageUrl('http://localhost/newton?configId=warn-dismiss-id');
-		render(unewtonPage, { props: unauthedPageProps });
+		render(NewtonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
 			expect(screen.getByText('UNSTABLE_PARAMETERS_DETECTED')).toBeInTheDocument();
