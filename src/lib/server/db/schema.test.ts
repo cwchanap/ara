@@ -22,7 +22,10 @@ describe('migration map_type constraints include all VALID_MAP_TYPES', () => {
 	const migrationDir = resolve(import.meta.dirname, '../../../../drizzle');
 
 	test('saved_configurations constraint covers all VALID_MAP_TYPES', () => {
-		const sql = readFileSync(resolve(migrationDir, '0009_add_clifford_map_type.sql'), 'utf-8');
+		const sql = readFileSync(
+			resolve(migrationDir, '0010_add_gumowski_mira_map_type.sql'),
+			'utf-8'
+		);
 		const savedMatch = sql.match(
 			/ALTER TABLE "saved_configurations"[\s\S]*?CHECK \("map_type" IN \(([^)]+)\)/
 		);
@@ -36,7 +39,10 @@ describe('migration map_type constraints include all VALID_MAP_TYPES', () => {
 	});
 
 	test('shared_configurations constraint covers all VALID_MAP_TYPES', () => {
-		const sql = readFileSync(resolve(migrationDir, '0009_add_clifford_map_type.sql'), 'utf-8');
+		const sql = readFileSync(
+			resolve(migrationDir, '0010_add_gumowski_mira_map_type.sql'),
+			'utf-8'
+		);
 		const sharedMatch = sql.match(
 			/ALTER TABLE "shared_configurations"[\s\S]*?CHECK \("map_type" IN \(([^)]+)\)/
 		);
@@ -50,7 +56,10 @@ describe('migration map_type constraints include all VALID_MAP_TYPES', () => {
 	});
 
 	test('migration constraint has no extra types beyond VALID_MAP_TYPES', () => {
-		const sql = readFileSync(resolve(migrationDir, '0009_add_clifford_map_type.sql'), 'utf-8');
+		const sql = readFileSync(
+			resolve(migrationDir, '0010_add_gumowski_mira_map_type.sql'),
+			'utf-8'
+		);
 		const matches = sql.matchAll(/CHECK \("map_type" IN \(([^)]+)\)/g);
 		for (const match of matches) {
 			const constraintTypes = match[1]
