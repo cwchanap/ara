@@ -6,6 +6,7 @@
 import type { ChaosMapsWorkerRequest, ChaosMapsWorkerResponse, ErrorResponse } from './types';
 import { calculateIkedaMultiSeed } from '../ikeda';
 import { calculateCliffordTuples } from '../clifford';
+import { calculateGumowskiMiraMultiSeed } from '../gumowski-mira';
 
 function standardMap(
 	numP: number,
@@ -111,6 +112,17 @@ export function handleWorkerMessage(data: ChaosMapsWorkerRequest): ChaosMapsWork
 			maxPoints: data.maxPoints
 		});
 		return { type: 'cliffordResult', id: data.id, points };
+	} else if (data.type === 'gumowskiMira') {
+		const { points, seedIndices } = calculateGumowskiMiraMultiSeed({
+			mu: data.mu,
+			a: data.a,
+			b: data.b,
+			iterations: data.iterations,
+			burnIn: data.burnIn,
+			seeds: data.seeds,
+			maxPoints: data.maxPoints
+		});
+		return { type: 'gumowskiMiraResult', id: data.id, points, seedIndices };
 	} else {
 		const fallback = data as Record<string, unknown>;
 		return {

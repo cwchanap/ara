@@ -46,11 +46,24 @@ export interface CliffordRequest {
 	maxPoints: number;
 }
 
+export interface GumowskiMiraRequest {
+	type: 'gumowskiMira';
+	id: number;
+	mu: number;
+	a: number;
+	b: number;
+	iterations: number;
+	burnIn: number;
+	seeds: number;
+	maxPoints: number;
+}
+
 export type ChaosMapsWorkerRequest =
 	| StandardMapRequest
 	| ChaosEsthetiqueRequest
 	| IkedaRequest
-	| CliffordRequest;
+	| CliffordRequest
+	| GumowskiMiraRequest;
 
 // Response types
 export interface StandardMapResponse {
@@ -78,6 +91,13 @@ export interface CliffordResponse {
 	points: [number, number][];
 }
 
+export interface GumowskiMiraResponse {
+	type: 'gumowskiMiraResult';
+	id: number;
+	points: [number, number][];
+	seedIndices: number[];
+}
+
 export interface ErrorResponse {
 	type: 'error';
 	id: number;
@@ -89,4 +109,5 @@ export type ChaosMapsWorkerResponse =
 	| ChaosEsthetiqueResponse
 	| IkedaResponse
 	| CliffordResponse
+	| GumowskiMiraResponse
 	| ErrorResponse;
