@@ -132,7 +132,6 @@
 		applyPreset(DEFAULT_GUMOWSKI_MIRA_PRESET_ID);
 	}
 
-	// Load config from URL reactively (mirrors the Ikeda page).
 	$effect(() => {
 		const configId = $page.url.searchParams.get('configId');
 		const shareCode = $page.url.searchParams.get('share');
