@@ -33,6 +33,12 @@
 			color: 'from-purple-500 to-fuchsia-600'
 		},
 		{
+			name: 'Gumowski–Mira Map',
+			description: 'A nonlinear map with rich transitions between order, islands, and chaos',
+			url: '/gumowski-mira',
+			color: 'from-fuchsia-500 to-pink-600'
+		},
+		{
 			name: 'Logistic Map',
 			description: 'Population growth model showing chaotic behavior',
 			url: '/logistic',
