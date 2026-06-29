@@ -3028,3 +3028,190 @@ describe('clifford validation', () => {
 		expect(checkParameterStability('clifford', valid).isStable).toBe(true);
 	});
 });
+
+describe('gumowski-mira validation', () => {
+	const valid = {
+		type: 'gumowski-mira' as const,
+		mu: -0.2,
+		a: 0.008,
+		b: 0.05,
+		x0: 0.1,
+		y0: 0,
+		iterations: 50000,
+		burnIn: 1000
+	};
+
+	test('accepts a valid minimal config', () => {
+		const result = validateParameters('gumowski-mira', valid);
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toEqual([]);
+	});
+
+	test('accepts optional render fields with valid values', () => {
+		const result = validateParameters('gumowski-mira', {
+			...valid,
+			renderMode: 'multi',
+			seeds: 250,
+			colorMode: 'iteration',
+			pointSize: 1.5,
+			opacity: 0.6
+		});
+		expect(result.isValid).toBe(true);
+	});
+
+	test('rejects an invalid colorMode enum value', () => {
+		const result = validateParameters('gumowski-mira', {
+			...valid,
+			colorMode: 'rainbow'
+		});
+		expect(result.isValid).toBe(false);
+	});
+
+	test('rejects an invalid renderMode enum value', () => {
+		const result = validateParameters('gumowski-mira', {
+			...valid,
+			renderMode: 'all'
+		});
+		expect(result.isValid).toBe(false);
+	});
+
+	test('rejects a missing required field (burnIn)', () => {
+		const { burnIn, ...missingBurnIn } = valid;
+		void burnIn;
+		const result = validateParameters('gumowski-mira', missingBurnIn);
+		expect(result.isValid).toBe(false);
+		expect(result.errors.join(' ')).toContain('burnIn');
+	});
+
+	test('rejects non-numeric mu', () => {
+		const result = validateParameters('gumowski-mira', { ...valid, mu: 'flat' });
+		expect(result.isValid).toBe(false);
+		expect(result.errors.join(' ')).toMatch(/must be a valid number/);
+	});
+
+	test('rejects NaN in a core field', () => {
+		const result = validateParameters('gumowski-mira', { ...valid, a: NaN });
+		expect(result.isValid).toBe(false);
+	});
+
+	test('rejects extra parameters', () => {
+		const result = validateParameters('gumowski-mira', { ...valid, extra: 42 });
+		expect(result.isValid).toBe(false);
+		expect(result.errors.join(' ')).toContain('extra');
+	});
+
+	test('clamps pointSize above max (6) to 6', () => {
+		const result = validateParameters('gumowski-mira', { ...valid, pointSize: 10 });
+		expect(result.isValid).toBe(true);
+		expect(result.parameters?.pointSize).toBe(6);
+	});
+
+	test('clamps pointSize below min (0.5) to 0.5', () => {
+		const result = validateParameters('gumowski-mira', { ...valid, pointSize: 0.1 });
+		expect(result.isValid).toBe(true);
+		expect(result.parameters?.pointSize).toBe(0.5);
+	});
+
+	test('clamps opacity below min (0) to 0', () => {
+		const result = validateParameters('gumowski-mira', { ...valid, opacity: -0.5 });
+		expect(result.isValid).toBe(true);
+		expect(result.parameters?.opacity).toBe(0);
+	});
+
+	test('clamps opacity above max (1) to 1', () => {
+		const result = validateParameters('gumowski-mira', { ...valid, opacity: 1.5 });
+		expect(result.isValid).toBe(true);
+		expect(result.parameters?.opacity).toBe(1);
+	});
+
+	test('clamps seeds above max (5000) to 5000', () => {
+		const result = validateParameters('gumowski-mira', { ...valid, seeds: 10000 });
+		expect(result.isValid).toBe(true);
+		expect(result.parameters?.seeds).toBe(5000);
+	});
+
+	test('still rejects NaN in optional numeric fields', () => {
+		const result = validateParameters('gumowski-mira', { ...valid, pointSize: NaN });
+		expect(result.isValid).toBe(false);
+	});
+
+	test('returns stable for in-range parameters', () => {
+		const result = checkParameterStability('gumowski-mira', valid);
+		expect(result.isStable).toBe(true);
+		expect(result.warnings).toHaveLength(0);
+	});
+
+	test('warns when mu is above stable range', () => {
+		const result = checkParameterStability('gumowski-mira', { ...valid, mu: 2 });
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.join(' ')).toMatch(/mu/);
+	});
+
+	test('warns when mu is below stable range', () => {
+		const result = checkParameterStability('gumowski-mira', { ...valid, mu: -2 });
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.join(' ')).toMatch(/mu/);
+	});
+
+	test('warns when b is outside stable range', () => {
+		const result = checkParameterStability('gumowski-mira', { ...valid, b: 1 });
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.join(' ')).toMatch(/b/);
+	});
+
+	test('warns when x0 is outside stable range', () => {
+		const result = checkParameterStability('gumowski-mira', { ...valid, x0: 100 });
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.join(' ')).toMatch(/x0/);
+	});
+
+	test('warns when iterations is above stable range', () => {
+		const result = checkParameterStability('gumowski-mira', { ...valid, iterations: 999999 });
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.join(' ')).toMatch(/iterations/);
+	});
+
+	test('is stable for boundary values (min)', () => {
+		const result = checkParameterStability('gumowski-mira', {
+			type: 'gumowski-mira' as const,
+			mu: -1,
+			a: 0,
+			b: 0,
+			x0: -20,
+			y0: -20,
+			iterations: 1,
+			burnIn: 0
+		});
+		expect(result.isStable).toBe(true);
+	});
+
+	test('is stable for boundary values (max)', () => {
+		const result = checkParameterStability('gumowski-mira', {
+			type: 'gumowski-mira' as const,
+			mu: 1,
+			a: 1,
+			b: 0.5,
+			x0: 20,
+			y0: 20,
+			iterations: 250000,
+			burnIn: 10000
+		});
+		expect(result.isStable).toBe(true);
+	});
+
+	test('returns correct stable ranges', () => {
+		const ranges = getStableRanges('gumowski-mira');
+		expect(ranges).toBeDefined();
+		expect(ranges?.mu).toEqual({ min: -1, max: 1 });
+		expect(ranges?.a).toEqual({ min: 0, max: 1 });
+		expect(ranges?.b).toEqual({ min: 0, max: 0.5 });
+		expect(ranges?.x0).toEqual({ min: -20, max: 20 });
+		expect(ranges?.y0).toEqual({ min: -20, max: 20 });
+		expect(ranges?.iterations).toEqual({ min: 1, max: 250000 });
+		expect(ranges?.burnIn).toEqual({ min: 0, max: 10000 });
+	});
+
+	test('is recognized as a valid map type', () => {
+		expect(isValidMapType('gumowski-mira')).toBe(true);
+	});
+});

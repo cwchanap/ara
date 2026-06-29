@@ -22,14 +22,15 @@ const EXPECTED_MAP_TYPES: ChaosMapType[] = [
 	'bifurcation-logistic',
 	'bifurcation-henon',
 	'chaos-esthetique',
+	'gumowski-mira',
 	'lyapunov',
 	'chua',
 	'double-pendulum'
 ];
 
 describe('VALID_MAP_TYPES', () => {
-	test('contains exactly 15 map types', () => {
-		expect(VALID_MAP_TYPES).toHaveLength(15);
+	test('contains exactly 16 map types', () => {
+		expect(VALID_MAP_TYPES).toHaveLength(16);
 	});
 
 	test('contains all expected map types', () => {
@@ -63,8 +64,8 @@ describe('CHAOS_MAP_DISPLAY_NAMES', () => {
 		}
 	});
 
-	test('has exactly 15 entries', () => {
-		expect(Object.keys(CHAOS_MAP_DISPLAY_NAMES)).toHaveLength(15);
+	test('has exactly 16 entries', () => {
+		expect(Object.keys(CHAOS_MAP_DISPLAY_NAMES)).toHaveLength(16);
 	});
 
 	test('all display names are non-empty strings', () => {
@@ -100,6 +101,7 @@ describe('CHAOS_MAP_DISPLAY_NAMES', () => {
 		expect(CHAOS_MAP_DISPLAY_NAMES['bifurcation-logistic']).toBe('BIFURCATION_LOGISTIC');
 		expect(CHAOS_MAP_DISPLAY_NAMES['bifurcation-henon']).toBe('BIFURCATION_HÉNON');
 		expect(CHAOS_MAP_DISPLAY_NAMES['chaos-esthetique']).toBe('CHAOS_ESTHÉTIQUE');
+		expect(CHAOS_MAP_DISPLAY_NAMES['gumowski-mira']).toBe('GUMOWSKI–MIRA_MAP');
 		expect(CHAOS_MAP_DISPLAY_NAMES['lyapunov']).toBe('LYAPUNOV_EXPONENTS');
 		expect(CHAOS_MAP_DISPLAY_NAMES['chua']).toBe('CHUA_CIRCUIT');
 		expect(CHAOS_MAP_DISPLAY_NAMES['double-pendulum']).toBe('DOUBLE_PENDULUM');

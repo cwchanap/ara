@@ -288,6 +288,7 @@ describe('API Validation Logic', () => {
 				'bifurcation-logistic',
 				'bifurcation-henon',
 				'chaos-esthetique',
+				'gumowski-mira',
 				'lyapunov',
 				'chua',
 				'double-pendulum'

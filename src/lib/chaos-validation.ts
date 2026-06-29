@@ -91,6 +91,15 @@ const STABLE_RANGES: Record<ChaosMapType, StableRanges<Record<string, number>>> 
 		y0: { min: -50, max: 50 },
 		iterations: { min: 1, max: 100000 }
 	},
+	'gumowski-mira': {
+		mu: { min: -1, max: 1 },
+		a: { min: 0, max: 1 },
+		b: { min: 0, max: 0.5 },
+		x0: { min: -20, max: 20 },
+		y0: { min: -20, max: 20 },
+		iterations: { min: 1, max: 250000 },
+		burnIn: { min: 0, max: 10000 }
+	},
 	lyapunov: {
 		rMin: { min: 0, max: 4 },
 		rMax: { min: 0, max: 4 },
@@ -157,6 +166,13 @@ const OPTIONAL_FIELDS: Partial<Record<ChaosMapType, Record<string, OptionalField
 	clifford: {
 		colorMode: { kind: 'enum', values: [...CLIFFORD_COLOR_MODES] },
 		zoom: { kind: 'number', min: 0.5, max: 5 },
+		pointSize: { kind: 'number', min: 0.5, max: 6 },
+		opacity: { kind: 'number', min: 0, max: 1 }
+	},
+	'gumowski-mira': {
+		renderMode: { kind: 'enum', values: ['single', 'multi'] },
+		seeds: { kind: 'number', min: 1, max: 5000 },
+		colorMode: { kind: 'enum', values: ['single', 'iteration', 'seed', 'radius'] },
 		pointSize: { kind: 'number', min: 0.5, max: 6 },
 		opacity: { kind: 'number', min: 0, max: 1 }
 	},
