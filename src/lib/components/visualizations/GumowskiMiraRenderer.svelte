@@ -52,7 +52,12 @@
 	const MAX_POINTS = 200000;
 	const DEBOUNCE_MS = 250;
 
-	type Computed = { points: [number, number][]; seedIndices: number[]; maxRadius: number };
+	type Computed = {
+		points: [number, number][];
+		seedIndices: number[];
+		maxRadius: number;
+		totalSeeds: number;
+	};
 
 	let renderTimeout: ReturnType<typeof setTimeout> | null = null;
 	let worker: Worker | null = null;
@@ -105,8 +110,12 @@
 		return max;
 	}
 
-	function buildComputed(points: [number, number][], seedIndices: number[]): Computed {
-		return { points, seedIndices, maxRadius: computeMaxRadius(points) };
+	function buildComputed(
+		points: [number, number][],
+		seedIndices: number[],
+		totalSeeds: number
+	): Computed {
+		return { points, seedIndices, maxRadius: computeMaxRadius(points), totalSeeds };
 	}
 
 	function render(computed: Computed) {
@@ -179,12 +188,6 @@
 				g.selectAll('text').attr('fill', '#00f3ff').attr('font-family', 'Rajdhani');
 			});
 
-		// Avoid Math.max(...largeArray) which overflows the argument stack on big clouds.
-		let seedCount = 1;
-		for (const s of seedIndices) {
-			if (s + 1 > seedCount) seedCount = s + 1;
-		}
-
 		const canvas = canvasSelection.node() as HTMLCanvasElement | null;
 		const ctx = canvas?.getContext('2d');
 		if (!canvas || !ctx) {
@@ -203,7 +206,14 @@
 			const p = points[i];
 			const cx = xScale(p[0]);
 			const cy = yScale(p[1]);
-			ctx.fillStyle = colorFor(i, p, seedIndices[i] ?? 0, points.length, seedCount, maxRadius);
+			ctx.fillStyle = colorFor(
+				i,
+				p,
+				seedIndices[i] ?? 0,
+				points.length,
+				computed.totalSeeds,
+				maxRadius
+			);
 			ctx.beginPath();
 			ctx.arc(cx, cy, r, 0, Math.PI * 2);
 			ctx.fill();
@@ -216,7 +226,8 @@
 			const points = calculateGumowskiMiraTuples({ mu, a, b, x0, y0, iterations, burnIn });
 			return buildComputed(
 				points,
-				points.map(() => 0)
+				points.map(() => 0),
+				1
 			);
 		}
 		const { points, seedIndices } = calculateGumowskiMiraMultiSeed({
@@ -228,7 +239,7 @@
 			seeds,
 			maxPoints: MAX_POINTS
 		});
-		return buildComputed(points, seedIndices);
+		return buildComputed(points, seedIndices, seeds);
 	}
 
 	function paramsValid(): boolean {
@@ -239,7 +250,7 @@
 	function requestPoints() {
 		if (!paramsValid()) {
 			console.warn('GumowskiMiraRenderer: invalid parameters, skipping render');
-			latest = buildComputed([], []);
+			latest = buildComputed([], [], 1);
 			isComputing = false;
 			render(latest);
 			return;
@@ -313,7 +324,7 @@
 					if (data.type !== 'gumowskiMiraResult') return;
 					if (data.id !== latestWorkerRequestId) return;
 					isComputing = false;
-					latest = buildComputed(data.points, data.seedIndices);
+					latest = buildComputed(data.points, data.seedIndices, seeds);
 					render(latest);
 					if (hasPendingRender) {
 						hasPendingRender = false;

@@ -67,6 +67,7 @@
 	let rightBurnIn = $state(rightInitial.burnIn);
 	let rightRenderMode = $state<GumowskiMiraRenderMode>(rightInitial.renderMode ?? 'multi');
 
+	// Styling params are intentionally shared from the left side only.
 	const seeds = leftInitial.seeds ?? defaultParams.seeds!;
 	const colorMode = leftInitial.colorMode ?? defaultParams.colorMode!;
 	const pointSize = leftInitial.pointSize ?? defaultParams.pointSize!;
@@ -333,7 +334,7 @@
 					</div>
 				</div>
 				{#snippet equations()}
-					<p>g(x) = μx + 2(1−μ)x²/(1+x²)</p>
+					<p>g(x) = μ·x + 2(1−μ)·x² / (1 + x²)</p>
 					<p>x' = y + a(1−by²)y + g(x)</p>
 					<p>y' = −x + g(x')</p>
 				{/snippet}
@@ -515,7 +516,7 @@
 					</div>
 				</div>
 				{#snippet equations()}
-					<p>g(x) = μx + 2(1−μ)x²/(1+x²)</p>
+					<p>g(x) = μ·x + 2(1−μ)·x² / (1 + x²)</p>
 					<p>x' = y + a(1−by²)y + g(x)</p>
 					<p>y' = −x + g(x')</p>
 				{/snippet}
