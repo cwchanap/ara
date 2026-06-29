@@ -22,6 +22,7 @@ export type ChaosMapType =
 	| 'bifurcation-logistic'
 	| 'bifurcation-henon'
 	| 'chaos-esthetique'
+	| 'gumowski-mira'
 	| 'lyapunov'
 	| 'chua'
 	| 'double-pendulum';
@@ -125,6 +126,25 @@ export interface CliffordParameters {
 	// Optional render state — persisted so save/share/snapshot reproduce exactly.
 	colorMode?: CliffordColorMode;
 	zoom?: number;
+	pointSize?: number;
+	opacity?: number;
+}
+
+export type GumowskiMiraRenderMode = 'single' | 'multi';
+export type GumowskiMiraColorMode = 'single' | 'iteration' | 'seed' | 'radius';
+
+export interface GumowskiMiraParameters {
+	type: 'gumowski-mira';
+	mu: number;
+	a: number;
+	b: number;
+	x0: number;
+	y0: number;
+	iterations: number;
+	burnIn: number;
+	renderMode?: GumowskiMiraRenderMode;
+	seeds?: number;
+	colorMode?: GumowskiMiraColorMode;
 	pointSize?: number;
 	opacity?: number;
 }
@@ -239,6 +259,7 @@ export type ChaosMapParameters =
 	| LoziParameters
 	| IkedaParameters
 	| CliffordParameters
+	| GumowskiMiraParameters
 	| LogisticParameters
 	| NewtonParameters
 	| StandardParameters
@@ -263,6 +284,7 @@ export const CHAOS_MAP_DISPLAY_NAMES: Record<ChaosMapType, string> = {
 	'bifurcation-logistic': 'BIFURCATION_LOGISTIC',
 	'bifurcation-henon': 'BIFURCATION_HÉNON',
 	'chaos-esthetique': 'CHAOS_ESTHÉTIQUE',
+	'gumowski-mira': 'GUMOWSKI–MIRA_MAP',
 	lyapunov: 'LYAPUNOV_EXPONENTS',
 	chua: 'CHUA_CIRCUIT',
 	'double-pendulum': 'DOUBLE_PENDULUM'
@@ -282,6 +304,7 @@ export const VALID_MAP_TYPES: ChaosMapType[] = [
 	'bifurcation-logistic',
 	'bifurcation-henon',
 	'chaos-esthetique',
+	'gumowski-mira',
 	'lyapunov',
 	'chua',
 	'double-pendulum'
@@ -318,6 +341,10 @@ export type SavedConfiguration = {
 	| {
 			mapType: 'clifford';
 			parameters: CliffordParameters;
+	  }
+	| {
+			mapType: 'gumowski-mira';
+			parameters: GumowskiMiraParameters;
 	  }
 	| {
 			mapType: 'logistic';
