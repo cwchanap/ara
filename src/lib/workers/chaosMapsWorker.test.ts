@@ -7,6 +7,7 @@ import type {
 	ChaosEsthetiqueResponse,
 	IkedaResponse
 } from './types';
+import { handleWorkerMessage } from './chaosMapsHandler';
 import * as handlerModule from './chaosMapsHandler';
 
 type SuccessResponse = StandardMapResponse | ChaosEsthetiqueResponse | IkedaResponse;
@@ -916,5 +917,64 @@ describe('chaosMapsWorker — handler throw handling', () => {
 		});
 		expect(responses[0]?.type).toBe('cliffordResult');
 		expect(responses[0]?.id).toBe(11);
+	});
+});
+
+// ── gumowski-mira map messages ─────────────────────────────────────────────────
+
+describe('handleWorkerMessage — gumowskiMira', () => {
+	test('returns gumowskiMiraResult with points and seedIndices', () => {
+		const result = handleWorkerMessage({
+			type: 'gumowskiMira',
+			id: 42,
+			mu: 0.31,
+			a: 0.008,
+			b: 0.05,
+			iterations: 200,
+			burnIn: 20,
+			seeds: 30,
+			maxPoints: 5000
+		});
+		expect(result.type).toBe('gumowskiMiraResult');
+		if (result.type !== 'gumowskiMiraResult') return;
+		expect(result.id).toBe(42);
+		expect(result.points.length).toBeGreaterThan(0);
+		expect(result.seedIndices.length).toBe(result.points.length);
+	});
+
+	test('is deterministic across calls', () => {
+		const req = {
+			type: 'gumowskiMira' as const,
+			id: 1,
+			mu: 0.31,
+			a: 0.008,
+			b: 0.05,
+			iterations: 100,
+			burnIn: 0,
+			seeds: 10,
+			maxPoints: 1000
+		};
+		const r1 = handleWorkerMessage(req);
+		const r2 = handleWorkerMessage(req);
+		if (r1.type !== 'gumowskiMiraResult' || r2.type !== 'gumowskiMiraResult') {
+			throw new Error('unexpected response type');
+		}
+		expect(r1.points).toEqual(r2.points);
+	});
+
+	test('returns empty for non-positive seeds', () => {
+		const result = handleWorkerMessage({
+			type: 'gumowskiMira',
+			id: 7,
+			mu: 0.31,
+			a: 0.008,
+			b: 0.05,
+			iterations: 100,
+			burnIn: 0,
+			seeds: 0,
+			maxPoints: 1000
+		});
+		if (result.type !== 'gumowskiMiraResult') throw new Error('unexpected type');
+		expect(result.points).toEqual([]);
 	});
 });
