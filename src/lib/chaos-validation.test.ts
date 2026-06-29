@@ -3130,6 +3130,12 @@ describe('gumowski-mira validation', () => {
 		expect(result.parameters?.seeds).toBe(5000);
 	});
 
+	test('clamps seeds below min (1) to 1', () => {
+		const result = validateParameters('gumowski-mira', { ...valid, seeds: 0 });
+		expect(result.isValid).toBe(true);
+		expect(result.parameters?.seeds).toBe(1);
+	});
+
 	test('still rejects NaN in optional numeric fields', () => {
 		const result = validateParameters('gumowski-mira', { ...valid, pointSize: NaN });
 		expect(result.isValid).toBe(false);
@@ -3169,6 +3175,24 @@ describe('gumowski-mira validation', () => {
 		const result = checkParameterStability('gumowski-mira', { ...valid, iterations: 999999 });
 		expect(result.isStable).toBe(false);
 		expect(result.warnings.join(' ')).toMatch(/iterations/);
+	});
+
+	test('warns when a is outside stable range', () => {
+		const result = checkParameterStability('gumowski-mira', { ...valid, a: 5 });
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.join(' ')).toMatch(/a/);
+	});
+
+	test('warns when y0 is outside stable range', () => {
+		const result = checkParameterStability('gumowski-mira', { ...valid, y0: 100 });
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.join(' ')).toMatch(/y0/);
+	});
+
+	test('warns when burnIn is outside stable range', () => {
+		const result = checkParameterStability('gumowski-mira', { ...valid, burnIn: 999999 });
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.join(' ')).toMatch(/burnIn/);
 	});
 
 	test('is stable for boundary values (min)', () => {

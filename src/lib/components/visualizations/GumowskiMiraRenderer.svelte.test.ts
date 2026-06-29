@@ -257,9 +257,10 @@ describe('GumowskiMiraRenderer', () => {
 		});
 
 		// The render runs inside a debounced setTimeout, so flush timers synchronously
-		// to ensure the actual render() path (and its seedCount scan over 200k points)
-		// is exercised inside the not.toThrow assertion. The old Math.max(...seedIndices)
-		// threw RangeError: Maximum call stack size exceeded for arrays this large.
+		// to ensure the actual render() path is exercised inside the not.toThrow
+		// assertion. The totalSeeds field is now a single number (not a scanned
+		// aggregation), so there is no overflow risk — but the 200k cap slice and
+		// per-point color loop still need to complete without error.
 		vi.useFakeTimers();
 		try {
 			expect(() => {
