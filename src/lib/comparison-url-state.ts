@@ -13,6 +13,10 @@ import {
 	DEFAULT_DOUBLE_PENDULUM_PRESET_ID
 } from './double-pendulum-presets';
 import { getPreset as getCliffordPreset, DEFAULT_CLIFFORD_PRESET_ID } from './clifford-presets';
+import {
+	getPreset as getGumowskiMiraPreset,
+	DEFAULT_GUMOWSKI_MIRA_PRESET_ID
+} from './gumowski-mira-presets';
 import { LORENZ_PRESETS } from './lorenz/presets';
 
 /**
@@ -111,6 +115,14 @@ export function getDefaultParameters(mapType: ChaosMapType): ChaosMapParameters 
 			if (!preset)
 				throw new Error(`Missing default Clifford preset: ${DEFAULT_CLIFFORD_PRESET_ID}`);
 			return { type: 'clifford', ...preset.state };
+		}
+		case 'gumowski-mira': {
+			const preset = getGumowskiMiraPreset(DEFAULT_GUMOWSKI_MIRA_PRESET_ID);
+			if (!preset)
+				throw new Error(
+					`Missing default Gumowski-Mira preset: ${DEFAULT_GUMOWSKI_MIRA_PRESET_ID}`
+				);
+			return { type: 'gumowski-mira', ...preset.state };
 		}
 	}
 }
