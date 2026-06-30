@@ -97,6 +97,27 @@ describe('calculateGumowskiMiraTuples', () => {
 			expect(Number.isFinite(y)).toBe(true);
 		}
 	});
+
+	test('stops early when orbit diverges to non-finite values', () => {
+		// With a huge initial condition the b·y² term overflows to -Infinity
+		// on the first iteration, triggering the Number.isFinite break guard.
+		const points = calculateGumowskiMiraTuples({
+			mu: 0.31,
+			a: 0.008,
+			b: 0.05,
+			x0: 1e300,
+			y0: 1e300,
+			iterations: 100,
+			burnIn: 0
+		});
+		// The break fires before any finite point is pushed, so the result is
+		// either empty or contains only finite values (never non-finite).
+		for (const [x, y] of points) {
+			expect(Number.isFinite(x)).toBe(true);
+			expect(Number.isFinite(y)).toBe(true);
+		}
+		expect(points.length).toBeLessThan(100);
+	});
 });
 
 describe('calculateGumowskiMiraMultiSeed', () => {
@@ -178,5 +199,25 @@ describe('calculateGumowskiMiraMultiSeed', () => {
 			maxPoints: 100
 		});
 		expect(result.points.length).toBeLessThanOrEqual(100);
+	});
+
+	test('skips seeds whose orbits diverge to non-finite values', () => {
+		// Extreme mu + a cause rapid divergence for most random seeds in [-1,1].
+		// The Number.isFinite break guard stops each diverging seed early; the
+		// function still returns whatever finite points it collected.
+		const result = calculateGumowskiMiraMultiSeed({
+			mu: 1,
+			a: 1,
+			b: 0.5,
+			iterations: 500,
+			burnIn: 0,
+			seeds: 20
+		});
+		for (const [x, y] of result.points) {
+			expect(Number.isFinite(x)).toBe(true);
+			expect(Number.isFinite(y)).toBe(true);
+		}
+		// No non-finite points should ever be collected.
+		expect(result.points.length).toBe(result.seedIndices.length);
 	});
 });
