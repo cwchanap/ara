@@ -9,6 +9,7 @@
 	type Props = {
 		label?: string;
 		// Numeric params
+		mu?: number;
 		a?: number;
 		b?: number;
 		c?: number;
@@ -68,6 +69,7 @@
 
 	let {
 		label = 'stub',
+		mu = $bindable(0),
 		a = $bindable(0),
 		b = $bindable(0),
 		c = $bindable(0),

@@ -420,4 +420,20 @@ describe('Gumowski–Mira compare page interactions', () => {
 		const leftMu = container.querySelector('#left-mu') as HTMLInputElement;
 		expect(Number(leftMu.value)).toBeCloseTo(0.31, 5);
 	});
+
+	it('clears pending debounce timer when a second slider changes before debounce fires', async () => {
+		const { container } = render(GumowskiMiraComparePage);
+		// Change one slider — sets a debounce timer (300ms).
+		const leftMu = container.querySelector('#left-mu') as HTMLInputElement;
+		await fireEvent.input(leftMu, { target: { value: '-0.4' } });
+		// Immediately change another slider before the 300ms debounce fires.
+		// The $effect cleanup runs first (clearing the first timer), then the
+		// effect body re-runs, hitting `if (debounceTimer) clearTimeout(...)`.
+		const leftA = container.querySelector('#left-a') as HTMLInputElement;
+		await fireEvent.input(leftA, { target: { value: '0.02' } });
+		// Wait for the debounce to fire.
+		await new Promise((r) => setTimeout(r, 400));
+		// goto should have been called at least once.
+		expect(mockGoto).toHaveBeenCalled();
+	});
 });

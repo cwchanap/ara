@@ -463,4 +463,161 @@ describe('gumowski-mira page – config loading', () => {
 		await fireEvent.click(dismissBtn);
 		expect(screen.queryByText('UNSTABLE_PARAMETERS_DETECTED')).not.toBeInTheDocument();
 	});
+
+	it('dismisses save error alert when the dismiss button is clicked', async () => {
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = vi.fn(
+			async () => new Response(JSON.stringify({ error: 'Save failed' }), { status: 500 })
+		) as unknown as typeof fetch;
+
+		try {
+			render(GumowskiMiraPage, { props: unauthedPageProps });
+
+			// Open the save dialog and trigger a save that fails.
+			await fireEvent.click(screen.getByRole('button', { name: /Save/i }));
+			const dialogSaveBtn = screen.getByTestId('dialog-save-gumowski-mira');
+			await fireEvent.click(dialogSaveBtn);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole('button', { name: /Dismiss save error/i })
+				).toBeInTheDocument();
+			});
+
+			// Dismiss the save error alert.
+			await fireEvent.click(screen.getByRole('button', { name: /Dismiss save error/i }));
+			expect(
+				screen.queryByRole('button', { name: /Dismiss save error/i })
+			).not.toBeInTheDocument();
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
+
+	it('dismisses save success alert when the dismiss button is clicked', async () => {
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = vi.fn(
+			async () => new Response(JSON.stringify({ id: 'test-id' }), { status: 200 })
+		) as unknown as typeof fetch;
+
+		try {
+			render(GumowskiMiraPage, { props: unauthedPageProps });
+
+			// Open the save dialog and trigger a save that succeeds.
+			await fireEvent.click(screen.getByRole('button', { name: /Save/i }));
+			const dialogSaveBtn = screen.getByTestId('dialog-save-gumowski-mira');
+			await fireEvent.click(dialogSaveBtn);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole('button', { name: /Dismiss success/i })
+				).toBeInTheDocument();
+			});
+
+			// Dismiss the save success alert.
+			await fireEvent.click(screen.getByRole('button', { name: /Dismiss success/i }));
+			expect(
+				screen.queryByRole('button', { name: /Dismiss success/i })
+			).not.toBeInTheDocument();
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
+
+	it('ignores config load result when config key changes during async load', async () => {
+		// Start a config load with configId=id1, then change the URL to
+		// configId=id2 before the first load resolves. The first load's
+		// result should be ignored (the config-key guard at line 212).
+		let resolveFirst: (value: unknown) => void = () => {};
+		loadSavedConfigParametersMock.mockImplementationOnce(
+			() =>
+				new Promise((resolve) => {
+					resolveFirst = resolve;
+				})
+		);
+		loadSavedConfigParametersMock.mockResolvedValueOnce({
+			ok: true,
+			parameters: {
+				type: 'gumowski-mira',
+				mu: 0.55,
+				a: 0.05,
+				b: 0.05,
+				x0: 0.1,
+				y0: 0,
+				iterations: 18000,
+				burnIn: 500
+			},
+			source: 'api'
+		});
+
+		setPageUrl('http://localhost/gumowski-mira?configId=first-id');
+		render(GumowskiMiraPage, { props: unauthedPageProps });
+
+		await waitFor(() => {
+			expect(loadSavedConfigParametersMock).toHaveBeenCalledTimes(1);
+		});
+
+		// Change the URL to a different configId — this changes the config key
+		// and starts a new load. The first load's result should be ignored.
+		setPageUrl('http://localhost/gumowski-mira?configId=second-id');
+
+		await waitFor(() => {
+			expect(loadSavedConfigParametersMock).toHaveBeenCalledTimes(2);
+		});
+
+		// Now resolve the first (stale) load — the config-key guard should
+		// prevent its result from being applied.
+		resolveFirst({
+			ok: true,
+			parameters: {
+				type: 'gumowski-mira',
+				mu: -0.4,
+				a: 0.008,
+				b: 0.5,
+				x0: 0.1,
+				y0: 0,
+				iterations: 12000,
+				burnIn: 500
+			}
+		});
+
+		// Wait for the second load to resolve and apply its params.
+		await waitFor(() => {
+			const muSlider = screen.getByTestId('slider-mu') as HTMLInputElement;
+			// The second load's mu (0.55) should be applied, not the first's (-0.4).
+			expect(muSlider.value).toBe('0.55');
+		});
+	});
+
+	it('ignores rejected config load when config key changes during async load', async () => {
+		// Start a config load that will reject, then change the URL before
+		// the rejection resolves. The catch block's config-key guard (line 231)
+		// should prevent the error from being shown.
+		let rejectFirst: (reason: unknown) => void = () => {};
+		loadSavedConfigParametersMock.mockImplementationOnce(
+			() =>
+				new Promise((_, reject) => {
+					rejectFirst = reject;
+				})
+		);
+
+		setPageUrl('http://localhost/gumowski-mira?configId=stale-reject-id');
+		render(GumowskiMiraPage, { props: unauthedPageProps });
+
+		await waitFor(() => {
+			expect(loadSavedConfigParametersMock).toHaveBeenCalledTimes(1);
+		});
+
+		// Change the URL to a clean URL (no config params) — this changes
+		// the config key to null, so the stale rejection is ignored.
+		setPageUrl('http://localhost/gumowski-mira');
+
+		// Now reject the stale load — the config-key guard should prevent
+		// the error from being shown.
+		rejectFirst(new Error('Stale network error'));
+
+		// No config error should appear because the config key changed.
+		await new Promise((r) => setTimeout(r, 100));
+		expect(screen.queryByText('INVALID_CONFIGURATION')).not.toBeInTheDocument();
+	});
 });
