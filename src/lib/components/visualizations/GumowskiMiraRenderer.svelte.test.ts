@@ -1155,4 +1155,369 @@ describe('GumowskiMiraRenderer', () => {
 		});
 		expect(() => unmount()).not.toThrow();
 	});
+
+	it('ignores worker message with null data', async () => {
+		workerHolder.instance = null;
+		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+
+		render(GumowskiMiraRenderer, {
+			props: {
+				mu: 0.31,
+				a: 0.008,
+				b: 0.05,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 10,
+				renderMode: 'multi',
+				seeds: 2,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				opacity: 0.6,
+				height: 200
+			}
+		});
+
+		await new Promise((r) => setTimeout(r, 50));
+
+		// Send a message with null data — the handler should early-return
+		// without throwing.
+		expect(() => {
+			if (workerHolder.instance!.onmessage) {
+				workerHolder.instance!.onmessage(
+					new MessageEvent('message', { data: null as unknown })
+				);
+			}
+		}).not.toThrow();
+
+		delete (globalThis as unknown as Record<string, unknown>).Worker;
+	});
+
+	it('processes pending render after worker response (hasPendingRender path)', async () => {
+		workerHolder.instance = null;
+		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+
+		const { calculateGumowskiMiraMultiSeed } = await import('$lib/gumowski-mira');
+		vi.mocked(calculateGumowskiMiraMultiSeed).mockReturnValue({
+			points: [
+				[0, 0],
+				[1, 0.5]
+			],
+			seedIndices: [0, 1]
+		});
+
+		const { container, rerender } = render(GumowskiMiraRenderer, {
+			props: {
+				mu: 0.31,
+				a: 0.008,
+				b: 0.05,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 10,
+				renderMode: 'multi',
+				seeds: 2,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				opacity: 0.6,
+				height: 200
+			}
+		});
+
+		// Wait for the debounce (250ms) to fire so the worker is posted a message.
+		await new Promise((r) => setTimeout(r, 350));
+		expect(workerHolder.instance).not.toBeNull();
+		expect(workerHolder.instance!.postMessage).toHaveBeenCalled();
+
+		// isComputing is now true (worker was posted). Trigger a style-only
+		// change which calls scheduleRender while isComputing is true →
+		// hasPendingRender is set to true.
+		await rerender({
+			mu: 0.31,
+			a: 0.008,
+			b: 0.05,
+			x0: 0.1,
+			y0: 0,
+			iterations: 100,
+			burnIn: 10,
+			renderMode: 'multi',
+			seeds: 2,
+			colorMode: 'single',
+			pointSize: 1.5,
+			opacity: 0.6,
+			height: 200
+		});
+
+		// Now respond to the worker — the handler should render, then see
+		// hasPendingRender is true and call scheduleRender again.
+		expect(() => {
+			if (workerHolder.instance!.onmessage) {
+				workerHolder.instance!.onmessage(
+					new MessageEvent('message', {
+						data: {
+							type: 'gumowskiMiraResult',
+							id: 1,
+							points: [
+								[0, 0],
+								[1, 0.5]
+							],
+							seedIndices: [0, 1]
+						}
+					})
+				);
+			}
+		}).not.toThrow();
+
+		await waitFor(() => {
+			expect(container.querySelector('svg')).not.toBeNull();
+		});
+
+		delete (globalThis as unknown as Record<string, unknown>).Worker;
+	});
+
+	it('ignores worker message when unmounted', async () => {
+		workerHolder.instance = null;
+		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+
+		const { unmount } = render(GumowskiMiraRenderer, {
+			props: {
+				mu: 0.31,
+				a: 0.008,
+				b: 0.05,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 10,
+				renderMode: 'multi',
+				seeds: 2,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				opacity: 0.6,
+				height: 200
+			}
+		});
+
+		await new Promise((r) => setTimeout(r, 50));
+		unmount();
+
+		// Send a message after unmount — the isUnmounted guard should
+		// prevent any state updates or rendering.
+		expect(() => {
+			if (workerHolder.instance!.onmessage) {
+				workerHolder.instance!.onmessage(
+					new MessageEvent('message', {
+						data: {
+							type: 'gumowskiMiraResult',
+							id: 1,
+							points: [[0, 0]],
+							seedIndices: [0]
+						}
+					})
+				);
+			}
+		}).not.toThrow();
+
+		delete (globalThis as unknown as Record<string, unknown>).Worker;
+	});
+
+	it('falls back to main thread when worker errors after unmount check (no container)', async () => {
+		workerHolder.instance = null;
+		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const { calculateGumowskiMiraMultiSeed } = await import('$lib/gumowski-mira');
+		vi.mocked(calculateGumowskiMiraMultiSeed).mockReturnValueOnce({
+			points: [[0, 0]],
+			seedIndices: [0]
+		});
+
+		render(GumowskiMiraRenderer, {
+			props: {
+				mu: 0.31,
+				a: 0.008,
+				b: 0.05,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 10,
+				renderMode: 'multi',
+				seeds: 2,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				opacity: 0.6,
+				height: 200
+			}
+		});
+
+		await new Promise((r) => setTimeout(r, 50));
+
+		// Simulate worker error response — the handler checks
+		// `container && !isUnmounted` before falling back to main thread.
+		if (workerHolder.instance!.onmessage) {
+			workerHolder.instance!.onmessage(
+				new MessageEvent('message', {
+					data: { type: 'error', message: 'worker failed' }
+				})
+			);
+		}
+
+		await waitFor(() => {
+			expect(errorSpy).toHaveBeenCalledWith(
+				'Gumowski-Mira worker error response:',
+				'worker failed'
+			);
+		});
+
+		delete (globalThis as unknown as Record<string, unknown>).Worker;
+		errorSpy.mockRestore();
+	});
+
+	it('ignores worker messages with wrong type', async () => {
+		workerHolder.instance = null;
+		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+
+		render(GumowskiMiraRenderer, {
+			props: {
+				mu: 0.31,
+				a: 0.008,
+				b: 0.05,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 10,
+				renderMode: 'multi',
+				seeds: 2,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				opacity: 0.6,
+				height: 200
+			}
+		});
+
+		await new Promise((r) => setTimeout(r, 350));
+
+		// Send a message with a wrong type — the handler should early-return
+		// at the `if (data.type !== 'gumowskiMiraResult') return;` guard.
+		expect(() => {
+			if (workerHolder.instance!.onmessage) {
+				workerHolder.instance!.onmessage(
+					new MessageEvent('message', {
+						data: { type: 'someOtherType', id: 1, points: [], seedIndices: [] }
+					})
+				);
+			}
+		}).not.toThrow();
+
+		delete (globalThis as unknown as Record<string, unknown>).Worker;
+	});
+
+	it('ignores worker messages with stale id', async () => {
+		workerHolder.instance = null;
+		(globalThis as unknown as Record<string, unknown>).Worker = MockWorker;
+
+		render(GumowskiMiraRenderer, {
+			props: {
+				mu: 0.31,
+				a: 0.008,
+				b: 0.05,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 10,
+				renderMode: 'multi',
+				seeds: 2,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				opacity: 0.6,
+				height: 200
+			}
+		});
+
+		await new Promise((r) => setTimeout(r, 350));
+
+		// Send a gumowskiMiraResult message with a stale id (0 instead of 1).
+		// The handler should early-return at the
+		// `if (data.id !== latestWorkerRequestId) return;` guard.
+		expect(() => {
+			if (workerHolder.instance!.onmessage) {
+				workerHolder.instance!.onmessage(
+					new MessageEvent('message', {
+						data: {
+							type: 'gumowskiMiraResult',
+							id: 999, // stale id — doesn't match latestWorkerRequestId
+							points: [[0, 0]],
+							seedIndices: [0]
+						}
+					})
+				);
+			}
+		}).not.toThrow();
+
+		delete (globalThis as unknown as Record<string, unknown>).Worker;
+	});
+
+	it('processes pending render in main-thread fallback (hasPendingRender)', async () => {
+		// Without a worker, computation runs on the main thread. If a
+		// render is requested while computing (isComputing=true), the
+		// hasPendingRender flag is set. After the computation finishes,
+		// the flag is checked and scheduleRender is called again.
+		// Since main-thread computation is synchronous, we need to trigger
+		// the effect-based render path to exercise hasPendingRender.
+		delete (globalThis as unknown as Record<string, unknown>).Worker;
+
+		const { calculateGumowskiMiraMultiSeed } = await import('$lib/gumowski-mira');
+		vi.mocked(calculateGumowskiMiraMultiSeed).mockReturnValue({
+			points: [
+				[0, 0],
+				[1, 0.5]
+			],
+			seedIndices: [0, 1]
+		});
+
+		const { container, rerender } = render(GumowskiMiraRenderer, {
+			props: {
+				mu: 0.31,
+				a: 0.008,
+				b: 0.05,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 10,
+				renderMode: 'multi',
+				seeds: 2,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				opacity: 0.6,
+				height: 200
+			}
+		});
+
+		// Wait for initial render (debounced).
+		await new Promise((r) => setTimeout(r, 350));
+		expect(container.querySelector('svg')).not.toBeNull();
+
+		// Trigger a parameter change that causes re-computation, then
+		// immediately trigger a style-only change. The style-only change
+		// calls scheduleRender while isComputing might be true (if the
+		// debounce hasn't fired yet). This exercises the hasPendingRender path.
+		await rerender({
+			mu: 0.4, // parameter change → triggers recompute
+			a: 0.008,
+			b: 0.05,
+			x0: 0.1,
+			y0: 0,
+			iterations: 100,
+			burnIn: 10,
+			renderMode: 'multi',
+			seeds: 2,
+			colorMode: 'single', // style-only change
+			pointSize: 1.5,
+			opacity: 0.6,
+			height: 200
+		});
+
+		// Wait for debounce + render.
+		await new Promise((r) => setTimeout(r, 350));
+		expect(container.querySelector('svg')).not.toBeNull();
+	});
 });

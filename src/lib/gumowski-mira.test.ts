@@ -220,4 +220,28 @@ describe('calculateGumowskiMiraMultiSeed', () => {
 		// No non-finite points should ever be collected.
 		expect(result.points.length).toBe(result.seedIndices.length);
 	});
+
+	test('triggers the Number.isFinite break guard in multi-seed mode', () => {
+		// mu=-1, a=1, b=1 causes most random seeds in [-1,1] to diverge rapidly,
+		// exercising the `if (!Number.isFinite(x) || !Number.isFinite(y)) break`
+		// guard inside the multi-seed loop (line 106).
+		const result = calculateGumowskiMiraMultiSeed({
+			mu: -1,
+			a: 1,
+			b: 1,
+			iterations: 100,
+			burnIn: 0,
+			seeds: 100
+		});
+		// Most seeds diverge before completing 100 iterations, so the total
+		// collected points is far less than seeds * iterations.
+		expect(result.points.length).toBeLessThan(100 * 100);
+		// Every collected point must still be finite (the break prevents
+		// non-finite values from being pushed).
+		for (const [x, y] of result.points) {
+			expect(Number.isFinite(x)).toBe(true);
+			expect(Number.isFinite(y)).toBe(true);
+		}
+		expect(result.points.length).toBe(result.seedIndices.length);
+	});
 });
