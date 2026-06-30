@@ -230,6 +230,42 @@ describe('IkedaRenderer', () => {
 		}
 	});
 
+	it('draws axes (frame) on empty point set, not a blank frame', async () => {
+		// Gumowski-Mira spec line 107 declares "Same margins, scale, axis styling
+		// as Ikeda", and line 254 requires "Empty result: renderer draws blank
+		// canvas with axes present (no crash)." Ikeda — as the reference renderer —
+		// must behave the same way: axes visible on empty compute, no early return.
+		const { calculateIkedaMultiSeed } = await import('$lib/ikeda');
+		vi.mocked(calculateIkedaMultiSeed).mockReturnValueOnce({ points: [], seedIndices: [] });
+		vi.useFakeTimers();
+		try {
+			const { container } = render(IkedaRenderer, {
+				props: {
+					u: 0.918,
+					x0: 0.1,
+					y0: 0,
+					iterations: 100,
+					burnIn: 10,
+					renderMode: 'multi',
+					seeds: 2,
+					colorMode: 'iteration',
+					pointSize: 1.5,
+					opacity: 0.6,
+					height: 200
+				}
+			});
+			vi.runOnlyPendingTimers();
+			const svg = container.querySelector('svg');
+			expect(svg).not.toBeNull();
+			// D3 axes emit <g class="tick"> elements. Presence proves axis calls ran.
+			const ticks = svg!.querySelectorAll('g.tick');
+			expect(ticks.length).toBeGreaterThan(0);
+			expect(container.querySelector('canvas')).not.toBeNull();
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it('renders a large multi-seed cloud without throwing (no Math.max spread overflow)', async () => {
 		const { calculateIkedaMultiSeed } = await import('$lib/ikeda');
 		const N = 200000;

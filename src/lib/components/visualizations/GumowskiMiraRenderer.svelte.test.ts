@@ -239,6 +239,48 @@ describe('GumowskiMiraRenderer', () => {
 		}
 	});
 
+	it('draws axes (frame) on empty point set per spec, not a blank frame', async () => {
+		// Spec (2026-06-28-gumowski-mira-map-design.md:254): "Empty result: renderer
+		// draws blank canvas with axes present (no crash)." The renderer must NOT
+		// early-return before the D3 axis calls when points is empty.
+		const { calculateGumowskiMiraMultiSeed } = await import('$lib/gumowski-mira');
+		vi.mocked(calculateGumowskiMiraMultiSeed).mockReturnValueOnce({
+			points: [],
+			seedIndices: []
+		});
+		vi.useFakeTimers();
+		try {
+			const { container } = render(GumowskiMiraRenderer, {
+				props: {
+					mu: 0.31,
+					a: 0.008,
+					b: 0.05,
+					x0: 0.1,
+					y0: 0,
+					iterations: 100,
+					burnIn: 10,
+					renderMode: 'multi',
+					seeds: 2,
+					colorMode: 'iteration',
+					pointSize: 1.5,
+					opacity: 0.6,
+					height: 200
+				}
+			});
+			vi.runOnlyPendingTimers();
+			const svg = container.querySelector('svg');
+			expect(svg).not.toBeNull();
+			// D3 axes emit <g class="tick"> elements with <line>/<text> children.
+			// Presence of ticks proves the axis calls ran (frame is visible).
+			const ticks = svg!.querySelectorAll('g.tick');
+			expect(ticks.length).toBeGreaterThan(0);
+			// Canvas exists but no points were drawn into it (empty compute).
+			expect(container.querySelector('canvas')).not.toBeNull();
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it('renders a large multi-seed cloud without throwing (no Math.max spread overflow)', async () => {
 		const { calculateGumowskiMiraMultiSeed } = await import('$lib/gumowski-mira');
 		const N = 200000;

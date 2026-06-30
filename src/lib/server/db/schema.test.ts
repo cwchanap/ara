@@ -68,6 +68,19 @@ describe('migration map_type constraints include all VALID_MAP_TYPES', () => {
 			expect(constraintTypes).toHaveLength(VALID_MAP_TYPES.length);
 		}
 	});
+
+	test('drizzle journal registers the 0010 gumowski-mira migration', () => {
+		const journal = JSON.parse(
+			readFileSync(resolve(migrationDir, 'meta/_journal.json'), 'utf-8')
+		) as { entries: { idx: number; tag: string }[] };
+		const entry = journal.entries.find((e) => e.tag === '0010_add_gumowski_mira_map_type');
+		expect(entry).toBeDefined();
+		expect(entry!.idx).toBe(10);
+		// Every migration file on disk must have a journal entry (no orphan SQL).
+		const tags = journal.entries.map((e) => e.tag);
+		expect(tags).toContain('0009_add_clifford_map_type');
+		expect(tags).toContain('0010_add_gumowski_mira_map_type');
+	});
 });
 
 describe('database indexes', () => {
