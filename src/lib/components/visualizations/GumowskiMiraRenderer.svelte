@@ -147,11 +147,8 @@
 		const capped = computed.points.length > MAX_POINTS;
 		const points = capped ? computed.points.slice(0, MAX_POINTS) : computed.points;
 		const seedIndices = capped ? computed.seedIndices.slice(0, MAX_POINTS) : computed.seedIndices;
-		if (points.length === 0) {
-			// Empty data — canvas/svg are present but blank.
-			return;
-		}
-
+		// Empty data: d3.extent returns [undefined, undefined], so the ?? fallbacks
+		// below yield a [-1, 1] domain — axes/frame stay visible per spec, point loop is a no-op.
 		const xExtentRaw = d3.extent(points, (d) => d[0]);
 		const yExtentRaw = d3.extent(points, (d) => d[1]);
 		const xExtent: [number, number] = [xExtentRaw[0] ?? -1, xExtentRaw[1] ?? 1];
