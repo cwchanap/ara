@@ -3,7 +3,7 @@
 **Linear issue:** [HPA-65](https://linear.app/cwchanap/issue/HPA-65/add-gumowskimira-map-visualization-module)
 **PRD:** [Additional Chaotic Map Visualizations](https://linear.app/cwchanap/document/prd-additional-chaotic-map-visualizations-1a69b476e276)
 **Route:** `/gumowski-mira`
-**Status:** Approved design, pending implementation plan
+**Status:** Implemented — module shipped (see Acceptance Criteria)
 
 ## Summary
 
@@ -15,7 +15,7 @@ The Gumowski–Mira map is structurally a 2D point-cloud iterative map, the same
 
 ## The Map (Math)
 
-```
+```text
 g(x)   = μ·x + 2(1−μ)·x² / (1 + x²)            ← the Gumowski function
 x(n+1) = y + a·(1 − b·y²)·y + g(x)
 y(n+1) = −x + g(x(n+1))
@@ -201,7 +201,7 @@ Optional fields:
 Re-creates both `check_valid_map_type` (saved_configurations) and `chk_shared_configurations_map_type` (shared_configurations) CHECK constraints with `'gumowski-mira'` inserted after `'chaos-esthetique'` (16 total types), matching the `VALID_MAP_TYPES` order.
 
 New full map-type list:
-```
+```text
 lorenz, rossler, henon, lozi, ikeda, clifford, logistic, newton, standard,
 bifurcation-logistic, bifurcation-henon, chaos-esthetique, gumowski-mira,
 lyapunov, chua, double-pendulum
