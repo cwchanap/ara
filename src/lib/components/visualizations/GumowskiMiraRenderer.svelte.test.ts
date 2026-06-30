@@ -683,30 +683,39 @@ describe('GumowskiMiraRenderer', () => {
 	});
 
 	it('re-renders when colorMode changes (style-only effect)', async () => {
-		const { container, component } = render(GumowskiMiraRenderer, {
-			props: {
-				mu: 0.31,
-				a: 0.008,
-				b: 0.05,
-				x0: 0.1,
-				y0: 0,
-				iterations: 100,
-				burnIn: 10,
-				renderMode: 'multi',
-				seeds: 2,
-				colorMode: 'iteration',
-				pointSize: 1.5,
-				opacity: 0.6,
-				height: 200
-			}
-		});
+		const baseProps = {
+			mu: 0.31,
+			a: 0.008,
+			b: 0.05,
+			x0: 0.1,
+			y0: 0,
+			iterations: 100,
+			burnIn: 10,
+			renderMode: 'multi' as const,
+			seeds: 2,
+			colorMode: 'iteration' as const,
+			pointSize: 1.5,
+			opacity: 0.6,
+			height: 200
+		};
+		const { container, rerender } = render(GumowskiMiraRenderer, { props: baseProps });
 		await waitFor(() => {
 			expect(container.querySelector('svg')).not.toBeNull();
 		});
-		// Trigger style-only re-render by changing colorMode
-		(component as unknown as Record<string, unknown>).colorMode = 'seed';
+
+		// With colorMode 'iteration' the 2 mock points are shaded cyan→magenta,
+		// so the last fillStyle is the interpolated magenta end color.
+		const canvas = container.querySelector('canvas') as HTMLCanvasElement;
+		const ctx = canvas.getContext('2d') as { fillStyle: string };
 		await waitFor(() => {
-			expect(container.querySelector('svg')).not.toBeNull();
+			expect(ctx.fillStyle).toBe('rgb(255, 0, 255)');
+		});
+
+		// Trigger a style-only re-render (no recompute) via rerender().
+		await rerender({ ...baseProps, colorMode: 'single' });
+		await waitFor(() => {
+			// colorMode 'single' forces every point to the literal cyan.
+			expect(ctx.fillStyle).toBe('#00f3ff');
 		});
 	});
 

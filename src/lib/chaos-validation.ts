@@ -385,6 +385,7 @@ export function checkParameterStability(
 			}
 			break;
 		case 'ikeda':
+		case 'gumowski-mira':
 			if (paramRecord.burnIn >= paramRecord.iterations) {
 				warnings.push(
 					'burnIn must be less than iterations or the visualization will be empty'

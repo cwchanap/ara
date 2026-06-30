@@ -29,8 +29,8 @@ const EXPECTED_MAP_TYPES: ChaosMapType[] = [
 ];
 
 describe('VALID_MAP_TYPES', () => {
-	test('contains exactly 16 map types', () => {
-		expect(VALID_MAP_TYPES).toHaveLength(16);
+	test('contains exactly the expected number of map types', () => {
+		expect(VALID_MAP_TYPES).toHaveLength(EXPECTED_MAP_TYPES.length);
 	});
 
 	test('contains all expected map types', () => {
@@ -64,8 +64,8 @@ describe('CHAOS_MAP_DISPLAY_NAMES', () => {
 		}
 	});
 
-	test('has exactly 16 entries', () => {
-		expect(Object.keys(CHAOS_MAP_DISPLAY_NAMES)).toHaveLength(16);
+	test('has exactly one entry per expected map type', () => {
+		expect(Object.keys(CHAOS_MAP_DISPLAY_NAMES)).toHaveLength(EXPECTED_MAP_TYPES.length);
 	});
 
 	test('all display names are non-empty strings', () => {
