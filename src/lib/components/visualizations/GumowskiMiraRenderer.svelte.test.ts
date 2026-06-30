@@ -357,6 +357,88 @@ describe('GumowskiMiraRenderer', () => {
 		});
 	});
 
+	it('renders with colorMode "seed" and a single seed (seedCount<=1 branch)', async () => {
+		const { container } = render(GumowskiMiraRenderer, {
+			props: {
+				mu: 0.31,
+				a: 0.008,
+				b: 0.05,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 10,
+				renderMode: 'multi',
+				seeds: 1,
+				colorMode: 'seed',
+				pointSize: 1.5,
+				opacity: 0.6,
+				height: 200
+			}
+		});
+		await waitFor(() => {
+			expect(container.querySelector('svg')).not.toBeNull();
+		});
+	});
+
+	it('renders with colorMode "radius" when all points are at origin (maxRadius=0 branch)', async () => {
+		const { calculateGumowskiMiraMultiSeed } = await import('$lib/gumowski-mira');
+		vi.mocked(calculateGumowskiMiraMultiSeed).mockReturnValueOnce({
+			points: [
+				[0, 0],
+				[0, 0]
+			],
+			seedIndices: [0, 0]
+		});
+		const { container } = render(GumowskiMiraRenderer, {
+			props: {
+				mu: 0.31,
+				a: 0.008,
+				b: 0.05,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 10,
+				renderMode: 'multi',
+				seeds: 2,
+				colorMode: 'radius',
+				pointSize: 1.5,
+				opacity: 0.6,
+				height: 200
+			}
+		});
+		await waitFor(() => {
+			expect(container.querySelector('svg')).not.toBeNull();
+		});
+	});
+
+	it('renders with colorMode "iteration" and a single point (total<=1 branch)', async () => {
+		const { calculateGumowskiMiraMultiSeed } = await import('$lib/gumowski-mira');
+		vi.mocked(calculateGumowskiMiraMultiSeed).mockReturnValueOnce({
+			points: [[0.5, 0.5]],
+			seedIndices: [0]
+		});
+		const { container } = render(GumowskiMiraRenderer, {
+			props: {
+				mu: 0.31,
+				a: 0.008,
+				b: 0.05,
+				x0: 0.1,
+				y0: 0,
+				iterations: 100,
+				burnIn: 10,
+				renderMode: 'multi',
+				seeds: 2,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				opacity: 0.6,
+				height: 200
+			}
+		});
+		await waitFor(() => {
+			expect(container.querySelector('svg')).not.toBeNull();
+		});
+	});
+
 	it('applies custom height to the container', async () => {
 		const { container } = render(GumowskiMiraRenderer, {
 			props: {

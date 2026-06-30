@@ -266,4 +266,68 @@ describe('Gumowski–Mira page interactions', () => {
 		const { unmount } = render(GumowskiMiraPage, { props: unauthedPageProps });
 		expect(() => unmount()).not.toThrow();
 	});
+
+	it('switches to CUSTOM when the b slider is changed', async () => {
+		render(GumowskiMiraPage, { props: unauthedPageProps });
+		const slider = document.getElementById('b') as HTMLInputElement;
+		await fireEvent.input(slider, { target: { value: '0.25' } });
+		expect(screen.getByTestId('active-preset').textContent).toMatch(/custom/i);
+	});
+
+	it('updates x0 and y0 sliders in single mode', async () => {
+		render(GumowskiMiraPage, { props: unauthedPageProps });
+		const select = screen.getByTestId('select-render-mode') as HTMLSelectElement;
+		await fireEvent.change(select, { target: { value: 'single' } });
+		const x0 = document.getElementById('x0') as HTMLInputElement;
+		const y0 = document.getElementById('y0') as HTMLInputElement;
+		await fireEvent.input(x0, { target: { value: '5.5' } });
+		await fireEvent.input(y0, { target: { value: '-3.2' } });
+		expect(Number(x0.value)).toBeCloseTo(5.5, 5);
+		expect(Number(y0.value)).toBeCloseTo(-3.2, 5);
+	});
+
+	it('updates iterations slider', async () => {
+		render(GumowskiMiraPage, { props: unauthedPageProps });
+		const slider = document.getElementById('iterations') as HTMLInputElement;
+		await fireEvent.input(slider, { target: { value: '50000' } });
+		expect(Number(slider.value)).toBe(50000);
+	});
+
+	it('updates burnIn slider', async () => {
+		render(GumowskiMiraPage, { props: unauthedPageProps });
+		const slider = document.getElementById('burnIn') as HTMLInputElement;
+		await fireEvent.input(slider, { target: { value: '2000' } });
+		expect(Number(slider.value)).toBe(2000);
+	});
+
+	it('updates seeds slider', async () => {
+		render(GumowskiMiraPage, { props: unauthedPageProps });
+		const slider = document.getElementById('seeds') as HTMLInputElement;
+		await fireEvent.input(slider, { target: { value: '750' } });
+		expect(Number(slider.value)).toBe(750);
+	});
+
+	it('updates pointSize slider', async () => {
+		render(GumowskiMiraPage, { props: unauthedPageProps });
+		const slider = document.getElementById('pointSize') as HTMLInputElement;
+		await fireEvent.input(slider, { target: { value: '4.5' } });
+		expect(Number(slider.value)).toBeCloseTo(4.5, 5);
+	});
+
+	it('updates opacity slider', async () => {
+		render(GumowskiMiraPage, { props: unauthedPageProps });
+		const slider = document.getElementById('opacity') as HTMLInputElement;
+		await fireEvent.input(slider, { target: { value: '0.25' } });
+		expect(Number(slider.value)).toBeCloseTo(0.25, 5);
+	});
+
+	it('randomize button changes mu to a non-default value', async () => {
+		render(GumowskiMiraPage, { props: unauthedPageProps });
+		const beforeMu = (screen.getByTestId('slider-mu') as HTMLInputElement).value;
+		await fireEvent.click(screen.getByTestId('randomize-button'));
+		const afterMu = (screen.getByTestId('slider-mu') as HTMLInputElement).value;
+		// Randomize almost certainly produces a different mu than the default 0.31.
+		expect(afterMu).not.toBe(beforeMu);
+		expect(screen.getByTestId('active-preset').textContent).toMatch(/custom/i);
+	});
 });

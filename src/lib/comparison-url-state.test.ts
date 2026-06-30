@@ -28,7 +28,8 @@ import type {
 	BifurcationHenonParameters,
 	ChaosEsthetiqueParameters,
 	ChuaParameters,
-	DoublePendulumParameters
+	DoublePendulumParameters,
+	GumowskiMiraParameters
 } from './types';
 
 describe('getDefaultParameters', () => {
@@ -170,6 +171,24 @@ describe('getDefaultParameters', () => {
 		expect(params.m2).toBe(1);
 		expect(params.gravity).toBeCloseTo(9.81);
 		expect(params.damping).toBe(0);
+	});
+
+	test('returns correct default parameters for gumowski-mira', () => {
+		const params = getDefaultParameters('gumowski-mira') as GumowskiMiraParameters;
+		expect(params.type).toBe('gumowski-mira');
+		// Defaults come from the 'island-structure' preset.
+		expect(params.mu).toBeCloseTo(0.31, 5);
+		expect(params.a).toBeCloseTo(0.008, 5);
+		expect(params.b).toBeCloseTo(0.05, 5);
+		expect(params.x0).toBeCloseTo(0.1, 5);
+		expect(params.y0).toBe(0);
+		expect(params.iterations).toBe(15000);
+		expect(params.burnIn).toBe(500);
+		expect(params.renderMode).toBe('multi');
+		expect(params.seeds).toBe(300);
+		expect(params.colorMode).toBe('iteration');
+		expect(params.pointSize).toBeCloseTo(1.5, 5);
+		expect(params.opacity).toBeCloseTo(0.6, 5);
 	});
 });
 
@@ -1482,5 +1501,55 @@ describe('getDefaultParameters – preset derivation', () => {
 		expect(defaults.gamma).toBe(0);
 		expect(defaults.a).toBeCloseTo(-8 / 7);
 		expect(defaults.b).toBeCloseTo(-5 / 7);
+	});
+
+	test('gumowski-mira defaults match the island-structure preset', () => {
+		const defaults = getDefaultParameters('gumowski-mira') as GumowskiMiraParameters;
+		expect(defaults.type).toBe('gumowski-mira');
+		expect(defaults.mu).toBeCloseTo(0.31, 5);
+		expect(defaults.a).toBeCloseTo(0.008, 5);
+		expect(defaults.b).toBeCloseTo(0.05, 5);
+		expect(defaults.iterations).toBe(15000);
+		expect(defaults.burnIn).toBe(500);
+		expect(defaults.renderMode).toBe('multi');
+		expect(defaults.seeds).toBe(300);
+		expect(defaults.colorMode).toBe('iteration');
+	});
+});
+
+describe('gumowski-mira comparison URL round-trip', () => {
+	test('round-trips a gumowski-mira comparison state through the URL', () => {
+		const left = getDefaultParameters('gumowski-mira') as GumowskiMiraParameters;
+		const right: GumowskiMiraParameters = {
+			...left,
+			mu: -0.4,
+			renderMode: 'single',
+			colorMode: 'seed'
+		};
+		const encoded = encodeComparisonState({ compare: true, left, right });
+		const url = new URL(`http://localhost/gumowski-mira/compare?${encoded.toString()}`);
+		const decoded = decodeComparisonState(url, 'gumowski-mira');
+		expect(decoded).not.toBeNull();
+		expect(decoded!.corrected).toBe(false);
+		expect((decoded!.left as GumowskiMiraParameters).mu).toBeCloseTo(0.31, 5);
+		expect((decoded!.left as GumowskiMiraParameters).renderMode).toBe('multi');
+		expect((decoded!.right as GumowskiMiraParameters).mu).toBeCloseTo(-0.4, 5);
+		expect((decoded!.right as GumowskiMiraParameters).renderMode).toBe('single');
+		expect((decoded!.right as GumowskiMiraParameters).colorMode).toBe('seed');
+	});
+
+	test('buildComparisonUrl produces a parseable gumowski-mira compare URL', () => {
+		const left = getDefaultParameters('gumowski-mira') as GumowskiMiraParameters;
+		const right: GumowskiMiraParameters = { ...left, mu: 0.55 };
+		const urlString = buildComparisonUrl('', 'gumowski-mira', {
+			compare: true,
+			left,
+			right
+		});
+		expect(urlString).toContain('/gumowski-mira/compare?');
+		const url = new URL(`http://localhost${urlString}`);
+		const decoded = decodeComparisonState(url, 'gumowski-mira');
+		expect(decoded).not.toBeNull();
+		expect((decoded!.right as GumowskiMiraParameters).mu).toBeCloseTo(0.55, 5);
 	});
 });

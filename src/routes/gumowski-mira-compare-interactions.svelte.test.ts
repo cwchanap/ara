@@ -346,4 +346,78 @@ describe('Gumowski–Mira compare page interactions', () => {
 		expect(mockGoto).toHaveBeenCalled();
 		vi.useRealTimers();
 	});
+
+	it('changes left render mode via select', async () => {
+		const { container } = render(GumowskiMiraComparePage);
+		const leftRenderMode = container.querySelector('#left-renderMode') as HTMLSelectElement;
+		await fireEvent.change(leftRenderMode, { target: { value: 'single' } });
+		expect(leftRenderMode.value).toBe('single');
+		// x0/y0 sliders should now be enabled (not disabled)
+		const leftX0 = container.querySelector('#left-x0') as HTMLInputElement;
+		expect(leftX0.disabled).toBe(false);
+	});
+
+	it('changes right render mode via select', async () => {
+		const { container } = render(GumowskiMiraComparePage);
+		const rightRenderMode = container.querySelector('#right-renderMode') as HTMLSelectElement;
+		await fireEvent.change(rightRenderMode, { target: { value: 'single' } });
+		expect(rightRenderMode.value).toBe('single');
+		// x0/y0 sliders should now be enabled (not disabled)
+		const rightY0 = container.querySelector('#right-y0') as HTMLInputElement;
+		expect(rightY0.disabled).toBe(false);
+	});
+
+	it('updates left x0 and y0 sliders in single mode', async () => {
+		const { container } = render(GumowskiMiraComparePage);
+		const leftRenderMode = container.querySelector('#left-renderMode') as HTMLSelectElement;
+		await fireEvent.change(leftRenderMode, { target: { value: 'single' } });
+		const leftX0 = container.querySelector('#left-x0') as HTMLInputElement;
+		const leftY0 = container.querySelector('#left-y0') as HTMLInputElement;
+		await fireEvent.input(leftX0, { target: { value: '5.5' } });
+		await fireEvent.input(leftY0, { target: { value: '-3.2' } });
+		expect(Number(leftX0.value)).toBeCloseTo(5.5, 5);
+		expect(Number(leftY0.value)).toBeCloseTo(-3.2, 5);
+	});
+
+	it('updates right x0 and y0 sliders in single mode', async () => {
+		const { container } = render(GumowskiMiraComparePage);
+		const rightRenderMode = container.querySelector('#right-renderMode') as HTMLSelectElement;
+		await fireEvent.change(rightRenderMode, { target: { value: 'single' } });
+		const rightX0 = container.querySelector('#right-x0') as HTMLInputElement;
+		const rightY0 = container.querySelector('#right-y0') as HTMLInputElement;
+		await fireEvent.input(rightX0, { target: { value: '7.7' } });
+		await fireEvent.input(rightY0, { target: { value: '-1.1' } });
+		expect(Number(rightX0.value)).toBeCloseTo(7.7, 5);
+		expect(Number(rightY0.value)).toBeCloseTo(-1.1, 5);
+	});
+
+	it('updates URL via goto when right burnIn slider changes', async () => {
+		vi.useFakeTimers();
+		const { container } = render(GumowskiMiraComparePage);
+		const rightBurnIn = container.querySelector('#right-burnIn') as HTMLInputElement;
+		await fireEvent.input(rightBurnIn, { target: { value: '2000' } });
+		vi.advanceTimersByTime(400);
+		expect(mockGoto).toHaveBeenCalled();
+		vi.useRealTimers();
+	});
+
+	it('updates URL via goto when left iterations slider changes', async () => {
+		vi.useFakeTimers();
+		const { container } = render(GumowskiMiraComparePage);
+		const leftIterations = container.querySelector('#left-iterations') as HTMLInputElement;
+		await fireEvent.input(leftIterations, { target: { value: '50000' } });
+		vi.advanceTimersByTime(400);
+		expect(mockGoto).toHaveBeenCalled();
+		vi.useRealTimers();
+	});
+
+	it('renders with a corrected URL (corrupt base64) without throwing', () => {
+		setPageUrl(
+			'http://localhost/gumowski-mira/compare?compare=true&left=!!!corrupt!!!&right=also-bad'
+		);
+		const { container } = render(GumowskiMiraComparePage);
+		// Falls back to defaults — sliders should still render with default values.
+		const leftMu = container.querySelector('#left-mu') as HTMLInputElement;
+		expect(Number(leftMu.value)).toBeCloseTo(0.31, 5);
+	});
 });
