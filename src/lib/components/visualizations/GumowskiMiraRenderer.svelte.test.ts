@@ -300,9 +300,9 @@ describe('GumowskiMiraRenderer', () => {
 
 		// The render runs inside a debounced setTimeout, so flush timers synchronously
 		// to ensure the actual render() path is exercised inside the not.toThrow
-		// assertion. The totalSeeds field is now a single number (not a scanned
-		// aggregation), so there is no overflow risk — but the 200k cap slice and
-		// per-point color loop still need to complete without error.
+		// assertion. seedCount is derived via a for-loop scan over seedIndices (no
+		// Math.max spread overflow), and the 200k cap slice plus per-point color
+		// loop still need to complete without error.
 		vi.useFakeTimers();
 		try {
 			expect(() => {
@@ -400,6 +400,14 @@ describe('GumowskiMiraRenderer', () => {
 	});
 
 	it('renders with colorMode "seed" and a single seed (seedCount<=1 branch)', async () => {
+		const { calculateGumowskiMiraMultiSeed } = await import('$lib/gumowski-mira');
+		vi.mocked(calculateGumowskiMiraMultiSeed).mockReturnValueOnce({
+			points: [
+				[0, 0],
+				[1, 0.5]
+			],
+			seedIndices: [0, 0]
+		});
 		const { container } = render(GumowskiMiraRenderer, {
 			props: {
 				mu: 0.31,

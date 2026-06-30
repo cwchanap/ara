@@ -68,6 +68,8 @@
 	let rightRenderMode = $state<GumowskiMiraRenderMode>(rightInitial.renderMode ?? 'multi');
 
 	// Styling params are intentionally shared from the left side only.
+	// Both panels render with identical visual settings so differences
+	// reflect mathematical parameters (mu, a, b, iterations, burnIn), not styling.
 	const seeds = leftInitial.seeds ?? defaultParams.seeds!;
 	const colorMode = leftInitial.colorMode ?? defaultParams.colorMode!;
 	const pointSize = leftInitial.pointSize ?? defaultParams.pointSize!;

@@ -126,6 +126,24 @@
 		b = Math.random() * 0.5;
 		x0 = Math.random() * 2 - 1;
 		y0 = Math.random() * 2 - 1;
+
+		const stability = checkParameterStability('gumowski-mira', {
+			type: 'gumowski-mira',
+			mu,
+			a,
+			b,
+			x0,
+			y0,
+			iterations,
+			burnIn
+		});
+		if (!stability.isStable) {
+			stabilityWarnings = stability.warnings;
+			showStabilityWarning = true;
+		} else {
+			stabilityWarnings = [];
+			showStabilityWarning = false;
+		}
 	}
 
 	function reset() {
