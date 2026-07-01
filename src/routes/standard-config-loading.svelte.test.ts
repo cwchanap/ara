@@ -330,9 +330,7 @@ describe('standard page – config loading', () => {
 		render(StandardPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
-			expect(
-				screen.getByText('Failed to parse configuration parameters')
-			).toBeInTheDocument();
+			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
 		});
 	});
 
