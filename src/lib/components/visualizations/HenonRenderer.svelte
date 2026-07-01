@@ -6,6 +6,7 @@
 -->
 <script lang="ts">
 	import * as d3 from 'd3';
+	import { calculateHenonTuples } from '$lib/henon';
 
 	interface Props {
 		a?: number;
@@ -31,28 +32,6 @@
 		containerElement = container;
 	});
 
-	function calculateHenon(a: number, b: number, iterations: number) {
-		const points: [number, number][] = [];
-		let x = 0;
-		let y = 0;
-
-		for (let i = 0; i < iterations; i++) {
-			const xNew = y + 1 - a * x * x;
-			const yNew = b * x;
-			if (!Number.isFinite(xNew) || !Number.isFinite(yNew)) {
-				break;
-			}
-			if (Math.abs(xNew) > 1e6 || Math.abs(yNew) > 1e6) {
-				break;
-			}
-			points.push([xNew, yNew]);
-			x = xNew;
-			y = yNew;
-		}
-
-		return points;
-	}
-
 	function render() {
 		if (!container) return;
 
@@ -71,7 +50,7 @@
 			.append('g')
 			.attr('transform', `translate(${margin.left},${margin.top})`);
 
-		const points = calculateHenon(a, b, iterations);
+		const points = calculateHenonTuples({ a, b, iterations });
 
 		// Guard against empty points array
 		if (points.length === 0) {
