@@ -1,12 +1,6 @@
-<!--
-  HenonRenderer Component
-
-  Encapsulates D3.js Hénon map visualization.
-  Can be used standalone or in comparison mode.
--->
 <script lang="ts">
-	import * as d3 from 'd3';
 	import { calculateHenonTuples } from '$lib/henon';
+	import D3PointMapRenderer from './D3PointMapRenderer.svelte';
 
 	interface Props {
 		a?: number;
@@ -24,141 +18,16 @@
 		containerElement = $bindable()
 	}: Props = $props();
 
-	let container = $state<HTMLDivElement | undefined>(undefined);
-
-	// Sync internal container ref to bindable prop
-	// container is reactive so bind:this updates trigger the effect
-	$effect(() => {
-		containerElement = container;
-	});
-
-	function render() {
-		if (!container) return;
-
-		d3.select(container).selectAll('*').remove();
-
-		const margin = { top: 20, right: 20, bottom: 50, left: 60 };
-		const width = Math.max(0, container.clientWidth - margin.left - margin.right);
-		const chartHeight = Math.max(0, height - margin.top - margin.bottom);
-		if (width === 0 || chartHeight === 0) return;
-
-		const svg = d3
-			.select(container)
-			.append('svg')
-			.attr('width', container.clientWidth)
-			.attr('height', height)
-			.append('g')
-			.attr('transform', `translate(${margin.left},${margin.top})`);
-
-		const points = calculateHenonTuples({ a, b, iterations });
-
-		// Guard against empty points array
-		if (points.length === 0) {
-			d3.select(container).selectAll('*').remove();
-			return;
-		}
-
-		const xExtent = d3.extent(points, (d) => d[0]) as [number, number];
-		const yExtent = d3.extent(points, (d) => d[1]) as [number, number];
-
-		const xScale = d3
-			.scaleLinear()
-			.domain([xExtent[0] - 0.1, xExtent[1] + 0.1])
-			.range([0, width]);
-
-		const yScale = d3
-			.scaleLinear()
-			.domain([yExtent[0] - 0.1, yExtent[1] + 0.1])
-			.range([chartHeight, 0]);
-
-		const xAxis = d3.axisBottom(xScale).tickSize(-chartHeight).tickPadding(10);
-		const yAxis = d3.axisLeft(yScale).tickSize(-width).tickPadding(10);
-
-		svg
-			.append('g')
-			.attr('class', 'grid-lines')
-			.attr('transform', `translate(0,${chartHeight})`)
-			.call(xAxis)
-			.call((g) => {
-				g.select('.domain').remove();
-				g.selectAll('line').attr('stroke', '#00f3ff').attr('stroke-opacity', 0.1);
-				g.selectAll('text')
-					.attr('fill', '#00f3ff')
-					.attr('font-family', 'Rajdhani')
-					.attr('font-size', '12px');
-			});
-
-		svg
-			.append('g')
-			.attr('class', 'grid-lines')
-			.call(yAxis)
-			.call((g) => {
-				g.select('.domain').remove();
-				g.selectAll('line').attr('stroke', '#00f3ff').attr('stroke-opacity', 0.1);
-				g.selectAll('text')
-					.attr('fill', '#00f3ff')
-					.attr('font-family', 'Rajdhani')
-					.attr('font-size', '12px');
-			});
-
-		svg
-			.append('text')
-			.attr('x', width / 2)
-			.attr('y', chartHeight + 40)
-			.attr('fill', '#00f3ff')
-			.attr('text-anchor', 'middle')
-			.attr('font-family', 'Orbitron')
-			.attr('font-size', '14px')
-			.text('X_AXIS');
-
-		svg
-			.append('text')
-			.attr('transform', 'rotate(-90)')
-			.attr('x', -chartHeight / 2)
-			.attr('y', -40)
-			.attr('fill', '#00f3ff')
-			.attr('text-anchor', 'middle')
-			.attr('font-family', 'Orbitron')
-			.attr('font-size', '14px')
-			.text('Y_AXIS');
-
-		svg
-			.selectAll('circle')
-			.data(points)
-			.enter()
-			.append('circle')
-			.attr('cx', (d) => xScale(d[0]))
-			.attr('cy', (d) => yScale(d[1]))
-			.attr('r', 2)
-			.attr('fill', (d, i) => {
-				const t = i / points.length;
-				return d3.interpolate('#00f3ff', '#bc13fe')(t);
-			})
-			.attr('opacity', 0.8)
-			.attr('filter', 'drop-shadow(0 0 2px rgba(0, 243, 255, 0.5))');
-	}
-
-	$effect(() => {
-		void a;
-		void b;
-		void iterations;
-		void height;
-		if (container) render();
-	});
+	const points = $derived(calculateHenonTuples({ a, b, iterations }));
 </script>
 
-<div
-	bind:this={container}
-	class="bg-black/40 border border-primary/30 rounded-sm overflow-hidden relative backdrop-blur-md ring-1 ring-primary/30 shadow-[0_0_25px_rgba(0,243,255,0.25),0_0_45px_rgba(255,0,255,0.15)]"
-	style="height: {height}px;"
->
-	<div class="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-primary"></div>
-	<div class="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-primary"></div>
-	<div class="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-primary"></div>
-	<div class="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-primary"></div>
-	<div
-		class="absolute top-4 right-4 text-xs font-['Rajdhani'] text-primary/80 border border-primary/40 bg-black/60 backdrop-blur-sm px-2 py-1 pointer-events-none select-none shadow-[0_0_12px_rgba(0,243,255,0.35)]"
-	>
-		LIVE_RENDER // D3_JS
-	</div>
-</div>
+<D3PointMapRenderer
+	{points}
+	{height}
+	bind:containerElement
+	chrome="decorated"
+	r={2}
+	opacity={0.8}
+	glow
+	axisLabels={{ x: 'X_AXIS', y: 'Y_AXIS' }}
+/>

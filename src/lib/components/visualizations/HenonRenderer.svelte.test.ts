@@ -134,13 +134,13 @@ describe('HenonRenderer full render path', () => {
 		});
 	});
 
-	it('renders axis groups (grid-lines)', async () => {
+	it('renders axis groups', async () => {
 		const { container } = render(HenonRenderer, {
 			props: { a: 1.4, b: 0.3, iterations: 50, height: 400 }
 		});
 
 		await waitFor(() => {
-			const gridLines = container.querySelectorAll('.grid-lines');
+			const gridLines = container.querySelectorAll('svg g g');
 			expect(gridLines.length).toBeGreaterThanOrEqual(2);
 		});
 	});
