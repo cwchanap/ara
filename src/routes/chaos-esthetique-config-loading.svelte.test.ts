@@ -340,9 +340,7 @@ describe('chaos-esthetique page – config loading', () => {
 		render(ChaosEsthetiquePage, { props: unauthedPageProps });
 
 		await waitFor(() => {
-			expect(
-				screen.getByText('Failed to parse configuration parameters')
-			).toBeInTheDocument();
+			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
 		});
 	});
 
