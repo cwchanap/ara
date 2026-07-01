@@ -9,7 +9,6 @@
 	import VisualizationHeader from '$lib/components/ui/VisualizationHeader.svelte';
 	import ParameterPanel from '$lib/components/ui/ParameterPanel.svelte';
 	import ParameterSlider from '$lib/components/ui/ParameterSlider.svelte';
-	import VisualizationContainer from '$lib/components/ui/VisualizationContainer.svelte';
 	import VisualizationErrorBoundary from '$lib/components/ui/VisualizationErrorBoundary.svelte';
 	import VisualizationAlerts from '$lib/components/ui/VisualizationAlerts.svelte';
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
@@ -21,7 +20,8 @@
 	import { createShareHandler, createInitialShareState } from '$lib/use-visualization-share';
 	import { buildComparisonUrl, createComparisonStateFromCurrent } from '$lib/comparison-url-state';
 
-	// Type fix: use HTMLDivElement (not HTMLElement) to match VisualizationContainer.containerRef
+	// The renderer binds its own root element to container.el (HTMLDivElement) so
+	// SnapshotButton can target it — exactly as each pre-shell page did.
 	interface RendererArgs {
 		values: Record<string, number>;
 		container: { el?: HTMLDivElement };
@@ -39,7 +39,6 @@
 		description: { heading: string; body: string };
 		isAuthenticated: boolean;
 		showSnapshot?: boolean;
-		renderEngine?: string;
 		onExtraParametersLoaded?: (params: ChaosMapParameters) => void;
 		renderer: Snippet<[RendererArgs]>;
 		extraControls?: Snippet;
@@ -57,7 +56,6 @@
 		description,
 		isAuthenticated,
 		showSnapshot = true,
-		renderEngine = 'D3_JS',
 		onExtraParametersLoaded,
 		renderer,
 		extraControls
@@ -65,7 +63,7 @@
 
 	const values = $state(paramDefaults(paramDefs));
 
-	// Type fix: HTMLDivElement to match VisualizationContainer's containerRef prop
+	// Populated by the renderer snippet binding its root to container.el.
 	const container = $state<{ el?: HTMLDivElement }>({});
 
 	const saveState = $state(createInitialSaveState());
@@ -188,11 +186,9 @@
 		{/snippet}
 	</ParameterPanel>
 
-	<VisualizationContainer {renderEngine} bind:containerRef={container.el}>
-		<VisualizationErrorBoundary {mapType}>
-			{@render renderer({ values, container })}
-		</VisualizationErrorBoundary>
-	</VisualizationContainer>
+	<VisualizationErrorBoundary {mapType}>
+		{@render renderer({ values, container })}
+	</VisualizationErrorBoundary>
 
 	<div class="bg-card/30 backdrop-blur-md border border-primary/20 rounded-sm p-6 relative">
 		<div
