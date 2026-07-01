@@ -11,9 +11,23 @@
 		title?: string;
 		children: Snippet;
 		equations?: Snippet;
+		paramColumns?: 1 | 2 | 3;
+		equationColumns?: 1 | 2 | 3;
 	}
 
-	let { title = 'SYSTEM_PARAMETERS', children, equations }: Props = $props();
+	let {
+		title = 'SYSTEM_PARAMETERS',
+		children,
+		equations,
+		paramColumns = 3,
+		equationColumns = 3
+	}: Props = $props();
+
+	const COLS: Record<1 | 2 | 3, string> = {
+		1: 'md:grid-cols-1',
+		2: 'md:grid-cols-2',
+		3: 'md:grid-cols-3'
+	};
 </script>
 
 <div
@@ -30,13 +44,15 @@
 		{title}
 	</h2>
 
-	<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+	<div class="grid grid-cols-1 {COLS[paramColumns]} gap-8">
 		{@render children()}
 	</div>
 
 	{#if equations}
 		<div
-			class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-muted-foreground font-mono bg-black/20 p-4 rounded border border-white/5"
+			class="grid grid-cols-1 {COLS[
+				equationColumns
+			]} gap-4 text-xs text-muted-foreground font-mono bg-black/20 p-4 rounded border border-white/5"
 		>
 			{@render equations()}
 		</div>

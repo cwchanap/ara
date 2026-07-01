@@ -54,3 +54,31 @@ describe('ParameterPanel', () => {
 		expect(panel?.classList.contains('relative')).toBe(true);
 	});
 });
+
+describe('ParameterPanel columns', () => {
+	const childSnippet = createRawSnippet(() => ({
+		render: () => '<div data-testid="kids">x</div>'
+	}));
+	const eqsSnippet = createRawSnippet(() => ({
+		render: () => '<p>eq</p>'
+	}));
+
+	afterEach(() => {
+		cleanup();
+	});
+
+	it('applies equationColumns to the equations grid', () => {
+		const { container } = render(ParameterPanel, {
+			props: { children: childSnippet, equations: eqsSnippet, equationColumns: 2 }
+		});
+		expect(container.querySelector('.md\\:grid-cols-2')).toBeTruthy();
+	});
+
+	it('defaults to md:grid-cols-3 for both grids when columns not specified', () => {
+		const { container } = render(ParameterPanel, {
+			props: { children: childSnippet, equations: eqsSnippet }
+		});
+		const grids = container.querySelectorAll('.md\\:grid-cols-3');
+		expect(grids.length).toBeGreaterThanOrEqual(2);
+	});
+});
