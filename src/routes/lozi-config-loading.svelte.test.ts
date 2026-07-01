@@ -95,7 +95,7 @@ describe('lozi page – config loading', () => {
 		});
 
 		await waitFor(() => {
-			const aSlider = screen.getByTestId('slider-a') as HTMLInputElement;
+			const aSlider = document.getElementById('a') as HTMLInputElement;
 			expect(aSlider.value).toBe('1.5');
 		});
 	});
@@ -124,7 +124,7 @@ describe('lozi page – config loading', () => {
 		});
 
 		await waitFor(() => {
-			const aSlider = screen.getByTestId('slider-a') as HTMLInputElement;
+			const aSlider = document.getElementById('a') as HTMLInputElement;
 			expect(aSlider.value).toBe('1.7');
 		});
 	});
@@ -195,7 +195,7 @@ describe('lozi page – config loading', () => {
 		});
 
 		await waitFor(() => {
-			const aSlider = screen.getByTestId('slider-a') as HTMLInputElement;
+			const aSlider = document.getElementById('a') as HTMLInputElement;
 			expect(aSlider.value).toBe('0.7');
 		});
 	});
@@ -375,9 +375,7 @@ describe('lozi page – config loading', () => {
 		render(LoziPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
-			expect(
-				screen.getByText('Failed to parse configuration parameters')
-			).toBeInTheDocument();
+			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
 		});
 	});
 
