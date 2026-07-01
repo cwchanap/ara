@@ -42,6 +42,7 @@
 		onExtraParametersLoaded?: (params: ChaosMapParameters) => void;
 		renderer: Snippet<[RendererArgs]>;
 		extraControls?: Snippet;
+		afterDescription?: Snippet;
 	}
 
 	let {
@@ -58,7 +59,8 @@
 		showSnapshot = true,
 		onExtraParametersLoaded,
 		renderer,
-		extraControls
+		extraControls,
+		afterDescription
 	}: Props = $props();
 
 	const values = $state(paramDefaults(paramDefs));
@@ -196,6 +198,7 @@
 		></div>
 		<h3 class="text-lg font-['Orbitron'] font-semibold text-primary mb-2">{description.heading}</h3>
 		<p class="text-muted-foreground text-sm leading-relaxed max-w-3xl">{description.body}</p>
+		{#if afterDescription}{@render afterDescription()}{/if}
 	</div>
 </div>
 

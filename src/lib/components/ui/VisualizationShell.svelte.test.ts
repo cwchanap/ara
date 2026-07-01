@@ -86,4 +86,31 @@ describe('VisualizationShell', () => {
 		await fireEvent.input(input, { target: { value: '1.2' } });
 		expect(screen.getByText('1.200')).toBeInTheDocument();
 	});
+
+	it('renders the afterDescription slot inside the description panel when provided', () => {
+		const afterDescription = createRawSnippet(() => ({
+			render: () => '<div data-testid="after-desc">extra</div>'
+		}));
+		render(VisualizationShell, {
+			props: {
+				mapType: 'henon',
+				title: 'HÉNON_MAP',
+				moduleNumber: '02',
+				paramDefs: defs,
+				buildParameters: (v: Record<string, number>) => ({
+					type: 'henon',
+					a: v.a,
+					b: 0.3,
+					iterations: 2000
+				}),
+				formula: ['x(n+1) = …'],
+				description: { heading: 'DATA_LOG: HÉNON_MAP', body: 'desc' },
+				isAuthenticated: true,
+				renderer,
+				afterDescription,
+				...authedPageProps
+			} as never
+		});
+		expect(screen.getByTestId('after-desc')).toBeInTheDocument();
+	});
 });
