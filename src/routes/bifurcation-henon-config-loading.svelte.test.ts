@@ -339,9 +339,7 @@ describe('bifurcation-henon page – config loading', () => {
 		render(BifurcationHenonPage, { props: unauthedPageProps });
 
 		await waitFor(() => {
-			expect(
-				screen.getByText('Failed to parse configuration parameters')
-			).toBeInTheDocument();
+			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
 		});
 	});
 
