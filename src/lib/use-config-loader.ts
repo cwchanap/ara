@@ -210,10 +210,13 @@ export function useConfigLoader<T extends ChaosMapType>(
 
 				state.isLoading = false;
 
-				if (!result.ok) {
+				// Guard against a null/undefined result (defensive: a loader that
+				// resolves to null would otherwise throw a TypeError on `result.ok`
+				// here — outside the await's try/catch — leaving the alert unshown).
+				if (!result || !result.ok) {
 					// Reset lastAppliedConfigKey to allow retry on transient failures
 					lastAppliedConfigKey = null;
-					state.errors = result.errors;
+					state.errors = result?.errors ?? ['Failed to load configuration'];
 					state.showError = true;
 					return;
 				}

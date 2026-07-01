@@ -560,6 +560,35 @@ describe('useConfigLoader', () => {
 			expect(state.showError).toBe(true);
 			cleanup();
 		});
+
+		it('shows an error when the loader resolves to null', async () => {
+			const pageStore = writable<Page>(makePage('http://localhost/lorenz'));
+			const state = createInitialConfigLoaderState();
+			const onParametersLoaded = vi.fn((p: LorenzParameters) => p);
+
+			mockLoadSaved.mockResolvedValue(
+				null as unknown as Awaited<ReturnType<typeof loadSavedConfigParameters>>
+			);
+
+			const { cleanup } = useConfigLoader(
+				{
+					page: pageStore,
+					mapType: 'lorenz' as const,
+					base: '/base',
+					onParametersLoaded
+				},
+				state
+			);
+
+			pageStore.set(makePage('http://localhost/lorenz?configId=null-result'));
+
+			await new Promise((r) => setTimeout(r, 0));
+
+			expect(state.showError).toBe(true);
+			expect(state.errors.length).toBeGreaterThan(0);
+			expect(onParametersLoaded).not.toHaveBeenCalled();
+			cleanup();
+		});
 	});
 
 	describe('deduplication', () => {
