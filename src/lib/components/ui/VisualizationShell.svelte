@@ -107,7 +107,11 @@
 				onParametersLoaded: (params) => {
 					applyLoadedValues(paramDefs, values, params as unknown as Record<string, unknown>);
 					onExtraParametersLoaded?.(params as ChaosMapParameters);
-					return getParameters() as never;
+					// Stability is checked against the RAW loaded params (pre-clamp), not the
+					// clamped slider values, so an out-of-range saved config still surfaces
+					// UNSTABLE_PARAMETERS_DETECTED — matching the pre-shell per-page behavior.
+					// applyLoadedValues above still clamps the sliders to their bounds.
+					return params as never;
 				},
 				onCheckStability: (params) => checkParameterStability(mapType, params as never)
 			},
