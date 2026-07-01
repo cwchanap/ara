@@ -4,6 +4,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import * as d3 from 'd3';
+	import { calculateLogistic } from '$lib/logistic';
 
 	interface Props {
 		r?: number;
@@ -28,16 +29,6 @@
 		containerElement = container;
 	});
 	let resizeObserver: ResizeObserver | null = null;
-
-	function calculateLogistic(r: number, x0: number, iterations: number): [number, number][] {
-		const points: [number, number][] = [];
-		let x = x0;
-		for (let i = 0; i < iterations; i++) {
-			x = r * x * (1 - x);
-			points.push([i, x]);
-		}
-		return points;
-	}
 
 	function render() {
 		if (!container) return;
