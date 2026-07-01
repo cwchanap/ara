@@ -1,5 +1,11 @@
 # Chaos Module Refactor Implementation Plan
 
+> **STATUS (2026-07-01): SUPERSEDED for Milestone 4+.** Milestones 1–3 plus the partial renderer layer (Milestone 2) are complete on branch `refactor/chaos-module-scaffold`: 10 of 16 pages migrated to `VisualizationShell` (henon, lozi, logistic, rossler, standard, newton, bifurcation-logistic, bifurcation-henon, chaos-esthetique, lyapunov), D3 helpers + `D3PointMapRenderer` base in place, `ConfigAlerts` deleted.
+>
+> **Stale references below:** this doc still mentions `VisualizationContainer` (deleted — its responsibilities folded into `VisualizationShell`) and `onExtraParametersLoaded` (dropped from the shipped shell; the shell currently only exposes `onParametersLoaded` → `applyLoadedValues` for slider clamping). The 6 remaining pages (clifford, ikeda, gumowski-mira, chua, double-pendulum, lorenz) require non-slider state restoration (colorMode/renderMode/sub-controls) and are tracked in the follow-up epic: [`docs/superpowers/plans/2026-07-01-chaos-module-milestone-4.md`](./2026-07-01-chaos-module-milestone-4.md). That epic re-introduces the `onExtraParametersLoaded` hook before any complex-page migration.
+>
+> Milestone 5 (cleanup & full verification) is also deferred to the follow-up epic.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Collapse the duplicated chrome/markup/config-loading across the 16 chaos pages into a declarative `VisualizationShell` + `paramDefs` schema, dedup the 9 D3 renderers behind shared helpers + a `D3PointMapRenderer` base, and extract inline renderer math into pure modules — without changing behavior.

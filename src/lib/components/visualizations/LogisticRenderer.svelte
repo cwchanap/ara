@@ -148,6 +148,6 @@
 	<div
 		class="absolute top-4 right-4 text-xs font-['Orbitron'] text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
 	>
-		LIVE_RENDER_D3_JS
+		LIVE_RENDER // D3_JS
 	</div>
 </div>
