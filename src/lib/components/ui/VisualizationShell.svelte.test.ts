@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 import {
 	authedPageProps,
@@ -29,8 +29,14 @@ vi.mock('$lib/components/ui/ShareDialog.svelte', async () => ({
 vi.mock('$lib/components/ui/SnapshotButton.svelte', async () => ({
 	default: (await import('$lib/components/testing/StubComponent.svelte')).default
 }));
-vi.mock('$lib/components/ui/VisualizationAlerts.svelte', async () => ({
-	default: (await import('$lib/components/testing/VisualizationAlertsStub.svelte')).default
+
+// Mock saved-config-loader so we can drive the inline `?config=` path
+// (synchronous, no fetch) and control success/failure payloads.
+const parseConfigParamMock = vi.hoisted(() => vi.fn());
+vi.mock('$lib/saved-config-loader', () => ({
+	loadSavedConfigParameters: vi.fn(),
+	loadSharedConfigParameters: vi.fn(),
+	parseConfigParam: parseConfigParamMock
 }));
 
 const defs: ParamDef[] = [
@@ -65,6 +71,7 @@ describe('VisualizationShell', () => {
 		vi.useFakeTimers();
 		setupApiFetchMock();
 		setMockPageUrl('http://localhost/henon');
+		parseConfigParamMock.mockReset();
 	});
 	afterEach(() => {
 		vi.useRealTimers();
@@ -112,5 +119,81 @@ describe('VisualizationShell', () => {
 			} as never
 		});
 		expect(screen.getByTestId('after-desc')).toBeInTheDocument();
+	});
+
+	// --- Shell-level stability / error / URL wiring ---
+
+	it('shows UNSTABLE_PARAMETERS_DETECTED when an inline config loads out-of-range params', async () => {
+		// a: 99 is far outside the henon stable range [0, 2]; the shell must
+		// check stability against the RAW loaded params (pre-clamp), not the
+		// clamped slider values, so the warning still surfaces.
+		parseConfigParamMock.mockReturnValueOnce({
+			ok: true,
+			parameters: {
+				type: 'henon',
+				a: 99,
+				b: 0.3,
+				iterations: 2000
+			}
+		});
+
+		setMockPageUrl('http://localhost/henon?config=encoded-data');
+		renderShell();
+
+		await waitFor(() => {
+			expect(screen.getByText('UNSTABLE_PARAMETERS_DETECTED')).toBeInTheDocument();
+		});
+	});
+
+	it('shows INVALID_CONFIGURATION when an inline config fails to parse', async () => {
+		parseConfigParamMock.mockReturnValueOnce({
+			ok: false,
+			error: 'Failed to parse configuration parameters',
+			errors: ['Bad henon params'],
+			logMessage: 'err',
+			logDetails: {}
+		});
+
+		setMockPageUrl('http://localhost/henon?config=bad-data');
+		renderShell();
+
+		await waitFor(() => {
+			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
+		});
+	});
+
+	it('clamps the slider to its bounds when an inline config loads an out-of-range value', async () => {
+		parseConfigParamMock.mockReturnValueOnce({
+			ok: true,
+			parameters: {
+				type: 'henon',
+				a: 99,
+				b: 0.3,
+				iterations: 2000
+			}
+		});
+
+		setMockPageUrl('http://localhost/henon?config=encoded-data');
+		const { container } = renderShell();
+
+		await waitFor(() => {
+			const input = container.querySelector('input[id="a"]') as HTMLInputElement;
+			// Slider max is 1.5 — the raw value 99 must be clamped to 1.500
+			expect(input.value).toBe('1.5');
+			expect(screen.getByText('1.500')).toBeInTheDocument();
+		});
+	});
+
+	it('renders a comparison link whose href reflects the current slider values', () => {
+		const { container } = renderShell();
+		const link = screen.getByRole('link', { name: '⊞ Compare' }) as HTMLAnchorElement;
+		expect(link.href).toContain('/henon/compare');
+
+		// The encoded state should include the default `a` value (1.4).
+		// Changing the slider should update the comparison URL.
+		const input = container.querySelector('input[id="a"]') as HTMLInputElement;
+		fireEvent.input(input, { target: { value: '1.2' } });
+
+		expect(link.href).toContain('/henon/compare');
 	});
 });

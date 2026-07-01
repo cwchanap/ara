@@ -39,7 +39,6 @@
 		description: { heading: string; body: string };
 		isAuthenticated: boolean;
 		showSnapshot?: boolean;
-		onExtraParametersLoaded?: (params: ChaosMapParameters) => void;
 		renderer: Snippet<[RendererArgs]>;
 		extraControls?: Snippet;
 		afterDescription?: Snippet;
@@ -57,7 +56,6 @@
 		description,
 		isAuthenticated,
 		showSnapshot = true,
-		onExtraParametersLoaded,
 		renderer,
 		extraControls,
 		afterDescription
@@ -87,16 +85,9 @@
 		getParameters
 	);
 
-	let comparisonUrl = $state('');
-	$effect(() => {
-		// Track all slider values as dependencies
-		for (const d of paramDefs) void values[d.key];
-		comparisonUrl = buildComparisonUrl(
-			base,
-			mapType,
-			createComparisonStateFromCurrent(mapType, getParameters())
-		);
-	});
+	const comparisonUrl = $derived(
+		buildComparisonUrl(base, mapType, createComparisonStateFromCurrent(mapType, getParameters()))
+	);
 
 	$effect(() => {
 		const { cleanup } = useConfigLoader(
@@ -106,14 +97,13 @@
 				base,
 				onParametersLoaded: (params) => {
 					applyLoadedValues(paramDefs, values, params as unknown as Record<string, unknown>);
-					onExtraParametersLoaded?.(params as ChaosMapParameters);
 					// Stability is checked against the RAW loaded params (pre-clamp), not the
 					// clamped slider values, so an out-of-range saved config still surfaces
 					// UNSTABLE_PARAMETERS_DETECTED — matching the pre-shell per-page behavior.
 					// applyLoadedValues above still clamps the sliders to their bounds.
-					return params as never;
+					return params;
 				},
-				onCheckStability: (params) => checkParameterStability(mapType, params as never)
+				onCheckStability: (params) => checkParameterStability(mapType, params)
 			},
 			configState
 		);
