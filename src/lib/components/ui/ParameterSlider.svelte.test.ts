@@ -104,3 +104,31 @@ describe('ParameterSlider', () => {
 		expect(onchange).toHaveBeenCalledWith(15);
 	});
 });
+
+describe('ParameterSlider no-debounce + id', () => {
+	it('uses the provided id on the input and label for', () => {
+		const { container } = render(ParameterSlider, {
+			props: { id: 'param-a', label: 'a', value: 1, min: 0, max: 2, step: 0.1, decimals: 3 }
+		});
+		expect(container.querySelector('input[id="param-a"]')).toBeTruthy();
+		expect(container.querySelector('label[for="param-a"]')).toBeTruthy();
+	});
+
+	it('commits value immediately and shows formatted value when debounce=false', async () => {
+		const { container } = render(ParameterSlider, {
+			props: {
+				id: 'a',
+				label: 'a',
+				value: 1,
+				min: 0,
+				max: 2,
+				step: 0.001,
+				decimals: 3,
+				debounce: false
+			}
+		});
+		const input = container.querySelector('input[id="a"]') as HTMLInputElement;
+		await fireEvent.input(input, { target: { value: '1.5' } });
+		expect(screen.getByText('1.500')).toBeInTheDocument();
+	});
+});
