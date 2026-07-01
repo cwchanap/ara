@@ -6,6 +6,7 @@
 	import { onMount } from 'svelte';
 	import * as d3 from 'd3';
 	import { calculateIkedaTuples, calculateIkedaMultiSeed } from '$lib/ikeda';
+	import { makeLinearScales, drawSciFiAxes } from '$lib/viz/d3-chaos';
 	import type { IkedaColorMode, IkedaRenderMode } from '$lib/types';
 	import type { ChaosMapsWorkerResponse } from '$lib/workers/types';
 
@@ -134,43 +135,10 @@
 		const capped = computed.points.length > MAX_POINTS;
 		const points = capped ? computed.points.slice(0, MAX_POINTS) : computed.points;
 		const seedIndices = capped ? computed.seedIndices.slice(0, MAX_POINTS) : computed.seedIndices;
-		// Empty data: d3.extent returns [undefined, undefined], so the ?? fallbacks
-		// below yield a [-1, 1] domain — axes/frame stay visible, point loop is a no-op.
-		const xExtentRaw = d3.extent(points, (d) => d[0]);
-		const yExtentRaw = d3.extent(points, (d) => d[1]);
-		const xExtent: [number, number] = [xExtentRaw[0] ?? -1, xExtentRaw[1] ?? 1];
-		const yExtent: [number, number] = [yExtentRaw[0] ?? -1, yExtentRaw[1] ?? 1];
-
-		const xScale = d3
-			.scaleLinear()
-			.domain([xExtent[0] - 0.5, xExtent[1] + 0.5])
-			.range([0, width]);
-		const yScale = d3
-			.scaleLinear()
-			.domain([yExtent[0] - 0.5, yExtent[1] + 0.5])
-			.range([chartHeight, 0]);
-
-		const xAxis = d3.axisBottom(xScale).tickSize(-chartHeight).tickPadding(10);
-		const yAxis = d3.axisLeft(yScale).tickSize(-width).tickPadding(10);
-
-		svg
-			.append('g')
-			.attr('transform', `translate(0,${chartHeight})`)
-			.call(xAxis)
-			.call((g) => {
-				g.select('.domain').remove();
-				g.selectAll('line').attr('stroke', '#00f3ff').attr('stroke-opacity', 0.1);
-				g.selectAll('text').attr('fill', '#00f3ff').attr('font-family', 'Rajdhani');
-			});
-
-		svg
-			.append('g')
-			.call(yAxis)
-			.call((g) => {
-				g.select('.domain').remove();
-				g.selectAll('line').attr('stroke', '#00f3ff').attr('stroke-opacity', 0.1);
-				g.selectAll('text').attr('fill', '#00f3ff').attr('font-family', 'Rajdhani');
-			});
+		// Empty data: makeLinearScales' ?? fallbacks yield a [-1, 1] domain — axes/frame
+		// stay visible, point loop is a no-op.
+		const { xScale, yScale } = makeLinearScales(points, { width, height: chartHeight, pad: 0.5 });
+		drawSciFiAxes(svg, xScale, yScale, { width, height: chartHeight });
 
 		// Avoid Math.max(...largeArray) which overflows the argument stack on big clouds.
 		let seedCount = 1;
