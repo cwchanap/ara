@@ -58,8 +58,11 @@ export interface ConfigLoaderOptions<T extends ChaosMapType> {
 	base: string;
 	/**
 	 * Callback to apply loaded parameters to the visualization.
-	 * Should return the actual applied parameters (after any clamping/normalization)
-	 * for use in subsequent stability checking.
+	 * Returns the parameters that should be fed to `onCheckStability`. If the
+	 * caller clamps/normalizes values for display (e.g. to slider bounds), it
+	 * should STILL return the values it wants validated here — normally the raw
+	 * loaded params — so an out-of-range saved config still surfaces a warning
+	 * rather than being silently clamped into the stable range before the check.
 	 */
 	onParametersLoaded: (params: ParametersFor<T>) => ParametersFor<T>;
 	/** Optional callback for parameter stability checking - returns warnings to display */
@@ -93,7 +96,8 @@ export interface ConfigLoaderCleanup {
  *         sigma = params.sigma;
  *         rho = params.rho;
  *         beta = params.beta;
- *         // Return the actual applied parameters for stability checking
+ *         // Return the params to validate — normally the raw loaded params —
+ *         // so an out-of-range config still surfaces a stability warning.
  *         return { type: 'lorenz', sigma, rho, beta };
  *       }
  *     }, configState);
@@ -217,8 +221,9 @@ export function useConfigLoader<T extends ChaosMapType>(
 				// Apply parameters to visualization
 				const typedParams = result.parameters;
 				try {
-					// onParametersLoaded returns the actual applied parameters
-					// (after any clamping/normalization) for stability checking
+					// onParametersLoaded returns the params to validate — normally the
+					// raw loaded params, NOT the clamped display values — so an
+					// out-of-range saved config still surfaces a stability warning.
 					const appliedParams = onParametersLoaded(typedParams);
 
 					// Run stability check if provided
@@ -258,8 +263,9 @@ export function useConfigLoader<T extends ChaosMapType>(
 				// Apply parameters to visualization
 				const typedParams = parsed.parameters;
 				try {
-					// onParametersLoaded returns the actual applied parameters
-					// (after any clamping/normalization) for stability checking
+					// onParametersLoaded returns the params to validate — normally the
+					// raw loaded params, NOT the clamped display values — so an
+					// out-of-range saved config still surfaces a stability warning.
 					const appliedParams = onParametersLoaded(typedParams);
 
 					// Run stability check if provided
