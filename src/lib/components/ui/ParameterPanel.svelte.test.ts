@@ -81,4 +81,18 @@ describe('ParameterPanel columns', () => {
 		const grids = container.querySelectorAll('.md\\:grid-cols-3');
 		expect(grids.length).toBeGreaterThanOrEqual(2);
 	});
+
+	it('applies paramColumns=4 to the sliders grid', () => {
+		const { container } = render(ParameterPanel, {
+			props: { children: childSnippet, paramColumns: 4 }
+		});
+		expect(container.querySelector('.md\\:grid-cols-4')).toBeTruthy();
+	});
+
+	it('applies paramColumns=5 to the sliders grid', () => {
+		const { container } = render(ParameterPanel, {
+			props: { children: childSnippet, paramColumns: 5 }
+		});
+		expect(container.querySelector('.md\\:grid-cols-5')).toBeTruthy();
+	});
 });

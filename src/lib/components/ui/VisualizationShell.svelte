@@ -34,8 +34,8 @@
 		paramDefs: ParamDef[];
 		buildParameters: (values: Record<string, number>) => ChaosMapParameters;
 		formula: string[];
-		formulaColumns?: 1 | 2 | 3;
-		paramColumns?: 1 | 2 | 3;
+		formulaColumns?: 1 | 2 | 3 | 4 | 5;
+		paramColumns?: 1 | 2 | 3 | 4 | 5;
 		description: { heading: string; body: string };
 		isAuthenticated: boolean;
 		showSnapshot?: boolean;
