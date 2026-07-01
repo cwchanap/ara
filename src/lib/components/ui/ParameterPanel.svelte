@@ -11,8 +11,8 @@
 		title?: string;
 		children: Snippet;
 		equations?: Snippet;
-		paramColumns?: 1 | 2 | 3;
-		equationColumns?: 1 | 2 | 3;
+		paramColumns?: 1 | 2 | 3 | 4 | 5;
+		equationColumns?: 1 | 2 | 3 | 4 | 5;
 	}
 
 	let {
@@ -23,10 +23,12 @@
 		equationColumns = 3
 	}: Props = $props();
 
-	const COLS: Record<1 | 2 | 3, string> = {
+	const COLS: Record<1 | 2 | 3 | 4 | 5, string> = {
 		1: 'md:grid-cols-1',
 		2: 'md:grid-cols-2',
-		3: 'md:grid-cols-3'
+		3: 'md:grid-cols-3',
+		4: 'md:grid-cols-4',
+		5: 'md:grid-cols-5'
 	};
 </script>
 
