@@ -8,6 +8,7 @@
 	import { onMount } from 'svelte';
 	import * as d3 from 'd3';
 	import { calculateCliffordTuples } from '$lib/clifford';
+	import { drawSciFiAxes } from '$lib/viz/d3-chaos';
 	import type { CliffordColorMode } from '$lib/types';
 	import type { ChaosMapsWorkerResponse } from '$lib/workers/types';
 
@@ -150,27 +151,7 @@
 		const xScale = d3.scaleLinear().domain(xDomain).range([0, width]);
 		const yScale = d3.scaleLinear().domain(yDomain).range([chartHeight, 0]);
 
-		const xAxis = d3.axisBottom(xScale).tickSize(-chartHeight).tickPadding(10);
-		const yAxis = d3.axisLeft(yScale).tickSize(-width).tickPadding(10);
-
-		svg
-			.append('g')
-			.attr('transform', `translate(0,${chartHeight})`)
-			.call(xAxis)
-			.call((g) => {
-				g.select('.domain').remove();
-				g.selectAll('line').attr('stroke', '#00f3ff').attr('stroke-opacity', 0.1);
-				g.selectAll('text').attr('fill', '#00f3ff').attr('font-family', 'Rajdhani');
-			});
-
-		svg
-			.append('g')
-			.call(yAxis)
-			.call((g) => {
-				g.select('.domain').remove();
-				g.selectAll('line').attr('stroke', '#00f3ff').attr('stroke-opacity', 0.1);
-				g.selectAll('text').attr('fill', '#00f3ff').attr('font-family', 'Rajdhani');
-			});
+		drawSciFiAxes(svg, xScale, yScale, { width, height: chartHeight });
 
 		const canvas = canvasSelection.node() as HTMLCanvasElement | null;
 		const ctx = canvas?.getContext('2d');
