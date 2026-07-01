@@ -3,6 +3,7 @@
 -->
 <script lang="ts">
 	import * as d3 from 'd3';
+	import { calculateLyapunovExponent } from '$lib/lyapunov-map';
 
 	interface Props {
 		rMin?: number;
@@ -28,35 +29,6 @@
 	$effect(() => {
 		containerElement = container;
 	});
-
-	function calculateLyapunovExponent(
-		r: number,
-		iterations: number,
-		transientIterations: number
-	): number | null {
-		let x = 0.5;
-
-		for (let i = 0; i < transientIterations; i++) {
-			x = r * x * (1 - x);
-			if (x < 1e-10 || x > 1 - 1e-10) x = 0.5;
-		}
-
-		let sum = 0;
-		let validIterations = 0;
-
-		for (let i = 0; i < iterations; i++) {
-			x = r * x * (1 - x);
-			const derivative = Math.abs(r * (1 - 2 * x));
-			if (derivative > 0 && x > 1e-10 && x < 1 - 1e-10) {
-				sum += Math.log(derivative);
-				validIterations++;
-			} else if (x < 1e-10 || x > 1 - 1e-10) {
-				x = 0.5;
-			}
-		}
-
-		return validIterations > 0 ? sum / validIterations : null;
-	}
 
 	function render() {
 		if (!container) return;
