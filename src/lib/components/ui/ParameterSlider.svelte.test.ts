@@ -110,11 +110,12 @@ describe('ParameterSlider no-debounce + id', () => {
 		const { container } = render(ParameterSlider, {
 			props: { id: 'param-a', label: 'a', value: 1, min: 0, max: 2, step: 0.1, decimals: 3 }
 		});
-		expect(container.querySelector('input[id="param-a"]')).toBeTruthy();
-		expect(container.querySelector('label[for="param-a"]')).toBeTruthy();
+		expect(container.querySelector('input[id="param-a"]')).not.toBeNull();
+		expect(container.querySelector('label[for="param-a"]')).not.toBeNull();
 	});
 
 	it('commits value immediately and shows formatted value when debounce=false', async () => {
+		const onchange = vi.fn();
 		const { container } = render(ParameterSlider, {
 			props: {
 				id: 'a',
@@ -124,11 +125,13 @@ describe('ParameterSlider no-debounce + id', () => {
 				max: 2,
 				step: 0.001,
 				decimals: 3,
-				debounce: false
+				debounce: false,
+				onchange
 			}
 		});
 		const input = container.querySelector('input[id="a"]') as HTMLInputElement;
 		await fireEvent.input(input, { target: { value: '1.5' } });
-		expect(screen.getByText('1.500')).toBeInTheDocument();
+		expect(onchange).toHaveBeenCalledWith(1.5); // synchronous commit
+		expect(screen.getByText('1.500')).toBeInTheDocument(); // formatted display
 	});
 });
