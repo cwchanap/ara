@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { makeLinearScales, gradientColor } from './d3-chaos';
+import { COLOR_PRIMARY, COLOR_SECONDARY } from '$lib/constants';
 
 describe('makeLinearScales', () => {
 	it('pads extents by 0.1 and maps to ranges', () => {
@@ -26,9 +27,19 @@ describe('makeLinearScales', () => {
 });
 
 describe('gradientColor', () => {
-	it('returns endpoints at t=0 and t=1', () => {
-		expect(gradientColor(0)).toBeTruthy();
-		expect(gradientColor(1)).toBeTruthy();
-		expect(gradientColor(0)).not.toEqual(gradientColor(1));
+	it('returns the exact palette endpoints at t=0 and t=1 and interpolates between', () => {
+		// d3.interpolate produces rgb() strings, so compare against the rgb
+		// form of the constant palette endpoints (not the hex literals).
+		const hexToRgb = (hex: string): string => {
+			const n = Number.parseInt(hex.slice(1), 16);
+			return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
+		};
+		expect(gradientColor(0)).toEqual(hexToRgb(COLOR_PRIMARY));
+		expect(gradientColor(1)).toEqual(hexToRgb(COLOR_SECONDARY));
+		const mid = gradientColor(0.5);
+		expect(mid).not.toEqual(hexToRgb(COLOR_PRIMARY));
+		expect(mid).not.toEqual(hexToRgb(COLOR_SECONDARY));
+		// Midpoint must be a valid interpolated rgb() color.
+		expect(mid).toMatch(/^rgb\(/);
 	});
 });

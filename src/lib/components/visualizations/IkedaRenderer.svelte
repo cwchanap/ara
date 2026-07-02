@@ -7,6 +7,7 @@
 	import * as d3 from 'd3';
 	import { calculateIkedaTuples, calculateIkedaMultiSeed } from '$lib/ikeda';
 	import { makeLinearScales, drawSciFiAxes } from '$lib/viz/d3-chaos';
+	import { COLOR_PRIMARY, COLOR_MAGENTA, COLOR_VIOLET } from '$lib/constants';
 	import type { IkedaColorMode, IkedaRenderMode } from '$lib/types';
 	import type { ChaosMapsWorkerResponse } from '$lib/workers/types';
 
@@ -61,8 +62,8 @@
 	let latest: Computed | null = null;
 	let isUnmounted = false;
 
-	const interpCyanMagenta = d3.interpolate('#00f3ff', '#ff00ff');
-	const interpMagentaViolet = d3.interpolate('#ff00ff', '#8a2be2');
+	const interpCyanMagenta = d3.interpolate(COLOR_PRIMARY, COLOR_MAGENTA);
+	const interpMagentaViolet = d3.interpolate(COLOR_MAGENTA, COLOR_VIOLET);
 
 	function colorFor(
 		i: number,
@@ -74,7 +75,7 @@
 	): string {
 		switch (colorMode) {
 			case 'single':
-				return '#00f3ff';
+				return COLOR_PRIMARY;
 			case 'seed': {
 				const t = seedCount > 1 ? seedIndex / (seedCount - 1) : 0;
 				return interpCyanMagenta(t);

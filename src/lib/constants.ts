@@ -126,6 +126,16 @@ export const COLOR_PRIMARY = '#00f3ff';
  */
 export const COLOR_SECONDARY = '#bc13fe';
 
+/**
+ * Pure magenta used in renderer gradient palettes (cyan→magenta→violet).
+ */
+export const COLOR_MAGENTA = '#ff00ff';
+
+/**
+ * Blue-violet end of the renderer gradient palette.
+ */
+export const COLOR_VIOLET = '#8a2be2';
+
 // ============================================================================
 // API Constants
 // ============================================================================

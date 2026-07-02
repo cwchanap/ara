@@ -126,4 +126,36 @@ describe('LyapunovRenderer (smoke)', () => {
 			expect(container.querySelector('svg')).not.toBeNull();
 		});
 	});
+
+	it('swaps a reversed rMin/rMax so the x-axis runs forward (low→high left→right)', async () => {
+		// A loaded config (or manual slider entry) with rMin > rMax must not
+		// render a backwards axis. The renderer normalizes to rMin <= rMax.
+		// Use endpoints that both yield valid exponents at low iteration counts
+		// (r=2 and r=4 return null with iterations=50; 2.5 and 3.9 do not).
+		const { container } = render(LyapunovRenderer, {
+			props: { rMin: 3.9, rMax: 2.5, iterations: 50, transientIterations: 25, height: 200 }
+		});
+		await waitFor(() => {
+			expect(container.querySelector('svg')).not.toBeNull();
+			expect(container.querySelector('path')).not.toBeNull();
+		});
+		// The first axis group is the x-axis (translate(0,chartHeight)). Its
+		// ticks are <g transform="translate(X,0)"><text>label</text></g>. Reading
+		// them in ascending pixel-X order must yield ascending numeric labels.
+		const xAxisG = container.querySelector('svg > g > g');
+		expect(xAxisG).not.toBeNull();
+		const ticks = Array.from(xAxisG!.querySelectorAll('g')).map((g) => {
+			const transform = g.getAttribute('transform') ?? '';
+			const x = Number.parseFloat((transform.match(/translate\(([^,]+)/) ?? [])[1] ?? 'NaN');
+			const label = Number.parseFloat(g.querySelector('text')?.textContent ?? 'NaN');
+			return { x, label };
+		});
+		expect(ticks.length).toBeGreaterThan(1);
+		const byX = [...ticks].sort((a, b) => a.x - b.x);
+		for (let i = 1; i < byX.length; i++) {
+			expect(byX[i].label).toBeGreaterThanOrEqual(byX[i - 1].label);
+		}
+		// And the leftmost label must be the smaller bound (2), not 4.
+		expect(byX[0].label).toBeLessThan(byX[byX.length - 1].label);
+	});
 });

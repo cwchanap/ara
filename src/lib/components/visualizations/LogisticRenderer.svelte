@@ -5,6 +5,7 @@
 	import { onMount } from 'svelte';
 	import * as d3 from 'd3';
 	import { calculateLogistic } from '$lib/logistic';
+	import { COLOR_PRIMARY, COLOR_SECONDARY } from '$lib/constants';
 
 	interface Props {
 		r?: number;
@@ -84,8 +85,8 @@
 			.call(xAxis)
 			.call((g) => {
 				g.select('.domain').remove();
-				g.selectAll('line').attr('stroke', '#00f3ff').attr('stroke-opacity', 0.1);
-				g.selectAll('text').attr('fill', '#00f3ff').attr('font-family', 'Rajdhani');
+				g.selectAll('line').attr('stroke', COLOR_PRIMARY).attr('stroke-opacity', 0.1);
+				g.selectAll('text').attr('fill', COLOR_PRIMARY).attr('font-family', 'Rajdhani');
 			});
 
 		svg
@@ -93,8 +94,8 @@
 			.call(yAxis)
 			.call((g) => {
 				g.select('.domain').remove();
-				g.selectAll('line').attr('stroke', '#00f3ff').attr('stroke-opacity', 0.1);
-				g.selectAll('text').attr('fill', '#00f3ff').attr('font-family', 'Rajdhani');
+				g.selectAll('line').attr('stroke', COLOR_PRIMARY).attr('stroke-opacity', 0.1);
+				g.selectAll('text').attr('fill', COLOR_PRIMARY).attr('font-family', 'Rajdhani');
 			});
 
 		// Draw line
@@ -106,7 +107,7 @@
 			.append('path')
 			.datum(points)
 			.attr('fill', 'none')
-			.attr('stroke', '#00f3ff')
+			.attr('stroke', COLOR_PRIMARY)
 			.attr('stroke-width', 1.5)
 			.attr('d', line)
 			.attr('filter', 'drop-shadow(0 0 3px rgba(0, 243, 255, 0.5))');
@@ -120,7 +121,7 @@
 			.attr('cx', (d) => xScale(d[0]))
 			.attr('cy', (d) => yScale(d[1]))
 			.attr('r', 3)
-			.attr('fill', (d, i) => d3.interpolate('#00f3ff', '#bc13fe')(i / points.length))
+			.attr('fill', (d, i) => d3.interpolate(COLOR_PRIMARY, COLOR_SECONDARY)(i / points.length))
 			.attr('opacity', 0.8);
 	}
 

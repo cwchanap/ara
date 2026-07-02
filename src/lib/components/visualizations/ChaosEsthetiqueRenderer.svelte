@@ -6,6 +6,7 @@
 	import * as d3 from 'd3';
 	import { checkParameterStability } from '$lib/chaos-validation';
 	import { calculateChaos } from '$lib/chaos-esthetique';
+	import { COLOR_PRIMARY, COLOR_MAGENTA, COLOR_VIOLET } from '$lib/constants';
 
 	interface Props {
 		a?: number;
@@ -102,8 +103,8 @@
 			.call(xAxis)
 			.call((g) => {
 				g.select('.domain').remove();
-				g.selectAll('line').attr('stroke', '#00f3ff').attr('stroke-opacity', 0.1);
-				g.selectAll('text').attr('fill', '#00f3ff').attr('font-family', 'Rajdhani');
+				g.selectAll('line').attr('stroke', COLOR_PRIMARY).attr('stroke-opacity', 0.1);
+				g.selectAll('text').attr('fill', COLOR_PRIMARY).attr('font-family', 'Rajdhani');
 			});
 
 		svg
@@ -111,8 +112,8 @@
 			.call(yAxis)
 			.call((g) => {
 				g.select('.domain').remove();
-				g.selectAll('line').attr('stroke', '#00f3ff').attr('stroke-opacity', 0.1);
-				g.selectAll('text').attr('fill', '#00f3ff').attr('font-family', 'Rajdhani');
+				g.selectAll('line').attr('stroke', COLOR_PRIMARY).attr('stroke-opacity', 0.1);
+				g.selectAll('text').attr('fill', COLOR_PRIMARY).attr('font-family', 'Rajdhani');
 			});
 
 		const canvas = canvasSelection.node() as HTMLCanvasElement | null;
@@ -130,7 +131,7 @@
 			const x = xScale(xVal);
 			const y = yScale(yVal);
 			const t = i / points.length;
-			const color = d3.interpolate('#ff00ff', '#8a2be2')(t);
+			const color = d3.interpolate(COLOR_MAGENTA, COLOR_VIOLET)(t);
 			ctx.fillStyle = color;
 			ctx.beginPath();
 			ctx.arc(x, y, 1.5, 0, Math.PI * 2);
