@@ -184,16 +184,24 @@ describe('VisualizationShell', () => {
 		});
 	});
 
-	it('renders a comparison link whose href reflects the current slider values', () => {
+	it('renders a comparison link whose href reflects the current slider values', async () => {
 		const { container } = renderShell();
 		const link = screen.getByRole('link', { name: '⊞ Compare' }) as HTMLAnchorElement;
 		expect(link.href).toContain('/henon/compare');
 
-		// The encoded state should include the default `a` value (1.4).
-		// Changing the slider should update the comparison URL.
-		const input = container.querySelector('input[id="a"]') as HTMLInputElement;
-		fireEvent.input(input, { target: { value: '1.2' } });
+		// Capture the encoded `left` param at the default `a` value (1.4).
+		const beforeUrl = new URL(link.href);
+		const beforeLeft = beforeUrl.searchParams.get('left');
+		expect(beforeLeft).toBeTruthy();
 
-		expect(link.href).toContain('/henon/compare');
+		// Changing the slider must update the comparison URL via $derived.
+		const input = container.querySelector('input[id="a"]') as HTMLInputElement;
+		await fireEvent.input(input, { target: { value: '1.2' } });
+
+		const afterUrl = new URL(link.href);
+		const afterLeft = afterUrl.searchParams.get('left');
+		expect(afterUrl.href).toContain('/henon/compare');
+		// A broken $derived would leave the encoded value unchanged.
+		expect(afterLeft).not.toBe(beforeLeft);
 	});
 });

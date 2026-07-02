@@ -42,6 +42,11 @@
 		renderer: Snippet<[RendererArgs]>;
 		extraControls?: Snippet;
 		afterDescription?: Snippet;
+		// NOTE: An `onExtraParametersLoaded` hook (for pages with non-slider
+		// state like selects/checkboxes/presets) is intentionally deferred to
+		// the milestone-4 epic — see
+		// docs/superpowers/plans/2026-07-01-chaos-module-milestone-4.md.
+		// The 10 already-migrated slider-only pages do not need it.
 	}
 
 	let {
@@ -126,12 +131,6 @@
 				href={comparisonUrl}
 				class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
 				>⊞ Compare</a
-			>
-		{:else}
-			<span
-				aria-disabled="true"
-				class="px-6 py-2 bg-primary/10 text-primary border border-primary/30 rounded-sm uppercase tracking-widest text-sm font-bold opacity-50 cursor-not-allowed"
-				>⊞ Compare</span
 			>
 		{/if}
 		<button
