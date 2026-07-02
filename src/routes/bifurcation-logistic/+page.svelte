@@ -18,6 +18,15 @@
 		rMax: v.rMax,
 		maxIterations: v.maxIterations
 	})}
+	normalizeLoadedValues={(v) => {
+		// Enforce rMin <= rMax after clamping so an inverted saved/shared
+		// config doesn't render the bifurcation chart over a reversed range.
+		if (v.rMin > v.rMax) {
+			const t = v.rMin;
+			v.rMin = v.rMax;
+			v.rMax = t;
+		}
+	}}
 	formula={['x(n+1) = r·x(n)·(1 - x(n))']}
 	formulaColumns={1}
 	description={{
