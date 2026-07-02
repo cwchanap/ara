@@ -12,6 +12,7 @@
 	title="LOZI_MAP"
 	moduleNumber="11"
 	paramDefs={loziParamDefs}
+	paramColumns={5}
 	buildParameters={(v): LoziParameters => ({
 		type: 'lozi',
 		a: v.a,

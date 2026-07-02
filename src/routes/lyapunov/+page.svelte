@@ -12,7 +12,7 @@
 	title="LYAPUNOV_EXPONENTS"
 	moduleNumber="10"
 	paramDefs={lyapunovParamDefs}
-	paramColumns={2}
+	paramColumns={4}
 	showSnapshot={false}
 	buildParameters={(v): LyapunovParameters => ({
 		type: 'lyapunov',
