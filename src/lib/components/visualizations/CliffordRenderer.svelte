@@ -139,7 +139,10 @@
 
 		const capped = computed.points.length > MAX_POINTS;
 		const points = capped ? computed.points.slice(0, MAX_POINTS) : computed.points;
-		if (points.length === 0 || width <= 0 || chartHeight <= 0) return;
+		// Empty data: the ?? fallbacks below yield a [-1, 1] domain — axes/frame
+		// stay visible, the point-drawing block is a no-op. Only bail out on
+		// invalid dimensions.
+		if (width <= 0 || chartHeight <= 0) return;
 
 		const xExtentRaw = d3.extent(points, (p) => p[0]);
 		const yExtentRaw = d3.extent(points, (p) => p[1]);
@@ -152,6 +155,8 @@
 		const yScale = d3.scaleLinear().domain(yDomain).range([chartHeight, 0]);
 
 		drawSciFiAxes(svg, xScale, yScale, { width, height: chartHeight });
+
+		if (points.length === 0) return;
 
 		const canvas = canvasSelection.node() as HTMLCanvasElement | null;
 		const ctx = canvas?.getContext('2d');

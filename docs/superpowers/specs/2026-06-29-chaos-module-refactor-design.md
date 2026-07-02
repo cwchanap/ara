@@ -156,9 +156,11 @@ interface VisualizationShellProps<T extends ChaosMapType> {
 - `const parameters = $derived(buildParameters(values))` — used for save/share/compare/stability.
 - Save/share handlers via `createSaveHandler` / `createShareHandler` reading `parameters`.
 - `comparisonUrl` derived from `parameters` via `buildComparisonUrl` / `createComparisonStateFromCurrent`.
-- Config loading via `useConfigLoader` in an `$effect`: `onParametersLoaded` assigns each
-  schema `key` from the loaded params (clamped to the def's min/max), calls
-  `onExtraParametersLoaded`, and returns `buildParameters(values)` for the stability check.
+- Config loading via `useConfigLoader` in an `$effect`: `onParametersLoaded` clamps each
+  schema `key` from the loaded params into the slider/state `values` (via `applyLoadedValues`),
+  calls `onExtraParametersLoaded`, and returns the **raw loaded params** (NOT
+  `buildParameters(values)`) for the stability check — so an out-of-range saved config still
+  surfaces a warning rather than being silently clamped into the stable range before the check.
 - Cleanup `$effect` returns the save/share handler cleanups on unmount.
 
 **Snapshot consistency note:** 14/16 pages currently render `SnapshotButton` with

@@ -23,10 +23,14 @@ Add an optional prop to `VisualizationShell.svelte`:
 ```ts
 interface Props {
 	// ...existing props...
-	/** Receives the raw loaded params AFTER slider clamping, so the page can
+	/** Receives the raw loader result (`ChaosMapParameters`) so the page can
 	 *  restore non-slider state (selects, checkboxes, presets, sub-controls).
-	 *  Called once per successful config load. The params passed are the same
-	 *  raw object returned by the loader (NOT the clamped slider values). */
+	 *  Called once per successful config load, after `applyLoadedValues` has
+	 *  clamped the slider-bound values into the shell's `values` state. The
+	 *  callback itself receives the UN-clamped raw params — slider values are
+	 *  clamped during load, but `onExtraParametersLoaded` gets the original
+	 *  loader result so pages can restore non-slider state without hiding
+	 *  out-of-range warnings (the stability check also runs on the raw params). */
 	onExtraParametersLoaded?: (params: ChaosMapParameters) => void;
 }
 ```
