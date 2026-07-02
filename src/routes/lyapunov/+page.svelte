@@ -21,6 +21,16 @@
 		iterations: v.iterations,
 		transientIterations: v.transientIterations
 	})}
+	normalizeLoadedValues={(v) => {
+		// Enforce rMin <= rMax after clamping so an inverted saved/shared
+		// config doesn't render over a reversed range.
+		if (v.rMin > v.rMax) {
+			const t = v.rMin;
+			v.rMin = v.rMax;
+			v.rMax = t;
+		}
+	}}
+	reactiveStability
 	formula={['λ = lim(n→∞) (1/n) Σ ln|r(1-2xᵢ)|']}
 	formulaColumns={1}
 	description={{

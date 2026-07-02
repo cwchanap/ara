@@ -66,6 +66,71 @@ function renderShell() {
 	});
 }
 
+const pairDefs: ParamDef[] = [
+	{
+		key: 'rMin',
+		id: 'r-min',
+		label: 'r min',
+		min: 0,
+		max: 4,
+		step: 0.01,
+		decimals: 3,
+		default: 2.5
+	},
+	{
+		key: 'rMax',
+		id: 'r-max',
+		label: 'r max',
+		min: 0,
+		max: 4,
+		step: 0.01,
+		decimals: 3,
+		default: 4.0
+	},
+	{ key: 'iterations', label: 'Iterations', min: 100, max: 10000, step: 100, default: 1000 },
+	{
+		key: 'transientIterations',
+		id: 'transient',
+		label: 'Transient',
+		min: 50,
+		max: 5000,
+		step: 50,
+		default: 500
+	}
+];
+
+function renderShellWithPairs(extra: Record<string, unknown> = {}) {
+	return render(VisualizationShell, {
+		props: {
+			mapType: 'lyapunov',
+			title: 'LYAPUNOV_EXPONENTS',
+			moduleNumber: '10',
+			paramDefs: pairDefs,
+			paramColumns: 4,
+			buildParameters: (v: Record<string, number>) => ({
+				type: 'lyapunov',
+				rMin: v.rMin,
+				rMax: v.rMax,
+				iterations: v.iterations,
+				transientIterations: v.transientIterations
+			}),
+			normalizeLoadedValues: (v: Record<string, number>) => {
+				if (v.rMin > v.rMax) {
+					const t = v.rMin;
+					v.rMin = v.rMax;
+					v.rMax = t;
+				}
+			},
+			formula: ['λ = …'],
+			description: { heading: 'DATA_LOG: LYAPUNOV', body: 'desc' },
+			isAuthenticated: true,
+			renderer,
+			...authedPageProps,
+			...extra
+		} as never
+	});
+}
+
 describe('VisualizationShell', () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
@@ -203,5 +268,65 @@ describe('VisualizationShell', () => {
 		expect(afterUrl.href).toContain('/henon/compare');
 		// A broken $derived would leave the encoded value unchanged.
 		expect(afterLeft).not.toBe(beforeLeft);
+	});
+
+	// --- normalizeLoadedValues: paired-range swap ---
+
+	it('swaps inverted rMin/rMax when an inline config loads a reversed range', async () => {
+		parseConfigParamMock.mockReturnValueOnce({
+			ok: true,
+			parameters: {
+				type: 'lyapunov',
+				rMin: 4,
+				rMax: 2,
+				iterations: 1000,
+				transientIterations: 500
+			}
+		});
+		setMockPageUrl('http://localhost/lyapunov?config=inverted');
+		const { container } = renderShellWithPairs();
+		await waitFor(() => {
+			const rMinInput = container.querySelector('input[id="r-min"]') as HTMLInputElement;
+			const rMaxInput = container.querySelector('input[id="r-max"]') as HTMLInputElement;
+			// Loaded rMin=4 > rMax=2 must be swapped so sliders (and the renderer)
+			// see rMin=2 <= rMax=4, matching the pre-shell bifurcation/lyapunov
+			// normalization that applyLoadedValues alone does not perform.
+			expect(Number(rMinInput.value)).toBeLessThanOrEqual(Number(rMaxInput.value));
+			expect(rMinInput.value).toBe('2');
+			expect(rMaxInput.value).toBe('4');
+		});
+	});
+
+	// --- reactiveStability: on-change stability checks ---
+
+	it('reactiveStability warns when sliders are inverted and clears when fixed', async () => {
+		setMockPageUrl('http://localhost/lyapunov');
+		const { container } = renderShellWithPairs({ reactiveStability: true });
+
+		// Defaults (rMin=2.5 < rMax=4.0) are stable — no warning.
+		expect(screen.queryByText('UNSTABLE_PARAMETERS_DETECTED')).toBeNull();
+
+		// Drag rMax below rMin to invert the range.
+		const rMaxInput = container.querySelector('input[id="r-max"]') as HTMLInputElement;
+		await fireEvent.input(rMaxInput, { target: { value: '2' } });
+		await waitFor(() => {
+			expect(screen.getByText('UNSTABLE_PARAMETERS_DETECTED')).toBeInTheDocument();
+		});
+
+		// Restore rMax above rMin — the warning must clear (pre-shell behavior).
+		await fireEvent.input(rMaxInput, { target: { value: '4' } });
+		await waitFor(() => {
+			expect(screen.queryByText('UNSTABLE_PARAMETERS_DETECTED')).toBeNull();
+		});
+	});
+
+	it('does not run reactive stability checks when reactiveStability is omitted', async () => {
+		setMockPageUrl('http://localhost/lyapunov');
+		const { container } = renderShellWithPairs();
+		const rMaxInput = container.querySelector('input[id="r-max"]') as HTMLInputElement;
+		await fireEvent.input(rMaxInput, { target: { value: '2' } });
+		// rMin=2.5 > rMax=2 would warn under reactiveStability, but the prop is
+		// off (default) so only config-load checks run — no warning here.
+		expect(screen.queryByText('UNSTABLE_PARAMETERS_DETECTED')).toBeNull();
 	});
 });

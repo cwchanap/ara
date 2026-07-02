@@ -42,6 +42,25 @@
 		renderer: Snippet<[RendererArgs]>;
 		extraControls?: Snippet;
 		afterDescription?: Snippet;
+		/**
+		 * Optional normalizer run after `applyLoadedValues` clamps each slider
+		 * to its bounds. Use this to fix paired min/max fields whose loaded
+		 * order is inverted (e.g. swap rMin/rMax when rMin > rMax) so sliders,
+		 * save/share/compare state, and the renderer all see a valid range.
+		 * Mutates `values` in place. Stability is still checked against the RAW
+		 * loaded params (pre-normalize), so an inverted saved config still
+		 * surfaces a warning.
+		 */
+		normalizeLoadedValues?: (values: Record<string, number>) => void;
+		/**
+		 * When true, re-run `checkParameterStability` whenever any slider
+		 * changes and reflect the result in the stability alert — matching the
+		 * pre-shell Lyapunov behavior where manual edits to paired ranges
+		 * (rMin >= rMax) or transient > iterations surface a warning, and an
+		 * existing warning clears once the sliders are fixed. Default false:
+		 * other pages only check stability at config-load time.
+		 */
+		reactiveStability?: boolean;
 		// NOTE: An `onExtraParametersLoaded` hook (for pages with non-slider
 		// state like selects/checkboxes/presets) is intentionally deferred to
 		// the milestone-4 epic — see
@@ -63,7 +82,9 @@
 		showSnapshot = true,
 		renderer,
 		extraControls,
-		afterDescription
+		afterDescription,
+		normalizeLoadedValues,
+		reactiveStability = false
 	}: Props = $props();
 
 	const values = $state(paramDefaults(paramDefs));
@@ -102,6 +123,10 @@
 				base,
 				onParametersLoaded: (params) => {
 					applyLoadedValues(paramDefs, values, params as unknown as Record<string, unknown>);
+					// Fix paired min/max inversions (e.g. rMin > rMax) AFTER clamping
+					// so sliders, save/share/compare state, and the renderer all see a
+					// valid range. Stability below still uses the RAW loaded params.
+					normalizeLoadedValues?.(values);
 					// Stability is checked against the RAW loaded params (pre-clamp), not the
 					// clamped slider values, so an out-of-range saved config still surfaces
 					// UNSTABLE_PARAMETERS_DETECTED — matching the pre-shell per-page behavior.
@@ -113,6 +138,25 @@
 			configState
 		);
 		return cleanup;
+	});
+
+	// Reactive stability: when a page opts in (e.g. Lyapunov), re-run the
+	// stability check whenever any slider changes and reflect the result in
+	// the alert — surfacing warnings for manual paired-range inversions and
+	// clearing warnings once the sliders are fixed. The verdict is computed
+	// from the current (clamped) slider values, matching the pre-shell
+	// Lyapunov behavior.
+	$effect(() => {
+		if (!reactiveStability) return;
+		for (const def of paramDefs) void values[def.key];
+		const stability = checkParameterStability(mapType, buildParameters(values));
+		if (!stability.isStable) {
+			configState.warnings = stability.warnings;
+			configState.showWarning = true;
+		} else {
+			configState.warnings = [];
+			configState.showWarning = false;
+		}
 	});
 
 	$effect(() => () => {
