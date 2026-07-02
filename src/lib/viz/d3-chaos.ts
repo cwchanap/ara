@@ -1,8 +1,10 @@
 import * as d3 from 'd3';
 import { COLOR_PRIMARY, COLOR_SECONDARY } from '$lib/constants';
 
+const gradientInterpolator = d3.interpolate(COLOR_PRIMARY, COLOR_SECONDARY);
+
 export function gradientColor(t: number): string {
-	return d3.interpolate(COLOR_PRIMARY, COLOR_SECONDARY)(t);
+	return gradientInterpolator(t);
 }
 
 export function makeLinearScales(

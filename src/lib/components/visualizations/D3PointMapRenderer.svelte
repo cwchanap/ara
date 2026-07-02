@@ -25,6 +25,7 @@
 	}: Props = $props();
 
 	let container = $state<HTMLDivElement>();
+	let resizeObserver: ResizeObserver | null = null;
 	$effect(() => {
 		containerElement = container;
 	});
@@ -34,8 +35,30 @@
 		const m = D3_CHART_MARGIN;
 		const width = Math.max(0, container.clientWidth - m.left - m.right);
 		const chartHeight = Math.max(0, height - m.top - m.bottom);
-		if (width === 0 || chartHeight === 0) return;
+		// Clear any existing SVG before bailing out on zero size, so a collapsed
+		// mount never leaves stale content.
 		d3.select(container).selectAll('svg').remove();
+		if (width === 0 || chartHeight === 0) {
+			// Set up a ResizeObserver so render() reruns once the container
+			// becomes non-zero (e.g. after a collapsed mount in jsdom or a
+			// hidden-to-visible transition).
+			if (!resizeObserver) {
+				resizeObserver = new ResizeObserver(() => {
+					if (!container) return;
+					if (container.clientWidth > 0) {
+						resizeObserver?.disconnect();
+						resizeObserver = null;
+						render();
+					}
+				});
+				resizeObserver.observe(container);
+			}
+			return;
+		}
+		if (resizeObserver) {
+			resizeObserver.disconnect();
+			resizeObserver = null;
+		}
 		const svg = d3
 			.select(container)
 			.append('svg')
@@ -43,20 +66,23 @@
 			.attr('height', height)
 			.append('g')
 			.attr('transform', `translate(${m.left},${m.top})`);
-		if (points.length === 0) {
-			const { xScale, yScale } = makeLinearScales(points, { width, height: chartHeight });
-			drawSciFiAxes(svg, xScale, yScale, { width, height: chartHeight, labels: axisLabels });
-			return;
-		}
 		const { xScale, yScale } = makeLinearScales(points, { width, height: chartHeight });
 		drawSciFiAxes(svg, xScale, yScale, { width, height: chartHeight, labels: axisLabels });
-		plotGradientPoints(svg, points, { xScale, yScale, r, opacity, glow });
+		if (points.length > 0) {
+			plotGradientPoints(svg, points, { xScale, yScale, r, opacity, glow });
+		}
 	}
 
 	$effect(() => {
 		void points;
 		void height;
 		if (container) render();
+		return () => {
+			if (resizeObserver) {
+				resizeObserver.disconnect();
+				resizeObserver = null;
+			}
+		};
 	});
 </script>
 

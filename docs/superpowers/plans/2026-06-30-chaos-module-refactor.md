@@ -10,7 +10,7 @@
 
 **Goal:** Collapse the duplicated chrome/markup/config-loading across the 16 chaos pages into a declarative `VisualizationShell` + `paramDefs` schema, dedup the 9 D3 renderers behind shared helpers + a `D3PointMapRenderer` base, and extract inline renderer math into pure modules — without changing behavior.
 
-**Architecture:** A per-map `ParamDef[]` schema is the single source of truth for slider UI, `getParameters()`, and config-load application. `VisualizationShell` renders the header, action buttons, alerts, control panel (auto sliders + formula), renderer container, info panel, and Save/Share dialogs, internalizing `useConfigLoader` and the save/share hooks. It consumes the previously-orphaned components (`VisualizationHeader`, `ParameterSlider`, `ParameterPanel`, `VisualizationContainer`, `VisualizationErrorBoundary`); `ConfigAlerts` is deleted. D3 renderers share `d3-chaos.ts` helpers; the 5 homogeneous point maps become thin wrappers over `D3PointMapRenderer`.
+**Architecture:** A per-map `ParamDef[]` schema is the single source of truth for slider UI, `getParameters()`, and config-load application. `VisualizationShell` renders the header, action buttons, alerts, control panel (auto sliders + formula), renderer container, info panel, and Save/Share dialogs, internalizing `useConfigLoader` and the save/share hooks. It consumes the previously-orphaned components (`VisualizationHeader`, `ParameterSlider`, `ParameterPanel`, `VisualizationErrorBoundary`); `VisualizationContainer` is deleted (its responsibilities folded into `VisualizationShell`) and `ConfigAlerts` is deleted. D3 renderers share `d3-chaos.ts` helpers; the 5 homogeneous point maps become thin wrappers over `D3PointMapRenderer`.
 
 **Tech Stack:** SvelteKit (Svelte 5 runes), TypeScript (strict), TailwindCSS v4, D3.js, Vitest (node + jsdom projects), Testing Library, Playwright.
 
@@ -41,7 +41,7 @@
 
 **Modify:**
 
-- The 5 reused orphan components (`ParameterSlider`, `ParameterPanel`, `VisualizationContainer`, `VisualizationErrorBoundary`, `VisualizationHeader`) — small prop additions only.
+- The 4 reused orphan components (`ParameterSlider`, `ParameterPanel`, `VisualizationErrorBoundary`, `VisualizationHeader`) — small prop additions only.
 - The 9 D3 renderers — route through helpers / `D3PointMapRenderer`.
 - The 4 inline-math renderers — import extracted math.
 - All 16 `src/routes/<map>/+page.svelte` — adopt `VisualizationShell`.
@@ -49,6 +49,7 @@
 **Delete:**
 
 - `src/lib/components/ui/ConfigAlerts.svelte` + `ConfigAlerts.svelte.test.ts`.
+- `src/lib/components/ui/VisualizationContainer.svelte` (responsibilities folded into `VisualizationShell`).
 
 ---
 
