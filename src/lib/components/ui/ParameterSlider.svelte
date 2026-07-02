@@ -91,6 +91,7 @@
 	</div>
 	<input
 		{id}
+		data-testid={`slider-${id}`}
 		type="range"
 		value={internalValue}
 		{min}
