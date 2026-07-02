@@ -4,6 +4,7 @@
 <script lang="ts">
 	import * as d3 from 'd3';
 	import { calculateLyapunovExponent } from '$lib/lyapunov-map';
+	import { COLOR_PRIMARY, COLOR_MAGENTA } from '$lib/constants';
 
 	interface Props {
 		rMin?: number;
@@ -48,13 +49,21 @@
 			.attr('transform', `translate(${margin.left},${margin.top})`);
 
 		const numPoints = Math.max(2, Math.min(400, width));
+		// Enforce rMin <= rMax so a loaded config (or manual slider entry) with a
+		// reversed range renders a forward axis instead of a backwards one. This
+		// restores the swap that the pre-shell page applied on config load.
 		let actualRMin = rMin;
 		let actualRMax = rMax;
+		if (actualRMin > actualRMax) {
+			const temp = actualRMin;
+			actualRMin = actualRMax;
+			actualRMax = temp;
+		}
 
-		if (Math.abs(rMax - rMin) < 0.001) {
+		if (Math.abs(actualRMax - actualRMin) < 0.001) {
 			const epsilon = 0.01;
-			actualRMin = Math.max(0, rMin - epsilon);
-			actualRMax = Math.min(4, rMax + epsilon);
+			actualRMin = Math.max(0, actualRMin - epsilon);
+			actualRMax = Math.min(4, actualRMax + epsilon);
 		}
 
 		const data: { r: number; lyapunov: number | null }[] = [];
@@ -72,7 +81,7 @@
 				.attr('x', width / 2)
 				.attr('y', chartHeight / 2)
 				.attr('text-anchor', 'middle')
-				.attr('fill', '#00f3ff')
+				.attr('fill', COLOR_PRIMARY)
 				.attr('font-family', 'Rajdhani')
 				.attr('font-size', 14)
 				.text('No valid Lyapunov values');
@@ -93,8 +102,8 @@
 			.call(xAxis)
 			.call((g) => {
 				g.select('.domain').remove();
-				g.selectAll('line').attr('stroke', '#00f3ff').attr('stroke-opacity', 0.1);
-				g.selectAll('text').attr('fill', '#00f3ff').attr('font-family', 'Rajdhani');
+				g.selectAll('line').attr('stroke', COLOR_PRIMARY).attr('stroke-opacity', 0.1);
+				g.selectAll('text').attr('fill', COLOR_PRIMARY).attr('font-family', 'Rajdhani');
 			});
 
 		svg
@@ -102,8 +111,8 @@
 			.call(yAxis)
 			.call((g) => {
 				g.select('.domain').remove();
-				g.selectAll('line').attr('stroke', '#00f3ff').attr('stroke-opacity', 0.1);
-				g.selectAll('text').attr('fill', '#00f3ff').attr('font-family', 'Rajdhani');
+				g.selectAll('line').attr('stroke', COLOR_PRIMARY).attr('stroke-opacity', 0.1);
+				g.selectAll('text').attr('fill', COLOR_PRIMARY).attr('font-family', 'Rajdhani');
 			});
 
 		// Zero line (chaos threshold)
@@ -115,7 +124,7 @@
 				.attr('x2', width)
 				.attr('y1', zeroY)
 				.attr('y2', zeroY)
-				.attr('stroke', '#ff00ff')
+				.attr('stroke', COLOR_MAGENTA)
 				.attr('stroke-width', 1.5)
 				.attr('stroke-dasharray', '5,5')
 				.attr('opacity', 0.5);
@@ -136,7 +145,7 @@
 			const lyap = segment[0].lyapunov ?? segment[1].lyapunov;
 			// Skip segments where both points are null
 			if (lyap === null) continue;
-			const color = lyap < 0 ? '#00f3ff' : '#ff00ff';
+			const color = lyap < 0 ? COLOR_PRIMARY : COLOR_MAGENTA;
 			svg
 				.append('path')
 				.datum(segment)

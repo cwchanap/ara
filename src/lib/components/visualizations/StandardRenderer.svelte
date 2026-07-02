@@ -4,6 +4,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import * as d3 from 'd3';
+	import { COLOR_PRIMARY } from '$lib/constants';
 
 	interface Props {
 		k?: number;
@@ -141,8 +142,8 @@
 			.call(xAxis)
 			.call((g) => {
 				g.select('.domain').remove();
-				g.selectAll('line').attr('stroke', '#00f3ff').attr('stroke-opacity', 0.1);
-				g.selectAll('text').attr('fill', '#00f3ff').attr('font-family', 'Rajdhani');
+				g.selectAll('line').attr('stroke', COLOR_PRIMARY).attr('stroke-opacity', 0.1);
+				g.selectAll('text').attr('fill', COLOR_PRIMARY).attr('font-family', 'Rajdhani');
 			});
 
 		svg
@@ -150,8 +151,8 @@
 			.call(yAxis)
 			.call((g) => {
 				g.select('.domain').remove();
-				g.selectAll('line').attr('stroke', '#00f3ff').attr('stroke-opacity', 0.1);
-				g.selectAll('text').attr('fill', '#00f3ff').attr('font-family', 'Rajdhani');
+				g.selectAll('line').attr('stroke', COLOR_PRIMARY).attr('stroke-opacity', 0.1);
+				g.selectAll('text').attr('fill', COLOR_PRIMARY).attr('font-family', 'Rajdhani');
 			});
 
 		const canvas = canvasSelection.node() as HTMLCanvasElement | null;
@@ -159,7 +160,7 @@
 		if (!canvas || !ctx) return;
 
 		ctx.clearRect(0, 0, width, chartHeight);
-		ctx.fillStyle = '#00f3ff';
+		ctx.fillStyle = COLOR_PRIMARY;
 		ctx.globalAlpha = 0.4;
 
 		for (const [qVal, pVal] of points) {

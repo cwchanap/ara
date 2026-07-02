@@ -22,6 +22,7 @@
 		type PendulumState,
 		type PendulumPhysics
 	} from '$lib/double-pendulum';
+	import { COLOR_PRIMARY, COLOR_MAGENTA } from '$lib/constants';
 
 	interface Props {
 		theta1: number;
@@ -172,15 +173,15 @@
 		};
 
 		// pivot
-		ctx.fillStyle = '#00f3ff';
+		ctx.fillStyle = COLOR_PRIMARY;
 		ctx.beginPath();
 		ctx.arc(pivotX, pivotY, 3, 0, Math.PI * 2);
 		ctx.fill();
 
 		drawTrail(trailA, '0, 243, 255');
 		if (compareMode) drawTrail(trailB, '255, 0, 255');
-		if (compareMode) drawArms(stateB, '#ff00ff', true);
-		drawArms(stateA, '#00f3ff', false);
+		if (compareMode) drawArms(stateB, COLOR_MAGENTA, true);
+		drawArms(stateA, COLOR_PRIMARY, false);
 	}
 
 	onMount(() => {
