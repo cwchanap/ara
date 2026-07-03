@@ -47,4 +47,22 @@ describe('calculateChaos(a, b, x0, y0, iterations, maxPoints)', () => {
 		const pts = calculateChaos(1, 0, 0, 0, 0, 15000);
 		expect(pts).toEqual([]);
 	});
+
+	it('breaks early on NaN/Infinity and emits no non-finite points', () => {
+		// With x0 = y0 = 1e308, the first iteration computes f(x, a) whose
+		// x*x / (1 + x*x) term becomes Infinity/Infinity = NaN, so xNew is NaN.
+		// The Number.isFinite guard must break before pushing the bad point.
+		const pts = calculateChaos(1.4, 0.3, 1e308, 1e308, 100, 100);
+		expect(pts).toEqual([]);
+		expect(pts.every(([x, y]) => Number.isFinite(x) && Number.isFinite(y))).toBe(true);
+	});
+
+	it('never emits a non-finite point for divergent but finite inputs', () => {
+		// a=1.4 diverges quickly; even when values grow large, the guard must
+		// stop the loop before any NaN/Infinity point is pushed.
+		const pts = calculateChaos(1.4, 0.3, 1, 1, 1000, 1000);
+		expect(pts.every(([x, y]) => Number.isFinite(x) && Number.isFinite(y))).toBe(true);
+		// The guard breaks once overflow occurs, so we get fewer than steps.
+		expect(pts.length).toBeLessThan(1000);
+	});
 });
