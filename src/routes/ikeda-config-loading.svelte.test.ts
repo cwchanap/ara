@@ -336,10 +336,11 @@ describe('ikeda page – config loading', () => {
 		setPageUrl('http://localhost/ikeda?config=crash-data');
 		render(IkedaPage, { props: unauthedPageProps });
 
+		// Standardized via useConfigLoader: a throw from parseConfigParam is
+		// caught and surfaced as the INVALID_CONFIGURATION alert heading. Matches
+		// the rossler/lozi/standard/clifford migrated-page precedent.
 		await waitFor(() => {
-			expect(
-				screen.getByText('Failed to parse configuration parameters')
-			).toBeInTheDocument();
+			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
 		});
 	});
 
