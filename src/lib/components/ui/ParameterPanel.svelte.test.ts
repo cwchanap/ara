@@ -95,4 +95,39 @@ describe('ParameterPanel columns', () => {
 		});
 		expect(container.querySelector('.md\\:grid-cols-5')).toBeTruthy();
 	});
+
+	it('applies paramColumns=1 to the sliders grid', () => {
+		const { container } = render(ParameterPanel, {
+			props: { children: childSnippet, paramColumns: 1 }
+		});
+		expect(container.querySelector('.md\\:grid-cols-1')).toBeTruthy();
+	});
+
+	it('applies paramColumns=2 to the sliders grid', () => {
+		const { container } = render(ParameterPanel, {
+			props: { children: childSnippet, paramColumns: 2 }
+		});
+		expect(container.querySelector('.md\\:grid-cols-2')).toBeTruthy();
+	});
+
+	it('applies equationColumns=1 to the equations grid', () => {
+		const { container } = render(ParameterPanel, {
+			props: { children: childSnippet, equations: eqsSnippet, equationColumns: 1 }
+		});
+		expect(container.querySelector('.md\\:grid-cols-1')).toBeTruthy();
+	});
+
+	it('applies equationColumns=4 to the equations grid', () => {
+		const { container } = render(ParameterPanel, {
+			props: { children: childSnippet, equations: eqsSnippet, equationColumns: 4 }
+		});
+		expect(container.querySelector('.md\\:grid-cols-4')).toBeTruthy();
+	});
+
+	it('applies equationColumns=5 to the equations grid', () => {
+		const { container } = render(ParameterPanel, {
+			props: { children: childSnippet, equations: eqsSnippet, equationColumns: 5 }
+		});
+		expect(container.querySelector('.md\\:grid-cols-5')).toBeTruthy();
+	});
 });

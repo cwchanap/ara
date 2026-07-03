@@ -55,10 +55,6 @@
 			}
 			return;
 		}
-		if (resizeObserver) {
-			resizeObserver.disconnect();
-			resizeObserver = null;
-		}
 		const svg = d3
 			.select(container)
 			.append('svg')

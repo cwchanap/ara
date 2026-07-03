@@ -349,6 +349,27 @@ describe('bifurcation-logistic page – config loading', () => {
 		expect(screen.queryByText('INVALID_CONFIGURATION')).not.toBeInTheDocument();
 	});
 
+	it('swaps inverted rMin/rMax so the bifurcation renders over a valid range', async () => {
+		// Saved/shared config may store rMin > rMax; normalizeLoadedValues
+		// swaps them after clamping so the chart isn't rendered over a
+		// reversed range.
+		loadSavedConfigParametersMock.mockResolvedValueOnce({
+			ok: true,
+			parameters: { ...baseParams, rMin: 3.9, rMax: 3.6 },
+			source: 'api'
+		});
+
+		setPageUrl('http://localhost/bifurcation-logistic?configId=inverted-range-id');
+		render(BifurcationLogisticPage, { props: unauthedPageProps });
+
+		await waitFor(() => {
+			const rMinSlider = document.getElementById('rMin') as HTMLInputElement;
+			const rMaxSlider = document.getElementById('rMax') as HTMLInputElement;
+			expect(rMinSlider.value).toBe('3.6');
+			expect(rMaxSlider.value).toBe('3.9');
+		});
+	});
+
 	it('dismisses stability warning alert when the dismiss button is clicked', async () => {
 		loadSavedConfigParametersMock.mockResolvedValueOnce({
 			ok: true,
