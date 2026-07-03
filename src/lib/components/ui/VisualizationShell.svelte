@@ -1,6 +1,7 @@
 <!-- src/lib/components/ui/VisualizationShell.svelte -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { untrack } from 'svelte';
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import type { ChaosMapType, ChaosMapParameters } from '$lib/types';
@@ -43,11 +44,11 @@
 		extraControls?: Snippet;
 		afterDescription?: Snippet;
 		/**
-		 * Optional normalizer run after `applyLoadedValues` clamps each slider
-		 * to its bounds. Use this to fix paired min/max fields whose loaded
-		 * order is inverted (e.g. swap rMin/rMax when rMin > rMax) so sliders,
-		 * save/share/compare state, and the renderer all see a valid range.
-		 * Mutates `values` in place.
+		 * Optional normalizer run after `applyLoadedValues` sets each slider
+		 * from the loaded config. Use this to fix paired min/max fields whose
+		 * loaded order is inverted (e.g. swap rMin/rMax when rMin > rMax) so
+		 * sliders, save/share/compare state, and the renderer all see a valid
+		 * range. Mutates `values` in place.
 		 *
 		 * Note on stability: `onCheckStability` runs against the RAW loaded
 		 * params (pre-normalize), so an inverted saved config is initially
@@ -129,17 +130,32 @@
 				mapType,
 				base,
 				onParametersLoaded: (params) => {
-					applyLoadedValues(paramDefs, values, params as unknown as Record<string, unknown>);
-					// Fix paired min/max inversions (e.g. rMin > rMax) AFTER clamping
-					// so sliders, save/share/compare state, and the renderer all see a
-					// valid range. Stability below uses the RAW loaded params; with
-					// reactiveStability enabled the same-tick $effect recomputes on
-					// the normalized slider values and clears an inverted-range
-					// warning (matching pre-shell Lyapunov).
-					normalizeLoadedValues?.(values);
-					// applyLoadedValues above clamps sliders to their bounds; stability
-					// is checked against the RAW loaded params so out-of-range saves
-					// still surface UNSTABLE_PARAMETERS_DETECTED on non-reactive pages.
+					// untrack: applyLoadedValues/normalizeLoadedValues read and
+					// mutate `values` ($state). Without untrack, reads inside
+					// normalizeLoadedValues (e.g. values.rMin/rMax for Lyapunov)
+					// become dependencies of THIS loader effect when the
+					// ?config= path fires onParametersLoaded synchronously
+					// during the initial page.subscribe. Moving a range slider
+					// would then rerun the effect, recreate useConfigLoader with
+					// lastAppliedConfigKey reset, and reload the same URL config
+					// — snapping the slider back. untrack prevents those reads
+					// from retriggering the loader while still allowing the
+					// writes to propagate to the renderer and reactiveStability.
+					untrack(() => {
+						applyLoadedValues(paramDefs, values, params as unknown as Record<string, unknown>);
+						// Fix paired min/max inversions (e.g. rMin > rMax) AFTER
+						// applying loaded values so sliders, save/share/compare
+						// state, and the renderer all see a valid range. Stability
+						// below uses the RAW loaded params; with reactiveStability
+						// enabled the same-tick $effect recomputes on the
+						// normalized slider values and clears an inverted-range
+						// warning (matching pre-shell Lyapunov).
+						normalizeLoadedValues?.(values);
+					});
+					// applyLoadedValues above preserves loaded values as-is (no
+					// slider-range clamping); stability is checked against the
+					// RAW loaded params so out-of-range saves still surface
+					// UNSTABLE_PARAMETERS_DETECTED on non-reactive pages.
 					return params;
 				},
 				onCheckStability: (params) => checkParameterStability(mapType, params)

@@ -31,7 +31,18 @@ export function applyLoadedValues(
 	for (const d of defs) {
 		const v = loaded[d.key];
 		if (typeof v === 'number' && Number.isFinite(v)) {
-			values[d.key] = clampToDef(d, v);
+			// Preserve the loaded value as-is — do NOT clamp to the slider's
+			// [min, max] range. A saved/shared/direct config may contain values
+			// that are valid per validateParameters (within the map's stable
+			// range) but outside the UI slider range (e.g. Newton xMin=-2 with
+			// slider [-1,0], or Standard k=8 with slider [0,5]). Clamping here
+			// would silently change the value before the renderer and
+			// getParameters() see it, causing re-saves to persist a different
+			// config without any warning (stability is checked against the raw
+			// loaded params, which are in the stable range). The slider input
+			// is browser-clamped for display, but the state preserves the real
+			// value so rendering and re-saving are faithful to the source.
+			values[d.key] = v;
 		}
 	}
 }
