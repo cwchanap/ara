@@ -81,6 +81,17 @@
 		 * params). A no-op when absent.
 		 */
 		onExtraParametersLoaded?: (params: ChaosMapParameters) => void;
+		/**
+		 * Registration hook for pages whose sliders are page-owned (rendered in
+		 * `extraControls`, not the schema) and therefore not watched by the
+		 * shell's `reactiveStability` effect. The shell calls this once on mount
+		 * with a `report` function; the page captures it and calls
+		 * `report(warnings)` (or `report(null)` to clear) from its own reactive
+		 * effect to drive the shell's unified stability alert. Covers both
+		 * slider edits and post-load re-checks (a loaded config mutates the
+		 * page state, re-running the page's effect). A no-op when absent.
+		 */
+		stabilityReporter?: (report: (warnings: string[] | null) => void) => void;
 	}
 
 	let {
@@ -100,7 +111,8 @@
 		afterDescription,
 		normalizeLoadedValues,
 		reactiveStability = false,
-		onExtraParametersLoaded
+		onExtraParametersLoaded,
+		stabilityReporter
 	}: Props = $props();
 
 	const values = $state(paramDefaults(paramDefs));
@@ -197,6 +209,23 @@
 			configState.warnings = [];
 			configState.showWarning = false;
 		}
+	});
+
+	// Register a page-supplied stability reporter (for pages with page-owned
+	// sliders in extraControls). Runs once; the page calls the handed-back
+	// `report` from its own reactive effect to push warnings into the unified
+	// alert — keeping stability display in one place rather than a second alert.
+	$effect(() => {
+		if (!stabilityReporter) return;
+		stabilityReporter((warnings) => {
+			if (warnings && warnings.length > 0) {
+				configState.warnings = warnings;
+				configState.showWarning = true;
+			} else {
+				configState.warnings = [];
+				configState.showWarning = false;
+			}
+		});
 	});
 
 	$effect(() => () => {
