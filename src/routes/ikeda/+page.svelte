@@ -2,6 +2,7 @@
 	import VisualizationShell from '$lib/components/ui/VisualizationShell.svelte';
 	import IkedaRenderer from '$lib/components/visualizations/IkedaRenderer.svelte';
 	import { VIZ_CONTAINER_HEIGHT } from '$lib/constants';
+	import { checkParameterStability } from '$lib/chaos-validation';
 	import type {
 		IkedaParameters,
 		IkedaColorMode,
@@ -60,6 +61,26 @@
 		colorMode = s.colorMode;
 		pointSize = s.pointSize;
 		opacity = s.opacity;
+		runStabilityCheck();
+	}
+
+	// Preset stability check reported into the shell's unified alert via
+	// stabilityReporter (matches the pre-shell behavior of warning when a
+	// preset is unstable). Only run on preset application.
+	let reportStability: ((warnings: string[] | null) => void) | null = null;
+	function stabilityReporter(report: (warnings: string[] | null) => void) {
+		reportStability = report;
+	}
+	function runStabilityCheck() {
+		const result = checkParameterStability('ikeda', {
+			type: 'ikeda',
+			u,
+			x0,
+			y0,
+			iterations,
+			burnIn
+		});
+		reportStability?.(result.isStable ? null : result.warnings);
 	}
 
 	function buildParameters(): IkedaParameters {
@@ -102,6 +123,7 @@
 	paramColumns={1}
 	{buildParameters}
 	{onExtraParametersLoaded}
+	{stabilityReporter}
 	formula={[
 		't(n) = 0.4 − 6 / (1 + x² + y²)',
 		'x(n+1) = 1 + u·(x·cos t − y·sin t)',

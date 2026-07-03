@@ -2,6 +2,7 @@
 	import VisualizationShell from '$lib/components/ui/VisualizationShell.svelte';
 	import CliffordRenderer from '$lib/components/visualizations/CliffordRenderer.svelte';
 	import { VIZ_CONTAINER_HEIGHT } from '$lib/constants';
+	import { checkParameterStability } from '$lib/chaos-validation';
 	import type { CliffordParameters, CliffordColorMode, ChaosMapParameters } from '$lib/types';
 	import {
 		CLIFFORD_PRESETS,
@@ -54,6 +55,7 @@
 		zoom = s.zoom;
 		pointSize = s.pointSize;
 		opacity = s.opacity;
+		runStabilityCheck();
 	}
 
 	function resetToDefault() {
@@ -66,6 +68,26 @@
 		b = rand();
 		c = rand();
 		d = rand();
+		runStabilityCheck();
+	}
+
+	// Preset/randomize stability check reported into the shell's unified alert
+	// via stabilityReporter (matches the pre-shell behavior of warning when a
+	// preset or randomized state is unstable). Only run on those actions.
+	let reportStability: ((warnings: string[] | null) => void) | null = null;
+	function stabilityReporter(report: (warnings: string[] | null) => void) {
+		reportStability = report;
+	}
+	function runStabilityCheck() {
+		const result = checkParameterStability('clifford', {
+			type: 'clifford',
+			a,
+			b,
+			c,
+			d,
+			iterations
+		});
+		reportStability?.(result.isStable ? null : result.warnings);
 	}
 
 	function buildParameters(): CliffordParameters {
@@ -96,6 +118,7 @@
 	paramColumns={1}
 	{buildParameters}
 	{onExtraParametersLoaded}
+	{stabilityReporter}
 	formula={['x(n+1) = sin(a·y) + c·cos(a·x)', 'y(n+1) = sin(b·x) + d·cos(b·y)']}
 	formulaColumns={2}
 	description={{
