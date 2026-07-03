@@ -320,6 +320,38 @@ describe('VisualizationShell', () => {
 		});
 	});
 
+	it('an inverted saved Lyapunov config shows no warning with reactiveStability (pre-shell behavior)', async () => {
+		// Pre-shell Lyapunov ran checkParameterStability on the NORMALIZED
+		// params (post rMin/rMax swap), so an inverted saved config rendered
+		// correctly with NO warning. The shell reproduces this: the loader
+		// briefly flags the raw inverted range, normalizeLoadedValues swaps it,
+		// and the reactiveStability $effect recomputes on the now-valid slider
+		// values and clears the warning on the same tick. Pinning the net
+		// result so a future change to reactiveStability or the load order
+		// can't silently regress to a stuck warning.
+		parseConfigParamMock.mockReturnValueOnce({
+			ok: true,
+			parameters: {
+				type: 'lyapunov',
+				rMin: 4,
+				rMax: 2,
+				iterations: 1000,
+				transientIterations: 500
+			}
+		});
+		setMockPageUrl('http://localhost/lyapunov?config=inverted');
+		const { container } = renderShellWithPairs({ reactiveStability: true });
+
+		await waitFor(() => {
+			// Sliders are swapped to a valid range...
+			const rMinInput = container.querySelector('input[id="r-min"]') as HTMLInputElement;
+			const rMaxInput = container.querySelector('input[id="r-max"]') as HTMLInputElement;
+			expect(Number(rMinInput.value)).toBeLessThanOrEqual(Number(rMaxInput.value));
+			// ...and no stability warning sticks (matches pre-shell).
+			expect(screen.queryByText('UNSTABLE_PARAMETERS_DETECTED')).toBeNull();
+		});
+	});
+
 	it('does not run reactive stability checks when reactiveStability is omitted', async () => {
 		setMockPageUrl('http://localhost/lyapunov');
 		const { container } = renderShellWithPairs();

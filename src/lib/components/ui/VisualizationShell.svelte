@@ -47,9 +47,16 @@
 		 * to its bounds. Use this to fix paired min/max fields whose loaded
 		 * order is inverted (e.g. swap rMin/rMax when rMin > rMax) so sliders,
 		 * save/share/compare state, and the renderer all see a valid range.
-		 * Mutates `values` in place. Stability is still checked against the RAW
-		 * loaded params (pre-normalize), so an inverted saved config still
-		 * surfaces a warning.
+		 * Mutates `values` in place.
+		 *
+		 * Note on stability: `onCheckStability` runs against the RAW loaded
+		 * params (pre-normalize), so an inverted saved config is initially
+		 * flagged. However, when `reactiveStability` is enabled the
+		 * same-tick $effect recomputes stability against the normalized
+		 * slider values and clears that warning — matching the pre-shell
+		 * Lyapunov behavior where an inverted saved config rendered with no
+		 * stuck warning. Without `reactiveStability`, the raw-param warning
+		 * sticks (used by non-reactive pages to surface out-of-range saves).
 		 */
 		normalizeLoadedValues?: (values: Record<string, number>) => void;
 		/**
@@ -125,12 +132,14 @@
 					applyLoadedValues(paramDefs, values, params as unknown as Record<string, unknown>);
 					// Fix paired min/max inversions (e.g. rMin > rMax) AFTER clamping
 					// so sliders, save/share/compare state, and the renderer all see a
-					// valid range. Stability below still uses the RAW loaded params.
+					// valid range. Stability below uses the RAW loaded params; with
+					// reactiveStability enabled the same-tick $effect recomputes on
+					// the normalized slider values and clears an inverted-range
+					// warning (matching pre-shell Lyapunov).
 					normalizeLoadedValues?.(values);
-					// Stability is checked against the RAW loaded params (pre-clamp), not the
-					// clamped slider values, so an out-of-range saved config still surfaces
-					// UNSTABLE_PARAMETERS_DETECTED — matching the pre-shell per-page behavior.
-					// applyLoadedValues above still clamps the sliders to their bounds.
+					// applyLoadedValues above clamps sliders to their bounds; stability
+					// is checked against the RAW loaded params so out-of-range saves
+					// still surface UNSTABLE_PARAMETERS_DETECTED on non-reactive pages.
 					return params;
 				},
 				onCheckStability: (params) => checkParameterStability(mapType, params)
