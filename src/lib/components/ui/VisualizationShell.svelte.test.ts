@@ -252,6 +252,66 @@ describe('VisualizationShell', () => {
 		});
 	});
 
+	// --- onExtraParametersLoaded: non-slider state restore ---
+
+	it('fires onExtraParametersLoaded with the raw loaded params after the slider value is set', async () => {
+		const onExtra = vi.fn();
+		parseConfigParamMock.mockReturnValueOnce({
+			ok: true,
+			parameters: { type: 'henon', a: 0.9, b: 0.3, iterations: 2000 }
+		});
+		setMockPageUrl('http://localhost/henon?config=extra');
+		const { container } = render(VisualizationShell, {
+			props: {
+				mapType: 'henon',
+				title: 'HÉNON_MAP',
+				moduleNumber: '02',
+				paramDefs: defs,
+				buildParameters: (v: Record<string, number>) => ({
+					type: 'henon',
+					a: v.a,
+					b: 0.3,
+					iterations: 2000
+				}),
+				formula: ['x(n+1) = …'],
+				description: { heading: 'DATA_LOG: HÉNON_MAP', body: 'desc' },
+				isAuthenticated: true,
+				renderer,
+				onExtraParametersLoaded: onExtra,
+				...authedPageProps
+			} as never
+		});
+
+		await waitFor(() => {
+			expect(onExtra).toHaveBeenCalledTimes(1);
+		});
+		// Receives the RAW loader result (pre any clamping / normalization).
+		expect(onExtra).toHaveBeenCalledWith({
+			type: 'henon',
+			a: 0.9,
+			b: 0.3,
+			iterations: 2000
+		});
+		// The slider-bound value is set into the shell state from the load.
+		const input = container.querySelector('input[id="a"]') as HTMLInputElement;
+		expect(input.value).toBe('0.9');
+	});
+
+	it('does not throw when onExtraParametersLoaded is absent', async () => {
+		parseConfigParamMock.mockReturnValueOnce({
+			ok: true,
+			parameters: { type: 'henon', a: 1, b: 0.3, iterations: 2000 }
+		});
+		setMockPageUrl('http://localhost/henon?config=no-hook');
+		const { container } = renderShell();
+		// The load path runs through the optional-hook call site without error;
+		// confirm the slider value was applied (a=1 within range).
+		await waitFor(() => {
+			expect(screen.getByText('1.000')).toBeInTheDocument();
+			expect((container.querySelector('input[id="a"]') as HTMLInputElement).value).toBe('1');
+		});
+	});
+
 	it('renders a comparison link whose href reflects the current slider values', async () => {
 		const { container } = renderShell();
 		const link = screen.getByRole('link', { name: '⊞ Compare' }) as HTMLAnchorElement;
