@@ -69,11 +69,18 @@
 		 * other pages only check stability at config-load time.
 		 */
 		reactiveStability?: boolean;
-		// NOTE: An `onExtraParametersLoaded` hook (for pages with non-slider
-		// state like selects/checkboxes/presets) is intentionally deferred to
-		// the milestone-4 epic — see
-		// docs/superpowers/plans/2026-07-01-chaos-module-milestone-4.md.
-		// The 10 already-migrated slider-only pages do not need it.
+		/**
+		 * Receives the raw loader result (`ChaosMapParameters`) so the page can
+		 * restore non-slider state (selects, checkboxes, presets, sub-controls).
+		 * Called once per successful config load, after `applyLoadedValues` has
+		 * set the slider-bound values into the shell's `values` state. The
+		 * callback receives the raw params — slider values are preserved during
+		 * load (no clamping), and `onExtraParametersLoaded` gets the original
+		 * loader result so pages can restore non-slider state without hiding
+		 * out-of-range warnings (the stability check also runs on the raw
+		 * params). A no-op when absent.
+		 */
+		onExtraParametersLoaded?: (params: ChaosMapParameters) => void;
 	}
 
 	let {
@@ -92,7 +99,8 @@
 		extraControls,
 		afterDescription,
 		normalizeLoadedValues,
-		reactiveStability = false
+		reactiveStability = false,
+		onExtraParametersLoaded
 	}: Props = $props();
 
 	const values = $state(paramDefaults(paramDefs));
@@ -151,6 +159,13 @@
 						// normalized slider values and clears an inverted-range
 						// warning (matching pre-shell Lyapunov).
 						normalizeLoadedValues?.(values);
+						// Restore non-slider state (selects, checkboxes, presets) from
+						// the raw loaded params. Runs under untrack because the page
+						// callback reads/writes $state — without it, reads inside the
+						// callback could become dependencies of this loader effect and
+						// retrigger a config reload (the same snap-back bug fixed for
+						// normalizeLoadedValues).
+						onExtraParametersLoaded?.(params);
 					});
 					// applyLoadedValues above preserves loaded values as-is (no
 					// slider-range clamping); stability is checked against the
