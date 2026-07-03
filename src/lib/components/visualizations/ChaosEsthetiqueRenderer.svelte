@@ -6,7 +6,8 @@
 	import * as d3 from 'd3';
 	import { checkParameterStability } from '$lib/chaos-validation';
 	import { calculateChaos } from '$lib/chaos-esthetique';
-	import { COLOR_PRIMARY, COLOR_MAGENTA, COLOR_VIOLET } from '$lib/constants';
+	import { drawSciFiAxes } from '$lib/viz/d3-chaos';
+	import { COLOR_MAGENTA, COLOR_VIOLET } from '$lib/constants';
 
 	interface Props {
 		a?: number;
@@ -57,6 +58,10 @@
 		const width = container.clientWidth - margin.left - margin.right;
 		const chartHeight = height - margin.top - margin.bottom;
 
+		// Guard against empty points array — bail before appending canvas/svg
+		// so we don't append then immediately tear down (the prior double-clear).
+		if (points.length === 0) return;
+
 		const canvasSelection = d3
 			.select(container)
 			.append('canvas')
@@ -74,12 +79,6 @@
 			.append('g')
 			.attr('transform', `translate(${margin.left},${margin.top})`);
 
-		// Guard against empty points array
-		if (points.length === 0) {
-			d3.select(container).selectAll('*').remove();
-			return;
-		}
-
 		const xExtentRaw = d3.extent(points, (d) => d[0]);
 		const yExtentRaw = d3.extent(points, (d) => d[1]);
 		const xExtent: [number, number] = [xExtentRaw[0] ?? -1, xExtentRaw[1] ?? 1];
@@ -94,27 +93,7 @@
 			.domain([yExtent[0] - 1, yExtent[1] + 1])
 			.range([chartHeight, 0]);
 
-		const xAxis = d3.axisBottom(xScale).tickSize(-chartHeight).tickPadding(10);
-		const yAxis = d3.axisLeft(yScale).tickSize(-width).tickPadding(10);
-
-		svg
-			.append('g')
-			.attr('transform', `translate(0,${chartHeight})`)
-			.call(xAxis)
-			.call((g) => {
-				g.select('.domain').remove();
-				g.selectAll('line').attr('stroke', COLOR_PRIMARY).attr('stroke-opacity', 0.1);
-				g.selectAll('text').attr('fill', COLOR_PRIMARY).attr('font-family', 'Rajdhani');
-			});
-
-		svg
-			.append('g')
-			.call(yAxis)
-			.call((g) => {
-				g.select('.domain').remove();
-				g.selectAll('line').attr('stroke', COLOR_PRIMARY).attr('stroke-opacity', 0.1);
-				g.selectAll('text').attr('fill', COLOR_PRIMARY).attr('font-family', 'Rajdhani');
-			});
+		drawSciFiAxes(svg, xScale, yScale, { width, height: chartHeight });
 
 		const canvas = canvasSelection.node() as HTMLCanvasElement | null;
 		const ctx = canvas?.getContext('2d');

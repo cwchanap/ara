@@ -23,10 +23,10 @@
 		containerElement = $bindable()
 	}: Props = $props();
 
-	let container: HTMLDivElement;
+	let container = $state<HTMLDivElement | undefined>(undefined);
 
-	// Sync internal container ref to bindable prop after mount
-	onMount(() => {
+	// Sync internal container ref to bindable prop
+	$effect(() => {
 		containerElement = container;
 	});
 	let resizeObserver: ResizeObserver | null = null;
@@ -147,7 +147,7 @@
 	style="height: {height}px;"
 >
 	<div
-		class="absolute top-4 right-4 text-xs font-['Orbitron'] text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
+		class="absolute top-4 right-4 text-xs font-['Rajdhani'] text-primary/40 border border-primary/20 px-2 py-1 pointer-events-none select-none"
 	>
 		LIVE_RENDER // D3_JS
 	</div>
