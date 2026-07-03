@@ -409,10 +409,11 @@ describe('gumowski-mira page – config loading', () => {
 		setPageUrl('http://localhost/gumowski-mira?config=crash-data');
 		render(GumowskiMiraPage, { props: unauthedPageProps });
 
+		// Standardized via useConfigLoader: a throw from parseConfigParam is
+		// caught and surfaced as the INVALID_CONFIGURATION alert heading. Matches
+		// the rossler/lozi/standard/clifford/ikeda migrated-page precedent.
 		await waitFor(() => {
-			expect(
-				screen.getByText('Failed to parse configuration parameters')
-			).toBeInTheDocument();
+			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
 		});
 	});
 
