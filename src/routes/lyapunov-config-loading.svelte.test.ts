@@ -360,4 +360,25 @@ describe('lyapunov page – config loading', () => {
 		await fireEvent.click(dismissBtn);
 		expect(screen.queryByText('UNSTABLE_PARAMETERS_DETECTED')).not.toBeInTheDocument();
 	});
+
+	it('swaps inverted rMin/rMax so the exponent map renders over a valid range', async () => {
+		// Saved/shared config may store rMin > rMax; normalizeLoadedValues
+		// swaps them after clamping so the renderer doesn't iterate over a
+		// reversed range.
+		loadSavedConfigParametersMock.mockResolvedValueOnce({
+			ok: true,
+			parameters: { ...baseParams, rMin: 3.8, rMax: 2.6 },
+			source: 'api'
+		});
+
+		setPageUrl('http://localhost/lyapunov?configId=inverted-range-id');
+		render(LyapunovPage, { props: unauthedPageProps });
+
+		await waitFor(() => {
+			const rMinSlider = document.getElementById('r-min') as HTMLInputElement;
+			const rMaxSlider = document.getElementById('r-max') as HTMLInputElement;
+			expect(rMinSlider.value).toBe('2.6');
+			expect(rMaxSlider.value).toBe('3.8');
+		});
+	});
 });
