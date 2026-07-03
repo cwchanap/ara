@@ -92,6 +92,13 @@
 		 * page state, re-running the page's effect). A no-op when absent.
 		 */
 		stabilityReporter?: (report: (warnings: string[] | null) => void) => void;
+		/**
+		 * Optional numerical-divergence flag forwarded to VisualizationAlerts
+		 * (e.g. Lorenz): when true, the alert shows a divergence warning that the
+		 * user can dismiss via {@link onDismissDiverged}. No-op when absent.
+		 */
+		diverged?: boolean;
+		onDismissDiverged?: () => void;
 	}
 
 	let {
@@ -112,7 +119,9 @@
 		normalizeLoadedValues,
 		reactiveStability = false,
 		onExtraParametersLoaded,
-		stabilityReporter
+		stabilityReporter,
+		diverged,
+		onDismissDiverged
 	}: Props = $props();
 
 	const values = $state(paramDefaults(paramDefs));
@@ -269,6 +278,8 @@
 		onDismissStabilityWarning={() => (configState.showWarning = false)}
 		onDismissSaveError={() => (saveState.saveError = null)}
 		onDismissSaveSuccess={() => (saveState.saveSuccess = false)}
+		{diverged}
+		onDismissDiverged={onDismissDiverged ?? undefined}
 	/>
 
 	<ParameterPanel {paramColumns} {formula} equationColumns={formulaColumns}>
