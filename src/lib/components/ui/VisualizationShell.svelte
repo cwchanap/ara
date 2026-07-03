@@ -34,7 +34,7 @@
 		moduleNumber?: string;
 		paramDefs: ParamDef[];
 		buildParameters: (values: Record<string, number>) => ChaosMapParameters;
-		formula: string[];
+		formula?: string[];
 		formulaColumns?: 1 | 2 | 3 | 4 | 5;
 		paramColumns?: 1 | 2 | 3 | 4 | 5;
 		description: { heading: string; body: string };
@@ -271,7 +271,7 @@
 		onDismissSaveSuccess={() => (saveState.saveSuccess = false)}
 	/>
 
-	<ParameterPanel {paramColumns} equationColumns={formulaColumns}>
+	<ParameterPanel {paramColumns} {formula} equationColumns={formulaColumns}>
 		{#each paramDefs as def (def.key)}
 			<ParameterSlider
 				id={def.id ?? def.key}
@@ -285,9 +285,6 @@
 			/>
 		{/each}
 		{#if extraControls}{@render extraControls()}{/if}
-		{#snippet equations()}
-			{#each formula as line, i (i)}<p>{line}</p>{/each}
-		{/snippet}
 	</ParameterPanel>
 
 	<VisualizationErrorBoundary {mapType}>

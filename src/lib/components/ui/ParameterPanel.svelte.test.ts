@@ -29,21 +29,22 @@ describe('ParameterPanel', () => {
 		expect(screen.getByTestId('param-child')).toBeInTheDocument();
 	});
 
-	it('renders equations snippet when provided', () => {
-		const equationsSnippet = createRawSnippet(() => ({
-			render: () => '<div data-testid="equations">x = f(y)</div>'
-		}));
-
+	it('renders formula lines when provided', () => {
 		render(ParameterPanel, {
-			props: { children: childSnippet, equations: equationsSnippet }
+			props: { children: childSnippet, formula: ['x = f(y)', 'y = g(x)'] }
 		});
-
-		expect(screen.getByTestId('equations')).toBeInTheDocument();
+		expect(screen.getByText('x = f(y)')).toBeInTheDocument();
+		expect(screen.getByText('y = g(x)')).toBeInTheDocument();
 	});
 
-	it('does not render equations section when not provided', () => {
+	it('does not render the equations section when formula is omitted', () => {
 		render(ParameterPanel, { props: { children: childSnippet } });
-		expect(screen.queryByTestId('equations')).not.toBeInTheDocument();
+		expect(screen.queryByText('x = f(y)')).not.toBeInTheDocument();
+	});
+
+	it('does not render the equations section when formula is empty', () => {
+		render(ParameterPanel, { props: { children: childSnippet, formula: [] } });
+		expect(screen.queryByText('x = f(y)')).not.toBeInTheDocument();
 	});
 
 	it('renders corner decorations for sci-fi aesthetic', () => {
@@ -59,9 +60,7 @@ describe('ParameterPanel columns', () => {
 	const childSnippet = createRawSnippet(() => ({
 		render: () => '<div data-testid="kids">x</div>'
 	}));
-	const eqsSnippet = createRawSnippet(() => ({
-		render: () => '<p>eq</p>'
-	}));
+	const formula = ['eq-1', 'eq-2'];
 
 	afterEach(() => {
 		cleanup();
@@ -69,14 +68,14 @@ describe('ParameterPanel columns', () => {
 
 	it('applies equationColumns to the equations grid', () => {
 		const { container } = render(ParameterPanel, {
-			props: { children: childSnippet, equations: eqsSnippet, equationColumns: 2 }
+			props: { children: childSnippet, formula, equationColumns: 2 }
 		});
 		expect(container.querySelector('.md\\:grid-cols-2')).toBeTruthy();
 	});
 
 	it('defaults to md:grid-cols-3 for both grids when columns not specified', () => {
 		const { container } = render(ParameterPanel, {
-			props: { children: childSnippet, equations: eqsSnippet }
+			props: { children: childSnippet, formula }
 		});
 		const grids = container.querySelectorAll('.md\\:grid-cols-3');
 		expect(grids.length).toBeGreaterThanOrEqual(2);
@@ -112,21 +111,21 @@ describe('ParameterPanel columns', () => {
 
 	it('applies equationColumns=1 to the equations grid', () => {
 		const { container } = render(ParameterPanel, {
-			props: { children: childSnippet, equations: eqsSnippet, equationColumns: 1 }
+			props: { children: childSnippet, formula, equationColumns: 1 }
 		});
 		expect(container.querySelector('.md\\:grid-cols-1')).toBeTruthy();
 	});
 
 	it('applies equationColumns=4 to the equations grid', () => {
 		const { container } = render(ParameterPanel, {
-			props: { children: childSnippet, equations: eqsSnippet, equationColumns: 4 }
+			props: { children: childSnippet, formula, equationColumns: 4 }
 		});
 		expect(container.querySelector('.md\\:grid-cols-4')).toBeTruthy();
 	});
 
 	it('applies equationColumns=5 to the equations grid', () => {
 		const { container } = render(ParameterPanel, {
-			props: { children: childSnippet, equations: eqsSnippet, equationColumns: 5 }
+			props: { children: childSnippet, formula, equationColumns: 5 }
 		});
 		expect(container.querySelector('.md\\:grid-cols-5')).toBeTruthy();
 	});

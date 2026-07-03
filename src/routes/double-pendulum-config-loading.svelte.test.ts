@@ -346,10 +346,11 @@ describe('double-pendulum page – config loading', () => {
 		setPageUrl('http://localhost/double-pendulum?config=crash-data');
 		render(DoublePendulumPage, { props: unauthedPageProps });
 
+		// Standardized via useConfigLoader: a throw from parseConfigParam is
+		// caught and surfaced as the INVALID_CONFIGURATION alert heading. Matches
+		// the migrated-page precedent.
 		await waitFor(() => {
-			expect(
-				screen.getByText('Failed to parse configuration parameters')
-			).toBeInTheDocument();
+			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
 		});
 	});
 
