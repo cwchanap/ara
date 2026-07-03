@@ -2,6 +2,7 @@
 	import VisualizationShell from '$lib/components/ui/VisualizationShell.svelte';
 	import GumowskiMiraRenderer from '$lib/components/visualizations/GumowskiMiraRenderer.svelte';
 	import { VIZ_CONTAINER_HEIGHT } from '$lib/constants';
+	import { checkParameterStability } from '$lib/chaos-validation';
 	import type {
 		GumowskiMiraParameters,
 		GumowskiMiraColorMode,
@@ -79,6 +80,7 @@
 		colorMode = s.colorMode;
 		pointSize = s.pointSize;
 		opacity = s.opacity;
+		runStabilityCheck();
 	}
 
 	function reset() {
@@ -91,6 +93,29 @@
 		b = Math.random() * 0.5;
 		x0 = Math.random() * 2 - 1;
 		y0 = Math.random() * 2 - 1;
+		runStabilityCheck();
+	}
+
+	// Preset/randomize stability check reported into the shell's unified alert
+	// via stabilityReporter (matches the pre-shell behavior of warning when a
+	// preset or randomized state is unstable). Only run on those actions, not
+	// on every slider edit.
+	let reportStability: ((warnings: string[] | null) => void) | null = null;
+	function stabilityReporter(report: (warnings: string[] | null) => void) {
+		reportStability = report;
+	}
+	function runStabilityCheck() {
+		const result = checkParameterStability('gumowski-mira', {
+			type: 'gumowski-mira',
+			mu,
+			a,
+			b,
+			x0,
+			y0,
+			iterations,
+			burnIn
+		});
+		reportStability?.(result.isStable ? null : result.warnings);
 	}
 
 	function buildParameters(): GumowskiMiraParameters {
@@ -137,6 +162,7 @@
 	paramColumns={1}
 	{buildParameters}
 	{onExtraParametersLoaded}
+	{stabilityReporter}
 	formula={[
 		'g(x) = μ·x + 2(1−μ)·x² / (1 + x²)',
 		'x(n+1) = y + a·(1 − b·y²)·y + g(x)',
