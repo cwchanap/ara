@@ -10,7 +10,9 @@
 	interface Props {
 		title?: string;
 		children: Snippet;
-		equations?: Snippet;
+		/** Optional formula lines rendered in a mono grid below the controls.
+		 *  Omit (or pass an empty array) to skip the equations box entirely. */
+		formula?: string[];
 		paramColumns?: 1 | 2 | 3 | 4 | 5;
 		equationColumns?: 1 | 2 | 3 | 4 | 5;
 	}
@@ -18,7 +20,7 @@
 	let {
 		title = 'SYSTEM_PARAMETERS',
 		children,
-		equations,
+		formula,
 		paramColumns = 3,
 		equationColumns = 3
 	}: Props = $props();
@@ -50,13 +52,15 @@
 		{@render children()}
 	</div>
 
-	{#if equations}
+	{#if formula && formula.length > 0}
 		<div
 			class="grid grid-cols-1 {COLS[
 				equationColumns
 			]} gap-4 text-xs text-muted-foreground font-mono bg-black/20 p-4 rounded border border-white/5"
 		>
-			{@render equations()}
+			{#each formula as line (line)}
+				<p>{line}</p>
+			{/each}
 		</div>
 	{/if}
 </div>
