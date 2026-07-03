@@ -400,10 +400,12 @@ describe('clifford page – config loading', () => {
 		setPageUrl('http://localhost/clifford?config=crash-data');
 		render(CliffordPage, { props: unauthedPageProps });
 
+		// Standardized via useConfigLoader: a throw from parseConfigParam is
+		// caught and surfaced as the INVALID_CONFIGURATION alert heading (the
+		// hook stores 'Configuration error: …' as the message text). Matches the
+		// rossler/lozi/standard migrated-page precedent.
 		await waitFor(() => {
-			expect(
-				screen.getByText('Failed to parse configuration parameters')
-			).toBeInTheDocument();
+			expect(screen.getByText('INVALID_CONFIGURATION')).toBeInTheDocument();
 		});
 	});
 
