@@ -312,6 +312,51 @@ describe('VisualizationShell', () => {
 		});
 	});
 
+	// --- stabilityReporter: page-owned-slider reactive stability ---
+
+	it('stabilityReporter surfaces warnings to the unified alert and clears them', async () => {
+		let report: ((warnings: string[] | null) => void) | null = null;
+		render(VisualizationShell, {
+			props: {
+				mapType: 'henon',
+				title: 'HÉNON_MAP',
+				moduleNumber: '02',
+				paramDefs: defs,
+				buildParameters: (v: Record<string, number>) => ({
+					type: 'henon',
+					a: v.a,
+					b: 0.3,
+					iterations: 2000
+				}),
+				formula: ['x(n+1) = …'],
+				description: { heading: 'DATA_LOG: HÉNON_MAP', body: 'desc' },
+				isAuthenticated: true,
+				renderer,
+				stabilityReporter: (r: (warnings: string[] | null) => void) => {
+					report = r;
+				},
+				...authedPageProps
+			} as never
+		});
+
+		// Wait for the shell's registration effect to hand back the reporter.
+		await waitFor(() => {
+			expect(report).not.toBeNull();
+		});
+
+		// A page with page-owned sliders pushes a reactive warning.
+		report!(['param out of range']);
+		await waitFor(() => {
+			expect(screen.getByText('UNSTABLE_PARAMETERS_DETECTED')).toBeInTheDocument();
+		});
+
+		// And clears it once the sliders are back in a stable range.
+		report!(null);
+		await waitFor(() => {
+			expect(screen.queryByText('UNSTABLE_PARAMETERS_DETECTED')).toBeNull();
+		});
+	});
+
 	it('renders a comparison link whose href reflects the current slider values', async () => {
 		const { container } = renderShell();
 		const link = screen.getByRole('link', { name: '⊞ Compare' }) as HTMLAnchorElement;
