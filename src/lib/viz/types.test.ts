@@ -21,9 +21,13 @@ describe('clampToDef', () => {
 });
 
 describe('applyLoadedValues', () => {
-	it('applies and clamps finite loaded numbers, ignores others', () => {
+	it('applies finite loaded numbers without clamping, ignores others', () => {
 		const values = paramDefaults(defs);
 		applyLoadedValues(defs, values, { a: 99, iterations: 'x', missing: 1 });
-		expect(values).toEqual({ a: 1.5, iterations: 2000 });
+		// Values are preserved as-is — clamping to slider bounds is intentionally
+		// NOT performed so valid configs outside the slider range (but within the
+		// map's stable range) are not silently changed before the renderer or
+		// getParameters() see them.
+		expect(values).toEqual({ a: 99, iterations: 2000 });
 	});
 });

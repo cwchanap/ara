@@ -227,7 +227,7 @@ describe('VisualizationShell', () => {
 		});
 	});
 
-	it('clamps the slider to its bounds when an inline config loads an out-of-range value', async () => {
+	it('preserves an out-of-range loaded value instead of clamping it to the slider bounds', async () => {
 		parseConfigParamMock.mockReturnValueOnce({
 			ok: true,
 			parameters: {
@@ -243,9 +243,12 @@ describe('VisualizationShell', () => {
 
 		await waitFor(() => {
 			const input = container.querySelector('input[id="a"]') as HTMLInputElement;
-			// Slider max is 1.5 — the raw value 99 must be clamped to 1.500
+			// The browser clamps the range input's DOM value to its max (1.5),
+			// but the state preserves the real loaded value (99) so the renderer
+			// and getParameters()/re-save see the original config — not a
+			// silently clamped one. The display text reflects the real value.
 			expect(input.value).toBe('1.5');
-			expect(screen.getByText('1.500')).toBeInTheDocument();
+			expect(screen.getByText('99.000')).toBeInTheDocument();
 		});
 	});
 
@@ -295,6 +298,44 @@ describe('VisualizationShell', () => {
 			expect(rMinInput.value).toBe('2');
 			expect(rMaxInput.value).toBe('4');
 		});
+	});
+
+	// --- untrack: slider movement after ?config= load must not reload ---
+
+	it('does not snap the slider back when moving it after a ?config= load (untrack)', async () => {
+		// normalizeLoadedValues reads values.rMin/rMax inside onParametersLoaded.
+		// The ?config= path calls onParametersLoaded synchronously during the
+		// loader $effect's initial page.subscribe. Without untrack, those reads
+		// become effect dependencies — moving a slider reruns the effect,
+		// recreates useConfigLoader (resetting lastAppliedConfigKey), and
+		// reloads the same URL config, snapping the slider back. untrack
+		// prevents the reads from retriggering the loader.
+		parseConfigParamMock.mockReturnValue({
+			ok: true,
+			parameters: {
+				type: 'lyapunov',
+				rMin: 1,
+				rMax: 3,
+				iterations: 1000,
+				transientIterations: 500
+			}
+		});
+		setMockPageUrl('http://localhost/lyapunov?config=valid-range');
+		const { container } = renderShellWithPairs();
+
+		const rMaxInput = container.querySelector('input[id="r-max"]') as HTMLInputElement;
+		await waitFor(() => {
+			expect(rMaxInput.value).toBe('3');
+		});
+
+		// Move rMax — if the loader effect retriggers, the config reloads and
+		// rMax snaps back to 3.
+		await fireEvent.input(rMaxInput, { target: { value: '3.5' } });
+		expect(rMaxInput.value).toBe('3.5');
+
+		// Move again to be sure the first change wasn't a transient race.
+		await fireEvent.input(rMaxInput, { target: { value: '3.8' } });
+		expect(rMaxInput.value).toBe('3.8');
 	});
 
 	// --- reactiveStability: on-change stability checks ---
