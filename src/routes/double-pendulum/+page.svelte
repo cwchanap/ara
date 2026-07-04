@@ -186,6 +186,8 @@
 	{buildParameters}
 	{onExtraParametersLoaded}
 	{stabilityReporter}
+	{diverged}
+	onDismissDiverged={() => (diverged = false)}
 	description={{
 		heading: 'WHY_IS_IT_CHAOTIC?',
 		body: 'A double pendulum is two pendulums joined end to end. Its motion is governed by simple, fully deterministic equations — yet it is famously unpredictable. The system is acutely sensitive to initial conditions: change a starting angle by a fraction of a degree and the two paths stay close for a moment, then diverge completely. Turn on comparison mode to watch a second, almost-identical pendulum peel away from the first.'
