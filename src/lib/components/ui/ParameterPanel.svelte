@@ -58,7 +58,7 @@
 				equationColumns
 			]} gap-4 text-xs text-muted-foreground font-mono bg-black/20 p-4 rounded border border-white/5"
 		>
-			{#each formula as line (line)}
+			{#each formula as line, i (i)}
 				<p>{line}</p>
 			{/each}
 		</div>

@@ -83,6 +83,18 @@
 		reportStability?.(result.isStable ? null : result.warnings);
 	}
 
+	// Reactive stability: page-owned sliders aren't watched by the shell's
+	// reactiveStability effect, so re-run the check whenever the inputs that
+	// affect stability change and report into the unified alert.
+	$effect(() => {
+		void u;
+		void x0;
+		void y0;
+		void iterations;
+		void burnIn;
+		runStabilityCheck();
+	});
+
 	function buildParameters(): IkedaParameters {
 		return {
 			type: 'ikeda',

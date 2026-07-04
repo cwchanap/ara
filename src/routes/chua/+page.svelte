@@ -116,6 +116,8 @@
 	paramColumns={1}
 	{buildParameters}
 	{onExtraParametersLoaded}
+	diverged={rendererDiverged}
+	onDismissDiverged={() => (rendererDiverged = false)}
 	formula={[
 		'dx/dt = α(y − x − f(x))',
 		'dy/dt = x − y + z',
