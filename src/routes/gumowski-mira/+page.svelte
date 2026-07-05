@@ -2,7 +2,7 @@
 	import VisualizationShell from '$lib/components/ui/VisualizationShell.svelte';
 	import GumowskiMiraRenderer from '$lib/components/visualizations/GumowskiMiraRenderer.svelte';
 	import { VIZ_CONTAINER_HEIGHT } from '$lib/constants';
-	import { checkParameterStability } from '$lib/chaos-validation';
+	import { createStabilityReporter } from '$lib/stability-reporter';
 	import type {
 		GumowskiMiraParameters,
 		GumowskiMiraColorMode,
@@ -80,7 +80,6 @@
 		colorMode = s.colorMode;
 		pointSize = s.pointSize;
 		opacity = s.opacity;
-		runStabilityCheck();
 	}
 
 	function reset() {
@@ -93,30 +92,28 @@
 		b = Math.random() * 0.5;
 		x0 = Math.random() * 2 - 1;
 		y0 = Math.random() * 2 - 1;
-		runStabilityCheck();
 	}
 
-	// Preset/randomize stability check reported into the shell's unified alert
-	// via stabilityReporter (matches the pre-shell behavior of warning when a
-	// preset or randomized state is unstable). Only run on those actions, not
-	// on every slider edit.
-	let reportStability: ((warnings: string[] | null) => void) | null = null;
-	function stabilityReporter(report: (warnings: string[] | null) => void) {
-		reportStability = report;
-	}
-	function runStabilityCheck() {
-		const result = checkParameterStability('gumowski-mira', {
-			type: 'gumowski-mira',
-			mu,
-			a,
-			b,
-			x0,
-			y0,
-			iterations,
-			burnIn
-		});
-		reportStability?.(result.isStable ? null : result.warnings);
-	}
+	// Reactive stability: page-owned sliders aren't watched by the shell's
+	// reactiveStability effect, so re-run the check (debounced) whenever the
+	// inputs that affect stability change and report into the unified alert.
+	// Also covers preset/randomize, which mutate the same $state.
+	const stability = createStabilityReporter({
+		mapType: 'gumowski-mira',
+		getParams: () => buildParameters(),
+		reactive: true
+	});
+	$effect(() => {
+		void mu;
+		void a;
+		void b;
+		void x0;
+		void y0;
+		void iterations;
+		void burnIn;
+		stability.triggerReactive();
+		return () => stability.cleanupReactive();
+	});
 
 	function buildParameters(): GumowskiMiraParameters {
 		return {
@@ -162,7 +159,7 @@
 	paramColumns={1}
 	{buildParameters}
 	{onExtraParametersLoaded}
-	{stabilityReporter}
+	stabilityReporter={stability.stabilityReporter}
 	formula={[
 		'g(x) = μ·x + 2(1−μ)·x² / (1 + x²)',
 		'x(n+1) = y + a·(1 − b·y²)·y + g(x)',
