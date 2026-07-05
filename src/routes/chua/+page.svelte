@@ -83,12 +83,7 @@
 		void dt;
 		void trailLength;
 		lyapUpdater.trigger();
-	});
-
-	$effect(() => {
-		return () => {
-			lyapUpdater.cleanup();
-		};
+		return () => lyapUpdater.cleanup();
 	});
 
 	// Only the five math parameters are persisted in ChuaParameters; the
