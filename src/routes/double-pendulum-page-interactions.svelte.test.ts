@@ -489,4 +489,22 @@ describe('Double pendulum page interactions', () => {
 		const stubDiv = screen.getByTestId('stub-trigger-diverged').parentElement;
 		expect(stubDiv?.getAttribute('data-restart-signal')).not.toBe('0');
 	});
+
+	it('raises and dismisses the renderer divergence alert', async () => {
+		setMockPageUrl('http://localhost/double-pendulum');
+		render(DoublePendulumPage, { props: authedPageProps });
+
+		// BindableAllStub flips its `diverged` bindable, propagating to the
+		// page's `diverged` state via bind:diverged.
+		await fireEvent.click(screen.getByTestId('stub-trigger-diverged'));
+
+		// The real VisualizationAlerts renders the divergence toast.
+		expect(screen.getByText(/numerical integration diverged/i)).toBeInTheDocument();
+
+		// Dismiss it -> onDismissDiverged resets diverged.
+		const dismissBtn = screen.getByRole('button', { name: /Dismiss divergence alert/i });
+		await fireEvent.click(dismissBtn);
+
+		expect(screen.queryByText(/numerical integration diverged/i)).not.toBeInTheDocument();
+	});
 });

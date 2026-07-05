@@ -7,6 +7,14 @@ import {
 } from '$lib/components/testing/page-test-helpers';
 import IkedaPage from './ikeda/+page.svelte';
 
+const checkParameterStabilityMock = vi.hoisted(() =>
+	vi.fn(() => ({ ok: true, warnings: [] as string[] }))
+);
+
+vi.mock('$lib/chaos-validation', () => ({
+	checkParameterStability: checkParameterStabilityMock
+}));
+
 vi.mock('$app/stores', async () => {
 	const { mockPageStore } = await import('$lib/components/testing/page-test-helpers');
 	return { page: mockPageStore };
@@ -239,5 +247,26 @@ describe('Ikeda page interactions', () => {
 	it('cleans up on unmount without throwing', () => {
 		const { unmount } = render(IkedaPage, { props: unauthedPageProps });
 		expect(() => unmount()).not.toThrow();
+	});
+
+	it('runs the debounced stability check (getParams) after a slider edit', async () => {
+		vi.useFakeTimers();
+		try {
+			checkParameterStabilityMock.mockClear();
+			render(IkedaPage, { props: unauthedPageProps });
+
+			// Changing the feedback slider triggers the page's stability $effect ->
+			// triggerReactive -> debounced checkParameterStability(getParams()).
+			const slider = screen.getByTestId('slider-u') as HTMLInputElement;
+			await fireEvent.input(slider, { target: { value: '0.42' } });
+			await vi.runAllTimersAsync();
+
+			expect(checkParameterStabilityMock).toHaveBeenCalledWith(
+				'ikeda',
+				expect.objectContaining({ type: 'ikeda', u: 0.42 })
+			);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });

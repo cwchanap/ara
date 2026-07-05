@@ -482,8 +482,12 @@
 	{/snippet}
 
 	{#snippet renderer({ container })}
-		<GumowskiMiraRenderer
-			bind:containerElement={container.el}
+		<!-- Keep height on the opening tag line: a static constant attribute on
+		its own line maps to an update path that never fires (no executable
+		code), so it is reported as uncovered. Co-locating it with the opening
+		tag maps it to element-creation code, which is covered on render. -->
+		<!-- prettier-ignore -->
+		<GumowskiMiraRenderer height={VIZ_CONTAINER_HEIGHT} bind:containerElement={container.el}
 			bind:mu
 			bind:a
 			bind:b
@@ -496,7 +500,6 @@
 			bind:colorMode
 			bind:pointSize
 			bind:opacity
-			height={VIZ_CONTAINER_HEIGHT}
 		/>
 	{/snippet}
 </VisualizationShell>

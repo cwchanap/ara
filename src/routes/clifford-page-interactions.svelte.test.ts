@@ -7,6 +7,14 @@ import {
 } from '$lib/components/testing/page-test-helpers';
 import CliffordPage from './clifford/+page.svelte';
 
+const checkParameterStabilityMock = vi.hoisted(() =>
+	vi.fn(() => ({ ok: true, warnings: [] as string[] }))
+);
+
+vi.mock('$lib/chaos-validation', () => ({
+	checkParameterStability: checkParameterStabilityMock
+}));
+
 vi.mock('$app/stores', async () => {
 	const { mockPageStore } = await import('$lib/components/testing/page-test-helpers');
 	return { page: mockPageStore };
@@ -158,5 +166,25 @@ describe('Clifford page interactions', () => {
 	it('cleans up on unmount without throwing', () => {
 		const { unmount } = render(CliffordPage, { props: unauthedPageProps });
 		expect(() => unmount()).not.toThrow();
+	});
+
+	it('runs the debounced stability check (getParams) after a slider edit', async () => {
+		vi.useFakeTimers();
+		try {
+			checkParameterStabilityMock.mockClear();
+			render(CliffordPage, { props: unauthedPageProps });
+
+			// Changing a shape slider triggers the page's stability $effect ->
+			// triggerReactive -> debounced checkParameterStability(getParams()).
+			await fireEvent.input(screen.getByTestId('slider-a'), { target: { value: '0.5' } });
+			await vi.runAllTimersAsync();
+
+			expect(checkParameterStabilityMock).toHaveBeenCalledWith(
+				'clifford',
+				expect.objectContaining({ type: 'clifford', a: 0.5 })
+			);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });

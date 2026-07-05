@@ -569,8 +569,12 @@
 
 	{#snippet renderer({ container })}
 		<div bind:this={container.el}>
-			<DoublePendulumRenderer
-				{theta1}
+			<!-- Keep height on the opening tag line: a static constant attribute on
+			its own line maps to an update path that never fires (no executable
+			code), so it is reported as uncovered. Co-locating it with the opening
+			tag maps it to element-creation code, which is covered on render. -->
+			<!-- prettier-ignore -->
+			<DoublePendulumRenderer height={VIZ_CONTAINER_HEIGHT} theta1={theta1}
 				{theta2}
 				{omega1}
 				{omega2}
@@ -589,7 +593,6 @@
 				bind:running
 				bind:divergenceValue
 				bind:diverged
-				height={VIZ_CONTAINER_HEIGHT}
 			/>
 		</div>
 	{/snippet}
