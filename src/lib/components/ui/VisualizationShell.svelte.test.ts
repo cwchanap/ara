@@ -358,6 +358,49 @@ describe('VisualizationShell', () => {
 		});
 	});
 
+	it('invokes the stabilityReporter unsubscribe on unmount (teardown leak-prevention)', async () => {
+		// The registrar returns an unsubscribe the shell must invoke on teardown
+		// so the page drops its reference to the report callback — the factory's
+		// central leak-prevention contract. Pinning that the shell actually
+		// calls it when the component unmounts.
+		const unsubscribe = vi.fn();
+		let report: ((warnings: string[] | null) => void) | null = null;
+		const { unmount } = render(VisualizationShell, {
+			props: {
+				mapType: 'henon',
+				title: 'HÉNON_MAP',
+				moduleNumber: '02',
+				paramDefs: defs,
+				buildParameters: (v: Record<string, number>) => ({
+					type: 'henon',
+					a: v.a,
+					b: 0.3,
+					iterations: 2000
+				}),
+				formula: ['x(n+1) = …'],
+				description: { heading: 'DATA_LOG: HÉNON_MAP', body: 'desc' },
+				isAuthenticated: true,
+				renderer,
+				stabilityReporter: (r: (warnings: string[] | null) => void) => {
+					report = r;
+					return unsubscribe;
+				},
+				...authedPageProps
+			} as never
+		});
+
+		// Wait for the shell's registration effect to hand back the reporter.
+		await waitFor(() => {
+			expect(report).not.toBeNull();
+		});
+		expect(unsubscribe).not.toHaveBeenCalled();
+
+		unmount();
+
+		// The shell's $effect teardown runs the returned unsubscribe.
+		expect(unsubscribe).toHaveBeenCalledTimes(1);
+	});
+
 	it('renders a comparison link whose href reflects the current slider values', async () => {
 		const { container } = renderShell();
 		const link = screen.getByRole('link', { name: '⊞ Compare' }) as HTMLAnchorElement;

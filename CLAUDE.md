@@ -279,3 +279,7 @@ $effect(() => {
 - `reactive: false` — only check when the page calls `stability.runStabilityCheck()` manually (e.g. from `applyPreset`/`randomize`). No page currently uses this mode, but it's available for pages that only want preset-time warnings.
 
 The registrar returns an unsubscribe function; the shell invokes it on teardown so the page drops its reference to the report callback.
+
+### 3. Config-load-only (neither prop)
+
+Pages that pass neither `reactiveStability` nor `stabilityReporter` rely solely on the shell's internal `onCheckStability`, which runs `checkParameterStability` once against the raw loaded params when a `?config=` payload is applied. Slider edits do not re-check stability. Used by: Chua.

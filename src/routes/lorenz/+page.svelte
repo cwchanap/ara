@@ -162,9 +162,13 @@
 	}
 
 	// Debounced reactive stability on the page-owned controls, reported into
-	// the shell's unified alert via stabilityReporter. Covers slider edits and
-	// post-load re-checks. Not paired with onCheckStability so a dismissed
-	// warning is not re-raised by the debounce after a config load.
+	// the shell's unified alert via stabilityReporter. Tracks the math params
+	// so slider edits, presets, randomize, and config loads (which mutate this
+	// state via onExtraParametersLoaded) all re-run the check after DEBOUNCE_MS.
+	// The shell also runs its own onCheckStability on config load against the
+	// raw loaded params; this debounced re-check runs against the applied
+	// params, so a dismissed warning on an unstable loaded config will be
+	// re-raised once the debounce fires.
 	const stability = createStabilityReporter({
 		mapType: 'lorenz',
 		getParams: () => getParameters(),
