@@ -33,6 +33,18 @@
 		title: string;
 		moduleNumber?: string;
 		paramDefs: ParamDef[];
+		/**
+		 * Builds the full `ChaosMapParameters` payload from the shell's
+		 * schema-driven slider `values`. Called for save/share/compare and
+		 * (when `reactiveStability` is on) the on-change stability check.
+		 *
+		 * Page-managed pages (Clifford, Ikeda, Gumowski-Mira, Lorenz, Double
+		 * Pendulum) render their sliders in `extraControls` against page-owned
+		 * `$state` and pass `paramDefs={[]}`, so `values` is empty and the arg
+		 * is intentionally ignored — those pages read their own `$state`
+		 * directly. `$derived` (e.g. `comparisonUrl`) still tracks those reads,
+		 * so reactive updates work without the shell knowing the page state.
+		 */
 		buildParameters: (values: Record<string, number>) => ChaosMapParameters;
 		formula?: string[];
 		formulaColumns?: 1 | 2 | 3 | 4 | 5;
@@ -92,6 +104,13 @@
 		 * page state, re-running the page's effect). The registrar returns an
 		 * unsubscribe function the shell invokes on teardown so the page drops
 		 * its reference to the report callback. A no-op when absent.
+		 *
+		 * Must be a stable reference (e.g. from `createStabilityReporter`).
+		 * The shell registers it once in a mount-time `$effect` and invokes
+		 * the returned unsubscribe on teardown; an inline arrow would
+		 * re-register on every render and leak the prior subscription. All
+		 * current pages use the factory, which captures the function in a
+		 * closure.
 		 */
 		stabilityReporter?: (report: (warnings: string[] | null) => void) => () => void;
 		/**
@@ -238,6 +257,18 @@
 			}
 		});
 	});
+
+	// Dev-mode guard: passing both reactiveStability and stabilityReporter would
+	// race two effects on the same configState.warnings/showWarning fields — the
+	// shell-managed effect recomputes from schema sliders while the page-managed
+	// reporter pushes from page-owned state, producing flicker/overwrites. No page
+	// does this today; warn early so a future page can't silently combine them.
+	// Tree-shaken in production builds (import.meta.env.DEV is a Vite constant).
+	if (import.meta.env.DEV && reactiveStability && stabilityReporter) {
+		console.warn(
+			`VisualizationShell (${mapType}): pass either reactiveStability or stabilityReporter, not both. The two effects race on the same stability alert.`
+		);
+	}
 
 	$effect(() => () => {
 		cleanupSave();

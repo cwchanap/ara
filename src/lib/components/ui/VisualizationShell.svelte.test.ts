@@ -9,6 +9,7 @@ import {
 	setupApiFetchMock
 } from '$lib/components/testing/page-test-helpers';
 import VisualizationShell from './VisualizationShell.svelte';
+import PageOwnedSliderShell from '$lib/components/testing/PageOwnedSliderShell.svelte';
 import type { ParamDef } from '$lib/viz/types';
 
 vi.mock('$app/stores', async () => {
@@ -422,6 +423,35 @@ describe('VisualizationShell', () => {
 		expect(afterLeft).not.toBe(beforeLeft);
 	});
 
+	it('updates the comparison link when a page-owned slider (extraControls) changes', async () => {
+		// Page-managed pages (Clifford, Ikeda, etc.) pass paramDefs=[] and a
+		// buildParameters that ignores the shell's `values` arg and reads
+		// page-owned $state directly. The shell's comparisonUrl is $derived
+		// over getParameters() -> buildParameters(values). $derived tracks ALL
+		// $state reads inside the computation, so reading page-owned `a` inside
+		// buildParameters must still recompute the URL when `a` changes — even
+		// though `values` (the arg) is never read. Pinning this so a future
+		// refactor that caches buildParameters or gates the derived on `values`
+		// can't silently stale the comparison link on these pages.
+		setMockPageUrl('http://localhost/clifford');
+		render(PageOwnedSliderShell, { props: { ...authedPageProps } as never });
+
+		const link = screen.getByRole('link', { name: '⊞ Compare' }) as HTMLAnchorElement;
+		expect(link.href).toContain('/clifford/compare');
+
+		const beforeLeft = new URL(link.href).searchParams.get('left');
+		expect(beforeLeft).toBeTruthy();
+
+		// Move the page-owned slider (bound to page $state `a`, not schema values).
+		const input = screen.getByTestId('page-owned-a') as HTMLInputElement;
+		await fireEvent.input(input, { target: { value: '-1.2' } });
+
+		const afterLeft = new URL(link.href).searchParams.get('left');
+		// A broken $derived — one that only tracked `values` reads — would leave
+		// the encoded value unchanged because paramDefs=[] means `values` is empty.
+		expect(afterLeft).not.toBe(beforeLeft);
+	});
+
 	// --- normalizeLoadedValues: paired-range swap ---
 
 	it('swaps inverted rMin/rMax when an inline config loads a reversed range', async () => {
@@ -550,5 +580,41 @@ describe('VisualizationShell', () => {
 		// rMin=2.5 > rMax=2 would warn under reactiveStability, but the prop is
 		// off (default) so only config-load checks run — no warning here.
 		expect(screen.queryByText('UNSTABLE_PARAMETERS_DETECTED')).toBeNull();
+	});
+
+	it('warns in dev mode when both reactiveStability and stabilityReporter are passed', async () => {
+		// The two effects race on the same configState.warnings/showWarning
+		// fields. No page combines them today; the dev guard catches a future
+		// misuse at render time. import.meta.env.DEV is true under Vitest.
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		setMockPageUrl('http://localhost/henon');
+		render(VisualizationShell, {
+			props: {
+				mapType: 'henon',
+				title: 'HÉNON_MAP',
+				moduleNumber: '02',
+				paramDefs: defs,
+				buildParameters: (v: Record<string, number>) => ({
+					type: 'henon',
+					a: v.a,
+					b: 0.3,
+					iterations: 2000
+				}),
+				formula: ['x(n+1) = …'],
+				description: { heading: 'DATA_LOG: HÉNON_MAP', body: 'desc' },
+				isAuthenticated: true,
+				renderer,
+				reactiveStability: true,
+				stabilityReporter: () => () => {},
+				...authedPageProps
+			} as never
+		});
+
+		await waitFor(() => {
+			expect(warnSpy).toHaveBeenCalledWith(
+				expect.stringContaining('pass either reactiveStability or stabilityReporter')
+			);
+		});
+		warnSpy.mockRestore();
 	});
 });
