@@ -1,7 +1,7 @@
 <script lang="ts">
 	import VisualizationShell from '$lib/components/ui/VisualizationShell.svelte';
 	import LorenzRenderer from '$lib/components/visualizations/LorenzRenderer.svelte';
-	import { checkParameterStability } from '$lib/chaos-validation';
+	import { createStabilityReporter } from '$lib/stability-reporter';
 	import type { LorenzParameters, ChaosMapParameters } from '$lib/types';
 	import { VIZ_CONTAINER_HEIGHT, DEBOUNCE_MS } from '$lib/constants';
 	import PresetSelector from '$lib/components/visualizations/lorenz/PresetSelector.svelte';
@@ -165,14 +165,11 @@
 	// the shell's unified alert via stabilityReporter. Covers slider edits and
 	// post-load re-checks. Not paired with onCheckStability so a dismissed
 	// warning is not re-raised by the debounce after a config load.
-	let reportStability: ((warnings: string[] | null) => void) | null = null;
-	function stabilityReporter(report: (warnings: string[] | null) => void) {
-		reportStability = report;
-	}
-	const stabilityUpdater = useDebouncedEffect(() => {
-		const result = checkParameterStability('lorenz', getParameters());
-		reportStability?.(result.warnings.length > 0 ? result.warnings : null);
-	}, DEBOUNCE_MS);
+	const stability = createStabilityReporter({
+		mapType: 'lorenz',
+		getParams: () => getParameters(),
+		reactive: true
+	});
 	$effect(() => {
 		void sigma;
 		void rho;
@@ -185,8 +182,8 @@
 		void epsilon;
 		void stepsPerFrame;
 		void trailLength;
-		stabilityUpdater.trigger();
-		return () => stabilityUpdater.cleanup();
+		stability.triggerReactive();
+		return () => stability.cleanupReactive();
 	});
 </script>
 
@@ -198,7 +195,7 @@
 	paramColumns={1}
 	{buildParameters}
 	{onExtraParametersLoaded}
-	{stabilityReporter}
+	stabilityReporter={stability.stabilityReporter}
 	{diverged}
 	onDismissDiverged={() => (diverged = false)}
 	formula={['dx/dt = σ(y - x)', 'dy/dt = x(ρ - z) - y', 'dz/dt = xy - βz']}

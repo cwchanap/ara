@@ -2,7 +2,7 @@
 	import VisualizationShell from '$lib/components/ui/VisualizationShell.svelte';
 	import DoublePendulumRenderer from '$lib/components/visualizations/DoublePendulumRenderer.svelte';
 	import { VIZ_CONTAINER_HEIGHT } from '$lib/constants';
-	import { checkParameterStability } from '$lib/chaos-validation';
+	import { createStabilityReporter } from '$lib/stability-reporter';
 	import type { DoublePendulumParameters, ChaosMapParameters } from '$lib/types';
 	import { randomizeInitialConditions } from '$lib/double-pendulum';
 	import {
@@ -154,14 +154,14 @@
 	}
 
 	// Reactive stability: page-owned sliders aren't watched by the shell's
-	// reactiveStability effect, so report results via stabilityReporter into
-	// the unified alert. Re-runs on slider edits and after a config load
-	// (which mutates the page state above).
-	let reportStability: ((warnings: string[] | null) => void) | null = null;
-	function stabilityReporter(report: (warnings: string[] | null) => void) {
-		reportStability = report;
-	}
-
+	// reactiveStability effect, so re-run the check (debounced) whenever the
+	// inputs that affect stability change and report into the unified alert.
+	// Also covers preset/randomize/config-load, which mutate the same $state.
+	const stability = createStabilityReporter({
+		mapType: 'double-pendulum',
+		getParams: () => buildParameters(),
+		reactive: true
+	});
 	$effect(() => {
 		void theta1;
 		void theta2;
@@ -173,8 +173,8 @@
 		void m2;
 		void gravity;
 		void damping;
-		const stability = checkParameterStability('double-pendulum', buildParameters());
-		reportStability?.(stability.isStable ? null : stability.warnings);
+		stability.triggerReactive();
+		return () => stability.cleanupReactive();
 	});
 </script>
 
@@ -185,7 +185,7 @@
 	paramColumns={1}
 	{buildParameters}
 	{onExtraParametersLoaded}
-	{stabilityReporter}
+	stabilityReporter={stability.stabilityReporter}
 	{diverged}
 	onDismissDiverged={() => (diverged = false)}
 	description={{

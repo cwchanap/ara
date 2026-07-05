@@ -89,9 +89,11 @@
 		 * `report(warnings)` (or `report(null)` to clear) from its own reactive
 		 * effect to drive the shell's unified stability alert. Covers both
 		 * slider edits and post-load re-checks (a loaded config mutates the
-		 * page state, re-running the page's effect). A no-op when absent.
+		 * page state, re-running the page's effect). The registrar returns an
+		 * unsubscribe function the shell invokes on teardown so the page drops
+		 * its reference to the report callback. A no-op when absent.
 		 */
-		stabilityReporter?: (report: (warnings: string[] | null) => void) => void;
+		stabilityReporter?: (report: (warnings: string[] | null) => void) => () => void;
 		/**
 		 * Optional numerical-divergence flag forwarded to VisualizationAlerts
 		 * (e.g. Lorenz): when true, the alert shows a divergence warning that the
@@ -226,7 +228,7 @@
 	// alert — keeping stability display in one place rather than a second alert.
 	$effect(() => {
 		if (!stabilityReporter) return;
-		stabilityReporter((warnings) => {
+		return stabilityReporter((warnings) => {
 			if (warnings && warnings.length > 0) {
 				configState.warnings = warnings;
 				configState.showWarning = true;

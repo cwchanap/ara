@@ -2,7 +2,7 @@
 	import VisualizationShell from '$lib/components/ui/VisualizationShell.svelte';
 	import IkedaRenderer from '$lib/components/visualizations/IkedaRenderer.svelte';
 	import { VIZ_CONTAINER_HEIGHT } from '$lib/constants';
-	import { checkParameterStability } from '$lib/chaos-validation';
+	import { createStabilityReporter } from '$lib/stability-reporter';
 	import type {
 		IkedaParameters,
 		IkedaColorMode,
@@ -61,38 +61,25 @@
 		colorMode = s.colorMode;
 		pointSize = s.pointSize;
 		opacity = s.opacity;
-		runStabilityCheck();
-	}
-
-	// Preset stability check reported into the shell's unified alert via
-	// stabilityReporter (matches the pre-shell behavior of warning when a
-	// preset is unstable). Only run on preset application.
-	let reportStability: ((warnings: string[] | null) => void) | null = null;
-	function stabilityReporter(report: (warnings: string[] | null) => void) {
-		reportStability = report;
-	}
-	function runStabilityCheck() {
-		const result = checkParameterStability('ikeda', {
-			type: 'ikeda',
-			u,
-			x0,
-			y0,
-			iterations,
-			burnIn
-		});
-		reportStability?.(result.isStable ? null : result.warnings);
 	}
 
 	// Reactive stability: page-owned sliders aren't watched by the shell's
-	// reactiveStability effect, so re-run the check whenever the inputs that
-	// affect stability change and report into the unified alert.
+	// reactiveStability effect, so re-run the check (debounced) whenever the
+	// inputs that affect stability change and report into the unified alert.
+	// Also covers preset application, which mutates the same $state.
+	const stability = createStabilityReporter({
+		mapType: 'ikeda',
+		getParams: () => buildParameters(),
+		reactive: true
+	});
 	$effect(() => {
 		void u;
 		void x0;
 		void y0;
 		void iterations;
 		void burnIn;
-		runStabilityCheck();
+		stability.triggerReactive();
+		return () => stability.cleanupReactive();
 	});
 
 	function buildParameters(): IkedaParameters {
@@ -135,7 +122,7 @@
 	paramColumns={1}
 	{buildParameters}
 	{onExtraParametersLoaded}
-	{stabilityReporter}
+	stabilityReporter={stability.stabilityReporter}
 	formula={[
 		't(n) = 0.4 − 6 / (1 + x² + y²)',
 		'x(n+1) = 1 + u·(x·cos t − y·sin t)',

@@ -334,6 +334,7 @@ describe('VisualizationShell', () => {
 				renderer,
 				stabilityReporter: (r: (warnings: string[] | null) => void) => {
 					report = r;
+					return () => {};
 				},
 				...authedPageProps
 			} as never

@@ -245,3 +245,37 @@ Users can save chaos map configurations to their account:
 - **API**: `/api/save-config` POST endpoint for cross-page saving
 - **URL params**: Configurations are loaded via URL query parameters (e.g., `/lorenz?sigma=10&rho=28`)
 - **Stability warnings**: Validates parameters and warns users about potentially unstable configurations
+
+## Stability Reporting Strategies
+
+`VisualizationShell` owns the unified stability alert. Two strategies feed it, depending on where the page's sliders live:
+
+### 1. Shell-managed (`reactiveStability` prop)
+
+For pages whose sliders are schema-driven (`paramDefs` + `ParameterSlider`), the shell watches the `values` state and re-runs `checkParameterStability` on every slider change when `reactiveStability={true}`. The page does nothing beyond passing the prop. Used by: Hénon, Lozi, Logistic, Standard, Newton, bifurcation pages, Chaos Esthetique, Lyapunov, Rössler.
+
+### 2. Page-managed (`stabilityReporter` prop + `createStabilityReporter`)
+
+For pages whose sliders are page-owned `$state` rendered in `extraControls` (not the schema), the shell can't watch them. The page registers a `stabilityReporter` and pushes warnings into the unified alert from its own `$effect`. Use the `createStabilityReporter` factory (`$lib/stability-reporter.ts`) to dedup the boilerplate:
+
+```typescript
+const stability = createStabilityReporter({
+	mapType: 'clifford',
+	getParams: () => buildParameters(),
+	reactive: true
+});
+$effect(() => {
+	void a;
+	void b;
+	void c;
+	void d;
+	void iterations;
+	stability.triggerReactive();
+	return () => stability.cleanupReactive();
+});
+```
+
+- `reactive: true` — debounced re-check on every slider edit (and preset/randomize/config-load, which mutate the same `$state`). Used by: Clifford, Gumowski-Mira, Ikeda, Lorenz, Double Pendulum.
+- `reactive: false` — only check when the page calls `stability.runStabilityCheck()` manually (e.g. from `applyPreset`/`randomize`). No page currently uses this mode, but it's available for pages that only want preset-time warnings.
+
+The registrar returns an unsubscribe function; the shell invokes it on teardown so the page drops its reference to the report callback.

@@ -114,23 +114,30 @@ describe('gumowski-mira page – edge cases', () => {
 		);
 
 		// checkParameterStability returns unstable for all calls.
-		// applyPreset calls it once after applying the preset values.
+		// The reactive stability effect calls it (debounced) after the
+		// preset mutates the page-owned $state.
 		checkParameterStabilityMock.mockReturnValue({
 			isStable: false,
 			warnings: ['mu out of range']
 		});
 
-		render(GumowskiMiraPage, { props: unauthedPageProps });
+		vi.useFakeTimers();
+		try {
+			render(GumowskiMiraPage, { props: unauthedPageProps });
 
-		// Click a preset — applyPreset calls checkParameterStability which
-		// returns unstable, so lines 118-119 are executed.
-		const btn = screen.getByRole('button', { name: /Ordered Curves/i });
-		await fireEvent.click(btn);
+			// Click a preset — the reactive effect triggers the debounced
+			// stability check.
+			const btn = screen.getByRole('button', { name: /Ordered Curves/i });
+			await fireEvent.click(btn);
+			await vi.advanceTimersByTimeAsync(300);
 
-		// The preset should be applied (active preset changes)...
-		expect(screen.getByTestId('active-preset').textContent).toMatch(/ordered curves/i);
-		// ...and checkParameterStability should have been called.
-		expect(checkParameterStabilityMock).toHaveBeenCalled();
+			// The preset should be applied (active preset changes)...
+			expect(screen.getByTestId('active-preset').textContent).toMatch(/ordered curves/i);
+			// ...and checkParameterStability should have been called.
+			expect(checkParameterStabilityMock).toHaveBeenCalled();
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it('randomize shows stability warning when random params are unstable', async () => {
@@ -140,19 +147,26 @@ describe('gumowski-mira page – edge cases', () => {
 		);
 
 		// checkParameterStability returns unstable for all calls.
-		// randomize calls it once after generating random parameters.
+		// The reactive stability effect calls it (debounced) after randomize
+		// mutates the page-owned $state.
 		checkParameterStabilityMock.mockReturnValue({
 			isStable: false,
 			warnings: ['Parameters unstable']
 		});
 
-		render(GumowskiMiraPage, { props: unauthedPageProps });
+		vi.useFakeTimers();
+		try {
+			render(GumowskiMiraPage, { props: unauthedPageProps });
 
-		// Click the Randomize button — randomize calls checkParameterStability
-		// which returns unstable, so lines 141-142 are executed.
-		await fireEvent.click(screen.getByTestId('randomize-button'));
+			// Click the Randomize button — the reactive effect triggers the
+			// debounced stability check.
+			await fireEvent.click(screen.getByTestId('randomize-button'));
+			await vi.advanceTimersByTimeAsync(300);
 
-		// checkParameterStability should have been called.
-		expect(checkParameterStabilityMock).toHaveBeenCalled();
+			// checkParameterStability should have been called.
+			expect(checkParameterStabilityMock).toHaveBeenCalled();
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });
