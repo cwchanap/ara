@@ -342,15 +342,18 @@
 	{#snippet renderer({ container })}
 		<div class="space-y-2">
 			<ChaosIndicator value={lambda} classification={lambdaClass} diverged={lambdaDiverged} />
-			<LorenzRenderer
-				bind:containerElement={container.el}
+			<!-- Keep height on the opening tag line: a static constant attribute on
+			its own line maps to an update path that never fires (no executable
+			code), so it is reported as uncovered. Co-locating it with the opening
+			tag maps it to element-creation code, which is covered on render. -->
+			<!-- prettier-ignore -->
+			<LorenzRenderer height={VIZ_CONTAINER_HEIGHT} bind:containerElement={container.el}
 				params={getParameters()}
 				{isPlaying}
 				{stepNonce}
 				{resetNonce}
 				bind:head
 				bind:diverged
-				height={VIZ_CONTAINER_HEIGHT}
 			/>
 		</div>
 	{/snippet}

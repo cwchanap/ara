@@ -208,4 +208,65 @@ describe('Lorenz page interactions', () => {
 		// Warning should be hidden
 		expect(screen.queryByText('UNSTABLE_PARAMETERS_DETECTED')).not.toBeInTheDocument();
 	});
+
+	it('propagates InitialStateControls edits through onChange', async () => {
+		setMockPageUrl('http://localhost/lorenz');
+		render(LorenzPage, { props: authedPageProps });
+
+		// Edit each numeric initial-state input; each fires oninput -> onChange
+		const x0Input = screen.getByLabelText('x₀');
+		await fireEvent.input(x0Input, { target: { value: '2.5' } });
+		expect(x0Input).toHaveValue(2.5);
+
+		const y0Input = screen.getByLabelText('y₀');
+		await fireEvent.input(y0Input, { target: { value: '-1.5' } });
+		expect(y0Input).toHaveValue(-1.5);
+
+		const z0Input = screen.getByLabelText('z₀');
+		await fireEvent.input(z0Input, { target: { value: '4.25' } });
+		expect(z0Input).toHaveValue(4.25);
+
+		const epsilonInput = screen.getByLabelText('ε');
+		await fireEvent.input(epsilonInput, { target: { value: '0.05' } });
+		expect(epsilonInput).toHaveValue(0.05);
+
+		// Toggle the ghost-orbit checkbox -> emit({ showGhost })
+		const ghostCheckbox = screen.getByLabelText(/Show Perturbed Orbit/i);
+		await fireEvent.click(ghostCheckbox);
+		expect(ghostCheckbox).toBeChecked();
+	});
+
+	it('propagates PlaybackControls speed slider through onSpeedChange', async () => {
+		setMockPageUrl('http://localhost/lorenz');
+		const { container } = render(LorenzPage, { props: authedPageProps });
+
+		// The SIMULATION speed slider is the range input with max="5".
+		const speedSlider = container.querySelector(
+			'input[type="range"][max="5"]'
+		) as HTMLInputElement;
+		expect(speedSlider).toBeTruthy();
+		await fireEvent.input(speedSlider, { target: { value: '3.2' } });
+
+		// The speed readout should reflect the new value
+		expect(screen.getByText('3.2x')).toBeInTheDocument();
+	});
+
+	it('dismisses the divergence alert raised by the renderer', async () => {
+		setMockPageUrl('http://localhost/lorenz');
+		render(LorenzPage, { props: authedPageProps });
+
+		// The LorenzRendererStub sets diverged=true on mount; flush any
+		// pending microtasks/timers so the alert renders.
+		await vi.runAllTimersAsync();
+
+		// Divergence alert should be visible
+		expect(screen.getByText(/numerical integration diverged/i)).toBeInTheDocument();
+
+		// Dismiss it
+		const dismissBtn = screen.getByRole('button', { name: /Dismiss divergence alert/i });
+		await fireEvent.click(dismissBtn);
+
+		// Alert should be hidden
+		expect(screen.queryByText(/numerical integration diverged/i)).not.toBeInTheDocument();
+	});
 });
