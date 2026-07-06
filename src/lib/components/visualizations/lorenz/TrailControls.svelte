@@ -49,5 +49,13 @@
 		>
 			Cumulative
 		</button>
+		<button
+			type="button"
+			class={styleBtn(trailStyle === 'stationary')}
+			aria-pressed={trailStyle === 'stationary'}
+			onclick={() => onStyleChange('stationary')}
+		>
+			Stationary
+		</button>
 	</div>
 </div>
