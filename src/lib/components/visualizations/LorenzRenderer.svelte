@@ -121,7 +121,21 @@
 		}
 	});
 
+	// Snap head on trail-style transitions: entering Stationary jumps to the
+	// full shape; leaving Stationary resets to 0 so the animated style replays.
+	// Reads resolved.trailLength only inside the entry branch, so no reactive
+	// dependency on trailLength is registered on a no-transition run.
+	let lastTrailStyle = resolved.trailStyle;
+	$effect(() => {
+		const style = resolved.trailStyle;
+		if (style === lastTrailStyle) return;
+		if (style === 'stationary') head = resolved.trailLength;
+		else if (lastTrailStyle === 'stationary') head = 0;
+		lastTrailStyle = style;
+	});
+
 	function advanceHead(forceOneFrame = false): void {
+		if (resolved.trailStyle === 'stationary') return;
 		const total = resolved.trailLength;
 		const perFrame = Math.max(1, Math.round(resolved.stepsPerFrame * resolved.speed));
 		if (forceOneFrame || isPlaying) {
@@ -247,8 +261,10 @@
 				: null;
 			diverged = main.diverged || (ghost?.diverged ?? false);
 			ghostLine.visible = !!ghost;
-			// In compare mode show the full static attractor.
-			if (compareMode) head = r.trailLength;
+			// In compare mode or stationary trail style, show the full static attractor.
+			// Re-snapping here also covers trailLength changes while stationary (the
+			// plain clamp only handled the shrinking case).
+			if (compareMode || r.trailStyle === 'stationary') head = r.trailLength;
 			else if (head > r.trailLength) head = r.trailLength;
 			// Invalidate cached slice so updateDraw() pushes new trajectory data.
 			lastFrom = -1;
