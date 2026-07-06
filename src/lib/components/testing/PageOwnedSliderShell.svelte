@@ -32,7 +32,7 @@
 	paramDefs={[]}
 	paramColumns={1}
 	{buildParameters}
-	formula={['x(n+1) = sin(a*y) + c*cos(a*x),\ny(n+1) = sin(b*x) + d*cos(b*y)']}
+	formula={['x(n+1) = sin(a*y) + c*cos(a*x)', 'y(n+1) = sin(b*x) + d*cos(b*y)']}
 	description={{ heading: 'DATA_LOG: CLIFFORD', body: 'desc' }}
 	isAuthenticated={true}
 	{renderer}
