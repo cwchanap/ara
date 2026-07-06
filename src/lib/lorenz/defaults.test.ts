@@ -33,4 +33,15 @@ describe('withLorenzDefaults', () => {
 		expect(resolved.colorMode).toBe('zheight');
 		expect(resolved.sigma).toBe(10);
 	});
+
+	test('round-trips the stationary trail style', () => {
+		const resolved = withLorenzDefaults({
+			type: 'lorenz',
+			sigma: 10,
+			rho: 28,
+			beta: 8 / 3,
+			trailStyle: 'stationary'
+		});
+		expect(resolved.trailStyle).toBe('stationary');
+	});
 });
