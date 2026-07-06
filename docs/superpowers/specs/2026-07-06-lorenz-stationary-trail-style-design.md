@@ -185,9 +185,11 @@ including the disabled-playback UX (derived from `trailStyle` on load).
   button renders, fires `onStyleChange('stationary')` on click, and shows
   `aria-pressed="true"` when `trailStyle === 'stationary'`.
 - **`PlaybackControls.svelte.test.ts`** — add a case asserting every control
-  (Play/Pause, Step, Reset buttons and the Speed slider) receives the disabled
-  state when `disabled={true}`, and that click handlers do not fire when
-  disabled.
+  (Play/Pause, Step, Reset buttons and the Speed slider) receives the `disabled`
+  attribute when `disabled={true}`. (We test the attribute — the component's
+  contract — not that handlers fail to fire: `fireEvent.click` uses
+  `dispatchEvent`, which delivers events to listeners even on disabled buttons,
+  so a "handler not called" assertion would be brittle.)
 - **`defaults.test.ts`** — add a case confirming `'stationary'` round-trips
   through `withLorenzDefaults` (resolved value preserved when set; falls back
   to `'comet'` when omitted).
