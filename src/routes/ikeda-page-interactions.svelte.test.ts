@@ -8,12 +8,16 @@ import {
 import IkedaPage from './ikeda/+page.svelte';
 
 const checkParameterStabilityMock = vi.hoisted(() =>
-	vi.fn(() => ({ ok: true, warnings: [] as string[] }))
+	vi.fn(() => ({ isStable: true, warnings: [] as string[] }))
 );
 
-vi.mock('$lib/chaos-validation', () => ({
-	checkParameterStability: checkParameterStabilityMock
-}));
+vi.mock('$lib/chaos-validation', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$lib/chaos-validation')>();
+	return {
+		...actual,
+		checkParameterStability: checkParameterStabilityMock
+	};
+});
 
 vi.mock('$app/stores', async () => {
 	const { mockPageStore } = await import('$lib/components/testing/page-test-helpers');

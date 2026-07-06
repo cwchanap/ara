@@ -58,10 +58,10 @@ vi.mock('$lib/components/ui/SnapshotButton.svelte', async () => {
 	const m = await import('$lib/components/testing/StubComponent.svelte');
 	return { default: m.default };
 });
-vi.mock('$lib/components/ui/VisualizationAlerts.svelte', async () => {
-	const m = await import('$lib/components/testing/VisualizationAlertsStub.svelte');
-	return { default: m.default };
-});
+// NOTE: VisualizationAlerts is intentionally NOT mocked here. These edge-case
+// tests verify the full stabilityReporter → VisualizationShell →
+// VisualizationAlerts forwarding path, so the real component must render the
+// warning text into the DOM.
 vi.mock('$lib/components/visualizations/GumowskiMiraRenderer.svelte', async () => {
 	const m = await import('$lib/components/testing/BindableAllStub.svelte');
 	return { default: m.default };
@@ -135,6 +135,10 @@ describe('gumowski-mira page – edge cases', () => {
 			expect(screen.getByTestId('active-preset').textContent).toMatch(/ordered curves/i);
 			// ...and checkParameterStability should have been called.
 			expect(checkParameterStabilityMock).toHaveBeenCalled();
+			// ...and the mocked warning text must flow through the stabilityReporter
+			// → VisualizationShell → VisualizationAlerts path into the DOM.
+			expect(screen.getByRole('alert')).toBeTruthy();
+			expect(screen.getByText('mu out of range')).toBeTruthy();
 		} finally {
 			vi.useRealTimers();
 		}
@@ -165,6 +169,10 @@ describe('gumowski-mira page – edge cases', () => {
 
 			// checkParameterStability should have been called.
 			expect(checkParameterStabilityMock).toHaveBeenCalled();
+			// ...and the mocked warning text must flow through the stabilityReporter
+			// → VisualizationShell → VisualizationAlerts path into the DOM.
+			expect(screen.getByRole('alert')).toBeTruthy();
+			expect(screen.getByText('Parameters unstable')).toBeTruthy();
 		} finally {
 			vi.useRealTimers();
 		}
