@@ -291,6 +291,7 @@
 					<PlaybackControls
 						{isPlaying}
 						{speed}
+						disabled={trailStyle === 'stationary'}
 						onTogglePlay={() => (isPlaying = !isPlaying)}
 						onStep={() => (stepNonce += 1)}
 						onReset={() => (resetNonce += 1)}
