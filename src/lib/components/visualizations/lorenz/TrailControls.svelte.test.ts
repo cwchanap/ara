@@ -42,4 +42,18 @@ describe('TrailControls', () => {
 		await fireEvent.click(getByText(/Comet/i));
 		expect(onStyleChange).toHaveBeenCalledWith('comet');
 	});
+
+	it('calls onStyleChange when switching to stationary', async () => {
+		const onStyleChange = vi.fn();
+		const { getByText } = render(TrailControls, { props: { ...base, onStyleChange } });
+		await fireEvent.click(getByText(/Stationary/i));
+		expect(onStyleChange).toHaveBeenCalledWith('stationary');
+	});
+
+	it('marks the Stationary button as pressed when active', () => {
+		const { getByText } = render(TrailControls, {
+			props: { ...base, trailStyle: 'stationary' }
+		});
+		expect(getByText(/Stationary/i).getAttribute('aria-pressed')).toBe('true');
+	});
 });
