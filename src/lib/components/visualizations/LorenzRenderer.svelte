@@ -125,7 +125,7 @@
 	// full shape; leaving Stationary resets to 0 so the animated style replays.
 	// Reads resolved.trailLength only inside the entry branch, so no reactive
 	// dependency on trailLength is registered on a no-transition run.
-	let lastTrailStyle = resolved.trailStyle;
+	let lastTrailStyle = untrack(() => resolved.trailStyle);
 	$effect(() => {
 		const style = resolved.trailStyle;
 		if (style === lastTrailStyle) return;
