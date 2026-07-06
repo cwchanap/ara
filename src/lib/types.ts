@@ -29,7 +29,7 @@ export type ChaosMapType =
 
 export type LorenzSolver = 'euler' | 'rk2' | 'rk4';
 export type LorenzColorMode = 'time' | 'speed' | 'zheight' | 'divergence' | 'single';
-export type LorenzTrailStyle = 'comet' | 'cumulative';
+export type LorenzTrailStyle = 'comet' | 'cumulative' | 'stationary';
 export type LorenzViewMode = '3d' | 'xy' | 'xz' | 'yz';
 
 // Parameter interfaces for each chaos map type
