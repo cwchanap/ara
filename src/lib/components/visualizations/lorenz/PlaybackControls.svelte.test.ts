@@ -61,4 +61,18 @@ describe('PlaybackControls', () => {
 		await fireEvent.input(slider, { target: { value: '2.5' } });
 		expect(onSpeedChange).toHaveBeenCalledWith(2.5);
 	});
+
+	it('disables all controls when disabled prop is true', () => {
+		const { getByText, container } = render(PlaybackControls, {
+			props: { ...base, disabled: true }
+		});
+		const pauseBtn = getByText('Pause').closest('button') as HTMLButtonElement;
+		const stepBtn = getByText('Step').closest('button') as HTMLButtonElement;
+		const resetBtn = getByText('Reset').closest('button') as HTMLButtonElement;
+		const slider = container.querySelector('input[type="range"]') as HTMLInputElement;
+		expect(pauseBtn.disabled).toBe(true);
+		expect(stepBtn.disabled).toBe(true);
+		expect(resetBtn.disabled).toBe(true);
+		expect(slider.disabled).toBe(true);
+	});
 });

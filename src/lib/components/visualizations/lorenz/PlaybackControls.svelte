@@ -3,22 +3,33 @@
 	interface Props {
 		isPlaying: boolean;
 		speed: number;
+		disabled?: boolean;
 		onTogglePlay: () => void;
 		onStep: () => void;
 		onReset: () => void;
 		onSpeedChange: (speed: number) => void;
 	}
-	let { isPlaying, speed, onTogglePlay, onStep, onReset, onSpeedChange }: Props = $props();
+	let {
+		isPlaying,
+		speed,
+		disabled = false,
+		onTogglePlay,
+		onStep,
+		onReset,
+		onSpeedChange
+	}: Props = $props();
 	const btn =
-		'px-3 py-1 text-xs uppercase tracking-widest font-bold bg-primary/10 text-primary border border-primary/30 rounded-sm hover:bg-primary/20';
+		'px-3 py-1 text-xs uppercase tracking-widest font-bold bg-primary/10 text-primary border border-primary/30 rounded-sm hover:bg-primary/20 disabled:opacity-40 disabled:cursor-not-allowed';
 </script>
 
 <div class="space-y-3">
 	<span class="text-primary/80 text-xs uppercase tracking-widest font-bold">SIMULATION</span>
 	<div class="flex items-center gap-2">
-		<button type="button" class={btn} onclick={onTogglePlay}>{isPlaying ? 'Pause' : 'Play'}</button>
-		<button type="button" class={btn} onclick={onStep}>Step</button>
-		<button type="button" class={btn} onclick={onReset}>Reset</button>
+		<button type="button" class={btn} {disabled} onclick={onTogglePlay}
+			>{isPlaying ? 'Pause' : 'Play'}</button
+		>
+		<button type="button" class={btn} {disabled} onclick={onStep}>Step</button>
+		<button type="button" class={btn} {disabled} onclick={onReset}>Reset</button>
 	</div>
 	<label class="space-y-1 block">
 		<div class="flex justify-between items-end">
@@ -31,8 +42,9 @@
 			max="5"
 			step="0.1"
 			value={speed}
+			{disabled}
 			oninput={(e) => onSpeedChange(Number(e.currentTarget.value))}
-			class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
+			class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary disabled:opacity-40 disabled:cursor-not-allowed"
 		/>
 	</label>
 </div>
