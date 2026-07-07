@@ -150,7 +150,7 @@ const OPTIONAL_FIELDS: Partial<Record<ChaosMapType, Record<string, OptionalField
 		speed: { kind: 'number', min: 0 },
 		colorMode: { kind: 'enum', values: ['time', 'speed', 'zheight', 'divergence', 'single'] },
 		trailLength: { kind: 'number', min: 1, max: 100000 },
-		trailStyle: { kind: 'enum', values: ['comet', 'cumulative'] },
+		trailStyle: { kind: 'enum', values: ['comet', 'cumulative', 'stationary'] },
 		viewMode: { kind: 'enum', values: ['3d', 'xy', 'xz', 'yz'] },
 		autoRotate: { kind: 'boolean' },
 		rotationSpeed: { kind: 'number' },

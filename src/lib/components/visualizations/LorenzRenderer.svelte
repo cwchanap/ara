@@ -3,7 +3,7 @@
 
   Three.js renderer for the Lorenz attractor. Precomputes the trajectory on
   math-affecting changes (Approach A) and animates a `head` index across it.
-  Supports comet vs cumulative trails, color modes, a ghost (perturbed) orbit,
+  Supports comet, cumulative, and stationary trails, color modes, a ghost (perturbed) orbit,
   perspective 3D + orthographic XY/XZ/YZ projections, playback (play/pause/step/
   reset/speed), and comparison mode with camera sync.
 -->
