@@ -289,8 +289,8 @@ describe('getDaysUntilExpiration', () => {
 		const days = getDaysUntilExpiration(currentDate);
 		// A few ms may elapse between capturing now and calling the function,
 		// but Math.ceil of a tiny negative diff (e.g. -1ms / 86_400_000ms) still
-		// rounds up to 0, so the result is always 0.
-		expect(days).toBe(0);
+		// rounds up to 0, so the result is always 0. Use Object.is to handle -0 vs 0.
+		expect(Object.is(days, 0)).toBe(true);
 	});
 
 	test('calculates partial days correctly (rounds up)', () => {
