@@ -1392,6 +1392,17 @@ describe('Lorenz extended-field validation', () => {
 		expect(result.parameters?.stepsPerFrame).toBe(1);
 	});
 
+	test('accepts the stationary trailStyle', () => {
+		const result = validateParameters('lorenz', { ...full, trailStyle: 'stationary' });
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toHaveLength(0);
+	});
+
+	test('checkParameterStability does not warn for stationary trailStyle', () => {
+		const result = checkParameterStability('lorenz', { ...full, trailStyle: 'stationary' });
+		expect(result.warnings.join(' ')).not.toMatch(/trailStyle/);
+	});
+
 	test('clamps trailLength below min to 1 (trailLength < 1)', () => {
 		const result = validateParameters('lorenz', { ...full, trailLength: 0 });
 		expect(result.isValid).toBe(true);

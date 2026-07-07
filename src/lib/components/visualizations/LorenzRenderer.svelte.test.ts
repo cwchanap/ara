@@ -888,7 +888,7 @@ describe('LorenzRenderer stationary trail style', () => {
 		// Without the guard, resetNonce would set head=0, causing updateDraw to
 		// hide the line (visible=false). With the guard, head stays pinned at
 		// trailLength and the cache prevents updateDraw from touching visible.
-		await new Promise((r) => setTimeout(r, 50));
+		await new Promise((r) => setTimeout(r, 150));
 		expect(mainLine.visible).toBe(true);
 	});
 
