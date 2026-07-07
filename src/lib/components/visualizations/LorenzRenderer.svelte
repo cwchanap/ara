@@ -106,9 +106,15 @@
 		applyOrbitSettings?.();
 	});
 
-	// Reset playback head on resetNonce change.
+	// Reset playback head on resetNonce change. Guard against stationary mode,
+	// where head must stay at trailLength (full attractor visible). Currently
+	// unreachable because Reset is disabled in stationary mode, but future-proofs
+	// against other callers of resetNonce. untrack avoids registering a reactive
+	// dependency on trailStyle, which would re-run this effect on every style
+	// change and clobber head.
 	$effect(() => {
 		void resetNonce;
+		if (untrack(() => resolved.trailStyle) === 'stationary') return;
 		head = 0;
 	});
 
