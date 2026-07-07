@@ -768,3 +768,152 @@ describe('LorenzRenderer prop changes and effects', () => {
 		}
 	});
 });
+
+describe('LorenzRenderer stationary trail style', () => {
+	// Line2 mock instances persist across tests; clear so mock.results indices
+	// map cleanly to mainLine (results[0]) and ghostLine (results[1]).
+	beforeEach(async () => {
+		const { Line2 } = await import('three/examples/jsm/lines/Line2.js');
+		(Line2 as unknown as { mockClear: () => void }).mockClear();
+	});
+
+	afterEach(() => {
+		cleanup();
+		line2SetPositions.mockClear();
+		line2SetColors.mockClear();
+	});
+
+	const baseParams = { type: 'lorenz' as const, sigma: 10, rho: 28, beta: 2.667 };
+
+	// head is not observable via the bindable prop (@testing-library/svelte
+	// limitation — writes don't propagate back to the test). Instead, infer head
+	// from the positions subarray length pushed to Line2: in stationary mode
+	// from=0, to=head, so subarray length = head * 3. When head=0 the line is
+	// hidden (visible=false) and setPositions is not called.
+	async function getMainLine() {
+		const { Line2 } = await import('three/examples/jsm/lines/Line2.js');
+		const mock = Line2 as unknown as { mock: { results: { value: { visible: boolean } }[] } };
+		return mock.mock.results[0]!.value;
+	}
+
+	it('pins head to trailLength on initial mount in stationary mode', async () => {
+		const { container } = render(LorenzRenderer, {
+			props: {
+				params: { ...baseParams, trailStyle: 'stationary', trailLength: 5000 },
+				height: 200,
+				isPlaying: false
+			}
+		});
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+		// rebuild() pins head = trailLength; updateDraw pushes full trajectory.
+		await waitFor(() => {
+			expect(line2SetPositions).toHaveBeenCalled();
+		});
+		const lastCall = line2SetPositions.mock.calls.at(-1)?.[0];
+		expect(lastCall?.length).toBe(5000 * 3);
+	});
+
+	it('snaps head to trailLength when entering stationary via rerender', async () => {
+		const { rerender, container } = render(LorenzRenderer, {
+			props: {
+				params: { ...baseParams, trailStyle: 'comet', trailLength: 5000 },
+				height: 200,
+				isPlaying: false
+			}
+		});
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+		line2SetPositions.mockClear();
+		await rerender({
+			params: { ...baseParams, trailStyle: 'stationary', trailLength: 5000 },
+			height: 200,
+			isPlaying: false
+		});
+		// Trail-style transition effect sets head = trailLength.
+		await waitFor(() => {
+			expect(line2SetPositions).toHaveBeenCalled();
+		});
+		const lastCall = line2SetPositions.mock.calls.at(-1)?.[0];
+		expect(lastCall?.length).toBe(5000 * 3);
+	});
+
+	it('resets head to 0 when leaving stationary via rerender', async () => {
+		const { rerender, container } = render(LorenzRenderer, {
+			props: {
+				params: { ...baseParams, trailStyle: 'stationary', trailLength: 5000 },
+				height: 200,
+				isPlaying: false
+			}
+		});
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+		const mainLine = await getMainLine();
+		expect(mainLine.visible).toBe(true);
+		await rerender({
+			params: { ...baseParams, trailStyle: 'comet', trailLength: 5000 },
+			height: 200,
+			isPlaying: false
+		});
+		// Trail-style transition effect sets head = 0; updateDraw sees
+		// slice count < 2 and hides the line (visible = false).
+		await waitFor(() => {
+			expect(mainLine.visible).toBe(false);
+		});
+	});
+
+	it('does not reset head to 0 on resetNonce while stationary', async () => {
+		const { rerender, container } = render(LorenzRenderer, {
+			props: {
+				params: { ...baseParams, trailStyle: 'stationary', trailLength: 5000 },
+				height: 200,
+				isPlaying: false,
+				resetNonce: 0
+			}
+		});
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+		const mainLine = await getMainLine();
+		expect(mainLine.visible).toBe(true);
+		await rerender({
+			params: { ...baseParams, trailStyle: 'stationary', trailLength: 5000 },
+			height: 200,
+			isPlaying: false,
+			resetNonce: 1
+		});
+		// Without the guard, resetNonce would set head=0, causing updateDraw to
+		// hide the line (visible=false). With the guard, head stays pinned at
+		// trailLength and the cache prevents updateDraw from touching visible.
+		await new Promise((r) => setTimeout(r, 50));
+		expect(mainLine.visible).toBe(true);
+	});
+
+	it('re-pins head to trailLength when trailLength changes while stationary', async () => {
+		const { rerender, container } = render(LorenzRenderer, {
+			props: {
+				params: { ...baseParams, trailStyle: 'stationary', trailLength: 5000 },
+				height: 200,
+				isPlaying: false
+			}
+		});
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+		line2SetPositions.mockClear();
+		await rerender({
+			params: { ...baseParams, trailStyle: 'stationary', trailLength: 10000 },
+			height: 200,
+			isPlaying: false
+		});
+		// rebuild() fires on trailLength change and re-pins head to new value.
+		await waitFor(() => {
+			expect(line2SetPositions).toHaveBeenCalled();
+		});
+		const lastCall = line2SetPositions.mock.calls.at(-1)?.[0];
+		expect(lastCall?.length).toBe(10000 * 3);
+	});
+});
