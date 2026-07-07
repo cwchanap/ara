@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, waitFor } from '@testing-library/svelte';
+import { tick } from 'svelte';
 
 vi.mock('$lib/stores/camera-sync', () => ({
 	cameraSyncStore: {
@@ -866,30 +867,56 @@ describe('LorenzRenderer stationary trail style', () => {
 	});
 
 	it('does not reset head to 0 on resetNonce while stationary', async () => {
-		const { rerender, container } = render(LorenzRenderer, {
-			props: {
+		// updateDraw() only runs inside the rAF loop, so asserting visible
+		// stays true is asymmetric to the "leaving stationary" test above
+		// (which can waitFor visible->false). To deterministically prove the
+		// guard, install a controllable rAF that queues callbacks instead of
+		// auto-firing, then flush exactly one frame AFTER the resetNonce
+		// effect has run. Without the guard, head would be 0 by then and
+		// setLineSlice(0,0) would hide the line (visible=false).
+		const rafQueue: FrameRequestCallback[] = [];
+		const originalRaf = globalThis.requestAnimationFrame;
+		globalThis.requestAnimationFrame = ((cb: FrameRequestCallback) => {
+			rafQueue.push(cb);
+			return rafQueue.length;
+		}) as typeof globalThis.requestAnimationFrame;
+		const flushRaf = () => {
+			const q = rafQueue.splice(0, rafQueue.length);
+			for (const cb of q) cb(0);
+		};
+		try {
+			const { rerender, container } = render(LorenzRenderer, {
+				props: {
+					params: { ...baseParams, trailStyle: 'stationary', trailLength: 5000 },
+					height: 200,
+					isPlaying: false,
+					resetNonce: 0
+				}
+			});
+			await waitFor(() => {
+				expect(container.querySelector('canvas')).not.toBeNull();
+			});
+			const mainLine = await getMainLine();
+			// Mount-time animate() ran updateDraw once: head pinned to
+			// trailLength, cache (lastFrom=0, lastTo=trailLength) set, visible=true.
+			expect(mainLine.visible).toBe(true);
+			await rerender({
 				params: { ...baseParams, trailStyle: 'stationary', trailLength: 5000 },
 				height: 200,
 				isPlaying: false,
-				resetNonce: 0
-			}
-		});
-		await waitFor(() => {
-			expect(container.querySelector('canvas')).not.toBeNull();
-		});
-		const mainLine = await getMainLine();
-		expect(mainLine.visible).toBe(true);
-		await rerender({
-			params: { ...baseParams, trailStyle: 'stationary', trailLength: 5000 },
-			height: 200,
-			isPlaying: false,
-			resetNonce: 1
-		});
-		// Without the guard, resetNonce would set head=0, causing updateDraw to
-		// hide the line (visible=false). With the guard, head stays pinned at
-		// trailLength and the cache prevents updateDraw from touching visible.
-		await new Promise((r) => setTimeout(r, 150));
-		expect(mainLine.visible).toBe(true);
+				resetNonce: 1
+			});
+			// Flush the resetNonce effect: with the guard it returns early
+			// (head stays trailLength); without the guard it sets head=0.
+			await tick();
+			// Force one rAF frame so updateDraw runs against the post-effect
+			// head. Guard: cache hit -> visible untouched (true). No guard:
+			// cache miss -> setLineSlice(0,0) -> visible=false.
+			flushRaf();
+			expect(mainLine.visible).toBe(true);
+		} finally {
+			globalThis.requestAnimationFrame = originalRaf;
+		}
 	});
 
 	it('re-pins head to trailLength when trailLength changes while stationary', async () => {
