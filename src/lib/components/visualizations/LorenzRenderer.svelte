@@ -11,9 +11,6 @@
 	import { onMount, untrack } from 'svelte';
 	import * as THREE from 'three';
 	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-	import { Line2 } from 'three/examples/jsm/lines/Line2.js';
-	import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
-	import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 	import { cameraSyncStore, createCameraState, applyCameraState } from '$lib/stores/camera-sync';
 	import { COMET_WINDOW } from '$lib/constants';
 	import { integrate, type LorenzResult } from '$lib/lorenz/integrators';
@@ -212,22 +209,18 @@
 		let mainColors: Float32Array = new Float32Array(0);
 		let ghostColors: Float32Array = new Float32Array(0);
 
-		function safeComputeLineDistances(line: Line2) {
-			if ((line.geometry as THREE.InstancedBufferGeometry).instanceCount == null) return;
-			line.computeLineDistances();
-		}
-
-		function makeLine(): Line2 {
-			const geometry = new LineGeometry();
-			const material = new LineMaterial({
+		function makeLine(): THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial> {
+			const geometry = new THREE.BufferGeometry();
+			const material = new THREE.LineBasicMaterial({
 				vertexColors: true,
 				linewidth: 2,
 				blending: THREE.AdditiveBlending,
 				transparent: true,
 				opacity: 0.8
 			});
-			material.resolution.set(el.clientWidth, el.clientHeight);
-			return new Line2(geometry, material);
+			const line = new THREE.Line(geometry, material);
+			line.frustumCulled = false;
+			return line;
 		}
 
 		const mainLine = makeLine();
@@ -235,7 +228,7 @@
 		scene.add(mainLine);
 		scene.add(ghostLine);
 
-		function disposeLineGeometry(line: Line2) {
+		function disposeLineGeometry(line: THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>) {
 			line.geometry.dispose();
 		}
 
@@ -294,7 +287,7 @@
 		};
 
 		function setLineSlice(
-			line: Line2,
+			line: THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>,
 			result: LorenzResult,
 			colors: Float32Array,
 			from: number,
@@ -308,9 +301,9 @@
 			line.visible = true;
 			const pos = result.positions.subarray(from * 3, to * 3);
 			const col = colors.subarray(from * 3, to * 3);
-			line.geometry.setPositions(pos);
-			line.geometry.setColors(col);
-			safeComputeLineDistances(line);
+			line.geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+			line.geometry.setAttribute('color', new THREE.BufferAttribute(col, 3));
+			line.geometry.computeBoundingSphere();
 		}
 
 		let lastFrom = -1;
@@ -394,8 +387,6 @@
 			ortho.bottom = -halfH;
 			ortho.updateProjectionMatrix();
 			renderer.setSize(w, h);
-			(mainLine.material as LineMaterial).resolution.set(w, h);
-			(ghostLine.material as LineMaterial).resolution.set(w, h);
 		};
 		window.addEventListener('resize', handleResize);
 		const resizeObserver = new ResizeObserver(() => handleResize());
@@ -416,8 +407,8 @@
 			scene.remove(ghostLine);
 			disposeLineGeometry(mainLine);
 			disposeLineGeometry(ghostLine);
-			(mainLine.material as LineMaterial).dispose();
-			(ghostLine.material as LineMaterial).dispose();
+			mainLine.material.dispose();
+			ghostLine.material.dispose();
 			renderer.dispose();
 			if (renderer.domElement.parentNode === el) {
 				el.removeChild(renderer.domElement);
