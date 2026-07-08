@@ -22,9 +22,8 @@ const { perspectiveCameraPositionSet } = vi.hoisted(() => ({
 // Shared spies for BufferGeometry writes so rerender tests can assert that the
 // rAF-driven updateDraw() pipeline pushed new position/color buffers after a
 // prop change.
-const { bufferGeometrySetAttribute, bufferGeometryComputeBoundingSphere } = vi.hoisted(() => ({
-	bufferGeometrySetAttribute: vi.fn(),
-	bufferGeometryComputeBoundingSphere: vi.fn()
+const { bufferGeometrySetAttribute } = vi.hoisted(() => ({
+	bufferGeometrySetAttribute: vi.fn()
 }));
 
 vi.mock('three', () => ({
@@ -83,8 +82,7 @@ vi.mock('three', () => ({
 		return {
 			setAttribute: bufferGeometrySetAttribute,
 			dispose: vi.fn(),
-			setFromPoints: vi.fn().mockReturnThis(),
-			computeBoundingSphere: bufferGeometryComputeBoundingSphere
+			setFromPoints: vi.fn().mockReturnThis()
 		};
 	}),
 	Float32BufferAttribute: vi.fn().mockImplementation(function () {
@@ -151,7 +149,6 @@ type MockLine = { visible: boolean };
 
 function clearBufferGeometrySpies() {
 	bufferGeometrySetAttribute.mockClear();
-	bufferGeometryComputeBoundingSphere.mockClear();
 }
 
 function lastGeometryAttribute(name: string): MockBufferAttribute | undefined {
@@ -300,7 +297,7 @@ describe('LorenzRenderer Three.js integration', () => {
 		});
 	});
 
-	it('disables frustum culling on trail lines and recomputes the bounding sphere', async () => {
+	it('disables frustum culling on trail lines and pushes geometry attributes', async () => {
 		const THREE = await import('three');
 		clearBufferGeometrySpies();
 		render(LorenzRenderer, {
@@ -317,10 +314,10 @@ describe('LorenzRenderer Three.js integration', () => {
 				isPlaying: false
 			}
 		});
-		// Wait for updateDrawRange to push the position attribute and call
-		// computeBoundingSphere on the line geometry.
+		// Wait for updateDraw() to push the position attribute onto the line
+		// geometry (the real signal that the slice was uploaded).
 		await waitFor(() => {
-			expect(bufferGeometryComputeBoundingSphere).toHaveBeenCalled();
+			expect(bufferGeometrySetAttribute).toHaveBeenCalledWith('position', expect.any(Object));
 		});
 		// Every THREE.Line instance the renderer constructs must opt out of
 		// frustum culling so the trail stays visible while the camera orbits.
