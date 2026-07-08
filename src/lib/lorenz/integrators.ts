@@ -22,7 +22,7 @@ export interface LorenzIntegrationParams {
 }
 
 export interface LorenzResult {
-	/** Flat [x, y, z, …], length = steps * 3, ready for LineGeometry.setPositions. */
+	/** Flat [x, y, z, …], length = steps * 3, ready for BufferGeometry.setAttribute('position', …). */
 	positions: Float32Array;
 	/** |derivative| at each integrated point, length = steps. */
 	speeds: Float32Array;
