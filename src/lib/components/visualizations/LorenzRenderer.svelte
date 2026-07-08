@@ -213,6 +213,9 @@
 			const geometry = new THREE.BufferGeometry();
 			const material = new THREE.LineBasicMaterial({
 				vertexColors: true,
+				// linewidth is a no-op on WebGL (always 1px); kept for API parity with
+				// RosslerRenderer. The old Line2 rendered true 2px quads — this is the
+				// deliberate tradeoff of the Line2 -> THREE.Line refactor.
 				linewidth: 2,
 				blending: THREE.AdditiveBlending,
 				transparent: true,
@@ -228,8 +231,9 @@
 		scene.add(mainLine);
 		scene.add(ghostLine);
 
-		function disposeLineGeometry(line: THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>) {
+		function disposeLine(line: THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>) {
 			line.geometry.dispose();
+			line.material.dispose();
 		}
 
 		rebuild = () => {
@@ -303,7 +307,6 @@
 			const col = colors.subarray(from * 3, to * 3);
 			line.geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
 			line.geometry.setAttribute('color', new THREE.BufferAttribute(col, 3));
-			line.geometry.computeBoundingSphere();
 		}
 
 		let lastFrom = -1;
@@ -405,10 +408,8 @@
 			(gridHelper.material as THREE.Material).dispose();
 			scene.remove(mainLine);
 			scene.remove(ghostLine);
-			disposeLineGeometry(mainLine);
-			disposeLineGeometry(ghostLine);
-			mainLine.material.dispose();
-			ghostLine.material.dispose();
+			disposeLine(mainLine);
+			disposeLine(ghostLine);
 			renderer.dispose();
 			if (renderer.domElement.parentNode === el) {
 				el.removeChild(renderer.domElement);
