@@ -19,6 +19,14 @@ const { perspectiveCameraPositionSet } = vi.hoisted(() => ({
 	perspectiveCameraPositionSet: vi.fn()
 }));
 
+// Shared spies for BufferGeometry writes so rerender tests can assert that the
+// rAF-driven updateDraw() pipeline pushed new position/color buffers after a
+// prop change.
+const { bufferGeometrySetAttribute, bufferGeometryComputeBoundingSphere } = vi.hoisted(() => ({
+	bufferGeometrySetAttribute: vi.fn(),
+	bufferGeometryComputeBoundingSphere: vi.fn()
+}));
+
 vi.mock('three', () => ({
 	// Use mockImplementation(function(){}) so constructors work with `new`
 	WebGLRenderer: vi.fn().mockImplementation(function () {
@@ -72,19 +80,27 @@ vi.mock('three', () => ({
 		return { geometry: {}, material: {} };
 	}),
 	BufferGeometry: vi.fn().mockImplementation(function () {
-		return { setAttribute: vi.fn(), dispose: vi.fn(), setFromPoints: vi.fn().mockReturnThis() };
+		return {
+			setAttribute: bufferGeometrySetAttribute,
+			dispose: vi.fn(),
+			setFromPoints: vi.fn().mockReturnThis(),
+			computeBoundingSphere: bufferGeometryComputeBoundingSphere
+		};
 	}),
 	Float32BufferAttribute: vi.fn().mockImplementation(function () {
 		return {};
 	}),
-	BufferAttribute: vi.fn().mockImplementation(function () {
-		return {};
+	BufferAttribute: vi.fn().mockImplementation(function (array: Float32Array, itemSize: number) {
+		return { array, itemSize };
 	}),
 	PointsMaterial: vi.fn().mockImplementation(function () {
 		return { dispose: vi.fn() };
 	}),
 	LineBasicMaterial: vi.fn().mockImplementation(function () {
 		return { dispose: vi.fn(), transparent: false, opacity: 1 };
+	}),
+	Line: vi.fn().mockImplementation(function (geometry, material) {
+		return { geometry, material, visible: true };
 	}),
 	GridHelper: vi.fn().mockImplementation(function () {
 		return {
@@ -127,46 +143,28 @@ vi.mock('three/examples/jsm/controls/OrbitControls.js', () => {
 	};
 });
 
-// Shared spies for Line2 geometry methods, hoisted so they are available inside
-// the vi.mock factory below and in test bodies. Using shared spies (instead of a
-// fresh vi.fn() per `new Line2()` instance) lets rerender tests assert that the
-// rAF-driven updateDraw() pipeline actually pushed new geometry/colors after a
-// prop change — verifying the effect ran, not just that the rerender didn't throw.
-const { line2SetPositions, line2SetColors } = vi.hoisted(() => ({
-	line2SetPositions: vi.fn(),
-	line2SetColors: vi.fn()
-}));
-
-vi.mock('three/examples/jsm/lines/Line2.js', () => ({
-	Line2: vi.fn().mockImplementation(function () {
-		return {
-			visible: true,
-			geometry: {
-				dispose: vi.fn(),
-				setPositions: line2SetPositions,
-				setColors: line2SetColors,
-				instanceCount: 10
-			},
-			material: { dispose: vi.fn(), resolution: { set: vi.fn() } },
-			computeLineDistances: vi.fn()
-		};
-	})
-}));
-
-vi.mock('three/examples/jsm/lines/LineGeometry.js', () => ({
-	LineGeometry: vi.fn().mockImplementation(function () {
-		return { setPositions: vi.fn(), setColors: vi.fn(), dispose: vi.fn() };
-	})
-}));
-
-vi.mock('three/examples/jsm/lines/LineMaterial.js', () => ({
-	LineMaterial: vi.fn().mockImplementation(function () {
-		return { dispose: vi.fn(), resolution: { set: vi.fn() } };
-	})
-}));
-
 import LorenzRenderer from './LorenzRenderer.svelte';
 import { cameraSyncStore, applyCameraState } from '$lib/stores/camera-sync';
+
+type MockBufferAttribute = { array: Float32Array; itemSize: number };
+type MockLine = { visible: boolean };
+
+function clearBufferGeometrySpies() {
+	bufferGeometrySetAttribute.mockClear();
+	bufferGeometryComputeBoundingSphere.mockClear();
+}
+
+function lastGeometryAttribute(name: string): MockBufferAttribute | undefined {
+	return bufferGeometrySetAttribute.mock.calls
+		.filter(([attributeName]) => attributeName === name)
+		.at(-1)?.[1] as MockBufferAttribute | undefined;
+}
+
+async function getMainThreeLine(): Promise<MockLine> {
+	const THREE = await import('three');
+	const mock = THREE.Line as unknown as { mock: { results: { value: MockLine }[] } };
+	return mock.mock.results[0]!.value;
+}
 
 describe('LorenzRenderer (smoke)', () => {
 	afterEach(() => {
@@ -272,14 +270,34 @@ describe('LorenzRenderer Three.js integration', () => {
 		expect(THREE.GridHelper).toHaveBeenCalled();
 	});
 
-	it('creates OrbitControls and Line2', async () => {
+	it('creates OrbitControls and standard line objects', async () => {
+		const THREE = await import('three');
 		const { OrbitControls } = await import('three/examples/jsm/controls/OrbitControls.js');
-		const { Line2 } = await import('three/examples/jsm/lines/Line2.js');
 		render(LorenzRenderer, {
 			props: { params: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 }, height: 200 }
 		});
 		expect(OrbitControls).toHaveBeenCalled();
-		expect(Line2).toHaveBeenCalled();
+		expect(THREE.Line).toHaveBeenCalled();
+	});
+
+	it('creates a standard Three.js line for the visible trail', async () => {
+		const THREE = await import('three');
+		render(LorenzRenderer, {
+			props: {
+				params: {
+					type: 'lorenz',
+					sigma: 10,
+					rho: 28,
+					beta: 2.667,
+					trailStyle: 'stationary'
+				},
+				height: 200,
+				isPlaying: false
+			}
+		});
+		await waitFor(() => {
+			expect(THREE.Line).toHaveBeenCalled();
+		});
 	});
 });
 
@@ -299,9 +317,9 @@ describe('LorenzRenderer engine behavior', () => {
 		expect(THREE.OrthographicCamera).toHaveBeenCalled();
 	});
 
-	it('creates two Line2 instances (main + ghost) when ghost is enabled', async () => {
-		const { Line2 } = await import('three/examples/jsm/lines/Line2.js');
-		(Line2 as unknown as { mockClear: () => void }).mockClear?.();
+	it('creates two line instances (main + ghost) when ghost is enabled', async () => {
+		const THREE = await import('three');
+		(THREE.Line as unknown as { mockClear: () => void }).mockClear?.();
 		render(LorenzRenderer, {
 			props: {
 				params: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667, showGhost: true },
@@ -309,7 +327,7 @@ describe('LorenzRenderer engine behavior', () => {
 			}
 		});
 		expect(
-			(Line2 as unknown as { mock: { calls: unknown[] } }).mock.calls.length
+			(THREE.Line as unknown as { mock: { calls: unknown[] } }).mock.calls.length
 		).toBeGreaterThanOrEqual(2);
 	});
 
@@ -451,41 +469,6 @@ describe('LorenzRenderer resize and view modes and unmount', () => {
 			compareSide: 'left'
 		});
 	});
-
-	it('skips computeLineDistances when instanceCount is null', async () => {
-		const { Line2 } = await import('three/examples/jsm/lines/Line2.js');
-		const line2Mock = Line2 as unknown as ReturnType<typeof vi.fn> & {
-			getMockImplementation?: () => (() => unknown) | undefined;
-		};
-		const originalMock = line2Mock.getMockImplementation?.();
-		line2Mock.mockImplementation(function () {
-			return {
-				visible: true,
-				geometry: {
-					dispose: vi.fn(),
-					setPositions: vi.fn(),
-					setColors: vi.fn(),
-					instanceCount: null
-				},
-				material: { dispose: vi.fn(), resolution: { set: vi.fn() } },
-				computeLineDistances: vi.fn()
-			};
-		});
-		expect(() =>
-			render(LorenzRenderer, {
-				props: {
-					params: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667 },
-					height: 200
-				}
-			})
-		).not.toThrow();
-		// Restore original mock
-		if (originalMock) {
-			line2Mock.mockImplementation(originalMock);
-		} else {
-			line2Mock.mockRestore();
-		}
-	});
 });
 
 describe('LorenzRenderer prop changes and effects', () => {
@@ -493,8 +476,7 @@ describe('LorenzRenderer prop changes and effects', () => {
 		cleanup();
 		vi.mocked(cameraSyncStore.subscribe).mockReturnValue(() => {});
 		vi.mocked(applyCameraState).mockClear();
-		line2SetPositions.mockClear();
-		line2SetColors.mockClear();
+		clearBufferGeometrySpies();
 		perspectiveCameraPositionSet.mockClear();
 	});
 
@@ -507,8 +489,7 @@ describe('LorenzRenderer prop changes and effects', () => {
 		await waitFor(() => {
 			expect(container.querySelector('canvas')).not.toBeNull();
 		});
-		line2SetPositions.mockClear();
-		line2SetColors.mockClear();
+		clearBufferGeometrySpies();
 		await rerender({
 			params: { ...baseParams, colorMode: 'speed' },
 			height: 200
@@ -516,7 +497,7 @@ describe('LorenzRenderer prop changes and effects', () => {
 		// applyColors() invalidates the draw cache; the next updateDraw() (rAF)
 		// must push the recomputed colors. Verifies the colorMode effect ran.
 		await waitFor(() => {
-			expect(line2SetColors).toHaveBeenCalled();
+			expect(lastGeometryAttribute('color')).toBeTruthy();
 		});
 		expect(container.querySelector('canvas')).not.toBeNull();
 	});
@@ -529,8 +510,7 @@ describe('LorenzRenderer prop changes and effects', () => {
 			expect(container.querySelector('canvas')).not.toBeNull();
 		});
 		// Reset after initial mount so we only observe post-rerender activity.
-		line2SetPositions.mockClear();
-		line2SetColors.mockClear();
+		clearBufferGeometrySpies();
 		await rerender({
 			params: { ...baseParams, solver: 'rk4' },
 			height: 200
@@ -539,7 +519,7 @@ describe('LorenzRenderer prop changes and effects', () => {
 		// push the new trajectory geometry to the line. Verifies the rebuild effect
 		// propagated to the render pipeline, not just that rerender didn't throw.
 		await waitFor(() => {
-			expect(line2SetPositions).toHaveBeenCalled();
+			expect(lastGeometryAttribute('position')).toBeTruthy();
 		});
 		expect(container.querySelector('canvas')).not.toBeNull();
 	});
@@ -569,8 +549,7 @@ describe('LorenzRenderer prop changes and effects', () => {
 		await waitFor(() => {
 			expect(container.querySelector('canvas')).not.toBeNull();
 		});
-		line2SetPositions.mockClear();
-		line2SetColors.mockClear();
+		clearBufferGeometrySpies();
 		await rerender({
 			params: baseParams,
 			height: 200,
@@ -581,14 +560,14 @@ describe('LorenzRenderer prop changes and effects', () => {
 		// the only thing that advances head is the stepNonce effect's
 		// advanceHead(true). The next updateDraw() must push the new slice.
 		await waitFor(() => {
-			expect(line2SetPositions).toHaveBeenCalled();
+			expect(lastGeometryAttribute('position')).toBeTruthy();
 		});
 		expect(container.querySelector('canvas')).not.toBeNull();
 	});
 
 	it('resets head when resetNonce changes via rerender', async () => {
 		// resetNonce sets head=0; updateDraw() then early-returns (slice count < 2)
-		// without calling setPositions/setColors, so the Line2 geometry spies cannot
+		// without writing position/color attributes, so the geometry spies cannot
 		// observe the reset. The observable would be line.visible=false, but
 		// `visible` is a plain property on the mock, not a spy. Smoke check only.
 		const { rerender, container } = render(LorenzRenderer, {
@@ -608,7 +587,7 @@ describe('LorenzRenderer prop changes and effects', () => {
 	it('handles speed change via rerender', async () => {
 		// speed is not tracked by any $effect; it is read inside advanceHead()
 		// (rAF loop). With isPlaying defaulting to true the loop advances head
-		// every frame regardless of speed, so a setPositions spy assertion could
+		// every frame regardless of speed, so a position-buffer assertion could
 		// pass for the wrong reason (animation ticked). Smoke check only.
 		const { rerender, container } = render(LorenzRenderer, {
 			props: { params: { ...baseParams, speed: 1 }, height: 200 }
@@ -668,8 +647,7 @@ describe('LorenzRenderer prop changes and effects', () => {
 		await waitFor(() => {
 			expect(container.querySelector('canvas')).not.toBeNull();
 		});
-		line2SetPositions.mockClear();
-		line2SetColors.mockClear();
+		clearBufferGeometrySpies();
 		await rerender({
 			params: { ...baseParams, trailLength: 10000 },
 			height: 200
@@ -677,14 +655,14 @@ describe('LorenzRenderer prop changes and effects', () => {
 		// trailLength is in the rebuild effect's dependency list; rebuild()
 		// invalidates the draw cache so the next updateDraw() pushes new geometry.
 		await waitFor(() => {
-			expect(line2SetPositions).toHaveBeenCalled();
+			expect(lastGeometryAttribute('position')).toBeTruthy();
 		});
 		expect(container.querySelector('canvas')).not.toBeNull();
 	});
 
 	it('handles isPlaying toggle via rerender', async () => {
 		// isPlaying gates advanceHead() inside the rAF loop. Asserting the
-		// stop/resume of setPositions calls across a true→false→true toggle is
+		// stop/resume of position-buffer writes across a true→false→true toggle is
 		// timing-fragile (depends on exactly which rAF tick fires between
 		// rerenders), so this remains a smoke check.
 		const { rerender, container } = render(LorenzRenderer, {
@@ -771,31 +749,26 @@ describe('LorenzRenderer prop changes and effects', () => {
 });
 
 describe('LorenzRenderer stationary trail style', () => {
-	// Line2 mock instances persist across tests; clear so mock.results indices
+	// Line mock instances persist across tests; clear so mock.results indices
 	// map cleanly to mainLine (results[0]) and ghostLine (results[1]).
 	beforeEach(async () => {
-		const { Line2 } = await import('three/examples/jsm/lines/Line2.js');
-		(Line2 as unknown as { mockClear: () => void }).mockClear();
+		const THREE = await import('three');
+		(THREE.Line as unknown as { mockClear: () => void }).mockClear();
+		clearBufferGeometrySpies();
 	});
 
 	afterEach(() => {
 		cleanup();
-		line2SetPositions.mockClear();
-		line2SetColors.mockClear();
+		clearBufferGeometrySpies();
 	});
 
 	const baseParams = { type: 'lorenz' as const, sigma: 10, rho: 28, beta: 2.667 };
 
 	// head is not observable via the bindable prop (@testing-library/svelte
 	// limitation — writes don't propagate back to the test). Instead, infer head
-	// from the positions subarray length pushed to Line2: in stationary mode
+	// from the position buffer length pushed to THREE.Line: in stationary mode
 	// from=0, to=head, so subarray length = head * 3. When head=0 the line is
-	// hidden (visible=false) and setPositions is not called.
-	async function getMainLine() {
-		const { Line2 } = await import('three/examples/jsm/lines/Line2.js');
-		const mock = Line2 as unknown as { mock: { results: { value: { visible: boolean } }[] } };
-		return mock.mock.results[0]!.value;
-	}
+	// hidden (visible=false) and position/color attributes are not written.
 
 	it('pins head to trailLength on initial mount in stationary mode', async () => {
 		const { container } = render(LorenzRenderer, {
@@ -810,10 +783,9 @@ describe('LorenzRenderer stationary trail style', () => {
 		});
 		// rebuild() pins head = trailLength; updateDraw pushes full trajectory.
 		await waitFor(() => {
-			expect(line2SetPositions).toHaveBeenCalled();
+			expect(lastGeometryAttribute('position')).toBeTruthy();
 		});
-		const lastCall = line2SetPositions.mock.calls.at(-1)?.[0];
-		expect(lastCall?.length).toBe(5000 * 3);
+		expect(lastGeometryAttribute('position')?.array.length).toBe(5000 * 3);
 	});
 
 	it('snaps head to trailLength when entering stationary via rerender', async () => {
@@ -827,7 +799,7 @@ describe('LorenzRenderer stationary trail style', () => {
 		await waitFor(() => {
 			expect(container.querySelector('canvas')).not.toBeNull();
 		});
-		line2SetPositions.mockClear();
+		clearBufferGeometrySpies();
 		await rerender({
 			params: { ...baseParams, trailStyle: 'stationary', trailLength: 5000 },
 			height: 200,
@@ -835,10 +807,9 @@ describe('LorenzRenderer stationary trail style', () => {
 		});
 		// Trail-style transition effect sets head = trailLength.
 		await waitFor(() => {
-			expect(line2SetPositions).toHaveBeenCalled();
+			expect(lastGeometryAttribute('position')).toBeTruthy();
 		});
-		const lastCall = line2SetPositions.mock.calls.at(-1)?.[0];
-		expect(lastCall?.length).toBe(5000 * 3);
+		expect(lastGeometryAttribute('position')?.array.length).toBe(5000 * 3);
 	});
 
 	it('resets head to 0 when leaving stationary via rerender', async () => {
@@ -852,7 +823,7 @@ describe('LorenzRenderer stationary trail style', () => {
 		await waitFor(() => {
 			expect(container.querySelector('canvas')).not.toBeNull();
 		});
-		const mainLine = await getMainLine();
+		const mainLine = await getMainThreeLine();
 		expect(mainLine.visible).toBe(true);
 		await rerender({
 			params: { ...baseParams, trailStyle: 'comet', trailLength: 5000 },
@@ -896,7 +867,7 @@ describe('LorenzRenderer stationary trail style', () => {
 			await waitFor(() => {
 				expect(container.querySelector('canvas')).not.toBeNull();
 			});
-			const mainLine = await getMainLine();
+			const mainLine = await getMainThreeLine();
 			// Mount-time animate() ran updateDraw once: head pinned to
 			// trailLength, cache (lastFrom=0, lastTo=trailLength) set, visible=true.
 			expect(mainLine.visible).toBe(true);
@@ -930,7 +901,7 @@ describe('LorenzRenderer stationary trail style', () => {
 		await waitFor(() => {
 			expect(container.querySelector('canvas')).not.toBeNull();
 		});
-		line2SetPositions.mockClear();
+		clearBufferGeometrySpies();
 		await rerender({
 			params: { ...baseParams, trailStyle: 'stationary', trailLength: 10000 },
 			height: 200,
@@ -938,9 +909,8 @@ describe('LorenzRenderer stationary trail style', () => {
 		});
 		// rebuild() fires on trailLength change and re-pins head to new value.
 		await waitFor(() => {
-			expect(line2SetPositions).toHaveBeenCalled();
+			expect(lastGeometryAttribute('position')).toBeTruthy();
 		});
-		const lastCall = line2SetPositions.mock.calls.at(-1)?.[0];
-		expect(lastCall?.length).toBe(10000 * 3);
+		expect(lastGeometryAttribute('position')?.array.length).toBe(10000 * 3);
 	});
 });
