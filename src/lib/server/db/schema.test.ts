@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { getTableConfig } from 'drizzle-orm/pg-core';
 import { profiles, savedConfigurations, sharedConfigurations } from './schema';
 import { VALID_MAP_TYPES } from '$lib/types';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 describe('database auth user id columns', () => {
@@ -78,8 +78,11 @@ describe('migration map_type constraints include all VALID_MAP_TYPES', () => {
 		expect(entry!.idx).toBe(11);
 		// Every migration file on disk must have a journal entry (no orphan SQL).
 		const tags = journal.entries.map((e) => e.tag);
-		expect(tags).toContain('0010_add_gumowski_mira_map_type');
-		expect(tags).toContain('0011_add_tinkerbell_map_type');
+		const migrationFiles = readdirSync(migrationDir).filter((f) => f.endsWith('.sql'));
+		expect(migrationFiles.length).toBeGreaterThan(0);
+		for (const file of migrationFiles) {
+			expect(tags).toContain(file.replace(/\.sql$/, ''));
+		}
 	});
 });
 
