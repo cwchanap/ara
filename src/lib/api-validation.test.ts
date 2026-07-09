@@ -282,6 +282,7 @@ describe('API Validation Logic', () => {
 				'lozi',
 				'ikeda',
 				'clifford',
+				'tinkerbell',
 				'logistic',
 				'newton',
 				'standard',

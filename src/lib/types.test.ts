@@ -16,6 +16,7 @@ const EXPECTED_MAP_TYPES: ChaosMapType[] = [
 	'lozi',
 	'ikeda',
 	'clifford',
+	'tinkerbell',
 	'logistic',
 	'newton',
 	'standard',

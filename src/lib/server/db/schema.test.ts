@@ -23,7 +23,7 @@ describe('migration map_type constraints include all VALID_MAP_TYPES', () => {
 
 	test('saved_configurations constraint covers all VALID_MAP_TYPES', () => {
 		const sql = readFileSync(
-			resolve(migrationDir, '0010_add_gumowski_mira_map_type.sql'),
+			resolve(migrationDir, '0011_add_tinkerbell_map_type.sql'),
 			'utf-8'
 		);
 		const savedMatch = sql.match(
@@ -40,7 +40,7 @@ describe('migration map_type constraints include all VALID_MAP_TYPES', () => {
 
 	test('shared_configurations constraint covers all VALID_MAP_TYPES', () => {
 		const sql = readFileSync(
-			resolve(migrationDir, '0010_add_gumowski_mira_map_type.sql'),
+			resolve(migrationDir, '0011_add_tinkerbell_map_type.sql'),
 			'utf-8'
 		);
 		const sharedMatch = sql.match(
@@ -57,7 +57,7 @@ describe('migration map_type constraints include all VALID_MAP_TYPES', () => {
 
 	test('migration constraint has no extra types beyond VALID_MAP_TYPES', () => {
 		const sql = readFileSync(
-			resolve(migrationDir, '0010_add_gumowski_mira_map_type.sql'),
+			resolve(migrationDir, '0011_add_tinkerbell_map_type.sql'),
 			'utf-8'
 		);
 		const matches = sql.matchAll(/CHECK \("map_type" IN \(([^)]+)\)/g);
@@ -69,17 +69,17 @@ describe('migration map_type constraints include all VALID_MAP_TYPES', () => {
 		}
 	});
 
-	test('drizzle journal registers the 0010 gumowski-mira migration', () => {
+	test('drizzle journal registers the 0011 tinkerbell migration', () => {
 		const journal = JSON.parse(
 			readFileSync(resolve(migrationDir, 'meta/_journal.json'), 'utf-8')
 		) as { entries: { idx: number; tag: string }[] };
-		const entry = journal.entries.find((e) => e.tag === '0010_add_gumowski_mira_map_type');
+		const entry = journal.entries.find((e) => e.tag === '0011_add_tinkerbell_map_type');
 		expect(entry).toBeDefined();
-		expect(entry!.idx).toBe(10);
+		expect(entry!.idx).toBe(11);
 		// Every migration file on disk must have a journal entry (no orphan SQL).
 		const tags = journal.entries.map((e) => e.tag);
-		expect(tags).toContain('0009_add_clifford_map_type');
 		expect(tags).toContain('0010_add_gumowski_mira_map_type');
+		expect(tags).toContain('0011_add_tinkerbell_map_type');
 	});
 });
 

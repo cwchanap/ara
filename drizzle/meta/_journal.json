@@ -78,6 +78,13 @@
 			"when": 1779699600005,
 			"tag": "0010_add_gumowski_mira_map_type",
 			"breakpoints": true
+		},
+		{
+			"idx": 11,
+			"version": "7",
+			"when": 1779699600006,
+			"tag": "0011_add_tinkerbell_map_type",
+			"breakpoints": true
 		}
 	]
 }
