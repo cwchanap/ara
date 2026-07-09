@@ -33,6 +33,12 @@
 			color: 'from-purple-500 to-fuchsia-600'
 		},
 		{
+			name: 'Tinkerbell Map',
+			description: 'A 2D chaotic map producing delicate, dense strange-attractor structures',
+			url: '/tinkerbell',
+			color: 'from-violet-500 to-fuchsia-600'
+		},
+		{
 			name: 'Gumowski–Mira Map',
 			description: 'A nonlinear map with rich transitions between order, islands, and chaos',
 			url: '/gumowski-mira',
