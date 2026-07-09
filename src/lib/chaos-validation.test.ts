@@ -3089,6 +3089,63 @@ describe('clifford validation', () => {
 	});
 });
 
+describe('tinkerbell validation', () => {
+	const valid = {
+		type: 'tinkerbell' as const,
+		a: 0.9,
+		b: -0.6013,
+		c: 2.0,
+		d: 0.5,
+		iterations: 100000
+	};
+
+	test('accepts a valid tinkerbell config', () => {
+		const result = validateParameters('tinkerbell', valid);
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toEqual([]);
+	});
+
+	test('reports missing required parameters', () => {
+		const { a, ...missingA } = valid;
+		void a;
+		const result = validateParameters('tinkerbell', { ...missingA, type: 'tinkerbell' });
+		expect(result.isValid).toBe(false);
+		expect(result.errors.join(' ')).toMatch(/Missing required parameters/);
+	});
+
+	test('rejects an invalid colorMode enum value', () => {
+		const result = validateParameters('tinkerbell', { ...valid, colorMode: 'rainbow' });
+		expect(result.isValid).toBe(false);
+		expect(result.errors.join(' ')).toMatch(/colorMode/);
+	});
+
+	test('accepts a valid colorMode and clamps zoom into range', () => {
+		const result = validateParameters('tinkerbell', {
+			...valid,
+			colorMode: 'density',
+			zoom: 999
+		});
+		expect(result.isValid).toBe(true);
+		expect((result.parameters as Record<string, number>).zoom).toBe(5);
+	});
+
+	test('rejects extra parameters', () => {
+		const result = validateParameters('tinkerbell', { ...valid, extra: 42 });
+		expect(result.isValid).toBe(false);
+		expect(result.errors.join(' ')).toContain('extra');
+	});
+
+	test('warns when a shape parameter is outside the stable range', () => {
+		const result = checkParameterStability('tinkerbell', { ...valid, a: 99 });
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.join(' ')).toMatch(/a \(99\)/);
+	});
+
+	test('classic defaults are stable', () => {
+		expect(checkParameterStability('tinkerbell', valid).isStable).toBe(true);
+	});
+});
+
 describe('gumowski-mira validation', () => {
 	const valid = {
 		type: 'gumowski-mira' as const,

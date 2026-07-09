@@ -5,7 +5,12 @@
  * about potentially unstable configurations (FR-019).
  */
 
-import { CLIFFORD_COLOR_MODES, type ChaosMapType, type ChaosMapParameters } from '$lib/types';
+import {
+	CLIFFORD_COLOR_MODES,
+	TINKERBELL_COLOR_MODES,
+	type ChaosMapType,
+	type ChaosMapParameters
+} from '$lib/types';
 
 // Stable parameter ranges for each chaos map type
 // Values outside these ranges may produce unstable or undefined behavior
@@ -49,6 +54,13 @@ const STABLE_RANGES: Record<ChaosMapType, StableRanges<Record<string, number>>> 
 		burnIn: { min: 0, max: 10000 }
 	},
 	clifford: {
+		a: { min: -3, max: 3 },
+		b: { min: -3, max: 3 },
+		c: { min: -3, max: 3 },
+		d: { min: -3, max: 3 },
+		iterations: { min: 1, max: 250000 }
+	},
+	tinkerbell: {
 		a: { min: -3, max: 3 },
 		b: { min: -3, max: 3 },
 		c: { min: -3, max: 3 },
@@ -165,6 +177,12 @@ const OPTIONAL_FIELDS: Partial<Record<ChaosMapType, Record<string, OptionalField
 	},
 	clifford: {
 		colorMode: { kind: 'enum', values: [...CLIFFORD_COLOR_MODES] },
+		zoom: { kind: 'number', min: 0.5, max: 5 },
+		pointSize: { kind: 'number', min: 0.5, max: 6 },
+		opacity: { kind: 'number', min: 0, max: 1 }
+	},
+	tinkerbell: {
+		colorMode: { kind: 'enum', values: [...TINKERBELL_COLOR_MODES] },
 		zoom: { kind: 'number', min: 0.5, max: 5 },
 		pointSize: { kind: 'number', min: 0.5, max: 6 },
 		opacity: { kind: 'number', min: 0, max: 1 }
