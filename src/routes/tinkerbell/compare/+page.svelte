@@ -60,10 +60,11 @@
 
 	// Styling params are intentionally shared from the left side only, so the
 	// two panels differ only by their mathematical parameters.
-	const colorMode: TinkerbellColorMode = leftInitial.colorMode ?? defaultParams.colorMode!;
-	const zoom = leftInitial.zoom ?? defaultParams.zoom!;
-	const pointSize = leftInitial.pointSize ?? defaultParams.pointSize!;
-	const opacity = leftInitial.opacity ?? defaultParams.opacity!;
+	const colorMode: TinkerbellColorMode =
+		leftInitial.colorMode ?? defaultParams.colorMode ?? 'density';
+	const zoom = leftInitial.zoom ?? defaultParams.zoom ?? 1;
+	const pointSize = leftInitial.pointSize ?? defaultParams.pointSize ?? 1.5;
+	const opacity = leftInitial.opacity ?? defaultParams.opacity ?? 0.6;
 
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	$effect(() => {
