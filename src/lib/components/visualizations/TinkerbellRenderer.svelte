@@ -140,6 +140,9 @@
 
 		const capped = computed.points.length > MAX_POINTS;
 		const points = capped ? computed.points.slice(0, MAX_POINTS) : computed.points;
+		// Empty data: the ?? fallbacks below yield a [-1, 1] domain — axes/frame
+		// stay visible, the point-drawing block is a no-op. Only bail out on
+		// invalid dimensions.
 		if (width <= 0 || chartHeight <= 0) return;
 
 		const xExtentRaw = d3.extent(points, (p) => p[0]);

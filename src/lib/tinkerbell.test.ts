@@ -50,8 +50,8 @@ describe('calculateTinkerbellTuples', () => {
 		});
 		expect(pts.length).toBeLessThan(1000);
 		for (const [x, y] of pts) {
-			expect(Math.abs(x)).toBeLessThanOrEqual(1e6);
-			expect(Math.abs(y)).toBeLessThanOrEqual(1e6);
+			expect(Math.abs(x)).toBeLessThanOrEqual(1e4);
+			expect(Math.abs(y)).toBeLessThanOrEqual(1e4);
 		}
 	});
 
