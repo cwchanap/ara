@@ -6,6 +6,7 @@
 import type { ChaosMapsWorkerRequest, ChaosMapsWorkerResponse, ErrorResponse } from './types';
 import { calculateIkedaMultiSeed } from '../ikeda';
 import { calculateCliffordTuples } from '../clifford';
+import { calculateTinkerbellTuples } from '../tinkerbell';
 import { calculateGumowskiMiraMultiSeed } from '../gumowski-mira';
 import { calculateChaos } from '../chaos-esthetique';
 import { standardMap } from '../standard';
@@ -47,6 +48,16 @@ export function handleWorkerMessage(data: ChaosMapsWorkerRequest): ChaosMapsWork
 			maxPoints: data.maxPoints
 		});
 		return { type: 'cliffordResult', id: data.id, points };
+	} else if (data.type === 'tinkerbell') {
+		const points = calculateTinkerbellTuples({
+			a: data.a,
+			b: data.b,
+			c: data.c,
+			d: data.d,
+			iterations: data.iterations,
+			maxPoints: data.maxPoints
+		});
+		return { type: 'tinkerbellResult', id: data.id, points };
 	} else if (data.type === 'gumowskiMira') {
 		const { points, seedIndices } = calculateGumowskiMiraMultiSeed({
 			mu: data.mu,
