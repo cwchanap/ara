@@ -99,5 +99,10 @@ describe('Tinkerbell compare page interactions', () => {
 		setPageUrl(`http://localhost/tinkerbell/compare?compare=true&left=${left}`);
 		render(TinkerbellComparePage);
 		expect(mockGoto).not.toHaveBeenCalled();
+		// Verify the decoded a=-1.2 actually reaches the left-a slider, not just
+		// that no navigation occurred.
+		const leftA = document.getElementById('left-a') as HTMLInputElement;
+		expect(leftA).toBeTruthy();
+		expect(leftA.value).toBe('-1.2');
 	});
 });

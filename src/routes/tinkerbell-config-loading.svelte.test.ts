@@ -8,6 +8,13 @@ import {
 } from '$lib/components/testing/page-test-helpers';
 import TinkerbellPage from './tinkerbell/+page.svelte';
 
+// Mock parseConfigParam so an inline ?config= payload exercises the shell's
+// onExtraParametersLoaded callback (the path at +page.svelte:98-109).
+const parseConfigParamMock = vi.hoisted(() => vi.fn());
+vi.mock('$lib/saved-config-loader', () => ({
+	parseConfigParam: parseConfigParamMock
+}));
+
 vi.mock('$app/stores', () => ({ page: mockPageStore }));
 vi.mock('$app/paths', () => ({ base: BASE_PATH }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
@@ -38,6 +45,7 @@ function setPageUrl(url: string) {
 describe('tinkerbell page', () => {
 	beforeEach(() => {
 		setPageUrl('http://localhost/tinkerbell');
+		parseConfigParamMock.mockReset();
 	});
 
 	afterEach(() => {
@@ -70,5 +78,40 @@ describe('tinkerbell page', () => {
 			const after = screen.getByTestId('value-a').textContent;
 			expect(after).not.toBe(before);
 		});
+	});
+
+	it('applies an inline ?config= payload via onExtraParametersLoaded', async () => {
+		// Exercises the onExtraParametersLoaded path (+page.svelte:98-109):
+		// the shell parses the ?config= param and calls the page's callback,
+		// which must push the loaded shape + styling params into page $state.
+		parseConfigParamMock.mockReturnValueOnce({
+			ok: true,
+			parameters: {
+				type: 'tinkerbell',
+				a: -1.5,
+				b: -0.5,
+				c: 1.8,
+				d: -0.6,
+				iterations: 200000,
+				colorMode: 'angle',
+				zoom: 2,
+				pointSize: 3,
+				opacity: 0.3
+			}
+		});
+		setPageUrl('http://localhost/tinkerbell?config=encoded-payload');
+		render(TinkerbellPage, { data: unauthedData });
+
+		await waitFor(() => {
+			expect(parseConfigParamMock).toHaveBeenCalledWith(
+				expect.objectContaining({ mapType: 'tinkerbell', configParam: 'encoded-payload' })
+			);
+		});
+		// The loaded a=-1.5 must reach the slider and value label.
+		await waitFor(() => {
+			const slider = screen.getByTestId('slider-a') as HTMLInputElement;
+			expect(slider.value).toBe('-1.5');
+		});
+		expect(screen.getByTestId('value-a').textContent).toBe('-1.50');
 	});
 });

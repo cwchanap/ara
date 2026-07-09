@@ -299,6 +299,46 @@ describe('LorenzRenderer Three.js integration', () => {
 			expect(THREE.Line).toHaveBeenCalled();
 		});
 	});
+
+	it('disables frustum culling on trail lines and pushes geometry attributes', async () => {
+		const THREE = await import('three');
+		clearBufferGeometrySpies();
+		render(LorenzRenderer, {
+			props: {
+				params: {
+					type: 'lorenz',
+					sigma: 10,
+					rho: 28,
+					beta: 2.667,
+					trailLength: 5000,
+					trailStyle: 'stationary'
+				},
+				height: 200,
+				isPlaying: false
+			}
+		});
+		// Wait for updateDraw() to push the position attribute onto the line
+		// geometry (the real signal that the slice was uploaded).
+		await waitFor(() => {
+			expect(bufferGeometrySetAttribute).toHaveBeenCalledWith('position', expect.any(Object));
+		});
+		// setLineSlice() recomputes the bounding sphere after every position/color
+		// upload so the renderer sees correct bounds for the current trail slice.
+		await waitFor(() => {
+			expect(bufferGeometryComputeBoundingSphere).toHaveBeenCalled();
+		});
+		// Every THREE.Line instance the renderer constructs must opt out of
+		// frustum culling so the trail stays visible while the camera orbits.
+		const lineResults = (
+			THREE.Line as unknown as {
+				mock: { results: { value: { frustumCulled?: boolean } }[] };
+			}
+		).mock.results;
+		expect(lineResults.length).toBeGreaterThan(0);
+		for (const { value } of lineResults) {
+			expect(value.frustumCulled).toBe(false);
+		}
+	});
 });
 
 describe('LorenzRenderer engine behavior', () => {
@@ -432,11 +472,64 @@ describe('LorenzRenderer resize and view modes and unmount', () => {
 		}
 	});
 
-	it('cleans up properly on unmount', () => {
+	it('cleans up properly on unmount', async () => {
+		const THREE = await import('three');
+		const { OrbitControls } = await import('three/examples/jsm/controls/OrbitControls.js');
+		// Isolate mock results so the spies below capture only this render's
+		// instances (previous tests' instances were already disposed by cleanup).
+		(THREE.WebGLRenderer as unknown as { mockClear: () => void }).mockClear();
+		(THREE.Line as unknown as { mockClear: () => void }).mockClear();
+		(OrbitControls as unknown as { mockClear: () => void }).mockClear();
 		const { unmount } = render(LorenzRenderer, {
 			props: { params: { type: 'lorenz', sigma: 10, rho: 28, beta: 2.667, showGhost: true } }
 		});
-		expect(() => unmount()).not.toThrow();
+		// Wait for the mount effect to construct the renderer/lines/controls so
+		// mock.results is populated before we capture the dispose spies.
+		await waitFor(() => {
+			expect(
+				(THREE.WebGLRenderer as unknown as { mock: { results: unknown[] } }).mock.results
+					.length
+			).toBeGreaterThan(0);
+		});
+		// Capture the renderer, orbit controls, and both trail lines before
+		// teardown so we can assert their dispose() spies actually fire.
+		const rendererDispose = (
+			THREE.WebGLRenderer as unknown as {
+				mock: { results: { value: { dispose: ReturnType<typeof vi.fn> } }[] };
+			}
+		).mock.results[0]!.value.dispose;
+		const orbitDispose = (
+			OrbitControls as unknown as {
+				mock: { results: { value: { dispose: ReturnType<typeof vi.fn> } }[] };
+			}
+		).mock.results[0]!.value.dispose;
+		const lineResults = (
+			THREE.Line as unknown as {
+				mock: {
+					results: {
+						value: {
+							geometry: { dispose: ReturnType<typeof vi.fn> };
+							material: { dispose: ReturnType<typeof vi.fn> };
+						};
+					}[];
+				};
+			}
+		).mock.results;
+		const lineGeometryDisposes = lineResults.map((r) => r.value.geometry.dispose);
+		const lineMaterialDisposes = lineResults.map((r) => r.value.material.dispose);
+
+		unmount();
+
+		expect(rendererDispose).toHaveBeenCalled();
+		expect(orbitDispose).toHaveBeenCalled();
+		expect(lineGeometryDisposes.length).toBeGreaterThanOrEqual(2);
+		expect(lineMaterialDisposes.length).toBeGreaterThanOrEqual(2);
+		for (const dispose of lineGeometryDisposes) {
+			expect(dispose).toHaveBeenCalled();
+		}
+		for (const dispose of lineMaterialDisposes) {
+			expect(dispose).toHaveBeenCalled();
+		}
 	});
 
 	it('handles head=0 and isPlaying=false (slice count < 2)', () => {
