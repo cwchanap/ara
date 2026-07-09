@@ -52,11 +52,12 @@ describe('tinkerbell page', () => {
 
 	it('reset restores the classic preset a=0.9', async () => {
 		render(TinkerbellPage, { data: unauthedData });
+		const randomize = await screen.findByTestId('btn-randomize');
+		await fireEvent.click(randomize);
 		const reset = await screen.findByTestId('btn-reset');
+		await fireEvent.click(reset);
 		const valueA = screen.getByTestId('value-a');
-		// classic default already 0.9; the label must read 0.90
 		expect(valueA.textContent).toBe('0.90');
-		void reset;
 	});
 
 	it('randomize changes the a value away from classic', async () => {
