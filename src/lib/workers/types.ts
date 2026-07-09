@@ -46,6 +46,17 @@ export interface CliffordRequest {
 	maxPoints: number;
 }
 
+export interface TinkerbellRequest {
+	type: 'tinkerbell';
+	id: number;
+	a: number;
+	b: number;
+	c: number;
+	d: number;
+	iterations: number;
+	maxPoints: number;
+}
+
 export interface GumowskiMiraRequest {
 	type: 'gumowskiMira';
 	id: number;
@@ -63,6 +74,7 @@ export type ChaosMapsWorkerRequest =
 	| ChaosEsthetiqueRequest
 	| IkedaRequest
 	| CliffordRequest
+	| TinkerbellRequest
 	| GumowskiMiraRequest;
 
 // Response types
@@ -91,6 +103,12 @@ export interface CliffordResponse {
 	points: [number, number][];
 }
 
+export interface TinkerbellResponse {
+	type: 'tinkerbellResult';
+	id: number;
+	points: [number, number][];
+}
+
 export interface GumowskiMiraResponse {
 	type: 'gumowskiMiraResult';
 	id: number;
@@ -109,5 +127,6 @@ export type ChaosMapsWorkerResponse =
 	| ChaosEsthetiqueResponse
 	| IkedaResponse
 	| CliffordResponse
+	| TinkerbellResponse
 	| GumowskiMiraResponse
 	| ErrorResponse;

@@ -794,6 +794,32 @@ describe('handleWorkerMessage — clifford', () => {
 	});
 });
 
+// ── tinkerbell map messages ──────────────────────────────────────────────────
+
+describe('handleWorkerMessage — tinkerbell', () => {
+	test('returns a tinkerbellResult capped at maxPoints', () => {
+		responses.length = 0;
+		selfMock.onmessage?.({
+			data: {
+				type: 'tinkerbell',
+				id: 8,
+				a: 0.9,
+				b: -0.6013,
+				c: 2.0,
+				d: 0.5,
+				iterations: 1000,
+				maxPoints: 50
+			}
+		});
+		expect(responses[0]?.type).toBe('tinkerbellResult');
+		expect(responses[0]?.id).toBe(8);
+		if (responses[0]?.type === 'tinkerbellResult') {
+			expect(responses[0].points.length).toBe(50);
+			expect(responses[0].points[0].length).toBe(2);
+		}
+	});
+});
+
 // ── handler throw → typed ErrorResponse ──────────────────────────────────────
 //
 // The worker's onmessage wraps dispatch in try/catch so a thrown handler
