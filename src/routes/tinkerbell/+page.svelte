@@ -62,7 +62,7 @@
 	}
 
 	function randomizeParameters() {
-		const rand = () => Math.round((Math.random() * 4 - 2) * 100) / 100; // [-2, 2], 2dp
+		const rand = () => Math.round((Math.random() * 6 - 3) * 100) / 100; // [-3, 3], 2dp
 		a = rand();
 		b = rand();
 		c = rand();
