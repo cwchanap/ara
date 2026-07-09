@@ -26,10 +26,10 @@ describe('Homepage (+page.svelte)', () => {
 		).toBeInTheDocument();
 	});
 
-	it('renders all 16 visualization cards', () => {
+	it('renders all 17 visualization cards', () => {
 		render(Page);
 		const links = screen.getAllByRole('link');
-		expect(links).toHaveLength(16);
+		expect(links).toHaveLength(17);
 	});
 
 	it('shows the Ikeda Map card linking to /ikeda', () => {
@@ -50,6 +50,7 @@ describe('Homepage (+page.svelte)', () => {
 		{ name: 'Lozi Map', url: '/lozi' },
 		{ name: 'Ikeda Map', url: '/ikeda' },
 		{ name: 'Clifford Attractor', url: '/clifford' },
+		{ name: 'Tinkerbell Map', url: '/tinkerbell' },
 		{ name: 'Gumowski–Mira Map', url: '/gumowski-mira' },
 		{ name: 'Logistic Map', url: '/logistic' },
 		{ name: 'Bifurcation (Logistic)', url: '/bifurcation-logistic' },
@@ -77,7 +78,7 @@ describe('Homepage (+page.svelte)', () => {
 	it('renders "Initialize Module" call-to-action on each card', () => {
 		render(Page);
 		const ctaElements = screen.getAllByText('Initialize Module');
-		expect(ctaElements).toHaveLength(16);
+		expect(ctaElements).toHaveLength(17);
 	});
 
 	it('renders card descriptions', () => {
