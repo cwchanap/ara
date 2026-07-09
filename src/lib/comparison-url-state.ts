@@ -17,6 +17,10 @@ import {
 	getPreset as getGumowskiMiraPreset,
 	DEFAULT_GUMOWSKI_MIRA_PRESET_ID
 } from './gumowski-mira-presets';
+import {
+	getPreset as getTinkerbellPreset,
+	DEFAULT_TINKERBELL_PRESET_ID
+} from './tinkerbell-presets';
 import { LORENZ_PRESETS } from './lorenz/presets';
 
 /**
@@ -123,6 +127,14 @@ export function getDefaultParameters(mapType: ChaosMapType): ChaosMapParameters 
 					`Missing default Gumowski-Mira preset: ${DEFAULT_GUMOWSKI_MIRA_PRESET_ID}`
 				);
 			return { type: 'gumowski-mira', ...preset.state };
+		}
+		case 'tinkerbell': {
+			const preset = getTinkerbellPreset(DEFAULT_TINKERBELL_PRESET_ID);
+			if (!preset)
+				throw new Error(
+					`Missing default Tinkerbell preset: ${DEFAULT_TINKERBELL_PRESET_ID}`
+				);
+			return { type: 'tinkerbell', ...preset.state };
 		}
 	}
 }
