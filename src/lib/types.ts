@@ -16,6 +16,7 @@ export type ChaosMapType =
 	| 'lozi'
 	| 'ikeda'
 	| 'clifford'
+	| 'tinkerbell'
 	| 'logistic'
 	| 'newton'
 	| 'standard'
@@ -114,6 +115,36 @@ export const CLIFFORD_COLOR_MODES = [
 ] as const satisfies readonly string[];
 
 export type CliffordColorMode = (typeof CLIFFORD_COLOR_MODES)[number];
+
+/**
+ * Source of truth for the Tinkerbell color-mode set. Mirrors Clifford's set
+ * (the renderer logic is identical). The union is derived from this tuple so
+ * the runtime validator can reuse the same values without restating them.
+ */
+export const TINKERBELL_COLOR_MODES = [
+	'single',
+	'iteration',
+	'radius',
+	'angle',
+	'density'
+] as const satisfies readonly string[];
+
+export type TinkerbellColorMode = (typeof TINKERBELL_COLOR_MODES)[number];
+
+export interface TinkerbellParameters {
+	type: 'tinkerbell';
+	// Required shape + iteration parameters
+	a: number;
+	b: number;
+	c: number;
+	d: number;
+	iterations: number;
+	// Optional render state — persisted so save/share/snapshot reproduce exactly.
+	colorMode?: TinkerbellColorMode;
+	zoom?: number;
+	pointSize?: number;
+	opacity?: number;
+}
 
 export interface CliffordParameters {
 	type: 'clifford';
@@ -259,6 +290,7 @@ export type ChaosMapParameters =
 	| LoziParameters
 	| IkedaParameters
 	| CliffordParameters
+	| TinkerbellParameters
 	| GumowskiMiraParameters
 	| LogisticParameters
 	| NewtonParameters
@@ -278,6 +310,7 @@ export const CHAOS_MAP_DISPLAY_NAMES: Record<ChaosMapType, string> = {
 	lozi: 'LOZI_MAP',
 	ikeda: 'IKEDA_MAP',
 	clifford: 'CLIFFORD_ATTRACTOR',
+	tinkerbell: 'TINKERBELL_MAP',
 	logistic: 'LOGISTIC_MAP',
 	newton: 'NEWTON_FRACTAL',
 	standard: 'STANDARD_MAP',
@@ -298,6 +331,7 @@ export const VALID_MAP_TYPES: ChaosMapType[] = [
 	'lozi',
 	'ikeda',
 	'clifford',
+	'tinkerbell',
 	'logistic',
 	'newton',
 	'standard',
@@ -341,6 +375,10 @@ export type SavedConfiguration = {
 	| {
 			mapType: 'clifford';
 			parameters: CliffordParameters;
+	  }
+	| {
+			mapType: 'tinkerbell';
+			parameters: TinkerbellParameters;
 	  }
 	| {
 			mapType: 'gumowski-mira';
