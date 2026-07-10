@@ -114,4 +114,64 @@ describe('tinkerbell page', () => {
 		});
 		expect(screen.getByTestId('value-a').textContent).toBe('-1.50');
 	});
+
+	it('ignores a loaded config whose type is not tinkerbell', async () => {
+		// onExtraParametersLoaded guards on p.type !== 'tinkerbell' and returns
+		// early, leaving the page state at the default classic preset.
+		parseConfigParamMock.mockReturnValueOnce({
+			ok: true,
+			parameters: {
+				type: 'lorenz',
+				sigma: 99,
+				rho: 99,
+				beta: 99
+			}
+		});
+		setPageUrl('http://localhost/tinkerbell?config=wrong-type');
+		render(TinkerbellPage, { data: unauthedData });
+
+		await waitFor(() => {
+			expect(parseConfigParamMock).toHaveBeenCalled();
+		});
+		// The default a=0.9 must remain unchanged (wrong type was ignored).
+		expect(screen.getByTestId('value-a').textContent).toBe('0.90');
+	});
+
+	it('applies a preset when its button is clicked', async () => {
+		render(TinkerbellPage, { data: unauthedData });
+		// Default is 'classic' (a=0.9). Click the 'delicate' preset (a=-0.71).
+		const delicateBtn = screen.getByRole('button', { name: 'Delicate' });
+		await fireEvent.click(delicateBtn);
+		await waitFor(() => {
+			expect(screen.getByTestId('value-a').textContent).toBe('-0.71');
+		});
+		// The active preset label should update to the preset's label.
+		expect(screen.getByTestId('active-preset').textContent).toContain('Delicate');
+	});
+
+	it('marks the active preset button as pressed', async () => {
+		render(TinkerbellPage, { data: unauthedData });
+		const classicBtn = screen.getByRole('button', { name: 'Classic' });
+		expect(classicBtn).toHaveAttribute('aria-pressed', 'true');
+	});
+
+	it('disables point size and opacity sliders in density color mode', async () => {
+		render(TinkerbellPage, { data: unauthedData });
+		// Default colorMode is density → both sliders disabled.
+		expect(screen.getByTestId('slider-pointSize')).toBeDisabled();
+		expect(screen.getByTestId('slider-opacity')).toBeDisabled();
+
+		// Switch to iteration mode → both sliders enabled.
+		const select = screen.getByTestId('select-color-mode') as HTMLSelectElement;
+		await fireEvent.change(select, { target: { value: 'iteration' } });
+		expect(screen.getByTestId('slider-pointSize')).toBeEnabled();
+		expect(screen.getByTestId('slider-opacity')).toBeEnabled();
+	});
+
+	it('changes the color mode via the select control', async () => {
+		render(TinkerbellPage, { data: unauthedData });
+		const select = screen.getByTestId('select-color-mode') as HTMLSelectElement;
+		await fireEvent.change(select, { target: { value: 'radius' } });
+		expect(select.value).toBe('radius');
+	});
 });

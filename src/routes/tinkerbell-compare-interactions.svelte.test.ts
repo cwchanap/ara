@@ -105,4 +105,70 @@ describe('Tinkerbell compare page interactions', () => {
 		expect(leftA).toBeTruthy();
 		expect(leftA.value).toBe('-1.2');
 	});
+
+	it('decodes an encoded right side into the right panel', () => {
+		const right = encodeParams({
+			type: 'tinkerbell',
+			a: 1.7,
+			b: -0.3,
+			c: 0.9,
+			d: -0.4,
+			iterations: 80000
+		});
+		setPageUrl(`http://localhost/tinkerbell/compare?compare=true&right=${right}`);
+		render(TinkerbellComparePage);
+		const rightA = document.getElementById('right-a') as HTMLInputElement;
+		expect(rightA).toBeTruthy();
+		expect(rightA.value).toBe('1.7');
+	});
+
+	it('encodes a comparison URL when a right slider changes', async () => {
+		const { fireEvent, waitFor } = await import('@testing-library/svelte');
+		render(TinkerbellComparePage);
+		const slider = document.getElementById('right-a') as HTMLInputElement;
+		expect(slider).toBeTruthy();
+		await fireEvent.input(slider, { target: { value: '-2.1' } });
+		await waitFor(() => expect(mockGoto).toHaveBeenCalled());
+		const call = mockGoto.mock.calls[0][0] as string;
+		expect(call).toContain('/tinkerbell/compare?');
+	});
+
+	it('clamps an out-of-range decoded left value back into the stable range', () => {
+		// a stable range is [-3, 3]; send 50 → clamped to 3.
+		const left = encodeParams({
+			type: 'tinkerbell',
+			a: 50,
+			b: 0.4,
+			c: 1.9,
+			d: 0.3,
+			iterations: 100000
+		});
+		setPageUrl(`http://localhost/tinkerbell/compare?compare=true&left=${left}`);
+		render(TinkerbellComparePage);
+		const leftA = document.getElementById('left-a') as HTMLInputElement;
+		expect(leftA.value).toBe('3');
+	});
+
+	it('falls back to default when a decoded value is non-finite', () => {
+		// Non-finite a → clampValue returns the default (0.9).
+		const left = encodeParams({
+			type: 'tinkerbell',
+			a: 'not-a-number',
+			b: 0.4,
+			c: 1.9,
+			d: 0.3,
+			iterations: 100000
+		});
+		setPageUrl(`http://localhost/tinkerbell/compare?compare=true&left=${left}`);
+		render(TinkerbellComparePage);
+		const leftA = document.getElementById('left-a') as HTMLInputElement;
+		expect(leftA.value).toBe('0.9');
+	});
+
+	it('renders the equation snippet in both panels', () => {
+		render(TinkerbellComparePage);
+		// The Tinkerbell map equations appear once per panel.
+		const equations = screen.getAllByText(/x\(n\+1\) = x\(n\)²/);
+		expect(equations.length).toBe(2);
+	});
 });
