@@ -76,7 +76,7 @@ Mirror of `src/routes/clifford/+page.svelte`:
 - `createStabilityReporter({ mapType: 'tinkerbell', getParams, reactive: true })` with a tracking `$effect`.
 - `buildParameters(): TinkerbellParameters` and `onExtraParametersLoaded` restore for save/share/config-load.
 - `<VisualizationShell>` props: `mapType="tinkerbell"`, `title="TINKERBELL_MAP"`, `paramDefs={[]}`, the formula lines, and educational copy in `description`.
-- Randomize: `a,b,c,d` in `[-2, 2]` at 2dp (matches Clifford's randomize range).
+- Randomize: `a,b,c,d` in `[-3, 3]` at 2dp (matches the slider range; wider than Clifford's `[-2, 2]`).
 
 > **No per-page server file.** `isAuthenticated` flows from `src/routes/+layout.server.ts` into `data.session` (same as Clifford, which has no `+page.server.ts`).
 

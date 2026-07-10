@@ -317,15 +317,11 @@ describe('LorenzRenderer Three.js integration', () => {
 				isPlaying: false
 			}
 		});
-		// Wait for updateDraw() to push the position attribute onto the line
-		// geometry (the real signal that the slice was uploaded).
+		// setLineSlice() pushes position/color attributes onto the line geometry.
+		// computeBoundingSphere() is intentionally omitted because frustumCulled
+		// is false (see makeLine), so the bounding sphere is never consulted.
 		await waitFor(() => {
 			expect(bufferGeometrySetAttribute).toHaveBeenCalledWith('position', expect.any(Object));
-		});
-		// setLineSlice() recomputes the bounding sphere after every position/color
-		// upload so the renderer sees correct bounds for the current trail slice.
-		await waitFor(() => {
-			expect(bufferGeometryComputeBoundingSphere).toHaveBeenCalled();
 		});
 		// Every THREE.Line instance the renderer constructs must opt out of
 		// frustum culling so the trail stays visible while the camera orbits.

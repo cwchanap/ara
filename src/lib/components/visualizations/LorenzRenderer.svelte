@@ -303,7 +303,9 @@
 			const col = colors.subarray(from * 3, to * 3);
 			line.geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
 			line.geometry.setAttribute('color', new THREE.BufferAttribute(col, 3));
-			line.geometry.computeBoundingSphere();
+			// frustumCulled = false (set in makeLine) means Three.js never
+			// consults the bounding sphere for culling, so computeBoundingSphere()
+			// is intentionally omitted here.
 		}
 
 		let lastFrom = -1;

@@ -1,5 +1,8 @@
 -- Add the tinkerbell map type to both configuration table constraints
 -- (positioned after clifford to match VALID_MAP_TYPES order)
+-- Wrapped in a transaction so a mid-migration failure leaves no partial state.
+
+BEGIN;
 
 -- Update saved_configurations constraint with all 17 map types
 ALTER TABLE "saved_configurations"
@@ -52,3 +55,5 @@ CHECK ("map_type" IN (
     'chua',
     'double-pendulum'
 ));
+
+COMMIT;
