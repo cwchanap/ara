@@ -96,6 +96,7 @@ describe('CHAOS_MAP_DISPLAY_NAMES', () => {
 		expect(CHAOS_MAP_DISPLAY_NAMES['lozi']).toBe('LOZI_MAP');
 		expect(CHAOS_MAP_DISPLAY_NAMES['ikeda']).toBe('IKEDA_MAP');
 		expect(CHAOS_MAP_DISPLAY_NAMES['clifford']).toBe('CLIFFORD_ATTRACTOR');
+		expect(CHAOS_MAP_DISPLAY_NAMES['tinkerbell']).toBe('TINKERBELL_MAP');
 		expect(CHAOS_MAP_DISPLAY_NAMES['logistic']).toBe('LOGISTIC_MAP');
 		expect(CHAOS_MAP_DISPLAY_NAMES['newton']).toBe('NEWTON_FRACTAL');
 		expect(CHAOS_MAP_DISPLAY_NAMES['standard']).toBe('STANDARD_MAP');
