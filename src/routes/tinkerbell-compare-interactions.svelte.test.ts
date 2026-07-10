@@ -171,4 +171,149 @@ describe('Tinkerbell compare page interactions', () => {
 		const equations = screen.getAllByText(/x\(n\+1\) = x\(n\)²/);
 		expect(equations.length).toBe(2);
 	});
+
+	it('swaps left and right parameter values when the Swap button is clicked', async () => {
+		const { fireEvent, waitFor } = await import('@testing-library/svelte');
+		// Encode distinct left (a=-1.2) and right (a=1.7) sides.
+		const left = encodeParams({
+			type: 'tinkerbell',
+			a: -1.2,
+			b: 0.4,
+			c: 1.9,
+			d: 0.3,
+			iterations: 100000
+		});
+		const right = encodeParams({
+			type: 'tinkerbell',
+			a: 1.7,
+			b: -0.3,
+			c: 0.9,
+			d: -0.4,
+			iterations: 80000
+		});
+		setPageUrl(`http://localhost/tinkerbell/compare?compare=true&left=${left}&right=${right}`);
+		render(TinkerbellComparePage);
+
+		// Verify initial values.
+		const leftA = document.getElementById('left-a') as HTMLInputElement;
+		const rightA = document.getElementById('right-a') as HTMLInputElement;
+		expect(leftA.value).toBe('-1.2');
+		expect(rightA.value).toBe('1.7');
+
+		// Click Swap — handleLeftParamsChange/handleRightParamsChange should
+		// swap the $state values.
+		const swapBtn = screen.getByRole('button', { name: /Swap/ });
+		await fireEvent.click(swapBtn);
+		await waitFor(() => {
+			expect((document.getElementById('left-a') as HTMLInputElement).value).toBe('1.7');
+		});
+		expect((document.getElementById('right-a') as HTMLInputElement).value).toBe('-1.2');
+	});
+
+	it('encodes a comparison URL when the left iterations slider changes', async () => {
+		const { fireEvent, waitFor } = await import('@testing-library/svelte');
+		render(TinkerbellComparePage);
+		const slider = document.getElementById('left-iterations') as HTMLInputElement;
+		expect(slider).toBeTruthy();
+		await fireEvent.input(slider, { target: { value: '200000' } });
+		await waitFor(() => expect(mockGoto).toHaveBeenCalled());
+		const call = mockGoto.mock.calls[0][0] as string;
+		expect(call).toContain('/tinkerbell/compare?');
+	});
+
+	it('encodes a comparison URL when the right iterations slider changes', async () => {
+		const { fireEvent, waitFor } = await import('@testing-library/svelte');
+		render(TinkerbellComparePage);
+		const slider = document.getElementById('right-iterations') as HTMLInputElement;
+		expect(slider).toBeTruthy();
+		await fireEvent.input(slider, { target: { value: '150000' } });
+		await waitFor(() => expect(mockGoto).toHaveBeenCalled());
+		const call = mockGoto.mock.calls[0][0] as string;
+		expect(call).toContain('/tinkerbell/compare?');
+	});
+
+	it('applies encoded styling fields from the left side', async () => {
+		// The compare page shares colorMode/zoom/pointSize/opacity from the
+		// left side only. Verify that encoded styling fields are decoded and
+		// included in the re-encoded URL when a slider changes.
+		const { fireEvent, waitFor } = await import('@testing-library/svelte');
+		const left = encodeParams({
+			type: 'tinkerbell',
+			a: 0.9,
+			b: -0.6013,
+			c: 2.0,
+			d: 0.5,
+			iterations: 100000,
+			colorMode: 'angle',
+			zoom: 2.5,
+			pointSize: 3,
+			opacity: 0.3
+		});
+		setPageUrl(`http://localhost/tinkerbell/compare?compare=true&left=${left}`);
+		render(TinkerbellComparePage);
+
+		// Trigger a URL re-encode by changing a slider.
+		const slider = document.getElementById('left-a') as HTMLInputElement;
+		await fireEvent.input(slider, { target: { value: '1.0' } });
+		await waitFor(() => expect(mockGoto).toHaveBeenCalled());
+
+		// Decode the encoded URL and verify styling fields are present.
+		const call = mockGoto.mock.calls[0][0] as string;
+		const url = new URL(call, 'http://localhost');
+		const leftEncoded = url.searchParams.get('left');
+		expect(leftEncoded).toBeTruthy();
+		const decoded = JSON.parse(atob(leftEncoded!));
+		expect(decoded.colorMode).toBe('angle');
+		expect(decoded.zoom).toBe(2.5);
+		expect(decoded.pointSize).toBe(3);
+		expect(decoded.opacity).toBe(0.3);
+	});
+
+	it('clamps an out-of-range decoded right value back into the stable range', () => {
+		// b stable range is [-3, 3]; send 100 → clamped to 3.
+		const right = encodeParams({
+			type: 'tinkerbell',
+			a: 1.7,
+			b: 100,
+			c: 0.9,
+			d: -0.4,
+			iterations: 80000
+		});
+		setPageUrl(`http://localhost/tinkerbell/compare?compare=true&right=${right}`);
+		render(TinkerbellComparePage);
+		const rightB = document.getElementById('right-b') as HTMLInputElement;
+		expect(rightB.value).toBe('3');
+	});
+
+	it('falls back to default when a decoded right value is non-finite', () => {
+		// Non-finite c → clampValue returns the default (2.0).
+		const right = encodeParams({
+			type: 'tinkerbell',
+			a: 1.7,
+			b: -0.3,
+			c: 'not-a-number',
+			d: -0.4,
+			iterations: 80000
+		});
+		setPageUrl(`http://localhost/tinkerbell/compare?compare=true&right=${right}`);
+		render(TinkerbellComparePage);
+		const rightC = document.getElementById('right-c') as HTMLInputElement;
+		expect(rightC.value).toBe('2');
+	});
+
+	it('clamps an out-of-range iterations value back into the stable range', () => {
+		// iterations stable range is [10000, 250000]; send 999999 → clamped to 250000.
+		const left = encodeParams({
+			type: 'tinkerbell',
+			a: 0.9,
+			b: -0.6013,
+			c: 2.0,
+			d: 0.5,
+			iterations: 999999
+		});
+		setPageUrl(`http://localhost/tinkerbell/compare?compare=true&left=${left}`);
+		render(TinkerbellComparePage);
+		const leftIter = document.getElementById('left-iterations') as HTMLInputElement;
+		expect(leftIter.value).toBe('250000');
+	});
 });
