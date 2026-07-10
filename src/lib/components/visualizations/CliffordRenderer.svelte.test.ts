@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, waitFor } from '@testing-library/svelte';
 import { calculateCliffordTuples } from '$lib/clifford';
 import CliffordRenderer from './CliffordRenderer.svelte';
@@ -533,5 +533,97 @@ describe('CliffordRenderer', () => {
 		expect(workerHolder.instance).not.toBeNull();
 
 		delete (globalThis as unknown as Record<string, unknown>).Worker;
+	});
+});
+
+// ── ResizeObserver path ─────────────────────────────────────────────────────
+//
+// The main describe block's afterAll restores getContext, so this block sets
+// up its own canvas/dimension mocks to keep the render path exercised.
+
+describe('CliffordRenderer ResizeObserver', () => {
+	let disconnectSpy: ReturnType<typeof vi.fn>;
+	let observeSpy: ReturnType<typeof vi.fn>;
+	let resizeCallback: (() => void) | null = null;
+	let savedResizeObserver: typeof globalThis.ResizeObserver | undefined;
+	let savedGetContext: typeof HTMLCanvasElement.prototype.getContext;
+	let roCtx: MockCtx;
+
+	beforeEach(() => {
+		disconnectSpy = vi.fn();
+		observeSpy = vi.fn();
+		resizeCallback = null;
+		savedResizeObserver = globalThis.ResizeObserver;
+		savedGetContext = HTMLCanvasElement.prototype.getContext;
+		roCtx = {
+			clearRect: vi.fn(),
+			beginPath: vi.fn(),
+			arc: vi.fn(),
+			fill: vi.fn(),
+			fillStyle: '',
+			globalAlpha: 1,
+			createImageData: (w: number, h: number) => ({
+				data: new Uint8ClampedArray(w * h * 4),
+				width: w,
+				height: h
+			}),
+			putImageData: vi.fn()
+		};
+		HTMLCanvasElement.prototype.getContext = vi.fn(
+			() => roCtx
+		) as unknown as typeof HTMLCanvasElement.prototype.getContext;
+		Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+			configurable: true,
+			get: () => 300
+		});
+		// Stub ResizeObserver so the onMount guard (`typeof ResizeObserver !==
+		// 'undefined'`) passes and the observe/disconnect paths execute.
+		globalThis.ResizeObserver = class {
+			constructor(fn: () => void) {
+				resizeCallback = fn;
+			}
+			observe = observeSpy;
+			disconnect = disconnectSpy;
+			unobserve = vi.fn();
+		} as unknown as typeof globalThis.ResizeObserver;
+	});
+
+	afterEach(() => {
+		HTMLCanvasElement.prototype.getContext = savedGetContext;
+		if (savedResizeObserver) {
+			globalThis.ResizeObserver = savedResizeObserver;
+		} else {
+			delete (globalThis as unknown as Record<string, unknown>).ResizeObserver;
+		}
+		cleanup();
+	});
+
+	it('creates a ResizeObserver on mount and disconnects on unmount', async () => {
+		const { container, unmount } = render(CliffordRenderer, {
+			props: { ...baseProps, colorMode: 'density' as const }
+		});
+		await waitFor(() => {
+			expect(container.querySelector('canvas')).not.toBeNull();
+		});
+		expect(observeSpy).toHaveBeenCalled();
+		unmount();
+		expect(disconnectSpy).toHaveBeenCalled();
+	});
+
+	it('re-renders (without recompute) when the ResizeObserver fires', async () => {
+		vi.mocked(calculateCliffordTuples).mockClear();
+		render(CliffordRenderer, {
+			props: { ...baseProps, colorMode: 'density' as const }
+		});
+		await waitFor(() => {
+			expect(roCtx.putImageData).toHaveBeenCalled();
+		});
+		const computeCallsBefore = vi.mocked(calculateCliffordTuples).mock.calls.length;
+		roCtx.putImageData.mockClear();
+
+		// Fire the resize callback — should call render(latest) without recomputing.
+		resizeCallback?.();
+		expect(roCtx.putImageData).toHaveBeenCalled();
+		expect(vi.mocked(calculateCliffordTuples).mock.calls.length).toBe(computeCallsBefore);
 	});
 });

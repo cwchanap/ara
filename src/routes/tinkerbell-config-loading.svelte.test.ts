@@ -174,4 +174,51 @@ describe('tinkerbell page', () => {
 		await fireEvent.change(select, { target: { value: 'radius' } });
 		expect(select.value).toBe('radius');
 	});
+
+	it('keeps current styling when a loaded config omits colorMode/zoom/pointSize/opacity', async () => {
+		// Exercises the ?? fallbacks in onExtraParametersLoaded: a legacy config
+		// that only carries shape params must keep the page's current (default)
+		// styling rather than setting them to undefined.
+		parseConfigParamMock.mockReturnValueOnce({
+			ok: true,
+			parameters: {
+				type: 'tinkerbell',
+				a: -0.5,
+				b: 0.8,
+				c: 1.2,
+				d: -0.2,
+				iterations: 50000
+			}
+		});
+		setPageUrl('http://localhost/tinkerbell?config=partial-config');
+		render(TinkerbellPage, { data: unauthedData });
+
+		await waitFor(() => {
+			expect(parseConfigParamMock).toHaveBeenCalled();
+		});
+		// Shape param from config is applied.
+		await waitFor(() => {
+			expect(screen.getByTestId('value-a').textContent).toBe('-0.50');
+		});
+		// Styling keeps the default values — colorMode stays 'density', not
+		// undefined from the missing config field.
+		const select = screen.getByTestId('select-color-mode') as HTMLSelectElement;
+		expect(select.value).toBe('density');
+		expect(screen.getByTestId('slider-pointSize')).toBeDisabled();
+	});
+
+	it('shows CUSTOM preset label after randomize produces a non-preset state', async () => {
+		// Exercises the activePresetLabel derived value's false branch
+		// (activePresetId is null → 'CUSTOM').
+		render(TinkerbellPage, { data: unauthedData });
+		expect(screen.getByTestId('active-preset').textContent).toContain('Classic');
+
+		// Randomize until the state no longer matches any preset.
+		let label = 'Classic';
+		for (let i = 0; i < 20 && !label.includes('CUSTOM'); i++) {
+			await fireEvent.click(screen.getByTestId('btn-randomize'));
+			label = screen.getByTestId('active-preset').textContent ?? '';
+		}
+		expect(label).toContain('CUSTOM');
+	});
 });

@@ -416,4 +416,139 @@ describe('TinkerbellRenderer worker error fallback', () => {
 		const secondReq = posted[1] as { a: number };
 		expect(secondReq.a).toBe(1.2);
 	});
+
+	it('ignores worker messages with an unknown type', async () => {
+		render(TinkerbellRenderer, {
+			iterations: 500,
+			colorMode: 'iteration',
+			height: 500
+		});
+		await FLUSH();
+		ctxSpies.fill.mockClear();
+
+		// Send a message whose type is neither 'tinkerbellResult' nor 'error'.
+		workerOnmessage?.({
+			data: { type: 'standardResult', id: 1, points: [[0, 0]] }
+		});
+		await tick();
+		// Unknown type must not trigger a render.
+		expect(ctxSpies.fill).not.toHaveBeenCalled();
+	});
+
+	it('falls back to main-thread compute when Worker constructor throws', async () => {
+		// Replace the Worker global with one whose constructor throws, exercising
+		// the catch block in onMount that logs and falls back.
+		vi.stubGlobal(
+			'Worker',
+			class {
+				constructor() {
+					throw new Error('Worker init failed');
+				}
+			}
+		);
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		render(TinkerbellRenderer, {
+			iterations: 500,
+			colorMode: 'iteration',
+			height: 500
+		});
+		await FLUSH();
+		expect(errorSpy).toHaveBeenCalledWith(
+			expect.stringContaining('Failed to initialize tinkerbell web worker'),
+			expect.any(Error)
+		);
+		// Main-thread fallback should still draw.
+		expect(ctxSpies.fill).toHaveBeenCalled();
+		errorSpy.mockRestore();
+	});
+
+	it('renders axes only (no point drawing) when worker returns empty points', async () => {
+		render(TinkerbellRenderer, {
+			iterations: 500,
+			colorMode: 'iteration',
+			height: 500
+		});
+		await FLUSH();
+		const req = posted[0] as { id: number };
+		ctxSpies.fill.mockClear();
+		ctxSpies.putImageData.mockClear();
+
+		workerOnmessage?.({
+			data: {
+				type: 'tinkerbellResult',
+				id: req.id,
+				points: [] as [number, number][]
+			}
+		});
+		await tick();
+		// Empty points → render draws axes but bails before the point loop.
+		expect(ctxSpies.fill).not.toHaveBeenCalled();
+		expect(ctxSpies.putImageData).not.toHaveBeenCalled();
+	});
+});
+
+// ── ResizeObserver path ─────────────────────────────────────────────────────
+
+describe('TinkerbellRenderer ResizeObserver', () => {
+	let disconnectSpy: ReturnType<typeof vi.fn>;
+	let observeSpy: ReturnType<typeof vi.fn>;
+	let resizeCallback: (() => void) | null = null;
+	let savedResizeObserver: typeof globalThis.ResizeObserver | undefined;
+
+	beforeEach(() => {
+		vi.stubGlobal('Worker', undefined);
+		installCanvasMock();
+		installDimensions(600, 500);
+		disconnectSpy = vi.fn();
+		observeSpy = vi.fn();
+		resizeCallback = null;
+		savedResizeObserver = globalThis.ResizeObserver;
+		globalThis.ResizeObserver = class {
+			constructor(fn: () => void) {
+				resizeCallback = fn;
+			}
+			observe = observeSpy;
+			disconnect = disconnectSpy;
+			unobserve = vi.fn();
+		} as unknown as typeof globalThis.ResizeObserver;
+	});
+
+	afterEach(() => {
+		restoreCanvasMock();
+		restoreDimensions();
+		vi.unstubAllGlobals();
+		if (savedResizeObserver) {
+			globalThis.ResizeObserver = savedResizeObserver;
+		} else {
+			delete (globalThis as unknown as Record<string, unknown>).ResizeObserver;
+		}
+		cleanup();
+	});
+
+	it('creates a ResizeObserver on mount and disconnects on unmount', async () => {
+		const { unmount } = render(TinkerbellRenderer, {
+			iterations: 500,
+			colorMode: 'density',
+			height: 500
+		});
+		await FLUSH();
+		expect(observeSpy).toHaveBeenCalled();
+		unmount();
+		expect(disconnectSpy).toHaveBeenCalled();
+	});
+
+	it('re-renders (without recompute) when the ResizeObserver fires', async () => {
+		render(TinkerbellRenderer, {
+			iterations: 500,
+			colorMode: 'density',
+			height: 500
+		});
+		await FLUSH();
+		expect(ctxSpies.putImageData).toHaveBeenCalled();
+		ctxSpies.putImageData.mockClear();
+
+		// Fire the resize callback — should call render(latest) without recomputing.
+		resizeCallback?.();
+		expect(ctxSpies.putImageData).toHaveBeenCalled();
+	});
 });
