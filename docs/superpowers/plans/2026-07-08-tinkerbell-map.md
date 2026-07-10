@@ -113,8 +113,8 @@ describe('calculateTinkerbellTuples', () => {
 		});
 		expect(pts.length).toBeLessThan(1000);
 		for (const [x, y] of pts) {
-			expect(Math.abs(x)).toBeLessThanOrEqual(1e6);
-			expect(Math.abs(y)).toBeLessThanOrEqual(1e6);
+			expect(Math.abs(x)).toBeLessThanOrEqual(1e4);
+			expect(Math.abs(y)).toBeLessThanOrEqual(1e4);
 		}
 	});
 
@@ -166,7 +166,7 @@ export interface TinkerbellParams {
 }
 
 /** Coordinates beyond this are treated as divergence; the orbit stops. */
-const MAGNITUDE_CAP = 1e6;
+const MAGNITUDE_CAP = 1e4;
 
 /** Fixed internal seed — the attractor is independent of initial conditions. */
 const START_X = -0.72;
