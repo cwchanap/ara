@@ -534,6 +534,55 @@ describe('CliffordRenderer', () => {
 
 		delete (globalThis as unknown as Record<string, unknown>).Worker;
 	});
+
+	it('skips drawing when the container has zero width (dimension guard)', async () => {
+		// Temporarily override clientWidth to 0 so width = clientWidth - margins ≤ 0,
+		// exercising the early-return guard in render().
+		const savedWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth');
+		Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+			configurable: true,
+			get: () => 0
+		});
+		try {
+			vi.mocked(calculateCliffordTuples).mockReturnValue([
+				[0, 0],
+				[0.5, 0.5]
+			]);
+			render(CliffordRenderer, {
+				props: { ...baseProps, colorMode: 'iteration' as const }
+			});
+			// Wait past the 250ms render debounce so render() actually runs.
+			await new Promise((r) => setTimeout(r, 300));
+			// No drawing should occur — the dimension guard bails out.
+			expect(ctx.fill).not.toHaveBeenCalled();
+			expect(ctx.putImageData).not.toHaveBeenCalled();
+		} finally {
+			if (savedWidth) {
+				Object.defineProperty(HTMLElement.prototype, 'clientWidth', savedWidth);
+			} else {
+				Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+					configurable: true,
+					get: () => 300
+				});
+			}
+		}
+	});
+
+	it('skips drawing when height is too small for the chart area (dimension guard)', async () => {
+		// chartHeight = height - margin.top - margin.bottom = 50 - 70 = -20 ≤ 0,
+		// exercising the early-return guard in render().
+		vi.mocked(calculateCliffordTuples).mockReturnValue([
+			[0, 0],
+			[0.5, 0.5]
+		]);
+		render(CliffordRenderer, {
+			props: { ...baseProps, height: 50, colorMode: 'iteration' as const }
+		});
+		// Wait past the 250ms render debounce so render() actually runs.
+		await new Promise((r) => setTimeout(r, 300));
+		expect(ctx.fill).not.toHaveBeenCalled();
+		expect(ctx.putImageData).not.toHaveBeenCalled();
+	});
 });
 
 // ── ResizeObserver path ─────────────────────────────────────────────────────

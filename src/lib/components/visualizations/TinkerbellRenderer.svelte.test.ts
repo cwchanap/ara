@@ -238,6 +238,37 @@ describe('TinkerbellRenderer main-thread render paths', () => {
 		);
 		warnSpy.mockRestore();
 	});
+
+	it('skips drawing when the container has zero width (dimension guard)', async () => {
+		// Override clientWidth to 0 so width = clientWidth - margins <= 0,
+		// exercising the early-return guard in render().
+		Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+			configurable: true,
+			get: () => 0
+		});
+		render(TinkerbellRenderer, {
+			iterations: 500,
+			colorMode: 'iteration',
+			height: 500
+		});
+		await FLUSH();
+		// No drawing should occur — the dimension guard bails out.
+		expect(ctxSpies.fill).not.toHaveBeenCalled();
+		expect(ctxSpies.putImageData).not.toHaveBeenCalled();
+	});
+
+	it('skips drawing when height is too small for the chart area (dimension guard)', async () => {
+		// chartHeight = height - margin.top - margin.bottom = 50 - 70 = -20 ≤ 0,
+		// exercising the early-return guard in render().
+		render(TinkerbellRenderer, {
+			iterations: 500,
+			colorMode: 'iteration',
+			height: 50
+		});
+		await FLUSH();
+		expect(ctxSpies.fill).not.toHaveBeenCalled();
+		expect(ctxSpies.putImageData).not.toHaveBeenCalled();
+	});
 });
 
 // ── Worker error / fallback paths ────────────────────────────────────────────
@@ -484,6 +515,144 @@ describe('TinkerbellRenderer worker error fallback', () => {
 		// Empty points → render draws axes but bails before the point loop.
 		expect(ctxSpies.fill).not.toHaveBeenCalled();
 		expect(ctxSpies.putImageData).not.toHaveBeenCalled();
+	});
+
+	it('ignores worker messages received after unmount (isUnmounted guard)', async () => {
+		const { unmount } = render(TinkerbellRenderer, {
+			iterations: 500,
+			colorMode: 'iteration',
+			height: 500
+		});
+		await FLUSH();
+		const req = posted[0] as { id: number };
+		ctxSpies.fill.mockClear();
+
+		// Unmount before the worker responds — isUnmounted becomes true.
+		unmount();
+
+		workerOnmessage?.({
+			data: {
+				type: 'tinkerbellResult',
+				id: req.id,
+				points: [[0.1, 0.2]] as [number, number][]
+			}
+		});
+		await tick();
+		// The isUnmounted guard must prevent any rendering.
+		expect(ctxSpies.fill).not.toHaveBeenCalled();
+	});
+
+	it('ignores worker messages with null data (!data guard)', async () => {
+		render(TinkerbellRenderer, {
+			iterations: 500,
+			colorMode: 'iteration',
+			height: 500
+		});
+		await FLUSH();
+		ctxSpies.fill.mockClear();
+
+		// Send a message with null data — the !data guard must bail out.
+		workerOnmessage?.({ data: null });
+		await tick();
+		expect(ctxSpies.fill).not.toHaveBeenCalled();
+	});
+
+	it('does not fall back to main-thread compute on error after unmount', async () => {
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const { unmount } = render(TinkerbellRenderer, {
+			iterations: 500,
+			colorMode: 'iteration',
+			height: 500
+		});
+		await FLUSH();
+		ctxSpies.fill.mockClear();
+
+		// Unmount before the error — isUnmounted becomes true, so the
+		// onmessage handler returns early (the isUnmounted guard runs
+		// before the error-type check). No error logged, no rendering.
+		unmount();
+
+		workerOnmessage?.({
+			data: { type: 'error', message: 'late error' }
+		});
+		await tick();
+		// The isUnmounted guard prevents the error handler from running.
+		expect(errorSpy).not.toHaveBeenCalledWith(
+			expect.stringContaining('worker error response'),
+			'late error'
+		);
+		expect(ctxSpies.fill).not.toHaveBeenCalled();
+		errorSpy.mockRestore();
+	});
+
+	it('does not fall back to main-thread compute on onerror after unmount', async () => {
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const { unmount } = render(TinkerbellRenderer, {
+			iterations: 500,
+			colorMode: 'iteration',
+			height: 500
+		});
+		await FLUSH();
+		ctxSpies.fill.mockClear();
+
+		// Unmount before the onerror — container && !isUnmounted is false.
+		unmount();
+
+		workerOnerror?.({ message: 'late crash' } as ErrorEvent);
+		await tick();
+		expect(errorSpy).toHaveBeenCalledWith(
+			expect.stringContaining('worker error'),
+			'late crash'
+		);
+		expect(ctxSpies.fill).not.toHaveBeenCalled();
+		errorSpy.mockRestore();
+	});
+
+	it('draws a single point at the origin (maxRadius=0 and total=1 edge cases)', async () => {
+		render(TinkerbellRenderer, {
+			iterations: 500,
+			colorMode: 'iteration',
+			height: 500
+		});
+		await FLUSH();
+		const req = posted[0] as { id: number };
+		ctxSpies.fill.mockClear();
+
+		// Send a single point at the origin: radius = 0 (maxRadius > 0 is false)
+		// and total = 1 (total > 1 is false, t defaults to 0).
+		workerOnmessage?.({
+			data: {
+				type: 'tinkerbellResult',
+				id: req.id,
+				points: [[0, 0]] as [number, number][]
+			}
+		});
+		await tick();
+		// The single point is still drawn via the per-point path.
+		expect(ctxSpies.fill).toHaveBeenCalled();
+	});
+
+	it('uses radius=0 fallback in radius color mode for a single origin point', async () => {
+		render(TinkerbellRenderer, {
+			iterations: 500,
+			colorMode: 'radius',
+			height: 500
+		});
+		await FLUSH();
+		const req = posted[0] as { id: number };
+		ctxSpies.fill.mockClear();
+
+		// Single point at origin → maxRadius = 0 → t = 0 (the maxRadius > 0
+		// false branch in the radius color mode).
+		workerOnmessage?.({
+			data: {
+				type: 'tinkerbellResult',
+				id: req.id,
+				points: [[0, 0]] as [number, number][]
+			}
+		});
+		await tick();
+		expect(ctxSpies.fill).toHaveBeenCalled();
 	});
 });
 
