@@ -28,7 +28,7 @@ y(n+1) = 2·x(n)·y(n)  + c·x(n) + d·y(n)
 Clifford is built from `sin`/`cos` and is therefore analytically bounded (it can never diverge). **Tinkerbell has quadratic terms (`x²`, `y²`, `2xy`) and is NOT bounded** — for many parameter sets the orbit escapes to infinity in a handful of steps. This makes two guards load-bearing rather than decorative:
 
 1. **Finiteness guard** — break the loop if `x` or `y` becomes non-finite (shared with Clifford).
-2. **Magnitude / runaway guard** — break the loop if `|x|` or `|y|` exceeds a magnitude cap (`1e6`). The divergent point is NOT collected, so it cannot pollute the d3 extent and crush the visible attractor into a single pixel.
+2. **Magnitude / runaway guard** — break the loop if `|x|` or `|y|` exceeds a magnitude cap (`1e4`). The divergent point is NOT collected, so it cannot pollute the d3 extent and crush the visible attractor into a single pixel.
 
 This guard is the only real mathematical novelty relative to the Clifford implementation.
 
@@ -78,11 +78,9 @@ Mirror of `src/routes/clifford/+page.svelte`:
 - `<VisualizationShell>` props: `mapType="tinkerbell"`, `title="TINKERBELL_MAP"`, `paramDefs={[]}`, the formula lines, and educational copy in `description`.
 - Randomize: `a,b,c,d` in `[-2, 2]` at 2dp (matches Clifford's randomize range).
 
-### 5. `src/routes/tinkerbell/+page.server.ts` — session loader
+> **No per-page server file.** `isAuthenticated` flows from `src/routes/+layout.server.ts` into `data.session` (same as Clifford, which has no `+page.server.ts`).
 
-Mirror of Clifford's: provides `session` (and `user`/`profile` if present) for the shell's `isAuthenticated` binding.
-
-### 6. `src/routes/tinkerbell/compare/+page.svelte` — comparison page (parity)
+### 5. `src/routes/tinkerbell/compare/+page.svelte` — comparison page (parity)
 
 Mirror of `src/routes/clifford/compare/+page.svelte`:
 

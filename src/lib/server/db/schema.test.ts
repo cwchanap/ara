@@ -21,11 +21,22 @@ describe('database auth user id columns', () => {
 describe('migration map_type constraints include all VALID_MAP_TYPES', () => {
 	const migrationDir = resolve(import.meta.dirname, '../../../../drizzle');
 
+	// Find the highest-numbered migration file that contains the map_type CHECK
+	// constraint. This auto-detects the latest constraint-bearing migration so
+	// adding a new map type doesn't require editing the test filename.
+	function latestMapTypeMigrationSql(): string {
+		const files = readdirSync(migrationDir)
+			.filter((f) => f.endsWith('.sql'))
+			.sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
+		for (let i = files.length - 1; i >= 0; i--) {
+			const sql = readFileSync(resolve(migrationDir, files[i]), 'utf-8');
+			if (/CHECK \("map_type" IN \(/.test(sql)) return sql;
+		}
+		throw new Error('no migration with a map_type CHECK constraint found');
+	}
+
 	test('saved_configurations constraint covers all VALID_MAP_TYPES', () => {
-		const sql = readFileSync(
-			resolve(migrationDir, '0011_add_tinkerbell_map_type.sql'),
-			'utf-8'
-		);
+		const sql = latestMapTypeMigrationSql();
 		const savedMatch = sql.match(
 			/ALTER TABLE "saved_configurations"[\s\S]*?CHECK \("map_type" IN \(([^)]+)\)/
 		);
@@ -39,10 +50,7 @@ describe('migration map_type constraints include all VALID_MAP_TYPES', () => {
 	});
 
 	test('shared_configurations constraint covers all VALID_MAP_TYPES', () => {
-		const sql = readFileSync(
-			resolve(migrationDir, '0011_add_tinkerbell_map_type.sql'),
-			'utf-8'
-		);
+		const sql = latestMapTypeMigrationSql();
 		const sharedMatch = sql.match(
 			/ALTER TABLE "shared_configurations"[\s\S]*?CHECK \("map_type" IN \(([^)]+)\)/
 		);
@@ -56,10 +64,7 @@ describe('migration map_type constraints include all VALID_MAP_TYPES', () => {
 	});
 
 	test('migration constraint has no extra types beyond VALID_MAP_TYPES', () => {
-		const sql = readFileSync(
-			resolve(migrationDir, '0011_add_tinkerbell_map_type.sql'),
-			'utf-8'
-		);
+		const sql = latestMapTypeMigrationSql();
 		const matches = sql.matchAll(/CHECK \("map_type" IN \(([^)]+)\)/g);
 		for (const match of matches) {
 			const constraintTypes = match[1]
