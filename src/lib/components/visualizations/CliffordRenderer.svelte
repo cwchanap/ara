@@ -271,6 +271,8 @@
 		}, DEBOUNCE_MS);
 	}
 
+	let resizeObserver: ResizeObserver | null = null;
+
 	onMount(() => {
 		if (typeof window !== 'undefined' && 'Worker' in window) {
 			try {
@@ -325,8 +327,22 @@
 
 		scheduleRender();
 
+		// Re-render (no recompute) when the container resizes so the canvas
+		// reflows to the new clientWidth. Guarded for jsdom, which lacks
+		// ResizeObserver; the render-only $effect still covers height changes.
+		if (typeof ResizeObserver !== 'undefined' && container) {
+			resizeObserver = new ResizeObserver(() => {
+				if (container && latest) render(latest);
+			});
+			resizeObserver.observe(container);
+		}
+
 		return () => {
 			isUnmounted = true;
+			if (resizeObserver) {
+				resizeObserver.disconnect();
+				resizeObserver = null;
+			}
 			if (worker) {
 				worker.terminate();
 				worker = null;
