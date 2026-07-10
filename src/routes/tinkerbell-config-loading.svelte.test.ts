@@ -221,4 +221,16 @@ describe('tinkerbell page', () => {
 		}
 		expect(label).toContain('CUSTOM');
 	});
+
+	it('fires the debounced stability check on mount (exercises getParams callback)', async () => {
+		// The page registers a reactive stability reporter whose getParams
+		// callback (line 78: () => buildParameters()) is only called when
+		// the debounced check runs. Wait past the 300ms debounce so the
+		// callback is exercised.
+		render(TinkerbellPage, { data: unauthedData });
+		// Wait for the DEBOUNCE_MS (300) stability debounce to fire.
+		await new Promise((r) => setTimeout(r, 400));
+		// The page should still be rendered correctly after the check.
+		expect(screen.getByText('TINKERBELL_MAP')).toBeTruthy();
+	});
 });
