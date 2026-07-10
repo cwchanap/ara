@@ -29,7 +29,8 @@ import type {
 	ChaosEsthetiqueParameters,
 	ChuaParameters,
 	DoublePendulumParameters,
-	GumowskiMiraParameters
+	GumowskiMiraParameters,
+	TinkerbellParameters
 } from './types';
 
 describe('getDefaultParameters', () => {
@@ -1324,7 +1325,10 @@ describe('createComparisonStateFromCurrent – additional cases', () => {
 			'chaos-esthetique',
 			'lyapunov',
 			'chua',
-			'double-pendulum'
+			'double-pendulum',
+			'clifford',
+			'gumowski-mira',
+			'tinkerbell'
 		] as const;
 
 		for (const mapType of mapTypes) {
@@ -1551,5 +1555,82 @@ describe('gumowski-mira comparison URL round-trip', () => {
 		const decoded = decodeComparisonState(url, 'gumowski-mira');
 		expect(decoded).not.toBeNull();
 		expect((decoded!.right as GumowskiMiraParameters).mu).toBeCloseTo(0.55, 5);
+	});
+});
+
+describe('tinkerbell comparison URL round-trip', () => {
+	test('getDefaultParameters returns the classic tinkerbell preset', () => {
+		const params = getDefaultParameters('tinkerbell') as TinkerbellParameters;
+		expect(params.type).toBe('tinkerbell');
+		expect(params.a).toBeCloseTo(0.9, 5);
+		expect(params.b).toBeCloseTo(-0.6013, 5);
+		expect(params.c).toBeCloseTo(2.0, 5);
+		expect(params.d).toBeCloseTo(0.5, 5);
+		expect(params.iterations).toBe(100000);
+		expect(params.colorMode).toBe('density');
+		expect(params.zoom).toBe(1);
+		expect(params.pointSize).toBeCloseTo(1.5, 5);
+		expect(params.opacity).toBeCloseTo(0.6, 5);
+	});
+
+	test('round-trips a tinkerbell comparison state through the URL', () => {
+		const left = getDefaultParameters('tinkerbell') as TinkerbellParameters;
+		const right: TinkerbellParameters = {
+			...left,
+			a: -0.71,
+			b: -0.4,
+			colorMode: 'angle',
+			zoom: 2,
+			pointSize: 3,
+			opacity: 0.3
+		};
+		const encoded = encodeComparisonState({ compare: true, left, right });
+		const url = new URL(`http://localhost/tinkerbell/compare?${encoded.toString()}`);
+		const decoded = decodeComparisonState(url, 'tinkerbell');
+
+		expect(decoded).not.toBeNull();
+		expect(decoded!.corrected).toBe(false);
+		expect((decoded!.left as TinkerbellParameters).a).toBeCloseTo(0.9, 5);
+		expect((decoded!.left as TinkerbellParameters).colorMode).toBe('density');
+		expect((decoded!.right as TinkerbellParameters).a).toBeCloseTo(-0.71, 5);
+		expect((decoded!.right as TinkerbellParameters).colorMode).toBe('angle');
+		expect((decoded!.right as TinkerbellParameters).zoom).toBe(2);
+		expect((decoded!.right as TinkerbellParameters).pointSize).toBe(3);
+		expect((decoded!.right as TinkerbellParameters).opacity).toBeCloseTo(0.3, 5);
+	});
+
+	test('buildComparisonUrl produces a parseable tinkerbell compare URL', () => {
+		const left = getDefaultParameters('tinkerbell') as TinkerbellParameters;
+		const right: TinkerbellParameters = { ...left, a: 0.8, b: -0.6 };
+		const urlString = buildComparisonUrl('', 'tinkerbell', {
+			compare: true,
+			left,
+			right
+		});
+		expect(urlString).toContain('/tinkerbell/compare?');
+		const url = new URL(`http://localhost${urlString}`);
+		const decoded = decodeComparisonState(url, 'tinkerbell');
+		expect(decoded).not.toBeNull();
+		expect((decoded!.right as TinkerbellParameters).a).toBeCloseTo(0.8, 5);
+		expect((decoded!.right as TinkerbellParameters).b).toBeCloseTo(-0.6, 5);
+	});
+
+	test('createComparisonStateFromCurrent for tinkerbell uses defaults on right', () => {
+		const current: TinkerbellParameters = {
+			type: 'tinkerbell',
+			a: -1.2,
+			b: 0.4,
+			c: 1.9,
+			d: 0.3,
+			iterations: 50000,
+			colorMode: 'iteration',
+			zoom: 1.5,
+			pointSize: 2,
+			opacity: 0.5
+		};
+		const state = createComparisonStateFromCurrent('tinkerbell', current);
+		expect(state.compare).toBe(true);
+		expect((state.left as TinkerbellParameters).a).toBeCloseTo(-1.2, 5);
+		expect((state.right as TinkerbellParameters).a).toBeCloseTo(0.9, 5);
 	});
 });
