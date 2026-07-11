@@ -85,6 +85,13 @@
 			"when": 1779699600006,
 			"tag": "0011_add_tinkerbell_map_type",
 			"breakpoints": true
+		},
+		{
+			"idx": 12,
+			"version": "7",
+			"when": 1779699600007,
+			"tag": "0012_add_bakers_map_map_type",
+			"breakpoints": true
 		}
 	]
 }
