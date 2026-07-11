@@ -17,9 +17,10 @@
 	const defaultParams = getDefaultParameters('bakers-map') as BakersMapParameters;
 	const ranges = getStableRanges('bakers-map')!;
 
-	const clampValue = (value: number, min: number, max: number, fallback: number) => {
+	const clampValue = (value: number, min: number, max: number, fallback: number, round = false) => {
 		if (!Number.isFinite(value)) return fallback;
-		return Math.min(max, Math.max(min, value));
+		const clamped = Math.min(max, Math.max(min, value));
+		return round ? Math.round(clamped) : clamped;
 	};
 
 	const clampParams = (params?: BakersMapParameters | null): BakersMapParameters => {
@@ -30,9 +31,10 @@
 				source.pointCount,
 				ranges.pointCount.min,
 				ranges.pointCount.max,
-				defaultParams.pointCount
+				defaultParams.pointCount,
+				true
 			),
-			speed: clampValue(source.speed, ranges.speed.min, ranges.speed.max, defaultParams.speed)
+			speed: clampValue(source.speed, ranges.speed.min, ranges.speed.max, defaultParams.speed, true)
 		};
 	};
 
@@ -86,6 +88,64 @@
 	}
 </script>
 
+{#snippet comparePanel(
+	title: string,
+	pointCount: number,
+	speed: number,
+	pcId: string,
+	spId: string,
+	onPointCount: (v: number) => void,
+	onSpeed: (v: number) => void
+)}
+	<div class="space-y-4">
+		<ComparisonParameterPanel {title}>
+			<div class="grid grid-cols-2 gap-3">
+				<div class="space-y-1">
+					<div class="flex justify-between items-end">
+						<label for={pcId} class="text-primary/80 text-xs uppercase tracking-widest font-bold"
+							>Point Count</label
+						>
+						<span class="font-mono text-accent text-sm">{pointCount}</span>
+					</div>
+					<input
+						id={pcId}
+						type="range"
+						min={ranges.pointCount.min}
+						max={ranges.pointCount.max}
+						step="100"
+						value={pointCount}
+						oninput={(e) => onPointCount(Number((e.currentTarget as HTMLInputElement).value))}
+						class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
+					/>
+				</div>
+				<div class="space-y-1">
+					<div class="flex justify-between items-end">
+						<label for={spId} class="text-primary/80 text-xs uppercase tracking-widest font-bold"
+							>Speed</label
+						>
+						<span class="font-mono text-accent text-sm">{speed}</span>
+					</div>
+					<input
+						id={spId}
+						type="range"
+						min={ranges.speed.min}
+						max={ranges.speed.max}
+						step="1"
+						value={speed}
+						oninput={(e) => onSpeed(Number((e.currentTarget as HTMLInputElement).value))}
+						class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
+					/>
+				</div>
+			</div>
+			{#snippet equations()}
+				<p>x(n+1) = 2x(n) mod 1</p>
+				<p>y(n+1) = (y(n) + floor(2x(n))) / 2</p>
+			{/snippet}
+		</ComparisonParameterPanel>
+		<BakersMapRenderer {pointCount} {speed} height={400} />
+	</div>
+{/snippet}
+
 <ComparisonLayout
 	mapType="bakers-map"
 	leftParams={getLeftParams()}
@@ -95,110 +155,26 @@
 	onRightParamsChange={(p) => handleRightParamsChange(p as BakersMapParameters)}
 >
 	{#snippet leftPanel()}
-		<div class="space-y-4">
-			<ComparisonParameterPanel title="LEFT_PARAMETERS">
-				<div class="grid grid-cols-2 gap-3">
-					<div class="space-y-1">
-						<div class="flex justify-between items-end">
-							<label
-								for="left-pointCount"
-								class="text-primary/80 text-xs uppercase tracking-widest font-bold"
-								>Point Count</label
-							>
-							<span class="font-mono text-accent text-sm">{leftPointCount}</span>
-						</div>
-						<input
-							id="left-pointCount"
-							type="range"
-							value={leftPointCount}
-							oninput={(e) =>
-								(leftPointCount = Number((e.currentTarget as HTMLInputElement).value))}
-							min="100"
-							max="10000"
-							step="100"
-							class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
-						/>
-					</div>
-					<div class="space-y-1">
-						<div class="flex justify-between items-end">
-							<label
-								for="left-speed"
-								class="text-primary/80 text-xs uppercase tracking-widest font-bold">Speed</label
-							>
-							<span class="font-mono text-accent text-sm">{leftSpeed}</span>
-						</div>
-						<input
-							id="left-speed"
-							type="range"
-							value={leftSpeed}
-							oninput={(e) => (leftSpeed = Number((e.currentTarget as HTMLInputElement).value))}
-							min="1"
-							max="10"
-							step="1"
-							class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
-						/>
-					</div>
-				</div>
-				{#snippet equations()}
-					<p>x(n+1) = 2x(n) mod 1</p>
-					<p>y(n+1) = (y(n) + floor(2x(n))) / 2</p>
-				{/snippet}
-			</ComparisonParameterPanel>
-			<BakersMapRenderer bind:pointCount={leftPointCount} bind:speed={leftSpeed} height={400} />
-		</div>
+		{@render comparePanel(
+			'LEFT_PARAMETERS',
+			leftPointCount,
+			leftSpeed,
+			'left-pointCount',
+			'left-speed',
+			(v) => (leftPointCount = v),
+			(v) => (leftSpeed = v)
+		)}
 	{/snippet}
 
 	{#snippet rightPanel()}
-		<div class="space-y-4">
-			<ComparisonParameterPanel title="RIGHT_PARAMETERS">
-				<div class="grid grid-cols-2 gap-3">
-					<div class="space-y-1">
-						<div class="flex justify-between items-end">
-							<label
-								for="right-pointCount"
-								class="text-primary/80 text-xs uppercase tracking-widest font-bold"
-								>Point Count</label
-							>
-							<span class="font-mono text-accent text-sm">{rightPointCount}</span>
-						</div>
-						<input
-							id="right-pointCount"
-							type="range"
-							value={rightPointCount}
-							oninput={(e) =>
-								(rightPointCount = Number((e.currentTarget as HTMLInputElement).value))}
-							min="100"
-							max="10000"
-							step="100"
-							class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
-						/>
-					</div>
-					<div class="space-y-1">
-						<div class="flex justify-between items-end">
-							<label
-								for="right-speed"
-								class="text-primary/80 text-xs uppercase tracking-widest font-bold">Speed</label
-							>
-							<span class="font-mono text-accent text-sm">{rightSpeed}</span>
-						</div>
-						<input
-							id="right-speed"
-							type="range"
-							value={rightSpeed}
-							oninput={(e) => (rightSpeed = Number((e.currentTarget as HTMLInputElement).value))}
-							min="1"
-							max="10"
-							step="1"
-							class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
-						/>
-					</div>
-				</div>
-				{#snippet equations()}
-					<p>x(n+1) = 2x(n) mod 1</p>
-					<p>y(n+1) = (y(n) + floor(2x(n))) / 2</p>
-				{/snippet}
-			</ComparisonParameterPanel>
-			<BakersMapRenderer bind:pointCount={rightPointCount} bind:speed={rightSpeed} height={400} />
-		</div>
+		{@render comparePanel(
+			'RIGHT_PARAMETERS',
+			rightPointCount,
+			rightSpeed,
+			'right-pointCount',
+			'right-speed',
+			(v) => (rightPointCount = v),
+			(v) => (rightSpeed = v)
+		)}
 	{/snippet}
 </ComparisonLayout>

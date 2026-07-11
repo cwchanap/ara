@@ -12,7 +12,7 @@ Implement **Baker's Map** as a new chaotic map visualization module at `/bakers-
 
 The Baker's Map transforms a point `(x, y)` in the unit square:
 
-```
+```text
 B(x, y) = (2x mod 1, (y + floor(2x)) / 2)
 ```
 

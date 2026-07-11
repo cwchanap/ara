@@ -32,6 +32,14 @@ export default [
 		}
 	},
 	{
+		files: ['**/*.svelte.ts', '**/*.svelte.js'],
+		languageOptions: {
+			parserOptions: {
+				parser: ts.parser
+			}
+		}
+	},
+	{
 		files: ['src/lib/components/ui/ParameterSlider.svelte'],
 		rules: {
 			// This component intentionally keeps separate state for immediate UI feedback

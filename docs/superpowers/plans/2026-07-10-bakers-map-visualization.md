@@ -439,20 +439,67 @@ describe('BakersMapRenderer', () => {
 		expect(component).toBeTruthy();
 	});
 
-	test('does not crash when resetSignal changes', async () => {
-		const { rerender } = render(BakersMapRenderer, { resetSignal: 0 });
-		await rerender({ resetSignal: 1 });
-		// No crash = pass
+	test('displays initial iteration count of 0', () => {
+		const { container } = render(BakersMapRenderer);
+		expect(container.textContent).toContain('ITERATION: 0');
 	});
 
-	test('does not crash when randomizeSignal changes', async () => {
-		const { rerender } = render(BakersMapRenderer, { randomizeSignal: 0 });
-		await rerender({ randomizeSignal: 1 });
+	test('resetSignal resets iteration count to 0', async () => {
+		installAsyncRafPump(500);
+		const { rerender, container } = render(BakersMapRenderer, {
+			pointCount: 100,
+			speed: 1,
+			resetSignal: 0,
+			paused: false
+		});
+		await waitForFrames();
+		expect(container.textContent).not.toContain('ITERATION: 0');
+
+		await rerender({ pointCount: 100, speed: 1, resetSignal: 1, paused: true });
+		await waitForFrames();
+		expect(container.textContent).toContain('ITERATION: 0');
 	});
 
-	test('does not crash when stepSignal changes', async () => {
-		const { rerender } = render(BakersMapRenderer, { stepSignal: 0, paused: true });
-		await rerender({ stepSignal: 1 });
+	test('randomizeSignal resets iteration count to 0', async () => {
+		installAsyncRafPump(500);
+		const { rerender, container } = render(BakersMapRenderer, {
+			pointCount: 100,
+			speed: 1,
+			randomizeSignal: 0,
+			paused: false
+		});
+		await waitForFrames();
+		expect(container.textContent).not.toContain('ITERATION: 0');
+
+		await rerender({ pointCount: 100, speed: 1, randomizeSignal: 1, paused: true });
+		await waitForFrames();
+		expect(container.textContent).toContain('ITERATION: 0');
+	});
+
+	test('stepSignal advances iteration while paused', async () => {
+		// Use Svelte.mount with individually reactive props so only the
+		// stepSignal $effect fires (not pointCount which resets iteration).
+		installAsyncRafPump(500);
+		const [props, updateProps] = createReactiveProps({
+			pointCount: 100,
+			speed: 1,
+			paused: true,
+			stepSignal: 0
+		});
+		const target = document.createElement('div');
+		document.body.appendChild(target);
+		const component = mount(BakersMapRenderer, { target, props });
+
+		await waitForFrames();
+		expect(target.textContent).toContain('ITERATION: 0');
+
+		updateProps({ stepSignal: 1 });
+		await tick();
+		await waitForFrames();
+		expect(target.textContent).toContain('ITERATION: 1');
+
+		unmount(component);
+		target.remove();
 	});
 });
 ```
@@ -965,9 +1012,10 @@ Create `src/routes/bakers-map/compare/+page.svelte`:
 	const defaultParams = getDefaultParameters('bakers-map') as BakersMapParameters;
 	const ranges = getStableRanges('bakers-map')!;
 
-	const clampValue = (value: number, min: number, max: number, fallback: number) => {
+	const clampValue = (value: number, min: number, max: number, fallback: number, round = false) => {
 		if (!Number.isFinite(value)) return fallback;
-		return Math.min(max, Math.max(min, value));
+		const clamped = Math.min(max, Math.max(min, value));
+		return round ? Math.round(clamped) : clamped;
 	};
 
 	const clampParams = (params?: BakersMapParameters | null): BakersMapParameters => {
@@ -978,9 +1026,10 @@ Create `src/routes/bakers-map/compare/+page.svelte`:
 				source.pointCount,
 				ranges.pointCount.min,
 				ranges.pointCount.max,
-				defaultParams.pointCount
+				defaultParams.pointCount,
+				true
 			),
-			speed: clampValue(source.speed, ranges.speed.min, ranges.speed.max, defaultParams.speed)
+			speed: clampValue(source.speed, ranges.speed.min, ranges.speed.max, defaultParams.speed, true)
 		};
 	};
 
