@@ -15,26 +15,25 @@
 
 	const initialState = decodeComparisonState($page.url, 'bakers-map');
 	const defaultParams = getDefaultParameters('bakers-map') as BakersMapParameters;
-	const ranges = getStableRanges('bakers-map')!;
+	const ranges = getStableRanges('bakers-map');
 
-	const clampValue = (value: number, min: number, max: number, fallback: number, round = false) => {
+	const clampValue = (value: number, min: number, max: number, fallback: number) => {
 		if (!Number.isFinite(value)) return fallback;
-		const clamped = Math.min(max, Math.max(min, value));
-		return round ? Math.round(clamped) : clamped;
+		return Math.round(Math.min(max, Math.max(min, value)));
 	};
 
 	const clampParams = (params?: BakersMapParameters | null): BakersMapParameters => {
 		const source = params ?? defaultParams;
+		if (!ranges) return source;
 		return {
 			type: 'bakers-map',
 			pointCount: clampValue(
 				source.pointCount,
 				ranges.pointCount.min,
 				ranges.pointCount.max,
-				defaultParams.pointCount,
-				true
+				defaultParams.pointCount
 			),
-			speed: clampValue(source.speed, ranges.speed.min, ranges.speed.max, defaultParams.speed, true)
+			speed: clampValue(source.speed, ranges.speed.min, ranges.speed.max, defaultParams.speed)
 		};
 	};
 
@@ -110,8 +109,8 @@
 					<input
 						id={pcId}
 						type="range"
-						min={ranges.pointCount.min}
-						max={ranges.pointCount.max}
+						min={ranges?.pointCount.min}
+						max={ranges?.pointCount.max}
 						step="100"
 						value={pointCount}
 						oninput={(e) => onPointCount(Number((e.currentTarget as HTMLInputElement).value))}
@@ -128,8 +127,8 @@
 					<input
 						id={spId}
 						type="range"
-						min={ranges.speed.min}
-						max={ranges.speed.max}
+						min={ranges?.speed.min}
+						max={ranges?.speed.max}
 						step="1"
 						value={speed}
 						oninput={(e) => onSpeed(Number((e.currentTarget as HTMLInputElement).value))}
