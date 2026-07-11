@@ -105,6 +105,12 @@
 				'A physical chaotic system where tiny angle changes produce wildly different motion',
 			url: '/double-pendulum',
 			color: 'from-lime-400 to-emerald-600'
+		},
+		{
+			name: "Baker's Map",
+			description: 'A stretch-cut-stack map that demonstrates chaotic mixing in phase space',
+			url: '/bakers-map',
+			color: 'from-yellow-500 to-amber-600'
 		}
 	];
 </script>
