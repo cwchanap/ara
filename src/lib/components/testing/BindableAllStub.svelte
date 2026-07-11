@@ -60,6 +60,11 @@
 		restartSignal?: number;
 		divergenceValue?: number;
 		value?: number;
+		paused?: boolean;
+		pointCount?: number;
+		resetSignal?: number;
+		randomizeSignal?: number;
+		stepSignal?: number;
 		// DOM element bindings
 		containerElement?: HTMLElement | undefined;
 		head?: number;
@@ -118,6 +123,11 @@
 		restartSignal = $bindable(0),
 		divergenceValue = $bindable(0),
 		value = $bindable(0),
+		paused = $bindable(false),
+		pointCount = $bindable(0),
+		resetSignal = $bindable(0),
+		randomizeSignal = $bindable(0),
+		stepSignal = $bindable(0),
 		containerElement = $bindable<HTMLElement | undefined>(undefined),
 		head = $bindable(0),
 		seeds = $bindable<unknown>(undefined),

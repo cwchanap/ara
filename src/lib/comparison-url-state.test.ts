@@ -30,7 +30,8 @@ import type {
 	ChuaParameters,
 	DoublePendulumParameters,
 	GumowskiMiraParameters,
-	TinkerbellParameters
+	TinkerbellParameters,
+	BakersMapParameters
 } from './types';
 
 describe('getDefaultParameters', () => {
@@ -1328,7 +1329,8 @@ describe('createComparisonStateFromCurrent – additional cases', () => {
 			'double-pendulum',
 			'clifford',
 			'gumowski-mira',
-			'tinkerbell'
+			'tinkerbell',
+			'bakers-map'
 		] as const;
 
 		for (const mapType of mapTypes) {
@@ -1632,5 +1634,51 @@ describe('tinkerbell comparison URL round-trip', () => {
 		expect(state.compare).toBe(true);
 		expect((state.left as TinkerbellParameters).a).toBeCloseTo(-1.2, 5);
 		expect((state.right as TinkerbellParameters).a).toBeCloseTo(0.9, 5);
+	});
+});
+
+describe('bakers-map comparison URL round-trip', () => {
+	test('getDefaultParameters returns correct bakers-map defaults', () => {
+		const params = getDefaultParameters('bakers-map') as BakersMapParameters;
+		expect(params.type).toBe('bakers-map');
+		expect(params.pointCount).toBe(3000);
+		expect(params.speed).toBe(1);
+	});
+
+	test('round-trips a bakers-map comparison state through the URL', () => {
+		const left: BakersMapParameters = { type: 'bakers-map', pointCount: 5000, speed: 3 };
+		const right: BakersMapParameters = { type: 'bakers-map', pointCount: 1000, speed: 7 };
+		const encoded = encodeComparisonState({ compare: true, left, right });
+		const url = new URL(`http://localhost/bakers-map/compare?${encoded.toString()}`);
+		const decoded = decodeComparisonState(url, 'bakers-map');
+
+		expect(decoded).not.toBeNull();
+		expect(decoded!.corrected).toBe(false);
+		expect((decoded!.left as BakersMapParameters).pointCount).toBe(5000);
+		expect((decoded!.left as BakersMapParameters).speed).toBe(3);
+		expect((decoded!.right as BakersMapParameters).pointCount).toBe(1000);
+		expect((decoded!.right as BakersMapParameters).speed).toBe(7);
+	});
+
+	test('buildComparisonUrl produces a parseable bakers-map compare URL', () => {
+		const left: BakersMapParameters = { type: 'bakers-map', pointCount: 2000, speed: 2 };
+		const right: BakersMapParameters = { type: 'bakers-map', pointCount: 8000, speed: 5 };
+		const urlString = buildComparisonUrl('', 'bakers-map', { compare: true, left, right });
+		expect(urlString).toContain('/bakers-map/compare?');
+		const url = new URL(`http://localhost${urlString}`);
+		const decoded = decodeComparisonState(url, 'bakers-map');
+		expect(decoded).not.toBeNull();
+		expect((decoded!.right as BakersMapParameters).pointCount).toBe(8000);
+		expect((decoded!.right as BakersMapParameters).speed).toBe(5);
+	});
+
+	test('createComparisonStateFromCurrent for bakers-map uses defaults on right', () => {
+		const current: BakersMapParameters = { type: 'bakers-map', pointCount: 7000, speed: 8 };
+		const state = createComparisonStateFromCurrent('bakers-map', current);
+		expect(state.compare).toBe(true);
+		expect((state.left as BakersMapParameters).pointCount).toBe(7000);
+		expect((state.left as BakersMapParameters).speed).toBe(8);
+		expect((state.right as BakersMapParameters).pointCount).toBe(3000);
+		expect((state.right as BakersMapParameters).speed).toBe(1);
 	});
 });
