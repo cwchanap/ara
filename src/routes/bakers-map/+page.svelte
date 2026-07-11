@@ -2,6 +2,7 @@
 	import VisualizationShell from '$lib/components/ui/VisualizationShell.svelte';
 	import BakersMapRenderer from '$lib/components/visualizations/BakersMapRenderer.svelte';
 	import { VIZ_CONTAINER_HEIGHT } from '$lib/constants';
+	import { clampInt } from '$lib/math-utils';
 	import { createStabilityReporter } from '$lib/stability-reporter';
 	import type { BakersMapParameters, ChaosMapParameters } from '$lib/types';
 
@@ -13,11 +14,6 @@
 	let resetSignal = $state(0);
 	let randomizeSignal = $state(0);
 	let stepSignal = $state(0);
-
-	function clampInt(v: number, min: number, max: number): number {
-		if (!Number.isFinite(v)) return min;
-		return Math.min(max, Math.max(min, Math.round(v)));
-	}
 
 	const stability = createStabilityReporter({
 		mapType: 'bakers-map',

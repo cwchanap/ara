@@ -6,6 +6,7 @@
 	import { onMount } from 'svelte';
 	import * as d3 from 'd3';
 	import { COLOR_PRIMARY, COLOR_MAGENTA } from '$lib/constants';
+	import { clampInt } from '$lib/math-utils';
 
 	interface Props {
 		height?: number;
@@ -51,16 +52,24 @@
 	let lastLabelUpdate = 0;
 	let initialized = false;
 
-	function clampInt(v: number, min: number, max: number): number {
-		if (!Number.isFinite(v)) return min;
-		return Math.min(max, Math.max(min, Math.round(v)));
-	}
-
 	function initDistribution(count: number) {
 		currentX = new Float64Array(count);
 		currentY = new Float64Array(count);
 		initialX = new Float64Array(count);
 		initialY = new Float64Array(count);
+		for (let i = 0; i < count; i++) {
+			const x = Math.random();
+			const y = Math.random();
+			currentX[i] = x;
+			currentY[i] = y;
+			initialX[i] = x;
+			initialY[i] = y;
+		}
+		iterationCount = 0;
+	}
+
+	function fillRandom() {
+		const count = currentX.length;
 		for (let i = 0; i < count; i++) {
 			const x = Math.random();
 			const y = Math.random();
@@ -88,15 +97,7 @@
 		}
 		iterationCount++;
 		if (iterationCount >= MAX_ITERATIONS) {
-			for (let i = 0; i < count; i++) {
-				const x = Math.random();
-				const y = Math.random();
-				currentX[i] = x;
-				currentY[i] = y;
-				initialX[i] = x;
-				initialY[i] = y;
-			}
-			iterationCount = 0;
+			fillRandom();
 		}
 	}
 
@@ -110,16 +111,7 @@
 	}
 
 	function doRandomize() {
-		const count = currentX.length;
-		for (let i = 0; i < count; i++) {
-			const x = Math.random();
-			const y = Math.random();
-			currentX[i] = x;
-			currentY[i] = y;
-			initialX[i] = x;
-			initialY[i] = y;
-		}
-		iterationCount = 0;
+		fillRandom();
 	}
 
 	function renderFrame(timestamp: number) {
