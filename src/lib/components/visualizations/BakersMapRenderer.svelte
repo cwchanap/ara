@@ -43,6 +43,7 @@
 	let currentY = new Float64Array(0);
 	let initialX = new Float64Array(0);
 	let initialY = new Float64Array(0);
+	let pointColors: string[] = [];
 	let iterationCount = 0;
 
 	let canvas: HTMLCanvasElement;
@@ -57,6 +58,7 @@
 		currentY = new Float64Array(count);
 		initialX = new Float64Array(count);
 		initialY = new Float64Array(count);
+		pointColors = new Array(count);
 		for (let i = 0; i < count; i++) {
 			const x = Math.random();
 			const y = Math.random();
@@ -64,12 +66,14 @@
 			currentY[i] = y;
 			initialX[i] = x;
 			initialY[i] = y;
+			pointColors[i] = interpCyanMagenta(y);
 		}
 		iterationCount = 0;
 	}
 
 	function fillRandom() {
 		const count = currentX.length;
+		if (pointColors.length !== count) pointColors = new Array(count);
 		for (let i = 0; i < count; i++) {
 			const x = Math.random();
 			const y = Math.random();
@@ -77,6 +81,7 @@
 			currentY[i] = y;
 			initialX[i] = x;
 			initialY[i] = y;
+			pointColors[i] = interpCyanMagenta(y);
 		}
 		iterationCount = 0;
 	}
@@ -133,7 +138,7 @@
 				for (let i = 0; i < currentX.length; i++) {
 					const px = currentX[i] * w;
 					const py = (1 - currentY[i]) * h;
-					ctx.fillStyle = interpCyanMagenta(initialY[i]);
+					ctx.fillStyle = pointColors[i];
 					ctx.fillRect(px, py, 1, 1);
 				}
 
