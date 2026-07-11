@@ -26,7 +26,8 @@ export type ChaosMapType =
 	| 'gumowski-mira'
 	| 'lyapunov'
 	| 'chua'
-	| 'double-pendulum';
+	| 'double-pendulum'
+	| 'bakers-map';
 
 export type LorenzSolver = 'euler' | 'rk2' | 'rk4';
 export type LorenzColorMode = 'time' | 'speed' | 'zheight' | 'divergence' | 'single';
@@ -282,6 +283,12 @@ export interface DoublePendulumParameters {
 	compareOffset?: number;
 }
 
+export interface BakersMapParameters {
+	type: 'bakers-map';
+	pointCount: number;
+	speed: number;
+}
+
 // Union type for all chaos map parameters
 export type ChaosMapParameters =
 	| LorenzParameters
@@ -300,7 +307,8 @@ export type ChaosMapParameters =
 	| ChaosEsthetiqueParameters
 	| LyapunovParameters
 	| ChuaParameters
-	| DoublePendulumParameters;
+	| DoublePendulumParameters
+	| BakersMapParameters;
 
 // Display names for chaos map types (UPPERCASE_SNAKE_CASE per constitution)
 export const CHAOS_MAP_DISPLAY_NAMES: Record<ChaosMapType, string> = {
@@ -320,7 +328,8 @@ export const CHAOS_MAP_DISPLAY_NAMES: Record<ChaosMapType, string> = {
 	'gumowski-mira': 'GUMOWSKI–MIRA_MAP',
 	lyapunov: 'LYAPUNOV_EXPONENTS',
 	chua: 'CHUA_CIRCUIT',
-	'double-pendulum': 'DOUBLE_PENDULUM'
+	'double-pendulum': 'DOUBLE_PENDULUM',
+	'bakers-map': 'BAKERS_MAP'
 };
 
 // Valid chaos map types array for validation
@@ -341,7 +350,8 @@ export const VALID_MAP_TYPES: ChaosMapType[] = [
 	'gumowski-mira',
 	'lyapunov',
 	'chua',
-	'double-pendulum'
+	'double-pendulum',
+	'bakers-map'
 ];
 
 // Saved configuration discriminated union (matches Drizzle schema)
@@ -419,5 +429,9 @@ export type SavedConfiguration = {
 	| {
 			mapType: 'double-pendulum';
 			parameters: DoublePendulumParameters;
+	  }
+	| {
+			mapType: 'bakers-map';
+			parameters: BakersMapParameters;
 	  }
 );

@@ -136,6 +136,8 @@ export function getDefaultParameters(mapType: ChaosMapType): ChaosMapParameters 
 				);
 			return { type: 'tinkerbell', ...preset.state };
 		}
+		case 'bakers-map':
+			return { type: 'bakers-map', pointCount: 3000, speed: 1 };
 	}
 }
 

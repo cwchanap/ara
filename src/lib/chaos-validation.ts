@@ -136,6 +136,10 @@ const STABLE_RANGES: Record<ChaosMapType, StableRanges<Record<string, number>>> 
 		m2: { min: 0.1, max: 10 },
 		gravity: { min: 0, max: 50 },
 		damping: { min: 0, max: 2 }
+	},
+	'bakers-map': {
+		pointCount: { min: 100, max: 10000 },
+		speed: { min: 1, max: 10 }
 	}
 };
 

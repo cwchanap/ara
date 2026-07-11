@@ -3356,3 +3356,51 @@ describe('gumowski-mira validation', () => {
 		expect(isValidMapType('gumowski-mira')).toBe(true);
 	});
 });
+
+describe('bakers-map parameter validation', () => {
+	const validParams = { type: 'bakers-map' as const, pointCount: 3000, speed: 1 };
+
+	test('validates correct bakers-map parameters', () => {
+		const result = validateParameters('bakers-map', validParams);
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toHaveLength(0);
+	});
+
+	test('rejects missing speed', () => {
+		const result = validateParameters('bakers-map', { type: 'bakers-map', pointCount: 3000 });
+		expect(result.isValid).toBe(false);
+		expect(result.errors[0]).toContain('speed');
+	});
+
+	test('rejects missing pointCount', () => {
+		const result = validateParameters('bakers-map', { type: 'bakers-map', speed: 1 });
+		expect(result.isValid).toBe(false);
+		expect(result.errors[0]).toContain('pointCount');
+	});
+
+	test('checkParameterStability reports out-of-range speed', () => {
+		const result = checkParameterStability('bakers-map', {
+			type: 'bakers-map',
+			pointCount: 3000,
+			speed: 100
+		});
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('speed'))).toBe(true);
+	});
+
+	test('checkParameterStability reports out-of-range pointCount', () => {
+		const result = checkParameterStability('bakers-map', {
+			type: 'bakers-map',
+			pointCount: 999999,
+			speed: 1
+		});
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('pointCount'))).toBe(true);
+	});
+
+	test('checkParameterStability passes for in-range values', () => {
+		const result = checkParameterStability('bakers-map', validParams);
+		expect(result.isStable).toBe(true);
+		expect(result.warnings).toHaveLength(0);
+	});
+});
