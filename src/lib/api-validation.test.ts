@@ -292,7 +292,8 @@ describe('API Validation Logic', () => {
 				'gumowski-mira',
 				'lyapunov',
 				'chua',
-				'double-pendulum'
+				'double-pendulum',
+				'bakers-map'
 			];
 
 			// Bi-directional check: guards against both unregistered additions

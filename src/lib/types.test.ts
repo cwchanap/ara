@@ -26,7 +26,8 @@ const EXPECTED_MAP_TYPES: ChaosMapType[] = [
 	'gumowski-mira',
 	'lyapunov',
 	'chua',
-	'double-pendulum'
+	'double-pendulum',
+	'bakers-map'
 ];
 
 describe('VALID_MAP_TYPES', () => {
@@ -107,6 +108,7 @@ describe('CHAOS_MAP_DISPLAY_NAMES', () => {
 		expect(CHAOS_MAP_DISPLAY_NAMES['lyapunov']).toBe('LYAPUNOV_EXPONENTS');
 		expect(CHAOS_MAP_DISPLAY_NAMES['chua']).toBe('CHUA_CIRCUIT');
 		expect(CHAOS_MAP_DISPLAY_NAMES['double-pendulum']).toBe('DOUBLE_PENDULUM');
+		expect(CHAOS_MAP_DISPLAY_NAMES['bakers-map']).toBe('BAKERS_MAP');
 	});
 
 	test('display names for all map types are consistent with VALID_MAP_TYPES', () => {
