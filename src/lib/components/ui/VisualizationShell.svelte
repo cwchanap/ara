@@ -1,12 +1,18 @@
 <!-- src/lib/components/ui/VisualizationShell.svelte -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { untrack } from 'svelte';
+	import { untrack, setContext } from 'svelte';
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import type { ChaosMapType, ChaosMapParameters } from '$lib/types';
 	import type { ParamDef } from '$lib/viz/types';
 	import { paramDefaults, applyLoadedValues } from '$lib/viz/types';
+	import {
+		SliderDragManager,
+		type DragState,
+		type Fidelity,
+		type RenderState
+	} from '$lib/slider-drag-manager';
 	import VisualizationHeader from '$lib/components/ui/VisualizationHeader.svelte';
 	import ParameterPanel from '$lib/components/ui/ParameterPanel.svelte';
 	import ParameterSlider from '$lib/components/ui/ParameterSlider.svelte';
@@ -25,7 +31,10 @@
 	// SnapshotButton can target it — exactly as each pre-shell page did.
 	interface RendererArgs {
 		values: Record<string, number>;
+		draftValues: Record<string, number>;
 		container: { el?: HTMLDivElement };
+		fidelity: Fidelity;
+		onRenderStateChange: (state: RenderState) => void;
 	}
 
 	interface Props {
@@ -146,6 +155,23 @@
 	}: Props = $props();
 
 	const values = $state(paramDefaults(paramDefs));
+
+	const dragManager = new SliderDragManager();
+	setContext('slider-drag-manager', dragManager);
+
+	const draftValues = $state(paramDefaults(paramDefs));
+	let dragState = $state<DragState>({ fidelity: 'full', commitDragging: false });
+	let renderState = $state<RenderState>('idle');
+
+	$effect(() => {
+		return dragManager.subscribe((s) => {
+			dragState = s;
+		});
+	});
+
+	const onRenderStateChange = (s: RenderState) => {
+		renderState = s;
+	};
 
 	// Populated by the renderer snippet binding its root to container.el.
 	const container = $state<{ el?: HTMLDivElement }>({});
@@ -279,7 +305,14 @@
 <div class="space-y-6">
 	<VisualizationHeader {title} {moduleNumber}>
 		{#if showSnapshot}
-			<SnapshotButton target={container.el} targetType="container" {mapType} />
+			<SnapshotButton
+				target={container.el}
+				targetType="container"
+				{mapType}
+				disabled={dragState.fidelity !== 'full' ||
+					dragState.commitDragging ||
+					renderState === 'rendering'}
+			/>
 		{/if}
 		{#if comparisonUrl}
 			<a
@@ -290,12 +323,14 @@
 		{/if}
 		<button
 			onclick={() => (shareState.showShareDialog = true)}
-			class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold"
+			disabled={dragState.fidelity !== 'full' || dragState.commitDragging}
+			class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
 			>🔗 Share</button
 		>
 		<button
 			onclick={() => (saveState.showSaveDialog = true)}
-			class="px-6 py-2 bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(168,85,247,0.2)] uppercase tracking-widest text-sm font-bold"
+			disabled={dragState.fidelity !== 'full' || dragState.commitDragging}
+			class="px-6 py-2 bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(168,85,247,0.2)] uppercase tracking-widest text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
 			>💾 Save</button
 		>
 	</VisualizationHeader>
@@ -321,17 +356,45 @@
 				id={def.id ?? def.key}
 				label={def.label}
 				bind:value={values[def.key]}
+				ondraft={(v) => {
+					draftValues[def.key] = v;
+				}}
 				min={def.min}
 				max={def.max}
 				step={def.step}
 				decimals={def.decimals ?? 0}
+				updatePolicy={def.updatePolicy ?? 'live'}
 			/>
 		{/each}
 		{#if extraControls}{@render extraControls()}{/if}
 	</ParameterPanel>
 
 	<VisualizationErrorBoundary {mapType}>
-		{@render renderer({ values, container })}
+		<div class="relative">
+			{@render renderer({
+				values,
+				draftValues,
+				container,
+				fidelity: dragState.fidelity,
+				onRenderStateChange
+			})}
+			<!-- Status badge -->
+			<div
+				role="status"
+				aria-live="polite"
+				class="absolute top-4 left-4 text-xs font-['Rajdhani'] border border-primary/20 px-2 py-1 pointer-events-none select-none"
+			>
+				{#if dragState.commitDragging}
+					FROZEN — RELEASE TO APPLY
+				{:else if dragState.fidelity === 'preview'}
+					PREVIEW
+				{:else if renderState === 'rendering'}
+					RENDERING FULL QUALITY…
+				{:else}
+					LIVE_RENDER
+				{/if}
+			</div>
+		</div>
 	</VisualizationErrorBoundary>
 
 	<div class="bg-card/30 backdrop-blur-md border border-primary/20 rounded-sm p-6 relative">
