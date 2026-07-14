@@ -1,3 +1,5 @@
+export type UpdatePolicy = 'live' | 'preview' | 'commit';
+
 export interface ParamDef {
 	/** Field name in the map's ChaosMapParameters union member. */
 	key: string;
@@ -11,6 +13,8 @@ export interface ParamDef {
 	/** value.toFixed(decimals); omit ⇒ integer display (decimals = 0). */
 	decimals?: number;
 	default: number;
+	/** Per-control drag policy. Defaults to 'live' (immediate updates). */
+	updatePolicy?: UpdatePolicy;
 }
 
 export function paramDefaults(defs: ParamDef[]): Record<string, number> {

@@ -16,6 +16,18 @@
 export const SLIDER_DEBOUNCE_MS = 50;
 
 /**
+ * Throttle interval for preview-policy slider drafts (milliseconds).
+ * Limits draft renders to ~8-10 updates/second during drag.
+ */
+export const PREVIEW_THROTTLE_MS = 100;
+
+/**
+ * Idle timer for keyboard-only commit (milliseconds).
+ * After this delay without further input, preview/commit sliders fire their committed value.
+ */
+export const PREVIEW_IDLE_COMMIT_MS = 500;
+
+/**
  * Duration for success toast notifications (milliseconds).
  */
 export const TOAST_SUCCESS_DURATION_MS = 3000;
