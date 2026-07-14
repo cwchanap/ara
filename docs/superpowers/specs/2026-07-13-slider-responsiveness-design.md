@@ -46,7 +46,7 @@ Dragging parameter sliders on heavy chaos modules causes UI lag because several 
 |------|--------|
 | `src/lib/viz/types.ts` | Add `updatePolicy?: UpdatePolicy` to `ParamDef` |
 | `src/lib/components/ui/ParameterSlider.svelte` | Replace `debounce`/`debounceMs` with `updatePolicy`; add throttle for preview, on-release commit; report to `SliderDragManager` via context; add `disabled` prop |
-| `src/lib/components/ui/VisualizationShell.svelte` | Create + provide `SliderDragManager` via context; subscribe to fidelity; pass `fidelity` + `onRenderStateChange` to renderer snippet; remove `debounce={false}`; render status indicators |
+| `src/lib/components/ui/VisualizationShell.svelte` | Create + provide `SliderDragManager` via context; subscribe to fidelity; pass `fidelity` + `onRenderStateChange` to renderer snippet; remove `debounce={false}`; render status indicators with `role="status"` + `aria-live="polite"`; disable SnapshotButton while `renderState === 'rendering'` or `fidelity === 'preview'` |
 | `src/lib/components/visualizations/D3PointMapRenderer.svelte` | Replace SVG point plotting with Canvas overlay; accept `fidelity` + `onRenderStateChange`; split into `renderAxes()` + `renderPoints()` |
 | `src/lib/components/visualizations/HenonRenderer.svelte` | Thread `fidelity` + `onRenderStateChange` to `D3PointMapRenderer` |
 | `src/lib/components/visualizations/LoziRenderer.svelte` | Same as Hénon |
@@ -108,29 +108,35 @@ A small class created by `VisualizationShell`, provided via Svelte context. Trac
 
 ```typescript
 export class SliderDragManager {
-    private dragging = new Map<string, UpdatePolicy>();
+    private policies = new Map<string, UpdatePolicy>(); // registered sliders
+    private dragging = new Map<string, UpdatePolicy>();  // currently-dragging sliders
     private listeners = new Set<(fidelity: Fidelity) => void>();
     private currentFidelity: Fidelity = 'full';
-    private commitDragging = false; // any commit-policy slider mid-drag
+    private commitDragging = false;
 
     register(id: string, policy: UpdatePolicy): () => void {
-        // Returns an unregister function
+        this.policies.set(id, policy);
+        return () => { this.policies.delete(id); };
     }
 
     setDragging(id: string, isDragging: boolean): void {
-        // Add/remove from dragging map
+        const policy = this.policies.get(id);
+        if (!policy) return;
+        if (isDragging) {
+            this.dragging.set(id, policy);
+        } else {
+            this.dragging.delete(id);
+        }
         // Recompute fidelity: 'preview' if any preview-policy slider is dragging
+        this.currentFidelity = [...this.dragging.values()].some(p => p === 'preview')
+            ? 'preview' : 'full';
         // Track commitDragging: true if any commit-policy slider is dragging
+        this.commitDragging = [...this.dragging.values()].some(p => p === 'commit');
         // Notify subscribers if fidelity or commitDragging changed
     }
 
-    getFidelity(): Fidelity {
-        return this.currentFidelity;
-    }
-
-    getCommitDragging(): boolean {
-        return this.commitDragging;
-    }
+    getFidelity(): Fidelity { return this.currentFidelity; }
+    getCommitDragging(): boolean { return this.commitDragging; }
 
     subscribe(fn: (fidelity: Fidelity) => void): () => void {
         // Returns an unsubscribe function
@@ -178,12 +184,28 @@ Currently has `internalValue` (display) and `value` (committed, bindable), with 
 - Removes the blanket `debounce={false}` — passes `updatePolicy={def.updatePolicy ?? 'live'}` to each `ParameterSlider`.
 - **Renderer snippet params change:** `{ values, container }` becomes `{ values, container, fidelity, onRenderStateChange }`.
 - **Stable callback reference:** `onRenderStateChange` must be a stable function reference (defined once, not recreated on every shell re-render) to avoid triggering renderer `$effect`s that depend on snippet params. The shell defines it as a plain function (not an inline arrow in the snippet call) or wraps it in a `$derived`-free ref.
-- **Save/share/compare/snapshot:** already use `getParameters()` which reads `values` — these are the committed values. No change needed; `values` only updates on commit for `preview` / `commit` policies.
+- **Save/share/compare/snapshot:** `getParameters()` reads `values` (committed values) — save/share/compare are correct. **Snapshots are NOT:** `SnapshotButton` captures the currently rendered DOM via `captureContainer()`, which could be a reduced-quality preview if the user snapshots mid-drag. The shell must disable the snapshot button while `renderState === 'rendering'` or `fidelity === 'preview'`, and re-enable it once the committed full render completes (`renderState === 'complete'` and `fidelity === 'full'`).
 - **Status indicators:** shell renders overlay badges (see Section 2.3).
+
+#### 1.4.1 Comparison routes
+
+Every module has a `/compare` route (18 total). These routes do **not** use `VisualizationShell` — they render native `<input type="range">` sliders with `bind:value` and directly instantiate renderer components. They receive neither the `SliderDragManager` context nor the `fidelity` / `onRenderStateChange` signals.
+
+**Design decision:** Comparison routes are out of scope for the initial slider-policy rollout. They retain their current live behavior (every `input` triggers a render). This is acceptable because:
+
+1. Comparison routes are lower-traffic than primary routes.
+2. Each side renders independently, so the cost is per-side, not doubled.
+3. Migrating 18 routes is a large effort better deferred until the primary routes are validated.
+
+**Renderer prop defaults:** Since comparison routes directly instantiate renderers without passing `fidelity` or `onRenderStateChange`, every updated renderer component must default these props:
+- `fidelity = 'full'` (always full quality)
+- `onRenderStateChange = () => {}` (no-op)
+
+This ensures comparison routes (and any future direct callers) continue to work without modification. When comparison routes are later migrated, they can opt in by passing the real props.
 
 #### 1.5 Page-owned slider migration
 
-Pages that currently render native `<input type="range">` in `extraControls` (Clifford, Ikeda, Gumowski-Mira, Double Pendulum, Lorenz) will:
+Pages that currently render native `<input type="range">` in `extraControls` (Clifford, Ikeda, Gumowski-Mira, Tinkerbell, Double Pendulum, Lorenz, Chua, Baker's Map — all use `paramDefs={[]}`) will:
 
 1. Replace native inputs with `<ParameterSlider>` components.
 2. Receive the `SliderDragManager` from context (the shell already provides it).
@@ -262,6 +284,8 @@ During migration, renderers that still render their own `LIVE_RENDER` badge coex
 
 **Commit-policy drag cue:** The `FROZEN — RELEASE TO APPLY` badge replaces `LIVE_RENDER` when any commit-policy slider is mid-drag, making it clear the visualization is intentionally frozen. The slider thumb also gets a subtle CSS accent glow.
 
+**Accessibility:** The status badge region must use `role="status"` and `aria-live="polite"` so screen readers announce state changes (PREVIEW → RENDERING → LIVE_RENDER) without interrupting the user. The badge text serves as the accessible label. Avoid `aria-live="assertive"` — rapid fidelity changes during drag would interrupt assistive technology too frequently. A test should verify the ARIA region exists and announces the correct text for each state.
+
 #### 2.5 Latest-wins cancellation
 
 A shared `RenderGeneration` utility prevents stale results from overwriting newer ones:
@@ -285,6 +309,10 @@ By renderer type:
 | Three.js (Lorenz, Rössler, Chua) | `RenderGeneration` around trajectory rebuild; geometry from stale generation is discarded |
 | Continuous animation (Double Pendulum, Baker's Map) | N/A — always renders latest state per frame |
 
+**Note on worker cancellation:** For worker-backed renderers, `RenderGeneration` discards stale results on arrival — it does not cancel the in-flight worker computation. This is the standard browser pattern (Web Workers have no built-in interrupt mechanism; only `worker.terminate()` stops computation, which also kills the worker). The wasted CPU is bounded by the preview throttle rate (~10 requests/sec). If profiling shows wasted worker CPU is a problem, cooperative cancellation (worker checks a `SharedArrayBuffer` flag between iterations) is a future optimization. The progressive rAF case (Bifurcation-Hénon) IS true cancellation — stale chunks abort before executing.
+
+**Existing patterns:** Several worker-backed renderers (GumowskiMira, Standard) already implement a `latestWorkerRequestId` check that is functionally equivalent to `RenderGeneration`. The `RenderGeneration` class formalizes this pattern as a reusable utility; existing renderers should be migrated to use it for consistency.
+
 ### 3. Per-Module Policies and Preview Budgets
 
 Every module is classified with an `UpdatePolicy` per slider and a preview budget.
@@ -300,7 +328,7 @@ Every module is classified with an `UpdatePolicy` per slider and a preview budge
 | Bifurcation-Hénon | Schema | `preview` (all) | ~200 cols × 200 iters | Full width, selected iters | RenderGeneration fix |
 | Standard Map | Schema | `preview` (compute), `live` (style) | 10k sampled pts | Full | RenderGeneration fix |
 | Chaos Esthétique | Schema | `preview` (compute), `live` (style) | 10k sampled pts | Full | RenderGeneration fix |
-| Chua | Schema | `preview` (trajectory params) | ~5k trajectory pts | Full trajectory | Cache + decompose (§5C) |
+| Chua | Page-owned | `preview` (trajectory params) | ~5k trajectory pts | Full trajectory | Cache + decompose (§5C) |
 | Rössler | Schema | `preview` (a, b, c) | ~5k trajectory pts | Full trajectory | Buffer reuse (§5D) |
 | Lorenz | Page-owned | `preview` (sigma, rho, beta) | ~5k trajectory pts | Full trajectory | — |
 | Clifford | Page-owned | `preview` (a,b,c,d,iter), `live` (style) | 25k sampled pts | Up to 250k | Sampled style drags (§5E) |
@@ -308,7 +336,7 @@ Every module is classified with an `UpdatePolicy` per slider and a preview budge
 | Gumowski-Mira | Page-owned | `preview` (compute), `live` (style) | 25k sampled pts | Up to 250k | Sampled style drags (§5E) |
 | Tinkerbell | Page-owned | `preview` (compute), `live` (style) | 25k sampled pts | Up to 250k | Sampled style drags (§5E) |
 | Double Pendulum | Page-owned | `commit` (physics), `live` (view) | Keep current frame | Restart on release | Trail buffers (§5F) |
-| Baker's Map | Schema | `commit` (pointCount), `live` (speed) | Keep current frame | Reinit on release | Adaptive budgets (§5G) |
+| Baker's Map | Page-owned | `commit` (pointCount), `live` (speed) | Keep current frame | Reinit on release | Adaptive budgets (§5G) |
 
 #### Policy rationale
 
@@ -346,6 +374,8 @@ For worker-backed renderers, the fidelity flag scales the iteration count sent t
 Clifford, Ikeda, Gumowski-Mira, Tinkerbell style controls (colorMode, zoom, pointSize, opacity) are `live` — they should update immediately. But repainting 250k points on every input is expensive. Solution: when a `live` style slider fires, paint only a sampled subset (every Nth point, ~25k) for immediate feedback. Since point positions don't change (only color/size/opacity), the full-quality repaint happens via a debounced follow-up (~150ms after the last style change) that paints all points from the cached worker result.
 
 **Change-detection mechanism:** The renderer receives `values` and `fidelity` from the snippet — it doesn't know *which* key changed. To distinguish style-only changes (re-paint from cache) from compute changes (re-dispatch to worker), the renderer keeps a `prevValues` ref and diffs the compute-key subset on each update. If any compute key (e.g., `a`, `b`, `c`, `d`, `iterations`) changed, it dispatches a new worker request. If only style keys changed, it runs the two-phase sampled paint from the cached result. This is fully renderer-internal — no shell changes needed.
+
+**Status pipeline integration:** Although style sliders are `live` (fidelity stays `'full'`), the two-phase paint is not instant. The renderer must call `onRenderStateChange('rendering')` when starting the sampled immediate paint, and `onRenderStateChange('complete')` after the debounced full-quality paint finishes. This ensures the shell shows `RENDERING FULL QUALITY…` during the gap between the 25k sampled paint and the 250k full paint, rather than falsely reporting `LIVE_RENDER` while a reduced-quality image is on screen.
 
 ### 4. Hénon/Lozi Canvas Conversion
 
@@ -465,18 +495,23 @@ if (renderGen.isStale(gen)) return; // newer request superseded this
 
 #### 5C. Chua: trajectory caching + decomposition
 
-**Current:** Any parameter change triggers full RK4 integration + buffer construction + coloring + Poincaré section.
+**Current:** Any parameter change triggers full RK4 integration + buffer construction + coloring + Poincaré section. The ChuaRenderer's `$effect` (line 74-91) tracks alpha, beta, gamma, a, b, dt, trailLength, colorMode, transientRemoval, and poincarePlane — all call `rebuild()`. Only `viewMode` is separated into a lightweight `applyView()` effect.
 
 **After:** Cache the last full-quality trajectory keyed by the parameter values that affect the ODE. Decompose operations:
 
-| Operation | Triggered by | Reuses cache? | Cost |
-|-----------|-------------|--------------|------|
-| Trajectory integration | alpha, beta, gamma, a, b | No — full recompute | Heavy (~100k RK4 steps) |
-| Coloring | color params (if any) | Yes — cached trajectory | Light (iterate points, recompute colors) |
-| Poincaré section | plane params (if any) | Yes — cached trajectory | Medium (iterate points, find intersections) |
-| Camera/view | zoom, rotation, trailLength | Yes — cached trajectory + geometry | Trivial (Three.js transform) |
+| Operation | Triggered by | Reuses cache? | Cost | Current behavior |
+|-----------|-------------|--------------|------|-----------------|
+| Trajectory integration | alpha, beta, gamma, a, b, **dt**, **trailLength** | No — full recompute | Heavy (~100k RK4 steps) | `rebuild()` (correct) |
+| Coloring | colorMode | Yes — cached trajectory | Light (iterate points, recompute colors) | `rebuild()` (overkill — needs decomposition) |
+| Transient removal | transientRemoval | Yes — cached trajectory, changes visible slice | Medium (re-slice, no recompute) | `rebuild()` (overkill — needs decomposition) |
+| Poincaré section | poincarePlane | Yes — cached trajectory, recompute section data | Medium (iterate points, find intersections) | `rebuild()` (overkill — needs decomposition) |
+| Camera/view | viewMode | Yes — cached trajectory + geometry | Trivial (Three.js transform) | `applyView()` (already separated) |
 
-Policy: trajectory params → `preview` (~5k points). Other params → `live` (cheap transform on cached data).
+**Note:** `dt` and `trailLength` are NOT camera/view operations — `dt` controls integration step size and `trailLength` controls the number of integration steps (maps to `steps` in `ChuaParams`). Both require full trajectory recompute. The previous version of this table incorrectly listed `trailLength` under "Camera/view."
+
+Policy: trajectory params (alpha, beta, gamma, a, b, dt, trailLength) → `preview` (~5k points). Color/transient/Poincaré params → `live` (cheap operation on cached data). View params → `live` (already separated).
+
+**Decomposition work:** The current `rebuild()` bundles trajectory integration, coloring, transient removal, and Poincaré section into one function. The decomposition splits these into separate functions (`recomputeTrajectory()`, `recomputeColors()`, `recomputeTransient()`, `recomputePoincare()`) so that non-trajectory parameter changes skip the expensive integration.
 
 #### 5D. Rössler: buffer reuse
 
@@ -566,7 +601,7 @@ else if (frameDelta < 12 && effectiveSteps < targetSteps) effectiveSteps++;
 | `src/lib/slider-drag-manager.test.ts` | node | Register/unregister, fidelity computation (preview only when preview-policy slider drags), multiple simultaneous drags, subscribe lifecycle |
 | `src/lib/render-generation.test.ts` | node | `next()` increments, `isStale()` for old/current gens, rapid invalidation |
 | `src/lib/components/ui/ParameterSlider.svelte.test.ts` | jsdom | `live`: every input updates value. `preview`: throttled value, immediate display. `commit`: no value update during drag, updates on release. Keyboard: arrow keys fire input, idle timer commits. Drag-state reporting to manager. `disabled` prop opts out. **Disabled-mid-drag: `setDragging(id, false)` called when disabled becomes true during drag.** Unmount cleans up timers + registration |
-| `src/lib/components/ui/VisualizationShell.svelte.test.ts` | jsdom | Renderer snippet receives `fidelity` + `onRenderStateChange`. Save/share/compare use committed values. Config loader applies committed values. **SliderDragManager↔shell fidelity subscription wiring.** **Stability-reporter + commit policy: warnings silent during drag, fire on release.** |
+| `src/lib/components/ui/VisualizationShell.svelte.test.ts` | jsdom | Renderer snippet receives `fidelity` + `onRenderStateChange`. Save/share/compare use committed values. Config loader applies committed values. **SliderDragManager↔shell fidelity subscription wiring.** **Stability-reporter + commit policy: warnings silent during drag, fire on release.** **Snapshot button disabled while `renderState === 'rendering'` or `fidelity === 'preview'`.** **Status badge region has `role="status"` + `aria-live="polite"` and announces correct text.** |
 | `src/lib/components/visualizations/D3PointMapRenderer.svelte.test.ts` | jsdom | Canvas overlay created alongside SVG axes. Points drawn on canvas (not SVG circles). Preview samples ~1,000. Full renders all. `onRenderStateChange` called correctly |
 | `src/lib/workers/worker-cancellation.test.ts` | node | Mock worker: two rapid requests → only latest result painted. Generation ID in request, checked on response |
 | `src/lib/components/visualizations/CliffordRenderer.svelte.test.ts` (or similar point-cloud renderer) | jsdom | **Style-only two-phase paint:** style key change triggers sampled immediate paint + debounced full. Compute key change triggers worker dispatch. `prevValues` diff classifies correctly. |
@@ -602,12 +637,13 @@ Manual Chrome DevTools Performance traces, documented as before/after:
 
 The issue's suggested delivery sequence, mapped to the design sections:
 
-1. **Shared slider policy and rendering-state UI** (Sections 1-2) — the foundation. All other workstreams depend on this.
-2. **Apply commit/preview behavior to P0 schema-driven modules** (Section 3) — assign policies and preview budgets to Newton, Lyapunov, Bifurcation-Logistic, Chua, Rössler (schema-driven sliders, no migration needed).
-3. **Migrate page-owned sliders to ParameterSlider** (Section 1.5) — replace native range inputs in Clifford, Ikeda, Gumowski-Mira, Double Pendulum, Lorenz (including custom control components). Sizable refactor across 5 modules. Can parallelize with step 4.
+1. **Shared slider policy and rendering-state UI** (Sections 1-2) — the foundation. All other workstreams depend on this. Includes `SliderDragManager`, `ParameterSlider` rewrite, renderer prop defaults (`fidelity='full'`, `onRenderStateChange=()=>{}`) so comparison routes and other direct callers don't break.
+2. **Apply commit/preview behavior to P0 schema-driven modules** (Section 3) — assign policies and preview budgets to Newton, Lyapunov, Bifurcation-Logistic, Hénon, Lozi, Rössler, Standard, Chaos Esthétique (schema-driven sliders, no migration needed).
+3. **Migrate page-owned sliders to ParameterSlider** (Section 1.5) — replace native range inputs in Clifford, Ikeda, Gumowski-Mira, Tinkerbell, Double Pendulum, Lorenz, **Chua, Baker's Map** (including custom control components). 8 modules total. Can parallelize with step 4.
 4. **Convert Hénon/Lozi point rendering to Canvas** (Section 4) — independent of the slider contract, can parallelize with steps 2-3.
-5. **Add latest-wins worker/cancellation behavior** (Sections 5A-5B) — workerize Newton, add `RenderGeneration` to progressive and worker-backed renderers.
-6. **Optimize large point-cloud paint and continuous-animation frame budgets** (Sections 5C-5G) — Chua caching, Rössler buffer reuse, point-cloud sampling, Double Pendulum trails, Baker's Map budgets.
+5. **Add latest-wins worker/cancellation behavior** (Sections 5A-5B) — workerize Newton, add `RenderGeneration` to progressive and worker-backed renderers (migrate existing `latestWorkerRequestId` patterns).
+6. **Optimize large point-cloud paint and continuous-animation frame budgets** (Sections 5C-5G) — Chua caching + decomposition, Rössler buffer reuse, point-cloud sampling, Double Pendulum trails, Baker's Map budgets.
+7. **Comparison routes** (deferred) — migrate 18 `/compare` routes to use `ParameterSlider` with appropriate policies. Lower priority; routes retain live behavior until migrated.
 
 ## Acceptance Criteria
 
@@ -624,10 +660,10 @@ The issue's suggested delivery sequence, mapped to the design sections:
 
 ## Open Questions
 
-- **Chua parameter decomposition:** The exact set of Chua's parameters (beyond alpha, beta, gamma, a, b) needs verification — if there are color/Poincaré/view controls, they get `live` policy with trajectory caching. If all parameters affect the ODE, they all get `preview`.
-- **Baker's Map slider ownership:** Needs verification — assumed schema-driven based on simple parameter set (pointCount, speed). If page-owned, it needs `ParameterSlider` migration.
+- **Chua parameter decomposition:** The ChuaRenderer currently bundles trajectory integration, coloring, transient removal, and Poincaré section into one `rebuild()` call. The decomposition into separate functions (`recomputeTrajectory()`, `recomputeColors()`, `recomputeTransient()`, `recomputePoincare()`) is specified in §5C but needs careful implementation to avoid breaking the existing `applyView()` separation.
 - **Rössler slider ownership:** Uses `reactiveStability` (shell-managed) per AGENTS.md, suggesting schema-driven. Needs confirmation during implementation.
 - **Standard Map / Chaos Esthétique style parameters:** Need to identify which parameters are "compute" (preview) vs "style" (live). Likely: k, numP, numQ, iterations = compute; any color/render options = style.
 - **Newton worker capacity:** If `chaosMapsWorker.ts` is at capacity (too many message types), create a dedicated `newtonWorker.ts`. Decision deferred to implementation.
 - **Canvas DPI / resize:** The `devicePixelRatio` scaling approach (canvas.width = cssWidth × dpr, ctx.setTransform) and ResizeObserver-driven resize are specified in §4 but need validation across different display densities and container resize scenarios during implementation.
 - **Custom control components in page-owned modules:** Lorenz (and possibly others) encapsulate sliders inside custom control components (PlaybackControls, TrailControls, SolverControls). These need internal migration to `ParameterSlider`. The full extent of custom components requiring migration needs inventory during implementation.
+- **Comparison route migration scope:** 18 `/compare` routes use native sliders and direct renderer instantiation. They are deferred (step 7) but need an inventory of which routes have heavy sliders that would benefit from preview/commit policies.
