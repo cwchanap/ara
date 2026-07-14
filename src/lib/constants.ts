@@ -10,12 +10,6 @@
 // ============================================================================
 
 /**
- * Debounce delay for parameter slider inputs (milliseconds).
- * Prevents excessive re-renders during slider manipulation.
- */
-export const SLIDER_DEBOUNCE_MS = 50;
-
-/**
  * Throttle interval for preview-policy slider drafts (milliseconds).
  * Limits draft renders to ~8-10 updates/second during drag.
  */

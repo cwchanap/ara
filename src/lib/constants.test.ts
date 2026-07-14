@@ -7,7 +7,6 @@
 
 import { describe, expect, test } from 'vitest';
 import {
-	SLIDER_DEBOUNCE_MS,
 	PREVIEW_THROTTLE_MS,
 	PREVIEW_IDLE_COMMIT_MS,
 	TOAST_SUCCESS_DURATION_MS,
@@ -37,11 +36,6 @@ import {
 } from './constants';
 
 describe('UI timing constants', () => {
-	test('SLIDER_DEBOUNCE_MS is a positive number', () => {
-		expect(SLIDER_DEBOUNCE_MS).toBeGreaterThan(0);
-		expect(typeof SLIDER_DEBOUNCE_MS).toBe('number');
-	});
-
 	test('PREVIEW_THROTTLE_MS is a positive number', () => {
 		expect(PREVIEW_THROTTLE_MS).toBeGreaterThan(0);
 		expect(typeof PREVIEW_THROTTLE_MS).toBe('number');

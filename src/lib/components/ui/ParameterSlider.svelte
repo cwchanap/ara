@@ -1,11 +1,8 @@
-<!--
-  ParameterSlider Component
-  
-  A single parameter slider control with label, value display, and debouncing.
-  Follows sci-fi aesthetic with neon cyan styling.
--->
 <script lang="ts">
-	import { SLIDER_DEBOUNCE_MS } from '$lib/constants';
+	import { PREVIEW_THROTTLE_MS, PREVIEW_IDLE_COMMIT_MS } from '$lib/constants';
+	import type { UpdatePolicy } from '$lib/viz/types';
+	import { SliderDragManager } from '$lib/slider-drag-manager';
+	import { getContext } from 'svelte';
 
 	interface Props {
 		id: string;
@@ -14,12 +11,10 @@
 		min: number;
 		max: number;
 		step: number;
-		/** Number of decimal places to display (default: 2) */
 		decimals?: number;
-		/** Whether to apply debouncing to value changes (default: true) */
-		debounce?: boolean;
-		/** Custom debounce delay in ms (default: SLIDER_DEBOUNCE_MS) */
-		debounceMs?: number;
+		updatePolicy?: UpdatePolicy;
+		disabled?: boolean;
+		ondraft?: (value: number) => void;
 		onchange?: (value: number) => void;
 	}
 
@@ -31,51 +26,103 @@
 		max,
 		step,
 		decimals = 2,
-		debounce = true,
-		debounceMs = SLIDER_DEBOUNCE_MS,
+		updatePolicy = 'live',
+		disabled = false,
+		ondraft,
 		onchange
 	}: Props = $props();
 
-	let timeoutId: ReturnType<typeof setTimeout> | null = null;
 	let internalValue = $state(value);
+	let isDragging = false;
+	let throttleTimer: ReturnType<typeof setTimeout> | null = null;
+	let idleTimer: ReturnType<typeof setTimeout> | null = null;
 
-	// Sync internalValue from external value changes
-	$effect(() => {
-		// Cancel any pending debounced user update to prevent race condition
-		if (timeoutId) {
-			clearTimeout(timeoutId);
-			timeoutId = null;
+	const dragManager = getContext<SliderDragManager | undefined>('slider-drag-manager');
+	const unregister = dragManager?.register(id, updatePolicy);
+
+	function commit() {
+		if (throttleTimer) {
+			clearTimeout(throttleTimer);
+			throttleTimer = null;
 		}
-		internalValue = value;
-	});
+		if (idleTimer) {
+			clearTimeout(idleTimer);
+			idleTimer = null;
+		}
+		value = internalValue;
+		ondraft?.(internalValue);
+		onchange?.(internalValue);
+	}
 
 	function handleInput(event: Event) {
 		const target = event.target as HTMLInputElement;
 		const newValue = parseFloat(target.value);
 		internalValue = newValue;
 
-		if (debounce) {
-			if (timeoutId) {
-				clearTimeout(timeoutId);
-			}
-			timeoutId = setTimeout(() => {
-				value = newValue;
-				onchange?.(newValue);
-				timeoutId = null;
-			}, debounceMs);
-		} else {
+		if (!isDragging) {
+			isDragging = true;
+			dragManager?.setDragging(id, true);
+		}
+
+		if (updatePolicy === 'live') {
 			value = newValue;
+			ondraft?.(newValue);
 			onchange?.(newValue);
+		} else if (updatePolicy === 'preview') {
+			// Throttle draft updates
+			if (!throttleTimer) {
+				throttleTimer = setTimeout(() => {
+					throttleTimer = null;
+					ondraft?.(internalValue);
+				}, PREVIEW_THROTTLE_MS);
+			}
+		}
+		// commit: no value or ondraft during drag
+
+		// Reset idle timer for keyboard commit
+		if (idleTimer) clearTimeout(idleTimer);
+		if (updatePolicy !== 'live') {
+			idleTimer = setTimeout(() => {
+				idleTimer = null;
+				endDrag();
+			}, PREVIEW_IDLE_COMMIT_MS);
 		}
 	}
+
+	function endDrag() {
+		if (!isDragging) return;
+		isDragging = false;
+		dragManager?.setDragging(id, false);
+		commit();
+	}
+
+	function handleChange() {
+		endDrag();
+	}
+
+	// Sync internalValue from external value changes — guarded by isDragging
+	$effect(() => {
+		if (isDragging) return; // internalValue is authoritative during drag
+		if (throttleTimer) {
+			clearTimeout(throttleTimer);
+			throttleTimer = null;
+		}
+		internalValue = value;
+	});
+
+	// Disabled-mid-drag guarantee
+	$effect(() => {
+		if (disabled && isDragging) {
+			endDrag();
+		}
+	});
 
 	// Cleanup on unmount
 	$effect(() => {
 		return () => {
-			if (timeoutId) {
-				clearTimeout(timeoutId);
-				timeoutId = null;
-			}
+			if (throttleTimer) clearTimeout(throttleTimer);
+			if (idleTimer) clearTimeout(idleTimer);
+			unregister?.();
 		};
 	});
 
@@ -97,7 +144,9 @@
 		{min}
 		{max}
 		{step}
+		{disabled}
 		oninput={handleInput}
-		class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-accent transition-colors"
+		onchange={handleChange}
+		class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
 	/>
 </div>
