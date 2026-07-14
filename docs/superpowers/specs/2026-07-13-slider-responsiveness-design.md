@@ -45,6 +45,7 @@ Dragging parameter sliders on heavy chaos modules causes UI lag because several 
 | File | Change |
 |------|--------|
 | `src/lib/viz/types.ts` | Add `updatePolicy?: UpdatePolicy` to `ParamDef` |
+| `src/lib/viz/schemas/*.ts` (10 files) | Add `updatePolicy` to each ParamDef per §3 schema mapping table |
 | `src/lib/components/ui/ParameterSlider.svelte` | Replace `debounce`/`debounceMs` with `updatePolicy`; add throttle for preview, on-release commit; report to `SliderDragManager` via context; add `disabled` prop |
 | `src/lib/components/ui/VisualizationShell.svelte` | Create + provide `SliderDragManager` via context; subscribe to fidelity; pass `fidelity` + `onRenderStateChange` to renderer snippet; remove `debounce={false}`; render status indicators with `role="status"` + `aria-live="polite"`; disable SnapshotButton while `renderState === 'rendering'` or `fidelity === 'preview'` |
 | `src/lib/components/visualizations/D3PointMapRenderer.svelte` | Replace SVG point plotting with Canvas overlay; accept `fidelity` + `onRenderStateChange`; split into `renderAxes()` + `renderPoints()` |
@@ -108,39 +109,52 @@ A small class created by `VisualizationShell`, provided via Svelte context. Trac
 
 ```typescript
 export class SliderDragManager {
-    private policies = new Map<string, UpdatePolicy>(); // registered sliders
-    private dragging = new Map<string, UpdatePolicy>();  // currently-dragging sliders
-    private listeners = new Set<(fidelity: Fidelity) => void>();
-    private currentFidelity: Fidelity = 'full';
-    private commitDragging = false;
+    private policies = new Map<string, UpdatePolicy>();
+    private dragging = new Map<string, UpdatePolicy>();
+    private listeners = new Set<(state: DragState) => void>();
+    private currentState: DragState = { fidelity: 'full', commitDragging: false };
 
     register(id: string, policy: UpdatePolicy): () => void {
         this.policies.set(id, policy);
-        return () => { this.policies.delete(id); };
+        return () => {
+            this.policies.delete(id);
+            this.dragging.delete(id);  // clean up mid-drag unmount
+            this.recompute();
+        };
     }
 
     setDragging(id: string, isDragging: boolean): void {
         const policy = this.policies.get(id);
         if (!policy) return;
-        if (isDragging) {
-            this.dragging.set(id, policy);
-        } else {
-            this.dragging.delete(id);
+        if (isDragging) this.dragging.set(id, policy);
+        else this.dragging.delete(id);
+        this.recompute();
+    }
+
+    private recompute(): void {
+        const draggingPolicies = [...this.dragging.values()];
+        const next: DragState = {
+            fidelity: draggingPolicies.some(p => p === 'preview') ? 'preview' : 'full',
+            commitDragging: draggingPolicies.some(p => p === 'commit')
+        };
+        if (next.fidelity !== this.currentState.fidelity ||
+            next.commitDragging !== this.currentState.commitDragging) {
+            this.currentState = next;
+            for (const fn of this.listeners) fn(next);
         }
-        // Recompute fidelity: 'preview' if any preview-policy slider is dragging
-        this.currentFidelity = [...this.dragging.values()].some(p => p === 'preview')
-            ? 'preview' : 'full';
-        // Track commitDragging: true if any commit-policy slider is dragging
-        this.commitDragging = [...this.dragging.values()].some(p => p === 'commit');
-        // Notify subscribers if fidelity or commitDragging changed
     }
 
-    getFidelity(): Fidelity { return this.currentFidelity; }
-    getCommitDragging(): boolean { return this.commitDragging; }
+    getState(): DragState { return this.currentState; }
 
-    subscribe(fn: (fidelity: Fidelity) => void): () => void {
-        // Returns an unsubscribe function
+    subscribe(fn: (state: DragState) => void): () => void {
+        this.listeners.add(fn);
+        return () => { this.listeners.delete(fn); };
     }
+}
+
+export interface DragState {
+    fidelity: Fidelity;
+    commitDragging: boolean;
 }
 ```
 
@@ -157,19 +171,34 @@ Currently has `internalValue` (display) and `value` (committed, bindable), with 
 **New props:**
 - `updatePolicy: UpdatePolicy = 'live'` — replaces `debounce` / `debounceMs`
 - `disabled?: boolean` — when true, slider is visually disabled and doesn't participate in drag tracking
+- `ondraft?: (value: number) => void` — fires with throttled draft values during `preview` drags (see committed/draft separation below)
 
 **Removed props:**
 - `debounce` — replaced by `updatePolicy`
 - `debounceMs` — replaced by `PREVIEW_THROTTLE_MS` constant
 
+**Committed vs. draft values:** `value` (bindable) is always the **committed** value — it only changes on release (`onchange`). This ensures `getParameters()`, save/share/compare, and stability checks always read committed values, never intermediate drafts. For `preview` policy, throttled draft values during drag are communicated via the `ondraft` callback. The shell wires `ondraft` to update a separate `draftValues` state object passed to the renderer snippet (see §1.4).
+
 **`oninput` behavior by policy:**
-- `live`: `value = newValue` immediately (current `debounce={false}` behavior)
-- `preview`: throttle — update `value` at most every `PREVIEW_THROTTLE_MS` (100ms, ~8-10 updates/sec); report `setDragging(id, true)` on first input; the last throttled value always fires on release. `internalValue` (display) updates immediately on every input.
-- `commit`: do NOT update `value`; report `setDragging(id, true)`; only `internalValue` (display) updates.
+- `live`: `value = newValue` immediately (every input commits). `ondraft` also fires immediately (mirrors `value`).
+- `preview`: do NOT update `value`; call `ondraft(newValue)` at most every `PREVIEW_THROTTLE_MS` (100ms, ~8-10 updates/sec); report `setDragging(id, true)` on first input. `internalValue` (display) updates immediately on every input.
+- `commit`: do NOT update `value`; do NOT call `ondraft`; report `setDragging(id, true)`; only `internalValue` (display) updates.
 
 **`onchange` behavior (pointer release / keyboard `change` event):**
-- `preview` / `commit`: `value = newValue` (flush latest); report `setDragging(id, false)`.
+- `preview` / `commit`: `value = newValue` (commit final); call `ondraft(newValue)` (sync draft to committed); report `setDragging(id, false)`.
 - `live`: no-op (value already current).
+
+**Throttle rewind guard:** The existing sync effect (`internalValue = value`) must be guarded by `isDragging` — during an active drag, `internalValue` is authoritative (driven by `oninput`), and external `value` changes must not overwrite it. Without this guard, a throttle-scheduled `ondraft` or external `value` write could rewind the thumb to a staler position:
+
+```typescript
+let isDragging = false;
+
+$effect(() => {
+    if (isDragging) return;  // internalValue is authoritative during drag
+    if (throttleTimer) { clearTimeout(throttleTimer); throttleTimer = null; }
+    internalValue = value;
+});
+```
 
 **Keyboard support:** Arrow-key drags fire `input` events the same way as pointer drags. On `change` (blur or Enter), commit. An idle timer (`PREVIEW_IDLE_COMMIT_MS` = 500ms after last keystroke without further input) also commits for `preview` / `commit` policies, so keyboard-only users get full renders without needing to blur. Note: holding an arrow key fires continuous `input` events, so the idle timer never fires until the hold ends — this matches pointer drag behavior (no commit until release).
 
@@ -180,11 +209,12 @@ Currently has `internalValue` (display) and `value` (committed, bindable), with 
 #### 1.4 VisualizationShell changes
 
 - Creates a `SliderDragManager` instance per shell mount, provides it via `setContext('slider-drag-manager', manager)`.
-- Subscribes to fidelity changes, stores in `$state`.
+- Subscribes to fidelity/commitDragging changes, stores in `$state`.
 - Removes the blanket `debounce={false}` — passes `updatePolicy={def.updatePolicy ?? 'live'}` to each `ParameterSlider`.
-- **Renderer snippet params change:** `{ values, container }` becomes `{ values, container, fidelity, onRenderStateChange }`.
-- **Stable callback reference:** `onRenderStateChange` must be a stable function reference (defined once, not recreated on every shell re-render) to avoid triggering renderer `$effect`s that depend on snippet params. The shell defines it as a plain function (not an inline arrow in the snippet call) or wraps it in a `$derived`-free ref.
-- **Save/share/compare/snapshot:** `getParameters()` reads `values` (committed values) — save/share/compare are correct. **Snapshots are NOT:** `SnapshotButton` captures the currently rendered DOM via `captureContainer()`, which could be a reduced-quality preview if the user snapshots mid-drag. The shell must disable the snapshot button while `renderState === 'rendering'` or `fidelity === 'preview'`, and re-enable it once the committed full render completes (`renderState === 'complete'` and `fidelity === 'full'`).
+- **Draft values:** The shell maintains a `draftValues` state object (mirrors `values` initially). Each `ParameterSlider`'s `ondraft` callback updates `draftValues[key]`. For `live` policy, both `values` and `draftValues` update immediately. For `preview`, only `draftValues` updates during drag; `values` updates on release. For `commit`, neither updates during drag.
+- **Renderer snippet params change:** `{ values, container }` becomes `{ values, draftValues, container, fidelity, onRenderStateChange }`. The renderer reads from `draftValues` when `fidelity === 'preview'` and from `values` otherwise.
+- **Stable callback reference:** `onRenderStateChange` must be a stable function reference (defined once, not recreated on every shell re-render) to avoid triggering renderer `$effect`s that depend on snippet params.
+- **Save/share/compare/snapshot:** `getParameters()` reads `values` (committed values only) — save/share/compare are always correct. **Save, share, and snapshot buttons are disabled** while any slider is mid-drag (`fidelity !== 'full'` or `commitDragging === true`) or while `renderState === 'rendering'`. They re-enable when all sliders are released and the committed render completes. This prevents saving a draft or capturing a reduced-quality preview.
 - **Status indicators:** shell renders overlay badges (see Section 2.3).
 
 #### 1.4.1 Comparison routes
@@ -222,13 +252,13 @@ The `updatePolicy` changes **when** `values` (or page-owned `$state`) updates, w
 | Strategy | Policy | During drag | On release |
 |----------|--------|-------------|------------|
 | Shell-managed (`reactiveStability`) | `live` | Stability re-checks on every input (unchanged) | — |
-| Shell-managed (`reactiveStability`) | `preview` | Stability re-checks on every throttled value update (~10×/sec). An improvement — fewer checks than today's per-input behavior. | Final check on the committed value |
-| Shell-managed (`reactiveStability`) | `commit` | **Silent** — `values` doesn't update, so the shell's `$effect` tracking `values[def.key]` doesn't re-run. Stability warnings are suppressed for the entire drag. | Single check on the committed value, warnings fire immediately |
+| Shell-managed (`reactiveStability`) | `preview` | **Silent** — `values` doesn't update during drag (only `draftValues` does, which stability doesn't track). Warnings are suppressed during drag. | Single check on the committed value, warnings fire immediately |
+| Shell-managed (`reactiveStability`) | `commit` | **Silent** — `values` doesn't update. | Single check on the committed value |
 | Page-managed (`stabilityReporter`, `reactive: true`) | `live` | `triggerReactive()` fires on every input → debounced 300ms check (unchanged) | — |
-| Page-managed (`stabilityReporter`, `reactive: true`) | `preview` | `triggerReactive()` fires on throttled updates → debounced 300ms check fires ~every 400ms during drag | Final check after debounce settles |
-| Page-managed (`stabilityReporter`, `reactive: true`) | `commit` | **Silent** — tracked `$state` doesn't update, so `triggerReactive()` isn't called. The debounce timer from the last pre-drag trigger has already fired. | `$state` updates → `$effect` re-runs → `triggerReactive()` → 300ms debounce → check fires |
+| Page-managed (`stabilityReporter`, `reactive: true`) | `preview` | **Silent** — tracked `$state` doesn't update during drag (only draftValues does). | `$state` updates → `$effect` re-runs → `triggerReactive()` → 300ms debounce → check fires |
+| Page-managed (`stabilityReporter`, `reactive: true`) | `commit` | **Silent** — tracked `$state` doesn't update. | `$state` updates → `$effect` re-runs → `triggerReactive()` → 300ms debounce → check fires |
 
-**Decision: commit-policy silent-drag-then-warn-on-release is the intended behavior.** This is correct because (a) the user is exploring parameter space and hasn't committed a value yet — warning about an intermediate value is noise, and (b) on release, the warning fires immediately (shell-managed) or after a short debounce (page-managed), which is the right time to alert.
+**Decision: silent-drag-then-warn-on-release is the intended behavior for both `preview` and `commit` policies.** Warning about intermediate values the user hasn't committed would be noise.
 
 **Page-owned migration note:** After migration, page-owned `$state` variables bind to `ParameterSlider`'s committed `value` instead of updating on every `input`. The `$effect` that tracks `void param1; void param2; …` will see fewer updates (throttled for `preview`, none for `commit`). The `createStabilityReporter` factory's internal `useDebouncedEffect` (300ms debounce) is unaffected — it simply receives fewer `trigger()` calls. No changes to `stability-reporter.ts` are needed.
 
@@ -288,14 +318,14 @@ During migration, renderers that still render their own `LIVE_RENDER` badge coex
 
 #### 2.5 Latest-wins cancellation
 
-A shared `RenderGeneration` utility prevents stale results from overwriting newer ones:
+A shared `RenderGeneration` utility prevents stale results from overwriting newer ones. It formalizes the existing `id`/`latestWorkerRequestId` pattern already used by GumowskiMira, Ikeda, Standard, Clifford, Tinkerbell, and ChaosEsthetique renderers — the implementation should reuse the existing `id` field in `ChaosMapsWorkerRequest`/`ChaosMapsWorkerResponse` (see `src/lib/workers/types.ts:72`), not introduce a parallel `generation` field.
 
 ```typescript
 // src/lib/render-generation.ts
 export class RenderGeneration {
     private current = 0;
     next(): number { return ++this.current; }
-    isStale(gen: number): boolean { return gen !== this.current; }
+    isStale(id: number): boolean { return id !== this.current; }
 }
 ```
 
@@ -303,15 +333,13 @@ By renderer type:
 
 | Renderer type | Cancellation mechanism |
 |--------------|----------------------|
-| Synchronous (Newton, Bifurcation-Logistic) | `isRendering` flag + `pendingRender` (already exists) — render completes before event loop returns. `RenderGeneration` is **not** applied here (not needed: no async gap for stale results to slip through). |
-| Progressive rAF (Bifurcation-Hénon) | `RenderGeneration` — each chunk checks `isStale(gen)` before drawing |
-| Worker-backed (Clifford, Ikeda, Gumowski-Mira, Tinkerbell, Standard, Chaos Esthetique, Newton) | Generation ID sent with each worker request; result handler checks `isStale(gen)` before painting |
+| Synchronous (Bifurcation-Logistic) | `isRendering` flag + `pendingRender` (already exists) — render completes before event loop returns. `RenderGeneration` is **not** applied (not needed: no async gap for stale results). |
+| Progressive rAF (Bifurcation-Hénon) | `RenderGeneration` — each chunk checks `isStale(id)`. **Critical:** a stale chunk must clean up before returning: set `isRendering = false`, clear `renderFrame`, then check `pendingRender`. Without this cleanup, `isRendering` stays `true` forever and blocks all future renders (deadlock). Additionally, draw to a **staging canvas** (offscreen) and copy to the visible canvas only on completion — this prevents blanking the previous visualization when a stale render starts and clears the main canvas before being superseded. |
+| Worker-backed (Clifford, Ikeda, Gumowski-Mira, Tinkerbell, Standard, Chaos Esthetique, Newton after §5A) | `id` sent with each worker request (existing pattern); result handler checks `isStale(id)` before painting. The existing `latestWorkerRequestId` field IS the `RenderGeneration` — no new field needed. |
 | Three.js (Lorenz, Rössler, Chua) | `RenderGeneration` around trajectory rebuild; geometry from stale generation is discarded |
 | Continuous animation (Double Pendulum, Baker's Map) | N/A — always renders latest state per frame |
 
-**Note on worker cancellation:** For worker-backed renderers, `RenderGeneration` discards stale results on arrival — it does not cancel the in-flight worker computation. This is the standard browser pattern (Web Workers have no built-in interrupt mechanism; only `worker.terminate()` stops computation, which also kills the worker). The wasted CPU is bounded by the preview throttle rate (~10 requests/sec). If profiling shows wasted worker CPU is a problem, cooperative cancellation (worker checks a `SharedArrayBuffer` flag between iterations) is a future optimization. The progressive rAF case (Bifurcation-Hénon) IS true cancellation — stale chunks abort before executing.
-
-**Existing patterns:** Several worker-backed renderers (GumowskiMira, Standard) already implement a `latestWorkerRequestId` check that is functionally equivalent to `RenderGeneration`. The `RenderGeneration` class formalizes this pattern as a reusable utility; existing renderers should be migrated to use it for consistency.
+**Note on worker cancellation:** For worker-backed renderers, the `id` check discards stale results on arrival — it does not cancel the in-flight worker computation. This is the standard browser pattern. The wasted CPU is bounded by the preview throttle rate (~10 requests/sec). If profiling shows wasted worker CPU is a problem, cooperative cancellation (worker checks a flag between iterations) is a future optimization.
 
 ### 3. Per-Module Policies and Preview Budgets
 
@@ -368,6 +396,27 @@ $effect(() => {
 ```
 
 For worker-backed renderers, the fidelity flag scales the iteration count sent to the worker; the worker result is painted at whatever resolution it returns.
+
+#### Schema file modifications (H6)
+
+The `updatePolicy` field must be added to each schema-driven module's `ParamDef` array. The following schema files need modification:
+
+| Schema file | Policy assignments |
+|-------------|-------------------|
+| `src/lib/viz/schemas/henon.ts` | All controls: `updatePolicy: 'preview'` |
+| `src/lib/viz/schemas/lozi.ts` | All controls: `updatePolicy: 'preview'` |
+| `src/lib/viz/schemas/newton.ts` | All controls: `updatePolicy: 'preview'` |
+| `src/lib/viz/schemas/lyapunov.ts` | All controls: `updatePolicy: 'preview'` |
+| `src/lib/viz/schemas/bifurcation-logistic.ts` | All controls: `updatePolicy: 'preview'` |
+| `src/lib/viz/schemas/bifurcation-henon.ts` | All controls: `updatePolicy: 'preview'` |
+| `src/lib/viz/schemas/rossler.ts` | All controls: `updatePolicy: 'preview'` |
+| `src/lib/viz/schemas/standard.ts` | Compute controls (k, numP, numQ, iterations): `updatePolicy: 'preview'`. No style controls currently exist in the schema. |
+| `src/lib/viz/schemas/chaos-esthetique.ts` | Compute controls (a, b, x0, y0, iterations): `updatePolicy: 'preview'`. No style controls currently exist in the schema. |
+| `src/lib/viz/schemas/logistic.ts` | All controls: `updatePolicy: 'live'` (explicit, for clarity) |
+
+**Page-owned modules** (Clifford, Ikeda, Gumowski-Mira, Tinkerbell, Lorenz, Chua, Baker's Map, Double Pendulum) do not have schema files — their `updatePolicy` is declared on each `<ParameterSlider>` in the page's `extraControls` snippet.
+
+**Lorenz per-control mapping** (the largest page-owned module): sigma, rho, beta → `preview`; x0, y0, z0 → `preview` (initial conditions trigger rebuild); dt, stepsPerFrame → `preview` (integration params); trailLength → `live` (display slice); trailStyle → `live` (display style); colorMode → `live` (recoloring); viewMode → `live` (camera); autoRotate, rotationSpeed → `live` (camera); speed → `live` (playback); solver → `preview` (changes integration method).
 
 #### Style-only slider sampling
 
@@ -530,7 +579,9 @@ geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3).setUsage(THR
 // On recompute: fill arrays in place, setDrawRange, flag needsUpdate
 ```
 
-Zero per-render allocations. GC pressure eliminated.
+Zero per-render Three.js allocations. GC pressure from geometry/material creation eliminated.
+
+**Limitation:** `calculateRossler()` (in `src/lib/rossler.ts:35`) still allocates a `RosslerPoint[]` array — 20,000 `{x, y, z}` objects per render via `points.push({x, y, z})`. The buffer reuse above eliminates Three.js-side allocations (`Vector3`, `Color`, `BufferGeometry`), but not computation-side allocations. To fully eliminate allocations, `calculateRossler()` would need to write directly into a pre-allocated `Float32Array`. This is a deeper math-library refactor, deferred unless profiling shows the `RosslerPoint[]` allocation is a bottleneck.
 
 #### 5E. Large point clouds: sampled style drags
 
@@ -545,13 +596,17 @@ Zero per-render allocations. GC pressure eliminated.
 
 The renderer caches the last worker result (Float32Array of point coordinates) and can re-paint from it without re-dispatching to the worker. Only computation parameter changes (a, b, c, d, iterations) dispatch new worker requests. Style-only changes are detected via a `prevValues` ref diff (see §3 "Change-detection mechanism") and trigger the two-phase sampled paint.
 
-#### 5F. Double Pendulum: circular trail buffers
+#### 5F. Double Pendulum: restart semantics + circular trail buffers
 
-**Current:** Front-splices arrays, strokes each trail segment independently.
+**Restart on commit:** The current renderer applies physical parameters (l1, l2, m1, m2, gravity, damping) **live** via a `$effect` that updates the `physics` object mid-simulation (line 90). With `commit` policy, the value doesn't change during drag — but on release, the renderer must **restart** the simulation (re-seed initial conditions, clear trails), not apply the change to the running simulation. The page must bump `restartSignal` when any physics parameter's committed value changes, matching the existing `applyPreset`/`randomize` behavior. View parameters (speed, showTrail, trailLength, compareMode, compareOffset) remain `live` — they apply without restart.
+
+**Trail buffers:**
+
+**Current:** Front-splices arrays (`trail.splice(0, len - max)`), strokes each segment independently with per-segment alpha fading: `ctx.strokeStyle = rgba(rgb, (i/trail.length) * 0.7)` (line 142).
 
 **After:**
 - **Circular buffer** for trail positions: `Float64Array` with head pointer, O(1) insert, no array splicing.
-- **Batched path:** Single `beginPath()` → sequential `lineTo()` → single `stroke()` per trail, instead of per-segment strokes.
+- **Batched path with fading approximation:** A single `stroke()` cannot reproduce per-segment alpha fading. Two approaches: (a) group segments into ~10 alpha bands, stroke each band as a single path (10 `stroke()` calls instead of N); (b) use a single path with a `CanvasGradient` stroke style approximating the fade. Option (a) preserves the visual effect with ~10× fewer draw calls. The implementation should validate that the visual difference is acceptable via profiling screenshots.
 
 Doubles performance in comparison mode (two pendulums, two trails).
 
@@ -598,12 +653,12 @@ else if (frameDelta < 12 && effectiveSteps < targetSteps) effectiveSteps++;
 
 | Test file | Environment | Coverage |
 |-----------|------------|----------|
-| `src/lib/slider-drag-manager.test.ts` | node | Register/unregister, fidelity computation (preview only when preview-policy slider drags), multiple simultaneous drags, subscribe lifecycle |
-| `src/lib/render-generation.test.ts` | node | `next()` increments, `isStale()` for old/current gens, rapid invalidation |
-| `src/lib/components/ui/ParameterSlider.svelte.test.ts` | jsdom | `live`: every input updates value. `preview`: throttled value, immediate display. `commit`: no value update during drag, updates on release. Keyboard: arrow keys fire input, idle timer commits. Drag-state reporting to manager. `disabled` prop opts out. **Disabled-mid-drag: `setDragging(id, false)` called when disabled becomes true during drag.** Unmount cleans up timers + registration |
-| `src/lib/components/ui/VisualizationShell.svelte.test.ts` | jsdom | Renderer snippet receives `fidelity` + `onRenderStateChange`. Save/share/compare use committed values. Config loader applies committed values. **SliderDragManager↔shell fidelity subscription wiring.** **Stability-reporter + commit policy: warnings silent during drag, fire on release.** **Snapshot button disabled while `renderState === 'rendering'` or `fidelity === 'preview'`.** **Status badge region has `role="status"` + `aria-live="polite"` and announces correct text.** |
+| `src/lib/slider-drag-manager.test.ts` | node | Register/unregister, fidelity computation, multiple simultaneous drags, subscribe lifecycle. **Mid-drag unmount: `dragging` cleaned up, fidelity reverts.** **Subscribe receives `{ fidelity, commitDragging }` (both fields).** |
+| `src/lib/render-generation.test.ts` | node | `next()` increments, `isStale()` for old/current ids, rapid invalidation |
+| `src/lib/components/ui/ParameterSlider.svelte.test.ts` | jsdom | `live`: every input updates value + ondraft. `preview`: value NOT updated during drag, ondraft fires on throttle, value updates on release. `commit`: no value/ondraft during drag, value on release. **Throttle rewind: internalValue not overwritten by external value during drag.** **Committed vs draft: `value` is committed-only for preview/commit.** Keyboard, disabled-mid-drag, unmount cleanup |
+| `src/lib/components/ui/VisualizationShell.svelte.test.ts` | jsdom | Renderer snippet receives `draftValues` + `fidelity` + `onRenderStateChange`. `getParameters()` reads committed `values`. **Save/share/snapshot disabled during drag (`fidelity !== 'full'` or `commitDragging`).** SliderDragManager subscription wiring. Stability silent during preview/commit drag, fires on release. **Status badge `role="status"` + `aria-live="polite"`.** |
 | `src/lib/components/visualizations/D3PointMapRenderer.svelte.test.ts` | jsdom | Canvas overlay created alongside SVG axes. Points drawn on canvas (not SVG circles). Preview samples ~1,000. Full renders all. `onRenderStateChange` called correctly |
-| `src/lib/workers/worker-cancellation.test.ts` | node | Mock worker: two rapid requests → only latest result painted. Generation ID in request, checked on response |
+| `src/lib/workers/worker-cancellation.test.ts` | node | Mock worker: two rapid requests → only latest result painted. ID in request, checked on response. **Progressive rAF: stale chunk cleans up `isRendering` + `renderFrame` (no deadlock).** |
 | `src/lib/components/visualizations/CliffordRenderer.svelte.test.ts` (or similar point-cloud renderer) | jsdom | **Style-only two-phase paint:** style key change triggers sampled immediate paint + debounced full. Compute key change triggers worker dispatch. `prevValues` diff classifies correctly. |
 
 #### 6.2 Playwright E2E tests
@@ -613,7 +668,7 @@ else if (frameDelta < 12 && effectiveSteps < targetSteps) effectiveSteps++;
 | Test | Module | What it verifies |
 |------|--------|-----------------|
 | Draft-vs-commit (preview) | Hénon | Drag → viz updates during drag (preview quality) → release → full-quality render → final viz matches released value |
-| Commit-policy | Double Pendulum | Drag physics slider → viz does NOT change → release → simulation restarts with new value |
+| Commit-policy | Double Pendulum | Drag physics slider → viz does NOT change → release → simulation **restarts** (re-seeds, clears trails) with new value, not live-applied |
 | Keyboard interaction | Newton | Focus slider → arrow keys → preview/commit works → idle timer commits |
 | Latest-wins cancellation | Bifurcation-Hénon | Rapid parameter changes → final viz matches last value, not intermediate |
 | Cleanup on unmount | Any heavy module | Start drag → navigate away mid-drag → no errors, no orphaned timers/workers/rAF |
@@ -629,7 +684,7 @@ Manual Chrome DevTools Performance traces, documented as before/after:
 | Lorenz | Drag `sigma` slider | Full 100k-point trajectory rebuild per input | ~5k preview points during drag; full on release |
 | Clifford | Drag `opacity` (style) slider | Full 250k-point repaint per input | 25k sampled immediate + debounced full repaint |
 
-**Acceptance bar:** No main-thread long task >50ms during slider input handlers at default settings on Chrome on an M1 MacBook at default DPR (no CPU/network throttling). Full renders run asynchronously or progressively with status feedback.
+**Acceptance bar:** No main-thread long task >50ms during slider **input handlers** at default settings on Chrome on an M1 MacBook at default DPR (no CPU/network throttling). This applies to preview/draft renders triggered during drag. For **full renders on release**: modules that are workerized (Newton) or progressive (Bifurcation-Hénon) run asynchronously with status feedback. Synchronous full renders (Lyapunov, Bifurcation-Logistic, Chua, Lorenz, Rössler) may briefly block the main thread on release — this is acceptable because it happens once per drag (not per input event) and the user has already released the slider. If profiling shows any synchronous full render exceeds ~200ms, that renderer should be workerized or progressivized as a follow-up.
 
 **Accessibility note:** The preview/commit behavior is about computation cost, not animation. `prefers-reduced-motion` does not affect slider policies — reduced-quality previews and deferred commits are not "motion" and don't trigger vestibular issues. The `PREVIEW` / `RENDERING` / `FROZEN` badges are text-based status indicators, not animations.
 
@@ -656,7 +711,7 @@ The issue's suggested delivery sequence, mapped to the design sections:
 - [ ] Hénon and Lozi no longer create one SVG DOM node per plotted point.
 - [ ] Automated tests cover draft-versus-commit behavior, pointer and keyboard interaction, latest-wins cancellation, and cleanup on unmount.
 - [ ] Add before/after browser profiling for representative P0 and P1 modules, including Hénon, Newton, Lorenz or Chua, and one 200k+ point-cloud renderer.
-- [ ] At default settings on the reference browser/device, slider input handlers do not create main-thread long tasks over 50 ms; max-workload full renders run asynchronously or progressively with status feedback.
+- [ ] At default settings on Chrome on an M1 MacBook at default DPR, slider input handlers do not create main-thread long tasks over 50 ms. Full renders on release: workerized/progressive modules run asynchronously; synchronous modules may briefly block once per drag (acceptable). If any synchronous full render exceeds ~200ms, it should be workerized as a follow-up.
 
 ## Open Questions
 
