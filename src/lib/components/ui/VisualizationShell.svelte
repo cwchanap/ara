@@ -325,7 +325,6 @@
 				max={def.max}
 				step={def.step}
 				decimals={def.decimals ?? 0}
-				debounce={false}
 			/>
 		{/each}
 		{#if extraControls}{@render extraControls()}{/if}
