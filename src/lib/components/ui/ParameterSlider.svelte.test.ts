@@ -296,7 +296,10 @@ describe('ParameterSlider', () => {
 		rerender({ disabled: true });
 		await tick();
 		expect(onchange).not.toHaveBeenCalled();
-		expect(ondraft).not.toHaveBeenCalled();
+		// cancelDrag restores the parent draft to the committed value (5)
+		// via ondraft so VisualizationShell.draftValues does not retain the
+		// stale intermediate (9) from the in-progress preview drag.
+		expect(ondraft).toHaveBeenCalledWith(5);
 		expect(slider.disabled).toBe(true);
 		// internalValue must reset back to the committed value (5) via the
 		// sync effect once isDragging is false.
@@ -304,7 +307,10 @@ describe('ParameterSlider', () => {
 		// The pending idle/throttle timers must not fire stale callbacks.
 		vi.advanceTimersByTime(PREVIEW_IDLE_COMMIT_MS + 50);
 		expect(onchange).not.toHaveBeenCalled();
-		expect(ondraft).not.toHaveBeenCalled();
+		// ondraft was called exactly once (the restore in cancelDrag) — no
+		// stale throttle or idle callback fires after timer advance.
+		expect(ondraft).toHaveBeenCalledTimes(1);
+		expect(ondraft).toHaveBeenCalledWith(5);
 	});
 
 	it('live policy: ondraft fires immediately with the new value', async () => {
@@ -327,5 +333,76 @@ describe('ParameterSlider', () => {
 		await setSliderValue(slider, 6);
 		expect(ondraft).toHaveBeenCalledWith(6);
 		expect(onchange).toHaveBeenCalledWith(6);
+	});
+
+	it('pointer drag: idle commit timer is NOT armed during pointer interaction', async () => {
+		vi.useFakeTimers();
+		const onchange = vi.fn();
+		render(ParameterSlider, {
+			props: {
+				id: 'test',
+				label: 'Test',
+				value: 5,
+				min: 0,
+				max: 10,
+				step: 1,
+				updatePolicy: 'preview' as const,
+				onchange
+			}
+		});
+		const slider = screen.getByTestId('slider-test') as HTMLInputElement;
+		// Simulate a pointer drag: pointerdown → input → pause → pointerup/change.
+		// The idle timer must not arm during a pointer drag, so a 500ms pause
+		// mid-drag must NOT trigger endDrag/commit while the pointer is down.
+		await fireEvent.pointerDown(slider);
+		await setSliderValue(slider, 8);
+		// Advance past the idle commit window — onchange must NOT fire because
+		// the idle timer was never armed (pointerActive is true).
+		vi.advanceTimersByTime(PREVIEW_IDLE_COMMIT_MS + 50);
+		expect(onchange).not.toHaveBeenCalled();
+		// Release the pointer → change event → endDrag → commit fires.
+		await fireEvent.pointerUp(slider);
+		await releaseSlider(slider);
+		expect(onchange).toHaveBeenCalledWith(8);
+	});
+
+	it('cancelDrag restores the parent draft after a throttled preview fired', async () => {
+		vi.useFakeTimers();
+		const ondraft = vi.fn();
+		const onchange = vi.fn();
+		const { rerender } = render(ParameterSlider, {
+			props: {
+				id: 'test',
+				label: 'Test',
+				value: 5,
+				min: 0,
+				max: 10,
+				step: 1,
+				updatePolicy: 'preview' as const,
+				disabled: false,
+				ondraft,
+				onchange
+			}
+		});
+		const slider = screen.getByTestId('slider-test') as HTMLInputElement;
+		// Start a preview drag — throttle pending, internalValue=9.
+		await setSliderValue(slider, 9);
+		expect(ondraft).not.toHaveBeenCalled();
+		// Advance past the throttle window — ondraft fires with the intermediate
+		// value (9), updating the parent draftValues.
+		vi.advanceTimersByTime(PREVIEW_THROTTLE_MS + 10);
+		expect(ondraft).toHaveBeenCalledWith(9);
+		// Disabling mid-drag must discard the draft and restore the parent
+		// draftValues to the committed value (5) via ondraft.
+		rerender({ disabled: true });
+		await tick();
+		expect(onchange).not.toHaveBeenCalled();
+		expect(ondraft).toHaveBeenCalledWith(5);
+		// ondraft was called twice: once for the throttled draft (9), once for
+		// the restore (5). No stale callbacks fire after timer advance.
+		expect(ondraft).toHaveBeenCalledTimes(2);
+		vi.advanceTimersByTime(PREVIEW_IDLE_COMMIT_MS + 50);
+		expect(ondraft).toHaveBeenCalledTimes(2);
+		expect(onchange).not.toHaveBeenCalled();
 	});
 });

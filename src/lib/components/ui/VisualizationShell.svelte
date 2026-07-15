@@ -313,6 +313,7 @@
 				{mapType}
 				disabled={dragState.fidelity !== 'full' ||
 					dragState.commitDragging ||
+					dragState.anyDragging ||
 					renderState === 'rendering'}
 			/>
 		{/if}
@@ -327,6 +328,7 @@
 			onclick={() => (shareState.showShareDialog = true)}
 			disabled={dragState.fidelity !== 'full' ||
 				dragState.commitDragging ||
+				dragState.anyDragging ||
 				renderState === 'rendering'}
 			class="px-6 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(0,243,255,0.2)] uppercase tracking-widest text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
 			>🔗 Share</button
@@ -335,6 +337,7 @@
 			onclick={() => (saveState.showSaveDialog = true)}
 			disabled={dragState.fidelity !== 'full' ||
 				dragState.commitDragging ||
+				dragState.anyDragging ||
 				renderState === 'rendering'}
 			class="px-6 py-2 bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 rounded-sm transition-all hover:shadow-[0_0_15px_rgba(168,85,247,0.2)] uppercase tracking-widest text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
 			>💾 Save</button

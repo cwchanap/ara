@@ -770,5 +770,42 @@ describe('VisualizationShell', () => {
 			expect(screen.getByRole('button', { name: '🔗 Share' })).not.toBeDisabled();
 			expect(screen.getByRole('button', { name: '💾 Save' })).not.toBeDisabled();
 		});
+
+		it('disables action buttons during a live-policy drag via anyDragging', async () => {
+			// Live-policy drags keep fidelity at 'full' and commitDragging false,
+			// so without anyDragging the shell would leave Save/Share/Snapshot
+			// enabled mid-drag — allowing a keyboard user to capture while a
+			// worker-backed renderer is still updating. anyDragging gates all
+			// three actions without changing live fidelity.
+			setMockPageUrl('http://localhost/henon');
+			const { container } = renderShell();
+
+			// The default henon slider `a` is live-policy. At rest, all actions
+			// are enabled.
+			expect(screen.getByRole('button', { name: '🔗 Share' })).not.toBeDisabled();
+			expect(screen.getByRole('button', { name: '💾 Save' })).not.toBeDisabled();
+			expect(screen.getByTestId('snapshot-stub')).not.toBeDisabled();
+
+			// Start a live drag — dragManager.setDragging sets anyDragging=true.
+			const input = container.querySelector('input[id="a"]') as HTMLInputElement;
+			await fireEvent.input(input, { target: { value: '1.2' } });
+
+			// All action buttons must be disabled while anyDragging is true,
+			// even though fidelity is 'full' and commitDragging is false.
+			await waitFor(() => {
+				expect(screen.getByRole('button', { name: '🔗 Share' })).toBeDisabled();
+				expect(screen.getByRole('button', { name: '💾 Save' })).toBeDisabled();
+				expect(screen.getByTestId('snapshot-stub')).toBeDisabled();
+			});
+
+			// Release the slider -> endDrag -> anyDragging reverts to false ->
+			// action buttons re-enable.
+			await fireEvent.change(input);
+			await waitFor(() => {
+				expect(screen.getByRole('button', { name: '🔗 Share' })).not.toBeDisabled();
+				expect(screen.getByRole('button', { name: '💾 Save' })).not.toBeDisabled();
+				expect(screen.getByTestId('snapshot-stub')).not.toBeDisabled();
+			});
+		});
 	});
 });
