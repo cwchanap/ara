@@ -47,7 +47,7 @@
 	isAuthenticated={true}
 >
 	{#snippet renderer(args)}
-		<div data-testid="renderer">
+		<div data-testid="renderer" data-draft-a={args.draftValues.a}>
 			<button data-testid="trigger-rendering" onclick={() => args.onRenderStateChange('rendering')}>
 				trigger rendering
 			</button>

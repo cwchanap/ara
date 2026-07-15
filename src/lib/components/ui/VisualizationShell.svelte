@@ -221,6 +221,14 @@
 						// normalized slider values and clears an inverted-range
 						// warning (matching pre-shell Lyapunov).
 						normalizeLoadedValues?.(values);
+						// Sync draftValues to the loaded+normalized values so
+						// preview-policy sliders see the correct draft after a config
+						// load. Without this, draftValues stays at the prior state
+						// (defaults or last drag) until the user drags again —
+						// producing a stale preview once Step 2 uses draftValues.
+						for (const def of paramDefs) {
+							draftValues[def.key] = values[def.key];
+						}
 						// Restore non-slider state (selects, checkboxes, presets) from
 						// the raw loaded params. Runs under untrack because the page
 						// callback reads/writes $state — without it, reads inside the

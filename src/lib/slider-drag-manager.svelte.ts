@@ -47,9 +47,21 @@ export class SliderDragManager {
 
 	private recompute(): void {
 		const draggingPolicies = [...this.dragging.values()];
-		this.currentState = {
+		const next: DragState = {
 			fidelity: draggingPolicies.some((p) => p === 'preview') ? 'preview' : 'full',
 			commitDragging: draggingPolicies.some((p) => p === 'commit')
 		};
+		// Skip the $state write when nothing changed. Without this guard,
+		// recompute() allocates a new object on every call (e.g. when a
+		// live-policy slider starts/ends a drag — fidelity and
+		// commitDragging are unchanged), triggering unnecessary $derived
+		// recomputations in the shell. The guard was present in the
+		// original subscribe-based design and is still needed under runes.
+		if (
+			next.fidelity !== this.currentState.fidelity ||
+			next.commitDragging !== this.currentState.commitDragging
+		) {
+			this.currentState = next;
+		}
 	}
 }

@@ -630,6 +630,30 @@ describe('VisualizationShell', () => {
 			expect(screen.getByTestId('snapshot-stub')).not.toBeDisabled();
 		});
 
+		it('syncs draftValues to loaded values on config load (no stale draft after ?config=)', async () => {
+			// Without syncing draftValues after applyLoadedValues, a config load
+			// updates `values` but leaves draftValues at the prior defaults —
+			// producing a stale preview once Step 2 renderers read draftValues.
+			parseConfigParamMock.mockReturnValueOnce({
+				ok: true,
+				parameters: {
+					type: 'henon',
+					a: 0.9,
+					b: 0.4,
+					iterations: 2000
+				}
+			});
+			setMockPageUrl('http://localhost/henon?config=draft-sync');
+			render(DragStateShell, { props: { ...authedPageProps } as never });
+
+			// After the config loads, draftValues.a must match the loaded value
+			// (0.9), not the default (1.4). The DragStateShell renderer exposes
+			// draftValues.a via a data attribute.
+			await waitFor(() => {
+				expect(screen.getByTestId('renderer').getAttribute('data-draft-a')).toBe('0.9');
+			});
+		});
+
 		it('shows PREVIEW badge, fires ondraft into draftValues, and disables action buttons during a preview drag', async () => {
 			setMockPageUrl('http://localhost/henon');
 			const { container } = render(DragStateShell, {
@@ -653,9 +677,12 @@ describe('VisualizationShell', () => {
 
 			// Advancing past the throttle window fires the slider's ondraft,
 			// which the shell routes into draftValues (draftValues[def.key] = v).
-			// There is no public surface for draftValues, so we assert the
-			// code path runs without error by advancing the throttle timer.
+			// The DragStateShell renderer exposes draftValues.a via a data
+			// attribute so we can assert the draft was actually written.
 			vi.advanceTimersByTime(150);
+			await waitFor(() => {
+				expect(screen.getByTestId('renderer').getAttribute('data-draft-a')).toBe('1.2');
+			});
 
 			// Release the slider → endDrag → dragManager.setDragging(false) →
 			// fidelity reverts to 'full' → action buttons re-enable.
