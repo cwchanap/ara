@@ -15,14 +15,20 @@ export type RenderState = 'idle' | 'rendering' | 'complete';
  * (fidelity + commitDragging). Created by VisualizationShell and provided
  * via Svelte context so both schema-driven and page-owned sliders register.
  *
- * `currentState` is a Svelte 5 `$state` field, so components that read it
- * via `$derived` or in `$effect` react automatically — no manual
- * subscribe/listener wiring needed.
+ * `currentState` is exposed as a read-only getter over a private `$state`
+ * field, so components that read it via `$derived` or in `$effect` react
+ * automatically — no manual subscribe/listener wiring needed. The getter
+ * prevents external callers from writing to the state and breaking the
+ * invariant that only recompute() mutates it.
  */
 export class SliderDragManager {
 	private policies = new SvelteMap<string, UpdatePolicy>();
 	private dragging = new SvelteMap<string, UpdatePolicy>();
-	currentState = $state<DragState>({ fidelity: 'full', commitDragging: false });
+	private _state = $state<DragState>({ fidelity: 'full', commitDragging: false });
+
+	get currentState(): DragState {
+		return this._state;
+	}
 
 	register(id: string, policy: UpdatePolicy): () => void {
 		this.policies.set(id, policy);
@@ -54,10 +60,10 @@ export class SliderDragManager {
 		// recomputations in the shell. The guard was present in the
 		// original subscribe-based design and is still needed under runes.
 		if (
-			next.fidelity !== this.currentState.fidelity ||
-			next.commitDragging !== this.currentState.commitDragging
+			next.fidelity !== this._state.fidelity ||
+			next.commitDragging !== this._state.commitDragging
 		) {
-			this.currentState = next;
+			this._state = next;
 		}
 	}
 }

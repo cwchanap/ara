@@ -70,6 +70,7 @@ describe('ParameterSlider', () => {
 				min: 0,
 				max: 10,
 				step: 1,
+				decimals: 2,
 				updatePolicy: 'commit' as const
 			}
 		});

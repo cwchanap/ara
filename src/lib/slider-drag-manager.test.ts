@@ -31,6 +31,19 @@ describe('SliderDragManager', () => {
 		unregister();
 	});
 
+	it('live drag does not reassign currentState (guard prevents spurious $state write)', () => {
+		const mgr = new SliderDragManager();
+		const before = mgr.currentState;
+		const unregister = mgr.register('x', 'live');
+		mgr.setDragging('x', true);
+		mgr.setDragging('x', false);
+		// Same reference — recompute() guard skipped the $state write because
+		// fidelity and commitDragging were unchanged. This replaces the plan's
+		// subscribe-based "does not notify when state is unchanged" test.
+		expect(mgr.currentState).toBe(before);
+		unregister();
+	});
+
 	it('reverts to full when drag ends', () => {
 		const mgr = new SliderDragManager();
 		const unregister = mgr.register('a', 'preview');
