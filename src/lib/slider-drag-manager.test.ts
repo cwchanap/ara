@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SliderDragManager, type DragState } from './slider-drag-manager';
+import { SliderDragManager } from './slider-drag-manager.svelte';
 
 describe('SliderDragManager', () => {
 	it('defaults to full fidelity and no commit drag', () => {
@@ -62,32 +62,6 @@ describe('SliderDragManager', () => {
 		expect(mgr.getState().fidelity).toBe('preview');
 		unregister();
 		expect(mgr.getState()).toEqual({ fidelity: 'full', commitDragging: false });
-	});
-
-	it('notifies subscribers on state change', () => {
-		const mgr = new SliderDragManager();
-		const states: DragState[] = [];
-		const unsub = mgr.subscribe((s) => states.push(s));
-		const unregister = mgr.register('a', 'preview');
-		mgr.setDragging('a', true);
-		mgr.setDragging('a', false);
-		expect(states).toEqual([
-			{ fidelity: 'preview', commitDragging: false },
-			{ fidelity: 'full', commitDragging: false }
-		]);
-		unregister();
-		unsub();
-	});
-
-	it('does not notify when state is unchanged', () => {
-		const mgr = new SliderDragManager();
-		let callCount = 0;
-		const unsub = mgr.subscribe(() => callCount++);
-		const unregister = mgr.register('x', 'live');
-		mgr.setDragging('x', true); // live doesn't change fidelity or commitDragging
-		expect(callCount).toBe(0);
-		unregister();
-		unsub();
 	});
 
 	it('ignores setDragging for unknown slider IDs', () => {

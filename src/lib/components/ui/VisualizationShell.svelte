@@ -12,7 +12,7 @@
 		type DragState,
 		type Fidelity,
 		type RenderState
-	} from '$lib/slider-drag-manager';
+	} from '$lib/slider-drag-manager.svelte';
 	import VisualizationHeader from '$lib/components/ui/VisualizationHeader.svelte';
 	import ParameterPanel from '$lib/components/ui/ParameterPanel.svelte';
 	import ParameterSlider from '$lib/components/ui/ParameterSlider.svelte';
@@ -160,14 +160,8 @@
 	setContext('slider-drag-manager', dragManager);
 
 	const draftValues = $state(paramDefaults(paramDefs));
-	let dragState = $state<DragState>({ fidelity: 'full', commitDragging: false });
+	const dragState = $derived<DragState>(dragManager.currentState);
 	let renderState = $state<RenderState>('idle');
-
-	$effect(() => {
-		return dragManager.subscribe((s) => {
-			dragState = s;
-		});
-	});
 
 	const onRenderStateChange = (s: RenderState) => {
 		renderState = s;
