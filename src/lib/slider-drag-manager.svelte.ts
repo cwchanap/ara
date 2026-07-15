@@ -6,6 +6,7 @@ export type Fidelity = 'preview' | 'full';
 export interface DragState {
 	fidelity: Fidelity;
 	commitDragging: boolean;
+	anyDragging: boolean;
 }
 
 export type RenderState = 'idle' | 'rendering' | 'complete';
@@ -24,7 +25,11 @@ export type RenderState = 'idle' | 'rendering' | 'complete';
 export class SliderDragManager {
 	private policies = new SvelteMap<string, UpdatePolicy>();
 	private dragging = new SvelteMap<string, UpdatePolicy>();
-	private _state = $state<DragState>({ fidelity: 'full', commitDragging: false });
+	private _state = $state<DragState>({
+		fidelity: 'full',
+		commitDragging: false,
+		anyDragging: false
+	});
 
 	get currentState(): DragState {
 		return this._state;
@@ -51,17 +56,21 @@ export class SliderDragManager {
 		const draggingPolicies = [...this.dragging.values()];
 		const next: DragState = {
 			fidelity: draggingPolicies.some((p) => p === 'preview') ? 'preview' : 'full',
-			commitDragging: draggingPolicies.some((p) => p === 'commit')
+			commitDragging: draggingPolicies.some((p) => p === 'commit'),
+			anyDragging: draggingPolicies.length > 0
 		};
 		// Skip the $state write when nothing changed. Without this guard,
-		// recompute() allocates a new object on every call (e.g. when a
-		// live-policy slider starts/ends a drag — fidelity and
-		// commitDragging are unchanged), triggering unnecessary $derived
-		// recomputations in the shell. The guard was present in the
-		// original subscribe-based design and is still needed under runes.
+		// recompute() allocates a new object on every call, triggering
+		// unnecessary $derived recomputations in the shell. The guard was
+		// present in the original subscribe-based design and is still needed
+		// under runes. Note: anyDragging changes when a live-policy slider
+		// starts/ends a drag (fidelity and commitDragging are unchanged for
+		// live drags), so the guard now includes anyDragging to ensure the
+		// shell's action-button gating reacts to live drags.
 		if (
 			next.fidelity !== this._state.fidelity ||
-			next.commitDragging !== this._state.commitDragging
+			next.commitDragging !== this._state.commitDragging ||
+			next.anyDragging !== this._state.anyDragging
 		) {
 			this._state = next;
 		}
