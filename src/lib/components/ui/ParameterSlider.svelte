@@ -25,7 +25,7 @@
 		min,
 		max,
 		step,
-		decimals = 2,
+		decimals = 0,
 		updatePolicy = 'live',
 		disabled = false,
 		ondraft,
