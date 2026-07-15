@@ -663,6 +663,60 @@ describe('VisualizationShell', () => {
 			});
 		});
 
+		it('cancels an in-progress slider drag when a config load applies new values (HPA-211)', async () => {
+			// When useConfigLoader applies a ?config while a slider is mid-drag,
+			// the shell replaces the bound `values` but the slider's sync $effect
+			// is guarded by isDragging (internalValue stays at the stale draft).
+			// Without cancelling the drag, releasing the pointer calls commit()
+			// which writes `value = internalValue` and overwrites the loaded
+			// configuration. The shell must signal the drag manager to cancel
+			// active drags so the loaded value wins.
+			setMockPageUrl('http://localhost/henon');
+			const { container } = render(DragStateShell, {
+				props: { ...authedPageProps } as never
+			});
+
+			// The preview-policy slider is `a` (id 'a', default 1.4).
+			const slider = container.querySelector('input[id="a"]') as HTMLInputElement;
+			await waitFor(() => expect(slider.value).toBe('1.4'));
+
+			// Start a pointer drag — isDragging=true, internalValue=1.2.
+			await fireEvent.pointerDown(slider);
+			await fireEvent.input(slider, { target: { value: '1.2' } });
+			expect(slider.value).toBe('1.2');
+			// The PREVIEW badge confirms the drag manager sees the active drag.
+			await waitFor(() => expect(screen.getByText('PREVIEW')).toBeInTheDocument());
+
+			// Trigger a config load mid-drag. The shell applies a=0.9 and calls
+			// dragManager.cancelActiveDrags() so the slider discards the stale
+			// draft (1.2) and syncs to the loaded value.
+			parseConfigParamMock.mockReturnValueOnce({
+				ok: true,
+				parameters: { type: 'henon', a: 0.9, b: 0.4, iterations: 2000 }
+			});
+			setMockPageUrl('http://localhost/henon?config=cancel-mid-drag');
+
+			// The slider must reflect the LOADED value (0.9), not the stale draft.
+			await waitFor(() => expect(slider.value).toBe('0.9'));
+			// draftValues.a must also reflect the loaded value (cancelDrag
+			// restores the parent draft via ondraft, and the shell syncs
+			// draftValues to the loaded values).
+			await waitFor(() => {
+				expect(screen.getByTestId('renderer').getAttribute('data-draft-a')).toBe('0.9');
+			});
+			// The drag ended → fidelity reverts to full → action buttons re-enable.
+			await waitFor(() => expect(screen.getByText('LIVE_RENDER')).toBeInTheDocument());
+			expect(screen.getByRole('button', { name: '🔗 Share' })).not.toBeDisabled();
+			expect(screen.getByRole('button', { name: '💾 Save' })).not.toBeDisabled();
+
+			// Releasing the pointer must NOT commit the stale draft (1.2) over
+			// the loaded value. The drag was cancelled, so endDrag is a no-op.
+			await fireEvent.pointerUp(slider);
+			await fireEvent.change(slider);
+			expect(slider.value).toBe('0.9');
+			expect(screen.getByTestId('renderer').getAttribute('data-draft-a')).toBe('0.9');
+		});
+
 		it('shows PREVIEW badge, fires ondraft into draftValues, and disables action buttons during a preview drag', async () => {
 			setMockPageUrl('http://localhost/henon');
 			const { container } = render(DragStateShell, {

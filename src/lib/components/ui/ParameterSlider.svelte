@@ -186,6 +186,15 @@
 	// early when isDragging is false, e.g. pointerdown with no input yet,
 	// which would otherwise leave pointerActive set and suppress the idle
 	// timer for subsequent keyboard edits).
+	//
+	// Reused for both `pointercancel` and `lostpointercapture`. After
+	// setPointerCapture the element can emit `lostpointercapture` WITHOUT a
+	// preceding `pointercancel`/`pointerup` (capture stolen by another
+	// element, or released implicitly when the pointer is removed). Without
+	// this handler isDragging and the manager entry would stay active,
+	// leaving the shell frozen. The normal pointerup→change→
+	// lostpointercapture sequence is safe: endDrag/commit already set
+	// isDragging=false, so cancelDrag returns early — no double commit.
 	function handlePointerCancel() {
 		pointerActive = false;
 		cancelDrag();
@@ -199,6 +208,26 @@
 	$effect(() => {
 		if (isDragging) return; // internalValue is authoritative during drag
 		internalValue = value;
+	});
+
+	// External committed-value cancellation: when the shell applies a
+	// config load (?config, configId, share) it calls the drag manager's
+	// cancelActiveDrags so any slider mid-drag discards its stale draft
+	// instead of overwriting the newly loaded value on release (commit
+	// writes `value = internalValue`, which would clobber the loaded
+	// config). The manager signal is a monotonically increasing counter;
+	// we act only when it CHANGES (signal !== lastCancelSignal) so a drag
+	// starting — which flips isDragging but does not change the signal —
+	// does NOT spuriously cancel. cancelDrag is a no-op when no drag is
+	// active, so a cancel while idle (e.g. another slider's config load)
+	// is harmless. The sync $effect above then resets internalValue to
+	// the loaded `value` once isDragging is false.
+	let lastCancelSignal = 0;
+	$effect(() => {
+		const signal = dragManager?.cancelSignal ?? 0;
+		if (signal === lastCancelSignal) return;
+		lastCancelSignal = signal;
+		if (isDragging) cancelDrag();
 	});
 
 	// Disabled-mid-drag guarantee: if the slider is disabled while the user
@@ -256,6 +285,7 @@
 		onpointerdown={handlePointerDown}
 		onpointerup={handlePointerUp}
 		onpointercancel={handlePointerCancel}
+		onlostpointercapture={handlePointerCancel}
 		class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
 	/>
 </div>
