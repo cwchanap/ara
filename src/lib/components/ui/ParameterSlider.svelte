@@ -112,7 +112,14 @@
 		internalValue = value;
 	});
 
-	// Disabled-mid-drag guarantee
+	// Disabled-mid-drag guarantee: if the slider is disabled while the user
+	// is still dragging (e.g. a preset/randomize/config-load mutates state
+	// that disables the control), endDrag fires commit() — which writes
+	// internalValue to `value` and calls ondraft/onchange. This is
+	// intentional: the draft is already in internalValue and discarding it
+	// would lose the user's in-progress adjustment. The commit is idempotent
+	// for live policy (early return above) and a genuine commit for
+	// preview/commit policies.
 	$effect(() => {
 		if (disabled && isDragging) {
 			endDrag();
