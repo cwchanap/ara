@@ -152,6 +152,21 @@
 		pointerActive = false;
 	}
 
+	// Pointer cancellation (browser gesture takeover, touch interruption,
+	// OS-level cancel) or lost pointer capture: the pointer stream is
+	// permanently lost, so the `change` event that pointer drags rely on to
+	// commit will never fire. Discard the in-progress draft via cancelDrag
+	// — clearing isDragging, the manager's drag entry, and timers — so the
+	// shell does not stay frozen in PREVIEW/FROZEN with Save/Share/Snapshot
+	// disabled. Clear pointerActive unconditionally (cancelDrag returns
+	// early when isDragging is false, e.g. pointerdown with no input yet,
+	// which would otherwise leave pointerActive set and suppress the idle
+	// timer for subsequent keyboard edits).
+	function handlePointerCancel() {
+		pointerActive = false;
+		cancelDrag();
+	}
+
 	// Sync internalValue from external value changes — guarded by isDragging.
 	// throttleTimer is only set in handleInput (which sets isDragging=true),
 	// and isDragging only clears via endDrag→commit or cancelDrag (both clear
@@ -207,6 +222,7 @@
 		onchange={handleChange}
 		onpointerdown={handlePointerDown}
 		onpointerup={handlePointerUp}
+		onpointercancel={handlePointerCancel}
 		class="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
 	/>
 </div>

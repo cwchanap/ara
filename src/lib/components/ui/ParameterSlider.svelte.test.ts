@@ -366,6 +366,73 @@ describe('ParameterSlider', () => {
 		expect(onchange).toHaveBeenCalledWith(8);
 	});
 
+	it('pointercancel: discards the in-progress draft and ends the drag', async () => {
+		vi.useFakeTimers();
+		const onchange = vi.fn();
+		const ondraft = vi.fn();
+		render(ParameterSlider, {
+			props: {
+				id: 'test',
+				label: 'Test',
+				value: 5,
+				min: 0,
+				max: 10,
+				step: 1,
+				updatePolicy: 'preview' as const,
+				ondraft,
+				onchange
+			}
+		});
+		const slider = screen.getByTestId('slider-test') as HTMLInputElement;
+		// Start a pointer drag — pointerActive=true so the idle commit timer
+		// is never armed (pointer drags commit via `change` on release).
+		await fireEvent.pointerDown(slider);
+		await setSliderValue(slider, 8);
+		// Cancel the pointer stream (browser gesture takeover, touch
+		// interruption, OS-level cancel). cancelDrag must discard the
+		// in-progress draft, clear drag state + timers, and restore the
+		// parent draft to the committed value (5). Without this handler the
+		// idle timer would never arm (pointerActive stayed true) and the
+		// drag would never end — leaving the shell frozen.
+		await fireEvent.pointerCancel(slider);
+		expect(onchange).not.toHaveBeenCalled();
+		expect(ondraft).toHaveBeenCalledWith(5);
+		// internalValue reverts to the committed value via the sync effect
+		// once isDragging is false.
+		expect(slider.value).toBe('5');
+		// Advancing timers must not fire any stale commit — the drag was
+		// discarded, not committed.
+		vi.advanceTimersByTime(PREVIEW_IDLE_COMMIT_MS + 50);
+		expect(onchange).not.toHaveBeenCalled();
+	});
+
+	it('pointercancel without a preceding input: clears pointerActive so keyboard edits arm the idle timer', async () => {
+		vi.useFakeTimers();
+		const onchange = vi.fn();
+		render(ParameterSlider, {
+			props: {
+				id: 'test',
+				label: 'Test',
+				value: 5,
+				min: 0,
+				max: 10,
+				step: 1,
+				updatePolicy: 'preview' as const,
+				onchange
+			}
+		});
+		const slider = screen.getByTestId('slider-test') as HTMLInputElement;
+		// pointerdown with no input yet — isDragging stays false but
+		// pointerActive is true. A pointercancel here must clear
+		// pointerActive so a subsequent keyboard edit arms the idle timer.
+		await fireEvent.pointerDown(slider);
+		await fireEvent.pointerCancel(slider);
+		// A keyboard edit (no pointerdown) must arm the idle commit timer.
+		await setSliderValue(slider, 7);
+		vi.advanceTimersByTime(PREVIEW_IDLE_COMMIT_MS + 10);
+		expect(onchange).toHaveBeenCalledWith(7);
+	});
+
 	it('cancelDrag restores the parent draft after a throttled preview fired', async () => {
 		vi.useFakeTimers();
 		const ondraft = vi.fn();
