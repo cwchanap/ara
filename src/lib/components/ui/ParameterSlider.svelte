@@ -99,14 +99,32 @@
 		commit();
 	}
 
+	// Discard the in-progress draft without committing: clear drag state and
+	// timers, leave `value` untouched. The sync $effect below will reset
+	// internalValue back to the committed `value` once isDragging is false.
+	function cancelDrag() {
+		if (!isDragging) return;
+		isDragging = false;
+		if (throttleTimer) {
+			clearTimeout(throttleTimer);
+			throttleTimer = null;
+		}
+		if (idleTimer) {
+			clearTimeout(idleTimer);
+			idleTimer = null;
+		}
+		dragManager?.setDragging(id, false);
+	}
+
 	function handleChange() {
 		endDrag();
 	}
 
 	// Sync internalValue from external value changes — guarded by isDragging.
 	// throttleTimer is only set in handleInput (which sets isDragging=true),
-	// and isDragging only clears via endDrag→commit (which clears throttleTimer),
-	// so a pending throttle and isDragging=false can never co-occur here.
+	// and isDragging only clears via endDrag→commit or cancelDrag (both clear
+	// throttleTimer), so a pending throttle and isDragging=false can never
+	// co-occur here.
 	$effect(() => {
 		if (isDragging) return; // internalValue is authoritative during drag
 		internalValue = value;
@@ -114,15 +132,14 @@
 
 	// Disabled-mid-drag guarantee: if the slider is disabled while the user
 	// is still dragging (e.g. a preset/randomize/config-load mutates state
-	// that disables the control), endDrag fires commit() — which writes
-	// internalValue to `value` and calls ondraft/onchange. This is
-	// intentional: the draft is already in internalValue and discarding it
-	// would lose the user's in-progress adjustment. The commit is idempotent
-	// for live policy (early return above) and a genuine commit for
-	// preview/commit policies.
+	// that disables the control), cancelDrag discards the in-progress draft
+	// — clearing drag state and timers without writing to `value`. The action
+	// that caused the disable (preset, randomize, config load) takes
+	// precedence over the user's in-progress drag. The sync $effect then
+	// resets internalValue back to the committed `value`.
 	$effect(() => {
 		if (disabled && isDragging) {
-			endDrag();
+			cancelDrag();
 		}
 	});
 
