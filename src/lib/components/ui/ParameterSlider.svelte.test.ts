@@ -556,4 +556,45 @@ describe('ParameterSlider', () => {
 		expect(ondraft).toHaveBeenCalledTimes(2);
 		expect(onchange).not.toHaveBeenCalled();
 	});
+
+	it('unmount mid-drag after throttle emitted: restores the parent draft to the committed value', async () => {
+		vi.useFakeTimers();
+		const ondraft = vi.fn();
+		const onchange = vi.fn();
+		const { unmount } = render(ParameterSlider, {
+			props: {
+				id: 'test',
+				label: 'Test',
+				value: 5,
+				min: 0,
+				max: 10,
+				step: 1,
+				updatePolicy: 'preview' as const,
+				ondraft,
+				onchange
+			}
+		});
+		const slider = screen.getByTestId('slider-test') as HTMLInputElement;
+		// Start a preview drag — throttle pending, internalValue=9.
+		await setSliderValue(slider, 9);
+		expect(ondraft).not.toHaveBeenCalled();
+		// Advance past the throttle window — ondraft fires with the intermediate
+		// value (9), updating the parent draftValues.
+		vi.advanceTimersByTime(PREVIEW_THROTTLE_MS + 10);
+		expect(ondraft).toHaveBeenCalledWith(9);
+		// Unmount the slider mid-drag (e.g. a config load swaps the slider
+		// set). The unmount cleanup must restore the parent draft to the
+		// committed value (5) via ondraft — mirroring cancelDrag — so the
+		// stale intermediate (9) does not linger in draftValues. No commit
+		// (onchange) must fire.
+		unmount();
+		expect(onchange).not.toHaveBeenCalled();
+		expect(ondraft).toHaveBeenCalledWith(5);
+		// ondraft was called twice: once for the throttled draft (9), once for
+		// the unmount restore (5). No stale callbacks fire after timer advance.
+		expect(ondraft).toHaveBeenCalledTimes(2);
+		vi.advanceTimersByTime(PREVIEW_IDLE_COMMIT_MS + 50);
+		expect(ondraft).toHaveBeenCalledTimes(2);
+		expect(onchange).not.toHaveBeenCalled();
+	});
 });

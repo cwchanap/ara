@@ -214,9 +214,18 @@
 		}
 	});
 
-	// Cleanup on unmount
+	// Cleanup on unmount. If the slider is unmounted mid-drag (e.g. a config
+	// load swaps the slider set while a preview drag is in progress), a
+	// throttled preview draft may already have been emitted to the parent's
+	// draftValues. cancelDrag restores the parent draft to the committed
+	// `value` via ondraft — mirroring the pointercancel/disable-mid-drag
+	// paths — and clears drag state + timers before the manager entry is
+	// removed. When no drag is active cancelDrag is a no-op (returns early),
+	// so the explicit timer clears below still run as a belt-and-suspenders
+	// guarantee.
 	$effect(() => {
 		return () => {
+			cancelDrag();
 			if (throttleTimer) clearTimeout(throttleTimer);
 			if (idleTimer) clearTimeout(idleTimer);
 			unregister?.();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SliderDragManager } from './slider-drag-manager.svelte';
+import { SliderDragManager } from '$lib/slider-drag-manager.svelte';
 
 describe('SliderDragManager', () => {
 	it('defaults to full fidelity and no commit drag', () => {
