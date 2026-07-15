@@ -268,9 +268,10 @@ describe('ParameterSlider', () => {
 		expect(onchange).toHaveBeenCalledTimes(1);
 	});
 
-	it('disabled-mid-drag: setting disabled while dragging commits and ends the drag', async () => {
+	it('disabled-mid-drag: setting disabled while dragging discards the draft and ends the drag', async () => {
 		vi.useFakeTimers();
 		const onchange = vi.fn();
+		const ondraft = vi.fn();
 		const { rerender } = render(ParameterSlider, {
 			props: {
 				id: 'test',
@@ -281,22 +282,29 @@ describe('ParameterSlider', () => {
 				step: 1,
 				updatePolicy: 'preview' as const,
 				disabled: false,
+				ondraft,
 				onchange
 			}
 		});
 		const slider = screen.getByTestId('slider-test') as HTMLInputElement;
-		// Start a drag — isDragging=true, throttle pending.
+		// Start a drag — isDragging=true, throttle pending, internalValue=9.
 		await setSliderValue(slider, 9);
 		expect(onchange).not.toHaveBeenCalled();
-		// Disabling mid-drag must immediately commit the in-flight value and
-		// end the drag so the parent state is not left stale.
+		// Disabling mid-drag must discard the in-progress draft (no commit)
+		// and end the drag so the parent state is not left stale. The action
+		// that caused the disable takes precedence over the user's drag.
 		rerender({ disabled: true });
 		await tick();
-		expect(onchange).toHaveBeenCalledWith(9);
+		expect(onchange).not.toHaveBeenCalled();
+		expect(ondraft).not.toHaveBeenCalled();
 		expect(slider.disabled).toBe(true);
-		// The pending idle timer must not fire a second commit later.
+		// internalValue must reset back to the committed value (5) via the
+		// sync effect once isDragging is false.
+		expect(slider.value).toBe('5');
+		// The pending idle/throttle timers must not fire stale callbacks.
 		vi.advanceTimersByTime(PREVIEW_IDLE_COMMIT_MS + 50);
-		expect(onchange).toHaveBeenCalledTimes(1);
+		expect(onchange).not.toHaveBeenCalled();
+		expect(ondraft).not.toHaveBeenCalled();
 	});
 
 	it('live policy: ondraft fires immediately with the new value', async () => {

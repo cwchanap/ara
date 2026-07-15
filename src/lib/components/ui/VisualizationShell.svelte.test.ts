@@ -630,6 +630,15 @@ describe('VisualizationShell', () => {
 			expect(screen.getByTestId('snapshot-stub')).not.toBeDisabled();
 		});
 
+		it('status badge has role="status" and aria-live="polite" for screen readers', () => {
+			setMockPageUrl('http://localhost/henon');
+			render(DragStateShell, { props: { ...authedPageProps } as never });
+			const badge = screen.getByText('LIVE_RENDER');
+			const region = badge.closest('[role="status"]');
+			expect(region).not.toBeNull();
+			expect(region?.getAttribute('aria-live')).toBe('polite');
+		});
+
 		it('syncs draftValues to loaded values on config load (no stale draft after ?config=)', async () => {
 			// Without syncing draftValues after applyLoadedValues, a config load
 			// updates `values` but leaves draftValues at the prior defaults —
@@ -733,6 +742,33 @@ describe('VisualizationShell', () => {
 				expect(screen.getByText('LIVE_RENDER')).toBeInTheDocument();
 			});
 			expect(screen.getByTestId('snapshot-stub')).not.toBeDisabled();
+		});
+
+		it('disables save and share buttons while renderState is rendering', async () => {
+			// Spec: save, share, and snapshot are all disabled while
+			// renderState === 'rendering' — not just snapshot.
+			setMockPageUrl('http://localhost/henon');
+			render(DragStateShell, { props: { ...authedPageProps } as never });
+
+			// At rest, all action buttons are enabled.
+			expect(screen.getByRole('button', { name: '🔗 Share' })).not.toBeDisabled();
+			expect(screen.getByRole('button', { name: '💾 Save' })).not.toBeDisabled();
+
+			// Trigger rendering state from the renderer snippet.
+			await fireEvent.click(screen.getByTestId('trigger-rendering'));
+			await waitFor(() => {
+				expect(screen.getByText(/RENDERING FULL QUALITY/)).toBeInTheDocument();
+			});
+			expect(screen.getByRole('button', { name: '🔗 Share' })).toBeDisabled();
+			expect(screen.getByRole('button', { name: '💾 Save' })).toBeDisabled();
+
+			// Returning to idle re-enables save and share.
+			await fireEvent.click(screen.getByTestId('trigger-idle'));
+			await waitFor(() => {
+				expect(screen.getByText('LIVE_RENDER')).toBeInTheDocument();
+			});
+			expect(screen.getByRole('button', { name: '🔗 Share' })).not.toBeDisabled();
+			expect(screen.getByRole('button', { name: '💾 Save' })).not.toBeDisabled();
 		});
 	});
 });
