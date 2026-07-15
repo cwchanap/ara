@@ -100,13 +100,12 @@
 		endDrag();
 	}
 
-	// Sync internalValue from external value changes — guarded by isDragging
+	// Sync internalValue from external value changes — guarded by isDragging.
+	// throttleTimer is only set in handleInput (which sets isDragging=true),
+	// and isDragging only clears via endDrag→commit (which clears throttleTimer),
+	// so a pending throttle and isDragging=false can never co-occur here.
 	$effect(() => {
 		if (isDragging) return; // internalValue is authoritative during drag
-		if (throttleTimer) {
-			clearTimeout(throttleTimer);
-			throttleTimer = null;
-		}
 		internalValue = value;
 	});
 
