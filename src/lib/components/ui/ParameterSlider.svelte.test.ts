@@ -426,6 +426,30 @@ describe('ParameterSlider', () => {
 		expect(onchange).toHaveBeenCalledWith(7);
 	});
 
+	it('pointerdown captures the pointer so release outside the input still commits', async () => {
+		vi.useFakeTimers();
+		const onchange = vi.fn();
+		render(ParameterSlider, {
+			props: {
+				id: 'test',
+				label: 'Test',
+				value: 5,
+				min: 0,
+				max: 10,
+				step: 1,
+				updatePolicy: 'preview' as const,
+				onchange
+			}
+		});
+		const slider = screen.getByTestId('slider-test') as HTMLInputElement;
+		// Stub setPointerCapture — jsdom may not implement it, so assign a
+		// mock directly to verify the handler calls it on pointerdown.
+		const captureSpy = vi.fn();
+		slider.setPointerCapture = captureSpy;
+		await fireEvent.pointerDown(slider);
+		expect(captureSpy).toHaveBeenCalled();
+	});
+
 	it('pointercancel: discards the in-progress draft and ends the drag', async () => {
 		vi.useFakeTimers();
 		const onchange = vi.fn();

@@ -140,11 +140,25 @@
 	// idle commit timer is not armed (pointer drags commit via `change` on
 	// release). Cleared on pointerup so subsequent keyboard edits arm the
 	// idle timer normally.
-	function handlePointerDown() {
+	//
+	// Capture the pointer on pointerdown so pointerup/pointercancel are
+	// delivered to this element even if the pointer is released outside the
+	// input (e.g. the user drags the slider thumb off the track and lets
+	// go, possibly returning to the original value so no `change` fires).
+	// Without capture, a release outside the element would never reach
+	// handlePointerUp, leaving isDragging and the manager entry active and
+	// the shell frozen with Save/Share/Snapshot disabled. endDrag's
+	// `if (!isDragging) return` guard keeps the pointerup→change sequence
+	// a single commit.
+	function handlePointerDown(event: PointerEvent) {
 		pointerActive = true;
 		if (idleTimer) {
 			clearTimeout(idleTimer);
 			idleTimer = null;
+		}
+		const el = event.currentTarget as HTMLElement | null;
+		if (el && typeof el.setPointerCapture === 'function' && event.pointerId != null) {
+			el.setPointerCapture(event.pointerId);
 		}
 	}
 
