@@ -366,6 +366,66 @@ describe('ParameterSlider', () => {
 		expect(onchange).toHaveBeenCalledWith(8);
 	});
 
+	it('pointerup without change: commits the drag so the slider does not stay stuck', async () => {
+		vi.useFakeTimers();
+		const onchange = vi.fn();
+		render(ParameterSlider, {
+			props: {
+				id: 'test',
+				label: 'Test',
+				value: 5,
+				min: 0,
+				max: 10,
+				step: 1,
+				updatePolicy: 'preview' as const,
+				onchange
+			}
+		});
+		const slider = screen.getByTestId('slider-test') as HTMLInputElement;
+		// Start a pointer drag — isDragging=true, pointerActive=true.
+		await fireEvent.pointerDown(slider);
+		await setSliderValue(slider, 8);
+		// Release the pointer WITHOUT a change event (e.g. the user drags
+		// away and back to the original value, so the browser does not fire
+		// change). handlePointerUp must call endDrag to commit the drag;
+		// otherwise isDragging stays true and the shell stays frozen.
+		await fireEvent.pointerUp(slider);
+		expect(onchange).toHaveBeenCalledWith(8);
+		// Advancing timers must not fire a stale idle commit — the drag
+		// already ended.
+		vi.advanceTimersByTime(PREVIEW_IDLE_COMMIT_MS + 50);
+		expect(onchange).toHaveBeenCalledTimes(1);
+	});
+
+	it('pointerup without change: no-op when no input preceded it (no drag started)', async () => {
+		vi.useFakeTimers();
+		const onchange = vi.fn();
+		render(ParameterSlider, {
+			props: {
+				id: 'test',
+				label: 'Test',
+				value: 5,
+				min: 0,
+				max: 10,
+				step: 1,
+				updatePolicy: 'preview' as const,
+				onchange
+			}
+		});
+		const slider = screen.getByTestId('slider-test') as HTMLInputElement;
+		// pointerdown with no input — isDragging stays false. pointerup
+		// must not fire onchange (endDrag returns early). pointerActive is
+		// cleared so a subsequent keyboard edit arms the idle timer.
+		await fireEvent.pointerDown(slider);
+		await fireEvent.pointerUp(slider);
+		expect(onchange).not.toHaveBeenCalled();
+		// A keyboard edit after the aborted pointer press must arm the idle
+		// timer and commit normally.
+		await setSliderValue(slider, 7);
+		vi.advanceTimersByTime(PREVIEW_IDLE_COMMIT_MS + 10);
+		expect(onchange).toHaveBeenCalledWith(7);
+	});
+
 	it('pointercancel: discards the in-progress draft and ends the drag', async () => {
 		vi.useFakeTimers();
 		const onchange = vi.fn();

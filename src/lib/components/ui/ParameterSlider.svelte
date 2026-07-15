@@ -148,8 +148,18 @@
 		}
 	}
 
+	// Commit the drag on pointerup. The `change` event is the normal commit
+	// path, but it does not fire when the pointer stream ends without a
+	// value change from the start of the interaction (e.g. the user drags
+	// away and back to the original value, or the browser drops the pointer
+	// without issuing pointercancel). Without this call isDragging and the
+	// manager entry would stay active, leaving the shell frozen in
+	// PREVIEW/FROZEN with Save/Share/Snapshot disabled. endDrag's
+	// `if (!isDragging) return` guard makes this a no-op if `change` already
+	// fired, so the normal pointerup→change sequence commits exactly once.
 	function handlePointerUp() {
 		pointerActive = false;
+		endDrag();
 	}
 
 	// Pointer cancellation (browser gesture takeover, touch interruption,
