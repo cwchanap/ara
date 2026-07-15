@@ -1,12 +1,12 @@
-import type { UpdatePolicy } from './viz/types';
+import type { UpdatePolicy } from '$lib/viz/types';
 import { SvelteMap } from 'svelte/reactivity';
 
 export type Fidelity = 'preview' | 'full';
 
 export interface DragState {
-	fidelity: Fidelity;
-	commitDragging: boolean;
-	anyDragging: boolean;
+	readonly fidelity: Fidelity;
+	readonly commitDragging: boolean;
+	readonly anyDragging: boolean;
 }
 
 export type RenderState = 'idle' | 'rendering' | 'complete';
@@ -31,7 +31,7 @@ export class SliderDragManager {
 		anyDragging: false
 	});
 
-	get currentState(): DragState {
+	get currentState(): Readonly<DragState> {
 		return this._state;
 	}
 

@@ -160,7 +160,7 @@
 	setContext('slider-drag-manager', dragManager);
 
 	const draftValues = $state(paramDefaults(paramDefs));
-	const dragState = $derived<DragState>(dragManager.currentState);
+	const dragState = $derived<Readonly<DragState>>(dragManager.currentState);
 	let renderState = $state<RenderState>('idle');
 
 	const onRenderStateChange = (s: RenderState) => {
