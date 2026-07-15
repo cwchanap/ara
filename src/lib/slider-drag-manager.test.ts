@@ -4,14 +4,14 @@ import { SliderDragManager } from './slider-drag-manager.svelte';
 describe('SliderDragManager', () => {
 	it('defaults to full fidelity and no commit drag', () => {
 		const mgr = new SliderDragManager();
-		expect(mgr.getState()).toEqual({ fidelity: 'full', commitDragging: false });
+		expect(mgr.currentState).toEqual({ fidelity: 'full', commitDragging: false });
 	});
 
 	it('returns preview fidelity when a preview-policy slider is dragging', () => {
 		const mgr = new SliderDragManager();
 		const unregister = mgr.register('a', 'preview');
 		mgr.setDragging('a', true);
-		expect(mgr.getState().fidelity).toBe('preview');
+		expect(mgr.currentState.fidelity).toBe('preview');
 		unregister();
 	});
 
@@ -19,7 +19,7 @@ describe('SliderDragManager', () => {
 		const mgr = new SliderDragManager();
 		const unregister = mgr.register('speed', 'commit');
 		mgr.setDragging('speed', true);
-		expect(mgr.getState()).toEqual({ fidelity: 'full', commitDragging: true });
+		expect(mgr.currentState).toEqual({ fidelity: 'full', commitDragging: true });
 		unregister();
 	});
 
@@ -27,7 +27,7 @@ describe('SliderDragManager', () => {
 		const mgr = new SliderDragManager();
 		const unregister = mgr.register('x', 'live');
 		mgr.setDragging('x', true);
-		expect(mgr.getState()).toEqual({ fidelity: 'full', commitDragging: false });
+		expect(mgr.currentState).toEqual({ fidelity: 'full', commitDragging: false });
 		unregister();
 	});
 
@@ -36,7 +36,7 @@ describe('SliderDragManager', () => {
 		const unregister = mgr.register('a', 'preview');
 		mgr.setDragging('a', true);
 		mgr.setDragging('a', false);
-		expect(mgr.getState()).toEqual({ fidelity: 'full', commitDragging: false });
+		expect(mgr.currentState).toEqual({ fidelity: 'full', commitDragging: false });
 		unregister();
 	});
 
@@ -46,11 +46,11 @@ describe('SliderDragManager', () => {
 		const unreg2 = mgr.register('b', 'commit');
 		mgr.setDragging('a', true);
 		mgr.setDragging('b', true);
-		expect(mgr.getState()).toEqual({ fidelity: 'preview', commitDragging: true });
+		expect(mgr.currentState).toEqual({ fidelity: 'preview', commitDragging: true });
 		mgr.setDragging('a', false);
-		expect(mgr.getState()).toEqual({ fidelity: 'full', commitDragging: true });
+		expect(mgr.currentState).toEqual({ fidelity: 'full', commitDragging: true });
 		mgr.setDragging('b', false);
-		expect(mgr.getState()).toEqual({ fidelity: 'full', commitDragging: false });
+		expect(mgr.currentState).toEqual({ fidelity: 'full', commitDragging: false });
 		unreg1();
 		unreg2();
 	});
@@ -59,14 +59,14 @@ describe('SliderDragManager', () => {
 		const mgr = new SliderDragManager();
 		const unregister = mgr.register('a', 'preview');
 		mgr.setDragging('a', true);
-		expect(mgr.getState().fidelity).toBe('preview');
+		expect(mgr.currentState.fidelity).toBe('preview');
 		unregister();
-		expect(mgr.getState()).toEqual({ fidelity: 'full', commitDragging: false });
+		expect(mgr.currentState).toEqual({ fidelity: 'full', commitDragging: false });
 	});
 
 	it('ignores setDragging for unknown slider IDs', () => {
 		const mgr = new SliderDragManager();
 		mgr.setDragging('unknown', true);
-		expect(mgr.getState()).toEqual({ fidelity: 'full', commitDragging: false });
+		expect(mgr.currentState).toEqual({ fidelity: 'full', commitDragging: false });
 	});
 });

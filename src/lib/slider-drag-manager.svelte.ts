@@ -41,10 +41,6 @@ export class SliderDragManager {
 		this.recompute();
 	}
 
-	getState(): DragState {
-		return this.currentState;
-	}
-
 	private recompute(): void {
 		const draggingPolicies = [...this.dragging.values()];
 		const next: DragState = {
