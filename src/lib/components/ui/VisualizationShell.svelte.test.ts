@@ -10,6 +10,7 @@ import {
 } from '$lib/components/testing/page-test-helpers';
 import VisualizationShell from './VisualizationShell.svelte';
 import PageOwnedSliderShell from '$lib/components/testing/PageOwnedSliderShell.svelte';
+import DragStateShell from '$lib/components/testing/DragStateShell.svelte';
 import type { ParamDef } from '$lib/viz/types';
 
 vi.mock('$app/stores', async () => {
@@ -28,7 +29,7 @@ vi.mock('$lib/components/ui/ShareDialog.svelte', async () => ({
 	default: (await import('$lib/components/testing/DialogStub.svelte')).default
 }));
 vi.mock('$lib/components/ui/SnapshotButton.svelte', async () => ({
-	default: (await import('$lib/components/testing/StubComponent.svelte')).default
+	default: (await import('$lib/components/testing/SnapshotButtonStub.svelte')).default
 }));
 
 // Mock saved-config-loader so we can drive the inline `?config=` path
@@ -619,14 +620,82 @@ describe('VisualizationShell', () => {
 	});
 
 	describe('slider policy infrastructure', () => {
-		it('disables save/share/snapshot buttons during drag', async () => {
-			// This test verifies the shell provides the SliderDragManager context
-			// and disables action buttons when drag state changes.
-			// Detailed test implementation will use a test wrapper that
-			// accesses the context-provided manager and simulates dragging.
-			// For now, verify the shell renders without errors with the new props.
-			const { container } = renderShell();
-			expect(container).toBeInTheDocument();
+		it('shows LIVE_RENDER status badge at rest', () => {
+			setMockPageUrl('http://localhost/henon');
+			render(DragStateShell, { props: { ...authedPageProps } as never });
+			expect(screen.getByText('LIVE_RENDER')).toBeInTheDocument();
+			// Action buttons are enabled at rest (fidelity 'full', not dragging).
+			expect(screen.getByRole('button', { name: '🔗 Share' })).not.toBeDisabled();
+			expect(screen.getByRole('button', { name: '💾 Save' })).not.toBeDisabled();
+			expect(screen.getByTestId('snapshot-stub')).not.toBeDisabled();
+		});
+
+		it('shows PREVIEW badge, fires ondraft into draftValues, and disables action buttons during a preview drag', async () => {
+			setMockPageUrl('http://localhost/henon');
+			const { container } = render(DragStateShell, {
+				props: { ...authedPageProps } as never
+			});
+
+			// The preview-policy slider is `a` (id 'a').
+			const slider = container.querySelector('input[id="a"]') as HTMLInputElement;
+			await fireEvent.input(slider, { target: { value: '1.2' } });
+
+			// The drag manager subscribe callback updates dragState → fidelity
+			// becomes 'preview', surfacing the PREVIEW status badge.
+			await waitFor(() => {
+				expect(screen.getByText('PREVIEW')).toBeInTheDocument();
+			});
+
+			// Save / share / snapshot are disabled while a preview drag is active.
+			expect(screen.getByRole('button', { name: '🔗 Share' })).toBeDisabled();
+			expect(screen.getByRole('button', { name: '💾 Save' })).toBeDisabled();
+			expect(screen.getByTestId('snapshot-stub')).toBeDisabled();
+
+			// Advancing past the throttle window fires the slider's ondraft,
+			// which the shell routes into draftValues (draftValues[def.key] = v).
+			// There is no public surface for draftValues, so we assert the
+			// code path runs without error by advancing the throttle timer.
+			vi.advanceTimersByTime(150);
+		});
+
+		it('shows FROZEN badge and disables action buttons during a commit drag', async () => {
+			setMockPageUrl('http://localhost/henon');
+			const { container } = render(DragStateShell, {
+				props: { ...authedPageProps } as never
+			});
+
+			// The commit-policy slider is `b` (id 'b').
+			const slider = container.querySelector('input[id="b"]') as HTMLInputElement;
+			await fireEvent.input(slider, { target: { value: '0.4' } });
+
+			// commitDragging becomes true → FROZEN — RELEASE TO APPLY badge.
+			await waitFor(() => {
+				expect(screen.getByText(/FROZEN/)).toBeInTheDocument();
+			});
+			expect(screen.getByRole('button', { name: '🔗 Share' })).toBeDisabled();
+			expect(screen.getByRole('button', { name: '💾 Save' })).toBeDisabled();
+			expect(screen.getByTestId('snapshot-stub')).toBeDisabled();
+		});
+
+		it('reflects onRenderStateChange from the renderer in the status badge and snapshot disabled state', async () => {
+			setMockPageUrl('http://localhost/henon');
+			render(DragStateShell, { props: { ...authedPageProps } as never });
+
+			// The renderer snippet exposes a button that calls
+			// onRenderStateChange('rendering') → renderState updates → badge
+			// switches to RENDERING FULL QUALITY… and snapshot disables.
+			await fireEvent.click(screen.getByTestId('trigger-rendering'));
+			await waitFor(() => {
+				expect(screen.getByText(/RENDERING FULL QUALITY/)).toBeInTheDocument();
+			});
+			expect(screen.getByTestId('snapshot-stub')).toBeDisabled();
+
+			// Returning to idle restores the LIVE_RENDER badge and re-enables.
+			await fireEvent.click(screen.getByTestId('trigger-idle'));
+			await waitFor(() => {
+				expect(screen.getByText('LIVE_RENDER')).toBeInTheDocument();
+			});
+			expect(screen.getByTestId('snapshot-stub')).not.toBeDisabled();
 		});
 	});
 });
