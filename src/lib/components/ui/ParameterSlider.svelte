@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { PREVIEW_THROTTLE_MS, PREVIEW_IDLE_COMMIT_MS } from '$lib/constants';
 	import type { UpdatePolicy } from '$lib/viz/types';
-	import { SliderDragManager } from '$lib/slider-drag-manager';
+	import { SliderDragManager } from '$lib/slider-drag-manager.svelte';
 	import { getContext } from 'svelte';
 
 	interface Props {
@@ -33,7 +33,7 @@
 	}: Props = $props();
 
 	let internalValue = $state(value);
-	let isDragging = false;
+	let isDragging = $state(false);
 	let throttleTimer: ReturnType<typeof setTimeout> | null = null;
 	let idleTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -50,6 +50,9 @@
 			idleTimer = null;
 		}
 		value = internalValue;
+		// Live policy already fired ondraft/onchange on the final input event;
+		// re-firing here would duplicate the callback for the same value.
+		if (updatePolicy === 'live') return;
 		ondraft?.(internalValue);
 		onchange?.(internalValue);
 	}

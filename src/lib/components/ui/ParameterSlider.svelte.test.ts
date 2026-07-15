@@ -142,6 +142,14 @@ describe('ParameterSlider', () => {
 		rerender({ value: 3 });
 		await tick();
 		expect(slider.value).toBe('7');
+		// Release the drag — endDrag → commit clears timers and commits 7.
+		// isDragging reverts to false so the sync effect resumes tracking value.
+		await releaseSlider(slider);
+		// An external value change after release must now sync into the slider,
+		// confirming the guard is lifted once the drag ends.
+		rerender({ value: 9 });
+		await tick();
+		expect(slider.value).toBe('9');
 	});
 
 	it('preview policy: releasing the slider clears the pending throttle and commits the value', async () => {

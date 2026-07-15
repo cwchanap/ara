@@ -656,6 +656,16 @@ describe('VisualizationShell', () => {
 			// There is no public surface for draftValues, so we assert the
 			// code path runs without error by advancing the throttle timer.
 			vi.advanceTimersByTime(150);
+
+			// Release the slider → endDrag → dragManager.setDragging(false) →
+			// fidelity reverts to 'full' → action buttons re-enable.
+			await fireEvent.change(slider);
+			await waitFor(() => {
+				expect(screen.getByText('LIVE_RENDER')).toBeInTheDocument();
+			});
+			expect(screen.getByRole('button', { name: '🔗 Share' })).not.toBeDisabled();
+			expect(screen.getByRole('button', { name: '💾 Save' })).not.toBeDisabled();
+			expect(screen.getByTestId('snapshot-stub')).not.toBeDisabled();
 		});
 
 		it('shows FROZEN badge and disables action buttons during a commit drag', async () => {
