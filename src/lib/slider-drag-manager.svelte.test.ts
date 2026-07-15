@@ -147,4 +147,23 @@ describe('SliderDragManager', () => {
 			anyDragging: false
 		});
 	});
+
+	it('cancelSignal starts at 0 and increments on each cancelActiveDrags', () => {
+		const mgr = new SliderDragManager();
+		expect(mgr.cancelSignal).toBe(0);
+		mgr.cancelActiveDrags();
+		expect(mgr.cancelSignal).toBe(1);
+		mgr.cancelActiveDrags();
+		expect(mgr.cancelSignal).toBe(2);
+	});
+
+	it('cancelActiveDrags does not alter the drag state', () => {
+		// The cancel signal is a separate reactive counter; cancelling must
+		// not flip fidelity/commitDragging/anyDragging (a slider with no
+		// active drag treats the signal as a no-op).
+		const mgr = new SliderDragManager();
+		const before = { ...mgr.currentState };
+		mgr.cancelActiveDrags();
+		expect(mgr.currentState).toEqual(before);
+	});
 });

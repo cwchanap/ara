@@ -229,6 +229,13 @@
 						for (const def of paramDefs) {
 							draftValues[def.key] = values[def.key];
 						}
+						// Cancel any in-progress slider drag so a stale draft does
+						// not overwrite the newly loaded configuration on release
+						// (commit writes `value = internalValue`, which would clobber
+						// the loaded config). The signal is read by each
+						// ParameterSlider's cancel $effect, which calls cancelDrag —
+						// a no-op when the slider is not mid-drag.
+						dragManager.cancelActiveDrags();
 						// Restore non-slider state (selects, checkboxes, presets) from
 						// the raw loaded params. Runs under untrack because the page
 						// callback reads/writes $state — without it, reads inside the

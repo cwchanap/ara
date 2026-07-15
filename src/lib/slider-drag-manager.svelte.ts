@@ -31,8 +31,33 @@ export class SliderDragManager {
 		anyDragging: false
 	});
 
+	// Monotonically increasing counter incremented by cancelActiveDrags.
+	// Each ParameterSlider reads it in a $effect so a config-load cancel
+	// propagates reactively without the manager needing per-slider
+	// callbacks. Sliders compare it against their last-seen value and
+	// discard an in-progress draft only when it actually changes — so a
+	// drag starting (isDragging false→true) does NOT spuriously cancel.
+	private _cancelSignal = $state(0);
+
 	get currentState(): Readonly<DragState> {
 		return this._state;
+	}
+
+	get cancelSignal(): number {
+		return this._cancelSignal;
+	}
+
+	/**
+	 * Signal every registered slider to discard any in-progress drag.
+	 * Called by VisualizationShell when an external committed value
+	 * (config load via `?config`, `configId`, or `share`) replaces the
+	 * bound `values` — so a stale draft does not overwrite the newly
+	 * loaded configuration when the pointer is released. Sliders that
+	 * are not mid-drag treat the signal as a no-op (cancelDrag returns
+	 * early when isDragging is false).
+	 */
+	cancelActiveDrags(): void {
+		this._cancelSignal++;
 	}
 
 	register(id: string, policy: UpdatePolicy): () => void {

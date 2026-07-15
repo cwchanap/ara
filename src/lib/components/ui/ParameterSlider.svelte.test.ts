@@ -517,6 +517,77 @@ describe('ParameterSlider', () => {
 		expect(onchange).toHaveBeenCalledWith(7);
 	});
 
+	it('lostpointercapture without a preceding pointerup: discards the in-progress draft', async () => {
+		vi.useFakeTimers();
+		const onchange = vi.fn();
+		const ondraft = vi.fn();
+		render(ParameterSlider, {
+			props: {
+				id: 'test',
+				label: 'Test',
+				value: 5,
+				min: 0,
+				max: 10,
+				step: 1,
+				updatePolicy: 'preview' as const,
+				ondraft,
+				onchange
+			}
+		});
+		const slider = screen.getByTestId('slider-test') as HTMLInputElement;
+		// Start a pointer drag — pointerActive=true so the idle commit timer
+		// is never armed (pointer drags commit via `change` on release).
+		await fireEvent.pointerDown(slider);
+		await setSliderValue(slider, 8);
+		// Fire lostpointercapture WITHOUT a preceding pointerup/pointercancel
+		// (e.g. capture stolen by another element, or the pointer removed
+		// implicitly). handlePointerCancel must discard the in-progress
+		// draft, clear drag state + timers, and restore the parent draft to
+		// the committed value (5) — otherwise isDragging stays true and the
+		// shell stays frozen with Save/Share/Snapshot disabled.
+		await fireEvent.lostPointerCapture(slider);
+		expect(onchange).not.toHaveBeenCalled();
+		expect(ondraft).toHaveBeenCalledWith(5);
+		// internalValue reverts to the committed value via the sync effect
+		// once isDragging is false.
+		expect(slider.value).toBe('5');
+		// Advancing timers must not fire any stale commit — the drag was
+		// discarded, not committed.
+		vi.advanceTimersByTime(PREVIEW_IDLE_COMMIT_MS + 50);
+		expect(onchange).not.toHaveBeenCalled();
+	});
+
+	it('lostpointercapture after a normal pointerup is a no-op (no double commit)', async () => {
+		vi.useFakeTimers();
+		const onchange = vi.fn();
+		render(ParameterSlider, {
+			props: {
+				id: 'test',
+				label: 'Test',
+				value: 5,
+				min: 0,
+				max: 10,
+				step: 1,
+				updatePolicy: 'preview' as const,
+				onchange
+			}
+		});
+		const slider = screen.getByTestId('slider-test') as HTMLInputElement;
+		// Normal pointer drag: pointerdown → input → pointerup → change.
+		await fireEvent.pointerDown(slider);
+		await setSliderValue(slider, 8);
+		await fireEvent.pointerUp(slider);
+		await releaseSlider(slider);
+		expect(onchange).toHaveBeenCalledWith(8);
+		expect(onchange).toHaveBeenCalledTimes(1);
+		// The browser fires lostpointercapture AFTER pointerup. endDrag/
+		// commit already set isDragging=false, so handlePointerCancel →
+		// cancelDrag returns early — no second commit.
+		await fireEvent.lostPointerCapture(slider);
+		vi.advanceTimersByTime(PREVIEW_IDLE_COMMIT_MS + 50);
+		expect(onchange).toHaveBeenCalledTimes(1);
+	});
+
 	it('cancelDrag restores the parent draft after a throttled preview fired', async () => {
 		vi.useFakeTimers();
 		const ondraft = vi.fn();
