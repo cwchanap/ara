@@ -33,7 +33,7 @@ Each application shears the plane then wraps via modular identification (torus t
 | Map parameters | Classic fixed Γ only (not generalized `k` / `a,b`) |
 | Animation controls | Baker-style: `pointCount`, `speed`, pause, step, reset, randomize |
 | Persisted params | `pointCount`, `speed` only |
-| Auto-reset cycle | **None** (unlike Baker's binary-collapse auto-reset; mod-1 keeps points on the torus) |
+| Auto-reset cycle | **None** (points stay spread under mod-1 — no visual collapse like Baker; numerical fidelity still degrades ~40 steps) |
 
 ### Explicit non-goals (v1)
 
@@ -52,6 +52,8 @@ Each application shears the plane then wraps via modular identification (torus t
 | `src/routes/arnold-cat/compare/+page.svelte` | Side-by-side comparison route |
 | `src/lib/components/visualizations/ArnoldCatRenderer.svelte` | Canvas-based animated renderer |
 | `src/lib/components/visualizations/ArnoldCatRenderer.svelte.test.ts` | Renderer unit tests |
+| `src/routes/arnold-cat-page-interactions.svelte.test.ts` | Page interaction + config-load tests (mirror Baker) |
+| `src/routes/arnold-cat-compare-interactions.svelte.test.ts` | Compare-page interaction tests (mirror Baker) |
 | `drizzle/0013_add_arnold_cat_map_type.sql` | DB migration: add `'arnold-cat'` to both CHECK constraints |
 
 ### Modified files
@@ -63,8 +65,12 @@ Each application shears the plane then wraps via modular identification (torus t
 | `src/lib/comparison-url-state.ts` | Add `'arnold-cat'` case in exhaustive `getDefaultParameters` switch |
 | `src/routes/+page.svelte` | Add homepage card |
 | `drizzle/meta/_journal.json` | Add entry `{ idx: 13, tag: '0013_add_arnold_cat_map_type' }` |
-| `src/lib/server/db/schema.test.ts` | Update journal test tag from `0012` to `0013` |
-| `src/lib/types.test.ts` (and any exhaustive map-type lists) | Expect `'arnold-cat'` |
+| `src/lib/server/db/schema.test.ts` | Update journal test **name**, tag `0012`→`0013`, and idx `12`→`13` |
+| `src/lib/types.test.ts` | Add `'arnold-cat'` to the `EXPECTED_MAP_TYPES` array (lines 12–31); also add display-name assertion for `ARNOLD_CAT_MAP` if the file has per-type display checks |
+| `src/lib/api-validation.test.ts` | Add `'arnold-cat'` to the bi-directional `expectedTypes` list (lines 278–297); length must stay equal to `VALID_MAP_TYPES` |
+| `src/routes/page.svelte.test.ts` | Bump hard-coded card/CTA counts from **18→19**; add `{ name: 'Arnold Cat Map', url: '/arnold-cat' }` to the local `visualizations` array |
+| `src/lib/chaos-validation.test.ts` | Add `'arnold-cat'` parameter validation suite (mirror `describe('bakers-map parameter validation')`) |
+| `src/lib/comparison-url-state.test.ts` | Add `'arnold-cat'` to any exhaustive type lists; add `describe('arnold-cat comparison URL round-trip')` (mirror Baker) |
 
 ## Design
 
@@ -126,7 +132,11 @@ Mirror the `0012_add_bakers_map_map_type.sql` pattern: drop and re-add both CHEC
 
 Add the journal entry to `drizzle/meta/_journal.json` manually (`{ idx: 13, when: <timestamp>, tag: '0013_add_arnold_cat_map_type', breakpoints: true }`). **Do NOT run `drizzle-kit generate`** — the metadata snapshots stop at `0002_snapshot.json`; migrations `0003`–`0012` are manual SQL + journal entries only. Running `drizzle-kit generate` against the stale snapshot chain would create an unrelated or additional migration. Mirror `0012` exactly: SQL file + journal entry, no snapshot.
 
-Update `schema.test.ts` journal tag from `'0012_add_bakers_map_map_type'` to `'0013_add_arnold_cat_map_type'` and `idx` from `12` to `13`.
+Update `schema.test.ts`:
+
+- Journal tag from `'0012_add_bakers_map_map_type'` → `'0013_add_arnold_cat_map_type'`
+- `idx` from `12` → `13`
+- Test **description string** from `'drizzle journal registers the 0012 bakers-map migration'` → something like `'drizzle journal registers the 0013 arnold-cat migration'` (a literal tag/idx-only find-replace leaves a stale name)
 
 ### Renderer (`src/lib/components/visualizations/ArnoldCatRenderer.svelte`)
 
@@ -142,7 +152,14 @@ A canvas-based animated component, architecturally parallel to `BakersMapRendere
 
 **Precision / iteration policy:**
 
-Unlike Baker's Map (which left-shifts binary digits of `x` and collapses after ~52 iterations in Float64), Arnold Cat Map uses modular arithmetic and keeps points on the torus indefinitely. **Do not implement a silent auto-reset cycle.** The iteration counter increments without wrapping; the user uses **Reset** or **Randomize** to restart the demo.
+The Cat Map matrix `[[1,1],[1,2]]` has largest eigenvalue λ = (3 + √5) / 2 ≈ 2.618 (φ²). Each step expands distances by ~λ, so Float64 orbits lose numerical fidelity after roughly `52 / log₂(λ) ≈ 37` iterations — **sooner than** Baker's ~52-iteration binary-digit collapse, not later. Boundedness (values stay in `[0,1)` via mod 1) must not be confused with fidelity: past ~40 iterations the plot is only an approximate mixing animation.
+
+**Do not implement a silent auto-reset cycle.** Justification is visual, not numerical:
+
+- Baker's Map: after enough steps, `x` collapses toward 0 and the picture **degenerates** — auto-reset is required to keep the demo readable.
+- Cat Map: mod-1 wrap keeps points **spread** across the square. Beyond the fidelity horizon the image looks like uniform mixing noise rather than a collapse — acceptable for a mixing visualization without auto-reset.
+
+The iteration counter increments without wrapping; the user uses **Reset** or **Randomize** to restart. Educational copy may note that long orbits are numerically approximate (optional; not required in v1 UI chrome).
 
 **Color interpolation (precomputed at component scope):**
 
@@ -155,16 +172,25 @@ const interpCyanMagenta = d3.interpolate(COLOR_PRIMARY, COLOR_MAGENTA);
 
 At init/randomize: `pointColors[i] = interpCyanMagenta(initialY[i])`. Colors are fixed for the lifetime of a distribution so material identity is preserved while positions mix.
 
-**Arnold Cat Map step:**
+**Arnold Cat Map step (hot path must inline — no tuple allocations):**
+
+The math is `x' = (x + y) mod 1`, `y' = (x + 2y) mod 1`. **Do not** implement a helper that returns `[nx, ny]` and destructure it inside the loop — that allocates a 2-element array per point per step (up to ~`pointCount * speed` allocations/frame at 10k×10). Match Baker: **inline** the modular arithmetic into the typed-array loop:
 
 ```typescript
-function applyArnoldCat(x: number, y: number): [number, number] {
-	// Inputs stay in [0,1) for classic forward orbit from uniform samples
-	const nx = (x + y) % 1;
-	const ny = (x + 2 * y) % 1;
-	return [nx, ny];
+function applyStep() {
+	const count = currentX.length;
+	for (let i = 0; i < count; i++) {
+		const x = currentX[i];
+		const y = currentY[i];
+		// Classic Cat Map; inputs stay in [0,1) for forward orbit from uniform samples
+		currentX[i] = (x + y) % 1;
+		currentY[i] = (x + 2 * y) % 1;
+	}
+	iterationCount += 1;
 }
 ```
+
+(Any named `applyArnoldCat` in comments or unit helpers is illustrative only; the production RAF/`stepSignal` path must use the inlined form above.)
 
 **Animation loop (`requestAnimationFrame`):**
 
@@ -178,10 +204,15 @@ let iterationLabel: HTMLDivElement;
 let lastLabelUpdate = 0;
 // Inside RAF loop:
 if (timestamp - lastLabelUpdate > 100) {
-	iterationLabel.textContent = `ITERATION: ${iterationCount}`;
+	if (iterationLabel) {
+		// eslint-disable-next-line svelte/no-dom-manipulating
+		iterationLabel.textContent = `ITERATION: ${iterationCount}`;
+	}
 	lastLabelUpdate = timestamp;
 }
 ```
+
+The `eslint-disable-next-line svelte/no-dom-manipulating` comment is **required** — Baker uses it (`BakersMapRenderer.svelte`); without it, lint-staged fails on commit.
 
 Static badge: `LIVE_RENDER // CANVAS_2D` (alongside the dynamic iteration label).
 
@@ -289,11 +320,23 @@ function buildParameters(): ArnoldCatParameters {
 
 ### Compare Route (`src/routes/arnold-cat/compare/+page.svelte`)
 
-Every map's `VisualizationShell` renders a Compare button linking to `/{mapType}/compare`. Follow the established compare page pattern (see `src/routes/bakers-map/compare/+page.svelte` and `src/routes/tinkerbell/compare/+page.svelte`): two side-by-side `ArnoldCatRenderer` instances with their own parameter panels, URL state via `decodeComparisonState` / `encodeComparisonState`, left/right `pointCount` and `speed` sliders, debounced URL sync.
+Every map's `VisualizationShell` renders a Compare button linking to `/{mapType}/compare`. **Clone `src/routes/bakers-map/compare/+page.svelte` and rename types/map ids** — do not invent a thinner compare page. Required pieces (all present on Baker):
+
+| Piece | Role |
+|-------|------|
+| `ComparisonLayout` | Two-panel shell chrome |
+| `ComparisonParameterPanel` | Left/right parameter UI |
+| `ArnoldCatRenderer` × 2 | Side-by-side animated clouds |
+| `decodeComparisonState` / `encodeComparisonState` / `getDefaultParameters` | URL state |
+| `getStableRanges('arnold-cat')` | Range source for clamping |
+| `clampParams` helper | Clamp extreme URL values before `$state` (same as Baker: `clampValue` with `Math.round` + finite check on `pointCount` and `speed`) |
+| Debounced `goto` (~300ms) | Sync left/right params to the compare URL with `replaceState` |
+
+Omitting `clampParams` is the most common regression when "following the pattern" from memory — URL-loaded extremes would bypass page-level safety the same way unclamped save/share loads do on the main route.
 
 ### Homepage Card (`src/routes/+page.svelte`)
 
-Add to `visualizations` array. Color distinct from Baker's `from-yellow-500 to-amber-600` and Chua's `from-red-500 to-amber-600`:
+Add to `visualizations` array:
 
 ```javascript
 {
@@ -301,13 +344,17 @@ Add to `visualizations` array. Color distinct from Baker's `from-yellow-500 to-a
 	description:
 		'An area-preserving map that scrambles images through stretch-and-fold dynamics',
 	url: '/arnold-cat',
-	color: 'from-rose-500 to-orange-500'
+	color: 'from-slate-400 to-cyan-600'
 }
 ```
 
+**Color rationale:** Prefer a **gradient pair** not already used. `from-rose-500 to-orange-500` is unique as a pair but overlaps rose with Chaos Esthetique (`from-pink-500 to-rose-600`) and orange with Bifurcation-Logistic (`from-orange-500 to-red-600`). `from-slate-400 to-cyan-600` avoids those endpoints while staying on-brand (cyan sci-fi). If implementation prefers another unused pair, that is fine — check all 18 existing `color` strings in `+page.svelte` before finalizing.
+
 CTA styling follows existing cards (`Initialize Module` pattern already on the home page).
 
-### Tests (`src/lib/components/visualizations/ArnoldCatRenderer.svelte.test.ts`)
+### Tests
+
+#### Renderer (`src/lib/components/visualizations/ArnoldCatRenderer.svelte.test.ts`)
 
 Following the repo's testing conventions (Vitest + jsdom for `.svelte.test.ts` files):
 
@@ -319,11 +366,30 @@ Following the repo's testing conventions (Vitest + jsdom for `.svelte.test.ts` f
 - **paused state**: when `paused=true`, RAF loop does not advance iteration count
 - **No auto-reset test** (unlike Baker's Map — Cat Map has no silent `MAX_ITERATIONS` reseed)
 
-Additionally:
+#### Page / compare interactions (Baker parity)
 
-- `schema.test.ts` must pass after migration + journal updates (latest constraint-bearing migration is `0013`)
-- `types.test.ts` / comparison-url-state tests must include `'arnold-cat'`
+Mirror Baker's colocated route tests:
+
+| File | Mirrors |
+|------|---------|
+| `src/routes/arnold-cat-page-interactions.svelte.test.ts` | `bakers-map-page-interactions.svelte.test.ts` — sliders, pause/step/reset/randomize, stability reporter, `onExtraParametersLoaded` clamping |
+| `src/routes/arnold-cat-compare-interactions.svelte.test.ts` | `bakers-map-compare-interactions.svelte.test.ts` — dual panels, URL sync, clamp on load |
+
+#### Hard-coded count / list updates (will fail without these)
+
+| File | Required change |
+|------|-----------------|
+| `src/routes/page.svelte.test.ts` | `toHaveLength(18)` → `19` in **two** places (all links + all "Initialize Module" CTAs); add Arnold Cat entry to the local `visualizations` array used by the per-card link loop |
+| `src/lib/api-validation.test.ts` | Add `'arnold-cat'` to `expectedTypes` (bi-directional equality with `VALID_MAP_TYPES`) |
+| `src/lib/types.test.ts` | Add `'arnold-cat'` to `EXPECTED_MAP_TYPES` |
+| `src/lib/server/db/schema.test.ts` | Journal tag/idx **and** test name string for `0013` |
+| `src/lib/chaos-validation.test.ts` | New `describe('arnold-cat parameter validation')` suite (valid params, missing fields, out-of-range stability warnings) |
+| `src/lib/comparison-url-state.test.ts` | Exhaustive type list if present; new `describe('arnold-cat comparison URL round-trip')` (defaults, encode/decode, `buildComparisonUrl`, `createComparisonStateFromCurrent`) |
+
+#### Gate commands
+
 - `bun run check` must pass (exhaustive switches)
+- `bun run test` must pass (includes all of the above)
 
 No new Playwright e2e is required for v1 unless a later pass wants home-card or route smoke coverage.
 
@@ -350,4 +416,4 @@ No new Playwright e2e is required for v1 unless a later pass wants home-card or 
 - [ ] The module remains usable on desktop and mobile.
 - [ ] Compare button links to `/arnold-cat/compare` (not a 404).
 - [ ] `bun run check` passes (no TS errors from exhaustive switch).
-- [ ] `bun run test` passes (schema tests, renderer tests, type registration).
+- [ ] `bun run test` passes (schema, renderer, homepage 19-card counts, api-validation / types lists, chaos-validation + comparison-url-state suites, page/compare interaction tests).
