@@ -398,7 +398,7 @@
 			<div
 				role="status"
 				aria-live="polite"
-				class="absolute top-4 left-4 text-xs font-['Rajdhani'] border border-primary/20 px-2 py-1 pointer-events-none select-none"
+				class="absolute bottom-4 left-4 text-xs font-['Rajdhani'] border border-primary/20 px-2 py-1 pointer-events-none select-none"
 			>
 				{#if dragState.commitDragging}
 					FROZEN — RELEASE TO APPLY
