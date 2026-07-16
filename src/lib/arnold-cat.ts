@@ -22,6 +22,11 @@ export function applyArnoldCatStepInPlace(
 	}
 }
 
+/**
+ * Library primitive: inverse of `applyArnoldCatStepInPlace` (matrix [[2,-1],[-1,1]]).
+ * Not called by the renderer, which only runs the forward map; exported as a
+ * reusable, test-covered primitive for orbit-reversal / periodicity tooling.
+ */
 export function applyArnoldCatInverseInPlace(
 	xs: Uint32Array,
 	ys: Uint32Array,
