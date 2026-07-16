@@ -111,6 +111,12 @@
 			description: 'A stretch-cut-stack map that demonstrates chaotic mixing in phase space',
 			url: '/bakers-map',
 			color: 'from-yellow-500 to-amber-600'
+		},
+		{
+			name: 'Arnold Cat Map',
+			description: 'An area-preserving map that scrambles images through stretch-and-fold dynamics',
+			url: '/arnold-cat',
+			color: 'from-slate-400 to-cyan-600'
 		}
 	];
 </script>
