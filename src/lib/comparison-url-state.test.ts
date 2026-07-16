@@ -31,7 +31,8 @@ import type {
 	DoublePendulumParameters,
 	GumowskiMiraParameters,
 	TinkerbellParameters,
-	BakersMapParameters
+	BakersMapParameters,
+	ArnoldCatParameters
 } from './types';
 
 describe('getDefaultParameters', () => {
@@ -1330,7 +1331,8 @@ describe('createComparisonStateFromCurrent – additional cases', () => {
 			'clifford',
 			'gumowski-mira',
 			'tinkerbell',
-			'bakers-map'
+			'bakers-map',
+			'arnold-cat'
 		] as const;
 
 		for (const mapType of mapTypes) {
@@ -1680,5 +1682,70 @@ describe('bakers-map comparison URL round-trip', () => {
 		expect((state.left as BakersMapParameters).speed).toBe(8);
 		expect((state.right as BakersMapParameters).pointCount).toBe(3000);
 		expect((state.right as BakersMapParameters).speed).toBe(1);
+	});
+});
+
+describe('arnold-cat comparison URL round-trip', () => {
+	test('getDefaultParameters returns correct arnold-cat defaults', () => {
+		const params = getDefaultParameters('arnold-cat') as ArnoldCatParameters;
+		expect(params.type).toBe('arnold-cat');
+		expect(params.pointCount).toBe(3000);
+		expect(params.speed).toBe(5);
+	});
+
+	test('round-trips a arnold-cat comparison state through the URL', () => {
+		const left: ArnoldCatParameters = {
+			type: 'arnold-cat',
+			pointCount: 5000,
+			speed: 10
+		};
+		const right: ArnoldCatParameters = {
+			type: 'arnold-cat',
+			pointCount: 1000,
+			speed: 2
+		};
+		const encoded = encodeComparisonState({ compare: true, left, right });
+		const url = new URL(`http://localhost/arnold-cat/compare?${encoded.toString()}`);
+		const decoded = decodeComparisonState(url, 'arnold-cat');
+		expect(decoded?.left).toMatchObject(left);
+		expect(decoded?.right).toMatchObject(right);
+	});
+
+	test('buildComparisonUrl produces a parseable arnold-cat compare URL', () => {
+		const left: ArnoldCatParameters = {
+			type: 'arnold-cat',
+			pointCount: 2000,
+			speed: 3
+		};
+		const right: ArnoldCatParameters = {
+			type: 'arnold-cat',
+			pointCount: 8000,
+			speed: 15
+		};
+		const urlString = buildComparisonUrl('', 'arnold-cat', {
+			compare: true,
+			left,
+			right
+		});
+		expect(urlString).toContain('/arnold-cat/compare?');
+		const url = new URL(urlString, 'http://localhost');
+		const decoded = decodeComparisonState(url, 'arnold-cat');
+		expect(decoded?.left).toMatchObject(left);
+		expect(decoded?.right).toMatchObject(right);
+	});
+
+	test('createComparisonStateFromCurrent for arnold-cat uses defaults on right', () => {
+		const current: ArnoldCatParameters = {
+			type: 'arnold-cat',
+			pointCount: 7000,
+			speed: 8
+		};
+		const state = createComparisonStateFromCurrent('arnold-cat', current);
+		expect(state.left).toMatchObject(current);
+		expect(state.right).toMatchObject({
+			type: 'arnold-cat',
+			pointCount: 3000,
+			speed: 5
+		});
 	});
 });
