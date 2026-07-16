@@ -10,8 +10,8 @@ Implement **Arnold Cat Map** as a new chaotic map visualization module at `/arno
 
 **Critical divergences from Baker** (do not copy these Baker choices blindly):
 
-1. **Exact discrete coordinates** (`Uint32Array` mod \(2^{32}\)), not `Float64` on `[0,1)` — preserves the bijection indefinitely.
-2. **`speed` = steps per second** with a time accumulator, not steps per animation frame — frame-rate independent and watchable.
+1. **Exact discrete coordinates** (`Uint32Array` mod \(2^{32}\)), not `Float64` on `[0,1)` — exact bijection on the finite \(2^{32}\) grid (not continuous-orbit fidelity).
+2. **`speed` = steps per second** with a time accumulator, not steps per animation frame — **display-rate independent within normal FPS**, with an explicit hitch/background cap (`MAX_FRAME_DT`).
 3. **Pixel mapping** into `[0, width-1] × [0, height-1]`, not `py = (1-y)*h` which can land on `h` (off-canvas).
 
 ### Mathematical Definition
@@ -36,7 +36,7 @@ X' = (X + Y)     mod 2^32
 Y' = (X + 2Y)    mod 2^32
 ```
 
-In JavaScript/TypeScript this is native `Uint32` wrap via `>>> 0` (or writing into a `Uint32Array`). The matrix has integer coefficients and det = 1, so the map is an **exact bijection** on the discrete torus: forward orbits never lose information, and the inverse `[[2,-1],[-1,1]]` recovers the start state after any number of steps.
+In JavaScript/TypeScript this is native `Uint32` wrap via `>>> 0` (or writing into a `Uint32Array`). The matrix has integer coefficients and det = 1, so the map is an **exact bijection** on the finite discrete torus \((\mathbb{Z}/2^{32}\mathbb{Z})^2\): no rounding error *within that model*, forward orbits are reversible by `[[2,-1],[-1,1]]`, and every orbit is eventually periodic (finite state space). This is **not** the continuous torus dynamics — quantization to the \(2^{32}\) grid is intentional.
 
 Display maps discrete coords to the unit square for painting:
 
@@ -52,10 +52,11 @@ Each application shears then wraps (torus topology). Nearby points diverge expon
 |----------|--------|
 | Visualization mode | Random point cloud (not image scramble, not lattice) |
 | Map parameters | Classic fixed Γ only (not generalized `k` / `a,b`) |
-| Coordinate representation | **`Uint32Array` on \(2^{32}\) torus** (exact bijection); paint via `/ 2^32` |
+| Coordinate representation | **`Uint32Array` on \(2^{32}\) torus** (exact discrete model / bijection); paint via `/ 2^32` |
 | Animation controls | `pointCount`, `speed` (**steps/sec**), pause, step, reset, randomize |
 | Persisted params | `pointCount`, `speed` only |
-| Auto-reset cycle | **None** (exact discrete dynamics — no fidelity horizon to manage) |
+| Auto-reset cycle | **None** (exact discrete model has no Float64 fidelity horizon; finite-state periodicity is expected) |
+| Accumulator on reset/randomize | **Always clear `acc = 0`** (no stale fractional step after restart) |
 
 ### Explicit non-goals (v1)
 
@@ -63,7 +64,8 @@ Each application shears then wraps (torus topology). Nearby points diverge expon
 - Generalized Cat Map parameters
 - Recurrence detection UI
 - Silent auto-reset after a max iteration count
-- Continuous `Float64` orbits on `[0,1)` (rejected: abandons mathematical fidelity after ~37 steps)
+- Continuous `Float64` orbits on `[0,1)` (rejected: abandons even discrete-model fidelity after ~37 steps)
+- Claiming the discrete model preserves continuous-orbit fidelity indefinitely (it does not)
 
 ## Files
 
@@ -210,7 +212,9 @@ export function torusToPixelY(coord: number, dim: number): number {
 }
 ```
 
-**Why not Float64 on `[0,1)`:** The continuous matrix has spectral radius λ ≈ 2.618. Float64 mantissa (~52 bits) loses orbit fidelity after roughly `52 / log₂(λ) ≈ 37` steps. At Baker-style “1 step per frame” @ 60 Hz that horizon arrives in **~0.6 s** (speed 10: ~0.06 s). That knowingly abandons the math while still claiming to animate the Cat Map. Integer coefficients make the `Uint32` discretization free of that tradeoff: verified 10 000 random points through 1 000 forward + 1 000 inverse steps with zero mismatches.
+**Why not Float64 on `[0,1)`:** The continuous matrix has spectral radius λ ≈ 2.618. Float64 mantissa (~52 bits) loses orbit fidelity after roughly `52 / log₂(λ) ≈ 37` steps. At Baker-style “1 step per frame” @ 60 Hz that horizon arrives in **~0.6 s** (speed 10: ~0.06 s). That knowingly abandons the math while still claiming to animate the Cat Map.
+
+**What `Uint32` actually buys:** an **exact discrete model** — bijection and zero rounding error on the finite \(2^{32}\) grid (verified 10 000 random points through 1 000 forward + 1 000 inverse steps with zero mismatches). It still introduces **quantization** relative to the continuous torus and **finite-state periodicity**. Do **not** describe this as preserving continuous-orbit fidelity indefinitely; say **exact discrete model** / **exact on the \(2^{32}\) torus**.
 
 ### Renderer (`src/lib/components/visualizations/ArnoldCatRenderer.svelte`)
 
@@ -224,8 +228,9 @@ Canvas + RAF component. Shell/controls still resemble Baker; **internals follow 
 
 **Precision / iteration policy:**
 
-- Exact discrete dynamics → **no silent auto-reset**, no fidelity warning UI required for long runs.
-- Iteration counter increments without wrapping; user **Reset** / **Randomize** restarts the visual demo.
+- Exact discrete model → **no silent auto-reset**, no “fidelity horizon” warning UI (unlike Float64 continuous orbits).
+- Finite-state periodicity is inherent and acceptable; user **Reset** / **Randomize** restarts the visual demo.
+- Iteration counter increments without wrapping for the session.
 
 **Color interpolation (precomputed at component scope):**
 
@@ -248,7 +253,7 @@ Baker’s “steps per frame” is **rejected** for this map. At default speed=1
 Follow the elapsed-time accumulator pattern in `DoublePendulumRenderer.svelte` (~line 221):
 
 ```typescript
-const MAX_FRAME_DT = 0.05; // seconds — avoid spiral-of-death after tab background
+const MAX_FRAME_DT = 0.05; // seconds — hitch / background tab cap (see below)
 const MAX_STEPS_PER_FRAME = 30; // hard cap even if speed is high / frame is long
 
 let last = 0;
@@ -281,8 +286,18 @@ function renderFrame(now: number) {
 
 - Default `speed = 5` → five map steps per second (watchable shear progression).
 - Range `1–30` steps/sec (persisted / validated).
-- `stepSignal` still applies **exactly one** map step (independent of the accumulator); do not drain `acc` on manual step unless needed for consistency (preferred: leave `acc` alone so pause+step is precise).
-- When `paused`, do not advance `acc` (or clear pending fractional steps — either is fine if documented; prefer **freeze acc** so resume continues smoothly).
+- `stepSignal` still applies **exactly one** map step (independent of the accumulator); **do not** drain or clear `acc` on manual step (pause+step stays precise; fractional time continues after resume).
+- When `paused`: **freeze `acc`** (do not add `frameDt * speed`; keep residual fraction for smooth resume).
+- **Reset / randomize / pointCount reinit: always `acc = 0`** (required, not optional). A stale fractional accumulator after reset would apply a free map step on the next frame and advance the iteration counter immediately — incorrect UX.
+
+**Display-rate independence (qualified):**
+
+Within normal interactive frame rates (about 20–120+ FPS, i.e. `frameDt ≤ MAX_FRAME_DT`), step count over wall time is determined by `speed` alone: the same elapsed seconds produce the same number of whole steps at 30 FPS vs 60 FPS (fractional remainder stays in `acc`).
+
+`MAX_FRAME_DT = 0.05` (20 FPS floor) **intentionally discards** excess elapsed time on long hitches and background tabs so the simulation does not “catch up” with a burst of hundreds of steps (`MAX_STEPS_PER_FRAME` is a second safety rail). Therefore:
+
+- Do **not** claim unconditional “frame-rate independence.”
+- Do claim: **display-rate independent for `frameDt ≤ MAX_FRAME_DT`**; under the cap, excess wall time is dropped (background/hitch policy).
 
 **Iteration label** via direct `textContent` (not `$state`), throttled ~100ms:
 
@@ -341,11 +356,15 @@ Signal `$effect`s use **prev-value guards** (skip Svelte 5 initial run) — same
 
 **Reactive behavior:**
 
-- `pointCount` change → clamp → reallocate → reseed → iteration = 0; reset `acc`
-- `speed` change → next frame’s accumulator rate only
-- `resetSignal` → copy initial → current; iteration = 0; optional `acc = 0`
-- `randomizeSignal` → new random initial + current; iteration = 0
-- `stepSignal` → one `applyArnoldCatStepInPlace`; iteration++
+| Event | Positions | `iterationCount` | `acc` |
+|-------|-----------|------------------|-------|
+| `pointCount` change | clamp → reallocate → reseed | `0` | **`0` (required)** |
+| `speed` change | unchanged | unchanged | unchanged (rate only) |
+| `resetSignal` | copy initial → current | `0` | **`0` (required)** |
+| `randomizeSignal` | new random initial + current | `0` | **`0` (required)** |
+| `stepSignal` | one `applyArnoldCatStepInPlace` | `++` | unchanged |
+| pause | frozen | frozen | frozen (residual kept) |
+| resume | continues | continues | continues from residual |
 
 ### Route Page (`src/routes/arnold-cat/+page.svelte`)
 
@@ -360,7 +379,7 @@ Uses `VisualizationShell` with page-managed sliders (same pattern as Baker's Map
 - `stabilityReporter`: Registered via `createStabilityReporter({ mapType: 'arnold-cat', getParams: () => buildParameters(), reactive: true })`
 - `formula`: `["x' = (x + y) mod 1", "y' = (x + 2y) mod 1"]` (educational continuous form; implementation uses exact \(2^{32}\) wrap)
 - `formulaColumns`: `2`
-- `description`: `{ heading: 'DATA_LOG: ARNOLD_CAT_MAP', body: 'Arnold\'s Cat Map is an area-preserving linear map on the unit torus. Each step shears the square via the matrix [[1,1],[1,2]] (determinant 1) and wraps coordinates. This visualization uses exact integer arithmetic on a fine discrete torus so orbits stay faithful indefinitely. The map stretches and folds phase space so nearby points diverge exponentially while overall density stays uniform — the same stretch-and-fold mechanism that classically scrambles images. Points are colored by their initial height so the shearing and mixing remain visible as iterations proceed.' }` (must be `{ heading: string; body: string }` per `VisualizationShell` Props)
+- `description`: `{ heading: 'DATA_LOG: ARNOLD_CAT_MAP', body: 'Arnold\'s Cat Map is an area-preserving linear map on the unit torus. Each step shears the square via the matrix [[1,1],[1,2]] (determinant 1) and wraps coordinates. This visualization uses an exact discrete model (integer arithmetic on a fine 2^32 torus) so the simulated map stays a precise bijection without floating-point orbit collapse. The map stretches and folds phase space so nearby points diverge exponentially while overall density stays uniform — the same stretch-and-fold mechanism that classically scrambles images. Points are colored by their initial height so the shearing and mixing remain visible as iterations proceed.' }` (must be `{ heading: string; body: string }` per `VisualizationShell` Props)
 - `isAuthenticated`: `!!data?.session`
 
 **Page-owned `$state`:**
@@ -458,6 +477,23 @@ Minimum fixtures:
 - **No auto-reset** after long iteration counts
 - Optional smoke: after forced steps, painted coords stay in-canvas (if test harness can inspect helpers)
 
+##### Steps/sec + accumulator tests (required — must fail a per-frame implementation)
+
+General RAF/pause/cleanup tests are **not** enough: a Baker-style “`speed` steps every frame” renderer would still pass them. Require **deterministic timestamp-driven** tests (fake `requestAnimationFrame` or export a testable `tick(nowMs)` / inject clock):
+
+| Test | Setup | Assertion |
+|------|--------|-----------|
+| 60 FPS pacing | `speed = 5`, unpaused; feed timestamps at 1000/60 ms for **1.0 s** wall time | `iterationCount === 5` (exactly 5 whole steps; residual `acc < 1`) |
+| 30 FPS pacing | same `speed = 5`; timestamps at 1000/30 ms for **1.0 s** | `iterationCount === 5` (same as 60 FPS — proves steps/sec, not steps/frame) |
+| Per-frame regression guard | `speed = 1`; 60 frames @ 60 FPS (~1 s) | `iterationCount === 1`, **not** 60 |
+| Fractional accumulation | `speed = 5`, `acc = 0`; frame A `dt = 0.1` s then frame B `dt = 0.1` s | after A: 0 whole steps, `acc = 0.5`; after B: 1 whole step, `acc = 0` |
+| `MAX_FRAME_DT` hitch | `speed = 30`, `acc = 0`; single frame with wall `dt = 1.0` s | credit only `MAX_FRAME_DT * speed = 0.05 * 30 = 1.5` → **1** whole step (`acc = 0.5`), **not** 30; excess wall time discarded |
+| Reset clears `acc` | run until `acc` has a fractional residual (e.g. after 50 ms at speed 5 → `acc = 0.25`); fire `resetSignal`; next short frame | **no** free step from stale residual; `iterationCount` stays 0 until enough new time accumulates |
+| Randomize clears `acc` | same residual setup; fire `randomizeSignal`; next short frame | same as reset — no immediate free step |
+| Pause freezes `acc` | build residual; pause for several frames; resume | residual preserved; no steps while paused |
+
+Implementation note: prefer injecting `now` into the frame callback (or a small pure `advanceSimulation(dt, state)` helper used by the RAF loop) so tests do not depend on real wall clocks.
+
 #### Page / compare interactions (Baker parity)
 
 | File | Mirrors |
@@ -502,8 +538,9 @@ No new Playwright e2e required for v1.
 - [ ] `/arnold-cat` renders without errors.
 - [ ] The visualization clearly shows repeated stretching/shearing/wrapping over iterations (watchable at default steps/sec; not washed out in <1s).
 - [ ] Iteration controls and reset work correctly (plus pause, step, randomize).
-- [ ] Dynamics use exact discrete Cat Map arithmetic (`Uint32` / \(2^{32}\) wrap), covered by pure math fixtures.
-- [ ] `speed` is steps **per second** (time accumulator), frame-rate independent.
+- [ ] Dynamics use an **exact discrete** Cat Map model (`Uint32` / \(2^{32}\) wrap), covered by pure math fixtures (not continuous-orbit fidelity claims).
+- [ ] `speed` is steps **per second** via a time accumulator; **display-rate independent for `frameDt ≤ MAX_FRAME_DT`** (30 FPS and 60 FPS tests produce the same step count over 1 s); long hitches/background drop excess time per `MAX_FRAME_DT`.
+- [ ] Reset and randomize both clear `acc` (no free step from residual); covered by tests.
 - [ ] Pixel mapping keeps all samples inside the drawable canvas (including `y = 0` and wrap-near-zero).
 - [ ] `pointCount` is clamped before every allocation.
 - [ ] The route includes short explanatory copy.
