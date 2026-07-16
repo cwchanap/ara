@@ -37,6 +37,17 @@ describe('applyArnoldCatStepInPlace', () => {
 		expect(xs[1]).toBe(9);
 		expect(ys[1]).toBe(9);
 	});
+
+	test('deterministic multi-step forward oracle (5 steps)', () => {
+		// Hand-computed via matrix [[1,1],[1,2]] repeated application.
+		// (1,0) follows Fibonacci pairs: (1,0)→(1,1)→(2,3)→(5,8)→(13,21)→(34,55)
+		// (0,1): (0,1)→(1,2)→(3,5)→(8,13)→(21,34)→(55,89)
+		const xs = new Uint32Array([1, 0]);
+		const ys = new Uint32Array([0, 1]);
+		for (let s = 0; s < 5; s++) applyArnoldCatStepInPlace(xs, ys);
+		expect(Array.from(xs)).toEqual([34, 55]);
+		expect(Array.from(ys)).toEqual([55, 89]);
+	});
 });
 
 describe('applyArnoldCatInverseInPlace', () => {

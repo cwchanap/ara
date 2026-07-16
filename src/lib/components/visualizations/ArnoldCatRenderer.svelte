@@ -54,8 +54,15 @@
 	let initialX = new Uint32Array(0);
 	let initialY = new Uint32Array(0);
 	let pointColors: string[] = [];
-	let acc = 0;
-	let iterationCount = 0;
+	// Single mutable sim object — avoids per-frame allocation (GC pressure).
+	// acc and iterationCount live on sim; advanceArnoldCatSimulation mutates them in place.
+	const sim: ArnoldCatSimState = {
+		xs: new Uint32Array(0),
+		ys: new Uint32Array(0),
+		acc: 0,
+		iterationCount: 0,
+		paused: false
+	};
 	let lastTimestamp: number | null = null;
 	/** Clamped length for tests / badge */
 	let activePointCount = $state(0);
@@ -89,15 +96,17 @@
 		pointColors = new Array(n);
 		seedPoints(n);
 		activePointCount = n;
-		iterationCount = 0;
-		acc = 0;
+		sim.xs = currentX;
+		sim.ys = currentY;
+		sim.iterationCount = 0;
+		sim.acc = 0;
 	}
 
 	function fillRandom() {
 		const count = currentX.length;
 		seedPoints(count);
-		iterationCount = 0;
-		acc = 0;
+		sim.iterationCount = 0;
+		sim.acc = 0;
 	}
 
 	function doReset() {
@@ -106,8 +115,8 @@
 			currentX[i] = initialX[i];
 			currentY[i] = initialY[i];
 		}
-		iterationCount = 0;
-		acc = 0;
+		sim.iterationCount = 0;
+		sim.acc = 0;
 	}
 
 	function doRandomize() {
@@ -116,7 +125,7 @@
 
 	function doStep() {
 		applyArnoldCatStepInPlace(currentX, currentY);
-		iterationCount++;
+		sim.iterationCount++;
 		// intentionally do not clear or change acc
 	}
 
@@ -130,16 +139,10 @@
 
 		const stepsPerSec = clampInt(speed, 1, 30);
 		if (!paused) {
-			const sim: ArnoldCatSimState = {
-				xs: currentX,
-				ys: currentY,
-				acc,
-				iterationCount,
-				paused: false
-			};
+			sim.xs = currentX;
+			sim.ys = currentY;
+			sim.paused = false;
 			advanceArnoldCatSimulation(sim, frameDt, stepsPerSec, MAX_FRAME_DT, MAX_STEPS_PER_FRAME);
-			acc = sim.acc;
-			iterationCount = sim.iterationCount;
 		}
 
 		if (canvas) {
@@ -158,7 +161,7 @@
 				if (now - lastLabelUpdate > 100) {
 					if (iterationLabel) {
 						// eslint-disable-next-line svelte/no-dom-manipulating
-						iterationLabel.textContent = `ITERATION: ${iterationCount}`;
+						iterationLabel.textContent = `ITERATION: ${sim.iterationCount}`;
 					}
 					lastLabelUpdate = now;
 				}

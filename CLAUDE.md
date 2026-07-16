@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a SvelteKit-based interactive web application that visualizes 12 different chaos theory mathematical systems (Lorenz, Rössler, Hénon, Lozi, Logistic, Newton, Standard, Bifurcation-Logistic, Bifurcation-Hénon, Chaos Esthetique, Lyapunov, Chua). The project reproduces Python-based chaos visualizations using modern web technologies, featuring real-time parameter manipulation and beautiful sci-fi-themed UI.
+This is a SvelteKit-based interactive web application that visualizes 19 different chaos theory mathematical systems (Lorenz, Rössler, Hénon, Lozi, Ikeda, Clifford, Tinkerbell, Logistic, Newton, Standard, Bifurcation-Logistic, Bifurcation-Hénon, Chaos Esthetique, Gumowski-Mira, Lyapunov, Chua, Double Pendulum, Baker's Map, Arnold Cat Map). The project reproduces Python-based chaos visualizations using modern web technologies, featuring real-time parameter manipulation and beautiful sci-fi-themed UI.
 
 ## Development Commands
 
@@ -214,6 +214,10 @@ The app uses a **sci-fi chaos theory aesthetic**:
 4. Add to `visualizations` array in `src/routes/+page.svelte`
 5. Include sci-fi themed UI (corner borders, cyan colors, Orbitron font)
 6. Add mathematical formula display in control panel
+
+### Compare Page Template
+
+When adding a `/visualization-name/compare` route, **use `src/routes/arnold-cat/compare/+page.svelte` as the canonical template**, not Baker's Map. The Arnold Cat compare page includes a reactive `$effect` that syncs slider state from external `$page.url` changes (browser back/forward, same-route links) via `untrack`, preventing slider edits from snapping back to the URL. It also cleans up the debounce timer on effect teardown. Older compare pages (e.g. Baker's Map) lacked this and would not respond to URL changes after mount.
 
 ### Performance Considerations
 

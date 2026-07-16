@@ -259,6 +259,82 @@ describe('ArnoldCatRenderer', () => {
 		target.remove();
 	});
 
+	test('randomizeSignal clears residual acc so short interval does not jump', async () => {
+		// Same residual-acc coverage as resetSignal, but for randomizeSignal.
+		// Design spec (line 492) requires both reset and randomize to clear acc.
+		let t = 0;
+		let autoAdvance = true;
+		let pendingBoostMs = 0;
+		vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+			const id = setTimeout(() => {
+				if (pendingBoostMs > 0) {
+					t += pendingBoostMs;
+					pendingBoostMs = 0;
+				} else if (autoAdvance) {
+					t += 50;
+				}
+				cb(t);
+			}, 0);
+			return id as unknown as number;
+		});
+		vi.stubGlobal('cancelAnimationFrame', (id: number) => {
+			clearTimeout(id);
+		});
+
+		const originalAdvance = arnoldCat.advanceArnoldCatSimulation;
+		const accOnEntry: number[] = [];
+		vi.spyOn(arnoldCat, 'advanceArnoldCatSimulation').mockImplementation(
+			(state, dtSeconds, stepsPerSec, maxFrameDt, maxStepsPerFrame) => {
+				accOnEntry.push(state.acc);
+				return originalAdvance(state, dtSeconds, stepsPerSec, maxFrameDt, maxStepsPerFrame);
+			}
+		);
+
+		const [props, updateProps] = createReactiveProps({
+			pointCount: 100,
+			speed: 5,
+			paused: false,
+			randomizeSignal: 0
+		});
+		const target = document.createElement('div');
+		document.body.appendChild(target);
+		const component = mount(ArnoldCatRenderer, { target, props });
+
+		// Build iterations + residual acc via wall-clock frames
+		await new Promise((r) => setTimeout(r, 80));
+		const beforeRandomize = readIteration(target);
+		expect(beforeRandomize).toBeGreaterThanOrEqual(4);
+		expect(accOnEntry.length).toBeGreaterThan(0);
+
+		// Pause + randomize → iteration 0 and acc 0
+		updateProps({ paused: true, randomizeSignal: 1 });
+		await tick();
+		await new Promise((r) => setTimeout(r, 40));
+		expect(readIteration(target)).toBe(0);
+
+		// Freeze auto-advance so wall-clock flushes cannot flood steps.
+		// Resume then inject one 30ms boost (speed 5 → +0.15 acc → 0 whole steps).
+		// First advance after randomize must see acc === 0 (residual cleared).
+		autoAdvance = false;
+		await new Promise((r) => setTimeout(r, 20)); // drain queued frames at frozen t
+		updateProps({ paused: false });
+		await tick();
+		const lenBeforeResume = accOnEntry.length;
+		pendingBoostMs = 30;
+		await new Promise((r) => setTimeout(r, 40));
+		expect(accOnEntry.length).toBeGreaterThan(lenBeforeResume);
+		expect(accOnEntry[lenBeforeResume]).toBe(0);
+
+		updateProps({ paused: true });
+		await tick();
+		await new Promise((r) => setTimeout(r, 40));
+		// Short post-randomize interval must not jump iteration from stale acc
+		expect(readIteration(target)).toBe(0);
+
+		unmount(component);
+		target.remove();
+	});
+
 	test('renderFrame draws points when RAF pump is installed', () => {
 		installRafPump(3);
 		const { container } = render(ArnoldCatRenderer, {
