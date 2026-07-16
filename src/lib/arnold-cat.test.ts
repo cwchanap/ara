@@ -159,4 +159,39 @@ describe('advanceArnoldCatSimulation', () => {
 		expect(s.iterationCount).toBe(0);
 		expect(s.acc).toBe(0.25);
 	});
+
+	test('non-finite dt (NaN) is treated as 0 — no steps, no acc change', () => {
+		const s = makeState({ acc: 0.3 });
+		advanceArnoldCatSimulation(s, NaN, 5, MAX_FRAME_DT, MAX_STEPS);
+		expect(s.iterationCount).toBe(0);
+		expect(s.acc).toBe(0.3);
+	});
+
+	test('non-finite dt (Infinity) is treated as 0 — no steps', () => {
+		const s = makeState({ acc: 0.3 });
+		advanceArnoldCatSimulation(s, Infinity, 5, MAX_FRAME_DT, MAX_STEPS);
+		expect(s.iterationCount).toBe(0);
+		expect(s.acc).toBe(0.3);
+	});
+
+	test('negative dt is treated as 0 — no steps, no acc change', () => {
+		const s = makeState({ acc: 0.4 });
+		advanceArnoldCatSimulation(s, -0.5, 5, MAX_FRAME_DT, MAX_STEPS);
+		expect(s.iterationCount).toBe(0);
+		expect(s.acc).toBe(0.4);
+	});
+
+	test('non-finite stepsPerSec (NaN) yields rate 0 — no steps', () => {
+		const s = makeState();
+		advanceArnoldCatSimulation(s, 0.1, NaN, MAX_FRAME_DT, MAX_STEPS);
+		expect(s.iterationCount).toBe(0);
+		expect(s.acc).toBe(0);
+	});
+
+	test('non-finite stepsPerSec (Infinity) yields rate 0 — no steps', () => {
+		const s = makeState();
+		advanceArnoldCatSimulation(s, 0.1, Infinity, MAX_FRAME_DT, MAX_STEPS);
+		expect(s.iterationCount).toBe(0);
+		expect(s.acc).toBe(0);
+	});
 });

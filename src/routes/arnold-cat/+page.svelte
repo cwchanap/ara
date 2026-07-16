@@ -153,10 +153,10 @@
 	{/snippet}
 
 	{#snippet renderer({ container })}
+		<!-- Co-locate height on the opening tag so it maps to element-creation
+		code (covered on render) rather than a dead update path. -->
 		<!-- prettier-ignore -->
-		<ArnoldCatRenderer
-			height={VIZ_CONTAINER_HEIGHT}
-			bind:containerElement={container.el}
+		<ArnoldCatRenderer height={VIZ_CONTAINER_HEIGHT} bind:containerElement={container.el}
 			bind:pointCount
 			bind:speed
 			bind:paused

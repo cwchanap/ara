@@ -12,6 +12,7 @@ export function createReactiveProps<T extends Record<string, unknown>>(
 	initial: T
 ): readonly [T, (updates: Partial<T>) => void] {
 	const state = $state(initial);
+	// Read-only proxy: no set trap. Mutate via update() so $state reactivity fires.
 	const props = new Proxy({} as T, {
 		get(_, key: string) {
 			return state[key as keyof T];

@@ -264,8 +264,8 @@ describe("Baker's Map compare page interactions", () => {
 		await waitFor(() => {
 			const leftPointCount = container.querySelector('#left-pointCount') as HTMLInputElement;
 			const leftSpeed = container.querySelector('#left-speed') as HTMLInputElement;
-			expect(Number(leftPointCount.value)).toBeLessThanOrEqual(10000);
-			expect(Number(leftSpeed.value)).toBeLessThanOrEqual(10);
+			expect(Number(leftPointCount.value)).toBe(10000);
+			expect(Number(leftSpeed.value)).toBe(10);
 		});
 	});
 
