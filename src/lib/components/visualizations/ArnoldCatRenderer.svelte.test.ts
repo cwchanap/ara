@@ -183,27 +183,26 @@ describe('ArnoldCatRenderer', () => {
 	});
 
 	test('resetSignal clears residual acc so short interval does not jump', async () => {
-		// setTimeout-based RAF so frames interleave with awaits.
+		// Deterministic manual RAF pump (no setTimeout timing flakiness).
 		// Capture acc on entry to advanceArnoldCatSimulation (state is mutated in-place).
-		// autoAdvance can be frozen so post-reset only injects a controlled short dt.
-		let t = 0;
-		let autoAdvance = true;
-		let pendingBoostMs = 0;
+		let rafCallback: ((t: number) => void) | null = null;
+		let rafTime = 0;
 		vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
-			const id = setTimeout(() => {
-				if (pendingBoostMs > 0) {
-					t += pendingBoostMs;
-					pendingBoostMs = 0;
-				} else if (autoAdvance) {
-					t += 50;
-				}
-				cb(t);
-			}, 0);
-			return id as unknown as number;
+			rafCallback = cb;
+			return 1;
 		});
-		vi.stubGlobal('cancelAnimationFrame', (id: number) => {
-			clearTimeout(id);
+		vi.stubGlobal('cancelAnimationFrame', () => {
+			rafCallback = null;
 		});
+
+		function fireFrames(count: number, dtMs: number) {
+			for (let i = 0; i < count; i++) {
+				rafTime += dtMs;
+				const cb = rafCallback;
+				rafCallback = null;
+				if (cb) cb(rafTime);
+			}
+		}
 
 		const originalAdvance = arnoldCat.advanceArnoldCatSimulation;
 		const accOnEntry: number[] = [];
@@ -224,8 +223,11 @@ describe('ArnoldCatRenderer', () => {
 		document.body.appendChild(target);
 		const component = mount(ArnoldCatRenderer, { target, props });
 
-		// Build iterations + residual acc via wall-clock frames
-		await new Promise((r) => setTimeout(r, 80));
+		// Wait for onMount to flush (sets initialized, calls requestAnimationFrame)
+		await tick();
+
+		// Fire 20 frames of 50ms at speed 5 → 5 steps + residual acc
+		fireFrames(20, 50);
 		const beforeReset = readIteration(target);
 		expect(beforeReset).toBeGreaterThanOrEqual(4);
 		expect(accOnEntry.length).toBeGreaterThan(0);
@@ -233,25 +235,18 @@ describe('ArnoldCatRenderer', () => {
 		// Pause + reset → iteration 0 and acc 0
 		updateProps({ paused: true, resetSignal: 1 });
 		await tick();
-		await new Promise((r) => setTimeout(r, 40));
+		fireFrames(1, 50); // frame while paused (label update only)
 		expect(readIteration(target)).toBe(0);
 
-		// Freeze auto-advance so wall-clock flushes cannot flood steps.
-		// Resume then inject one 30ms boost (speed 5 → +0.15 acc → 0 whole steps).
+		// Resume and fire one short frame (30ms at speed 5 → +0.15 acc → 0 whole steps).
 		// First advance after reset must see acc === 0 (residual cleared).
-		autoAdvance = false;
-		await new Promise((r) => setTimeout(r, 20)); // drain queued frames at frozen t
+		const lenBeforeResume = accOnEntry.length;
 		updateProps({ paused: false });
 		await tick();
-		const lenBeforeResume = accOnEntry.length;
-		pendingBoostMs = 30;
-		await new Promise((r) => setTimeout(r, 40));
+		fireFrames(1, 30);
 		expect(accOnEntry.length).toBeGreaterThan(lenBeforeResume);
 		expect(accOnEntry[lenBeforeResume]).toBe(0);
 
-		updateProps({ paused: true });
-		await tick();
-		await new Promise((r) => setTimeout(r, 40));
 		// Short post-reset interval must not jump iteration from stale acc
 		expect(readIteration(target)).toBe(0);
 
@@ -262,24 +257,25 @@ describe('ArnoldCatRenderer', () => {
 	test('randomizeSignal clears residual acc so short interval does not jump', async () => {
 		// Same residual-acc coverage as resetSignal, but for randomizeSignal.
 		// Design spec (line 492) requires both reset and randomize to clear acc.
-		let t = 0;
-		let autoAdvance = true;
-		let pendingBoostMs = 0;
+		// Uses a deterministic manual RAF pump (no setTimeout timing flakiness).
+		let rafCallback: ((t: number) => void) | null = null;
+		let rafTime = 0;
 		vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
-			const id = setTimeout(() => {
-				if (pendingBoostMs > 0) {
-					t += pendingBoostMs;
-					pendingBoostMs = 0;
-				} else if (autoAdvance) {
-					t += 50;
-				}
-				cb(t);
-			}, 0);
-			return id as unknown as number;
+			rafCallback = cb;
+			return 1;
 		});
-		vi.stubGlobal('cancelAnimationFrame', (id: number) => {
-			clearTimeout(id);
+		vi.stubGlobal('cancelAnimationFrame', () => {
+			rafCallback = null;
 		});
+
+		function fireFrames(count: number, dtMs: number) {
+			for (let i = 0; i < count; i++) {
+				rafTime += dtMs;
+				const cb = rafCallback;
+				rafCallback = null;
+				if (cb) cb(rafTime);
+			}
+		}
 
 		const originalAdvance = arnoldCat.advanceArnoldCatSimulation;
 		const accOnEntry: number[] = [];
@@ -300,34 +296,29 @@ describe('ArnoldCatRenderer', () => {
 		document.body.appendChild(target);
 		const component = mount(ArnoldCatRenderer, { target, props });
 
-		// Build iterations + residual acc via wall-clock frames
-		await new Promise((r) => setTimeout(r, 80));
-		const beforeRandomize = readIteration(target);
-		expect(beforeRandomize).toBeGreaterThanOrEqual(4);
+		// Wait for onMount to flush (sets initialized, calls requestAnimationFrame)
+		await tick();
+
+		// Fire 20 frames of 50ms at speed 5 → 5 steps + residual acc
+		fireFrames(20, 50);
+		expect(readIteration(target)).toBeGreaterThanOrEqual(4);
 		expect(accOnEntry.length).toBeGreaterThan(0);
 
 		// Pause + randomize → iteration 0 and acc 0
 		updateProps({ paused: true, randomizeSignal: 1 });
 		await tick();
-		await new Promise((r) => setTimeout(r, 40));
+		fireFrames(1, 50); // frame while paused (label update only)
 		expect(readIteration(target)).toBe(0);
 
-		// Freeze auto-advance so wall-clock flushes cannot flood steps.
-		// Resume then inject one 30ms boost (speed 5 → +0.15 acc → 0 whole steps).
+		// Resume and fire one short frame (30ms at speed 5 → +0.15 acc → 0 whole steps).
 		// First advance after randomize must see acc === 0 (residual cleared).
-		autoAdvance = false;
-		await new Promise((r) => setTimeout(r, 20)); // drain queued frames at frozen t
+		const lenBeforeResume = accOnEntry.length;
 		updateProps({ paused: false });
 		await tick();
-		const lenBeforeResume = accOnEntry.length;
-		pendingBoostMs = 30;
-		await new Promise((r) => setTimeout(r, 40));
+		fireFrames(1, 30);
 		expect(accOnEntry.length).toBeGreaterThan(lenBeforeResume);
 		expect(accOnEntry[lenBeforeResume]).toBe(0);
 
-		updateProps({ paused: true });
-		await tick();
-		await new Promise((r) => setTimeout(r, 40));
 		// Short post-randomize interval must not jump iteration from stale acc
 		expect(readIteration(target)).toBe(0);
 
@@ -356,5 +347,109 @@ describe('ArnoldCatRenderer', () => {
 	test('cleans up on unmount without throwing', () => {
 		const { unmount: um } = render(ArnoldCatRenderer);
 		expect(() => um()).not.toThrow();
+	});
+
+	test('pointCount change after mount reinitializes distribution', async () => {
+		const [props, updateProps] = createReactiveProps({
+			pointCount: 100,
+			speed: 1,
+			paused: true
+		});
+		const target = document.createElement('div');
+		document.body.appendChild(target);
+		const component = mount(ArnoldCatRenderer, { target, props });
+
+		// onMount calls initDistribution; tick flushes it.
+		await tick();
+		const countEl = target.querySelector('[data-testid="point-count"]');
+		expect(Number(countEl?.textContent)).toBe(100);
+
+		// Change pointCount after mount — triggers the $effect past the
+		// !initialized guard, calling initDistribution.
+		updateProps({ pointCount: 500 });
+		await tick();
+		expect(Number(countEl?.textContent)).toBe(500);
+
+		unmount(component);
+		target.remove();
+	});
+
+	test('stepSignal change while not paused does not apply manual step', async () => {
+		// Deterministic manual RAF pump (no setTimeout timing flakiness).
+		let rafCallback: ((t: number) => void) | null = null;
+		let rafTime = 0;
+		vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+			rafCallback = cb;
+			return 1;
+		});
+		vi.stubGlobal('cancelAnimationFrame', () => {
+			rafCallback = null;
+		});
+
+		function fireFrames(count: number, dtMs: number) {
+			for (let i = 0; i < count; i++) {
+				rafTime += dtMs;
+				const cb = rafCallback;
+				rafCallback = null;
+				if (cb) cb(rafTime);
+			}
+		}
+
+		// Track pump steps so we can distinguish time-pump advancement from a
+		// manual doStep. Both call applyArnoldCatStepInPlace + increment
+		// iterationCount, so only the delta-vs-pump comparison isolates doStep.
+		const originalAdvance = arnoldCat.advanceArnoldCatSimulation;
+		let pumpSteps = 0;
+		vi.spyOn(arnoldCat, 'advanceArnoldCatSimulation').mockImplementation(
+			(state, dtSeconds, stepsPerSec, maxFrameDt, maxStepsPerFrame) => {
+				const steps = originalAdvance(
+					state,
+					dtSeconds,
+					stepsPerSec,
+					maxFrameDt,
+					maxStepsPerFrame
+				);
+				pumpSteps += steps;
+				return steps;
+			}
+		);
+
+		const [props, updateProps] = createReactiveProps({
+			pointCount: 100,
+			speed: 5,
+			paused: false,
+			stepSignal: 0
+		});
+		const target = document.createElement('div');
+		document.body.appendChild(target);
+		const component = mount(ArnoldCatRenderer, { target, props });
+
+		await tick();
+
+		// 150ms frame intervals: frameDt is clamped to MAX_FRAME_DT (0.05s)
+		// so pump behavior is identical to 50ms frames, but the raw timestamp
+		// always exceeds the 100ms label throttle — so the label updates every
+		// frame and before/after reflect the exact iterationCount.
+		fireFrames(20, 150);
+		const before = readIteration(target);
+		expect(before).toBeGreaterThan(0); // pump advanced
+
+		// Reset pump counter; change stepSignal while not paused.
+		// Effect runs but doStep is skipped (false branch of `if (paused) doStep()`).
+		pumpSteps = 0;
+		updateProps({ stepSignal: 1 });
+		await tick();
+
+		// Fire one frame to flush the iteration label and advance the pump.
+		fireFrames(1, 150);
+		const pumpStepsThisFrame = pumpSteps;
+		const after = readIteration(target);
+
+		// The iteration delta must equal the pump's contribution only.
+		// If doStep incorrectly ran, the delta would be pumpStepsThisFrame + 1.
+		expect(after - before).toBe(pumpStepsThisFrame);
+
+		unmount(component);
+		target.remove();
 	});
 });

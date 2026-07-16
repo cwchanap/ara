@@ -25,6 +25,19 @@ vi.mock('$lib/saved-config-loader', () => ({
 	parseConfigParam: parseConfigParamMock
 }));
 
+// --- Mock for stability check (covers getParams -> buildParameters call) ---
+const checkParameterStabilityMock = vi.hoisted(() =>
+	vi.fn(() => ({ isStable: true, warnings: [] as string[] }))
+);
+
+vi.mock('$lib/chaos-validation', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$lib/chaos-validation')>();
+	return {
+		...actual,
+		checkParameterStability: checkParameterStabilityMock
+	};
+});
+
 vi.mock('$app/stores', async () => {
 	const { mockPageStore } = await import('$lib/components/testing/page-test-helpers');
 	return { page: mockPageStore };
@@ -72,6 +85,7 @@ describe('Arnold Cat Map page interactions', () => {
 		loadSavedConfigParametersMock.mockReset();
 		loadSharedConfigParametersMock.mockReset();
 		parseConfigParamMock.mockReset();
+		checkParameterStabilityMock.mockClear();
 	});
 
 	afterEach(() => cleanup());
@@ -205,6 +219,30 @@ describe('Arnold Cat Map page interactions', () => {
 		const { unmount } = render(ArnoldCatPage, { props: unauthedPageProps });
 		expect(() => unmount()).not.toThrow();
 	});
+
+	// ── Stability reporting ───────────────────────────────────────────────
+
+	it('runs the debounced stability check (getParams) after a slider edit', async () => {
+		vi.useFakeTimers();
+		try {
+			render(ArnoldCatPage, { props: unauthedPageProps });
+
+			// Changing a slider triggers the page's stability $effect ->
+			// triggerReactive -> debounced checkParameterStability(getParams()).
+			// This covers line 20: getParams: () => buildParameters()
+			await fireEvent.input(screen.getByTestId('slider-pointCount'), {
+				target: { value: '5000' }
+			});
+			await vi.runAllTimersAsync();
+
+			expect(checkParameterStabilityMock).toHaveBeenCalledWith(
+				'arnold-cat',
+				expect.objectContaining({ type: 'arnold-cat', pointCount: 5000 })
+			);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
 });
 
 describe('Arnold Cat Map page – config loading', () => {
@@ -212,6 +250,7 @@ describe('Arnold Cat Map page – config loading', () => {
 		loadSavedConfigParametersMock.mockReset();
 		loadSharedConfigParametersMock.mockReset();
 		parseConfigParamMock.mockReset();
+		checkParameterStabilityMock.mockClear();
 		setPageUrl('http://localhost/arnold-cat');
 	});
 

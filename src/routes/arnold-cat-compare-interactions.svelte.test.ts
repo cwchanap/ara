@@ -181,6 +181,13 @@ describe('Arnold Cat Map compare page interactions', () => {
 		expect(Number(rightSpeed.value)).toBe(7);
 	});
 
+	it('updates left speed slider value on input', async () => {
+		const { container } = render(ArnoldCatComparePage);
+		const leftSpeed = container.querySelector('#left-speed') as HTMLInputElement;
+		await fireEvent.input(leftSpeed, { target: { value: '9' } });
+		expect(Number(leftSpeed.value)).toBe(9);
+	});
+
 	it('updates URL via goto when a left parameter changes', async () => {
 		vi.useFakeTimers();
 		const { container } = render(ArnoldCatComparePage);
@@ -269,8 +276,8 @@ describe('Arnold Cat Map compare page interactions', () => {
 		await waitFor(() => {
 			const leftPointCount = container.querySelector('#left-pointCount') as HTMLInputElement;
 			const leftSpeed = container.querySelector('#left-speed') as HTMLInputElement;
-			expect(Number(leftPointCount.value)).toBeLessThanOrEqual(10000);
-			expect(Number(leftSpeed.value)).toBeLessThanOrEqual(30);
+			expect(Number(leftPointCount.value)).toBe(10000);
+			expect(Number(leftSpeed.value)).toBe(30);
 		});
 	});
 

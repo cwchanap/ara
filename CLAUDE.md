@@ -217,7 +217,7 @@ The app uses a **sci-fi chaos theory aesthetic**:
 
 ### Compare Page Template
 
-When adding a `/visualization-name/compare` route, **use `src/routes/arnold-cat/compare/+page.svelte` as the canonical template**, not Baker's Map. The Arnold Cat compare page includes a reactive `$effect` that syncs slider state from external `$page.url` changes (browser back/forward, same-route links) via `untrack`, preventing slider edits from snapping back to the URL. It also cleans up the debounce timer on effect teardown. Older compare pages (e.g. Baker's Map) lacked this and would not respond to URL changes after mount.
+When adding a `/visualization-name/compare` route, **use `src/routes/arnold-cat/compare/+page.svelte` as the canonical template**. The Arnold Cat compare page includes a reactive `$effect` that syncs slider state from external `$page.url` changes (browser back/forward, same-route links) via `untrack`, preventing slider edits from snapping back to the URL. It also cleans up the debounce timer on effect teardown. The Baker's Map compare page (`src/routes/bakers-map/compare/+page.svelte`) now implements the same untrack-based URL sync and debounce cleanup, so it is a valid reference as well; Arnold Cat remains the canonical template because it was the first to establish the pattern.
 
 ### Performance Considerations
 
