@@ -74,14 +74,13 @@ describe('migration map_type constraints include all VALID_MAP_TYPES', () => {
 		}
 	});
 
-	test('drizzle journal registers the 0012 bakers-map migration', () => {
+	test('drizzle journal registers the 0013 arnold-cat migration', () => {
 		const journal = JSON.parse(
 			readFileSync(resolve(migrationDir, 'meta/_journal.json'), 'utf-8')
 		) as { entries: { idx: number; tag: string }[] };
-		const entry = journal.entries.find((e) => e.tag === '0012_add_bakers_map_map_type');
+		const entry = journal.entries.find((e) => e.tag === '0013_add_arnold_cat_map_type');
 		expect(entry).toBeDefined();
-		expect(entry!.idx).toBe(12);
-		// Every migration file on disk must have a journal entry (no orphan SQL).
+		expect(entry!.idx).toBe(13);
 		const tags = journal.entries.map((e) => e.tag);
 		const migrationFiles = readdirSync(migrationDir).filter((f) => f.endsWith('.sql'));
 		expect(migrationFiles.length).toBeGreaterThan(0);
