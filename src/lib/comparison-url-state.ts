@@ -138,6 +138,8 @@ export function getDefaultParameters(mapType: ChaosMapType): ChaosMapParameters 
 		}
 		case 'bakers-map':
 			return { type: 'bakers-map', pointCount: 3000, speed: 1 };
+		case 'arnold-cat':
+			return { type: 'arnold-cat', pointCount: 3000, speed: 5 };
 	}
 }
 

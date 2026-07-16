@@ -3404,3 +3404,54 @@ describe('bakers-map parameter validation', () => {
 		expect(result.warnings).toHaveLength(0);
 	});
 });
+
+describe('arnold-cat parameter validation', () => {
+	const validParams = { type: 'arnold-cat' as const, pointCount: 3000, speed: 5 };
+
+	test('validates correct arnold-cat parameters', () => {
+		const result = validateParameters('arnold-cat', validParams);
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toHaveLength(0);
+	});
+
+	test('rejects missing speed', () => {
+		const result = validateParameters('arnold-cat', {
+			type: 'arnold-cat',
+			pointCount: 3000
+		});
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('speed'))).toBe(true);
+	});
+
+	test('rejects missing pointCount', () => {
+		const result = validateParameters('arnold-cat', { type: 'arnold-cat', speed: 5 });
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('pointCount'))).toBe(true);
+	});
+
+	test('checkParameterStability reports out-of-range speed', () => {
+		const result = checkParameterStability('arnold-cat', {
+			type: 'arnold-cat',
+			pointCount: 3000,
+			speed: 100
+		});
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('speed'))).toBe(true);
+	});
+
+	test('checkParameterStability reports out-of-range pointCount', () => {
+		const result = checkParameterStability('arnold-cat', {
+			type: 'arnold-cat',
+			pointCount: 999999,
+			speed: 5
+		});
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('pointCount'))).toBe(true);
+	});
+
+	test('checkParameterStability passes for in-range values', () => {
+		const result = checkParameterStability('arnold-cat', validParams);
+		expect(result.isStable).toBe(true);
+		expect(result.warnings).toHaveLength(0);
+	});
+});

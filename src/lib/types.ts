@@ -27,7 +27,8 @@ export type ChaosMapType =
 	| 'lyapunov'
 	| 'chua'
 	| 'double-pendulum'
-	| 'bakers-map';
+	| 'bakers-map'
+	| 'arnold-cat';
 
 export type LorenzSolver = 'euler' | 'rk2' | 'rk4';
 export type LorenzColorMode = 'time' | 'speed' | 'zheight' | 'divergence' | 'single';
@@ -289,6 +290,12 @@ export interface BakersMapParameters {
 	speed: number;
 }
 
+export interface ArnoldCatParameters {
+	type: 'arnold-cat';
+	pointCount: number;
+	speed: number;
+}
+
 // Union type for all chaos map parameters
 export type ChaosMapParameters =
 	| LorenzParameters
@@ -308,7 +315,8 @@ export type ChaosMapParameters =
 	| LyapunovParameters
 	| ChuaParameters
 	| DoublePendulumParameters
-	| BakersMapParameters;
+	| BakersMapParameters
+	| ArnoldCatParameters;
 
 // Display names for chaos map types (UPPERCASE_SNAKE_CASE per constitution)
 export const CHAOS_MAP_DISPLAY_NAMES: Record<ChaosMapType, string> = {
@@ -329,7 +337,8 @@ export const CHAOS_MAP_DISPLAY_NAMES: Record<ChaosMapType, string> = {
 	lyapunov: 'LYAPUNOV_EXPONENTS',
 	chua: 'CHUA_CIRCUIT',
 	'double-pendulum': 'DOUBLE_PENDULUM',
-	'bakers-map': 'BAKERS_MAP'
+	'bakers-map': 'BAKERS_MAP',
+	'arnold-cat': 'ARNOLD_CAT_MAP'
 };
 
 // Valid chaos map types array for validation
@@ -351,7 +360,8 @@ export const VALID_MAP_TYPES: ChaosMapType[] = [
 	'lyapunov',
 	'chua',
 	'double-pendulum',
-	'bakers-map'
+	'bakers-map',
+	'arnold-cat'
 ];
 
 // Saved configuration discriminated union (matches Drizzle schema)
@@ -433,5 +443,9 @@ export type SavedConfiguration = {
 	| {
 			mapType: 'bakers-map';
 			parameters: BakersMapParameters;
+	  }
+	| {
+			mapType: 'arnold-cat';
+			parameters: ArnoldCatParameters;
 	  }
 );

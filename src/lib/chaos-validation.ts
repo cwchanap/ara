@@ -140,6 +140,10 @@ const STABLE_RANGES: Record<ChaosMapType, StableRanges<Record<string, number>>> 
 	'bakers-map': {
 		pointCount: { min: 100, max: 10000 },
 		speed: { min: 1, max: 10 }
+	},
+	'arnold-cat': {
+		pointCount: { min: 100, max: 10000 },
+		speed: { min: 1, max: 30 }
 	}
 };
 
