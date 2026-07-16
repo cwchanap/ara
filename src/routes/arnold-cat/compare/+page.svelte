@@ -138,7 +138,7 @@
 				<div class="space-y-1">
 					<div class="flex justify-between items-end">
 						<label for={spId} class="text-primary/80 text-xs uppercase tracking-widest font-bold"
-							>Speed</label
+							>Speed (steps/sec)</label
 						>
 						<span class="font-mono text-accent text-sm">{speed}</span>
 					</div>
