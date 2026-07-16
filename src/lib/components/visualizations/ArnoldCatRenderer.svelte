@@ -56,7 +56,7 @@
 	let pointColors: string[] = [];
 	let acc = 0;
 	let iterationCount = 0;
-	let lastTimestamp = 0;
+	let lastTimestamp: number | null = null;
 	/** Clamped length for tests / badge */
 	let activePointCount = $state(0);
 
@@ -123,7 +123,7 @@
 	function renderFrame(now: number) {
 		if (isUnmounted) return;
 
-		if (lastTimestamp === 0) lastTimestamp = now;
+		if (lastTimestamp === null) lastTimestamp = now;
 		let frameDt = (now - lastTimestamp) / 1000;
 		lastTimestamp = now;
 		if (!Number.isFinite(frameDt) || frameDt < 0) frameDt = 0;

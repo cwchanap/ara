@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
@@ -44,6 +45,23 @@
 	let leftSpeed = $state(leftInitial.speed);
 	let rightPointCount = $state(rightInitial.pointCount);
 	let rightSpeed = $state(rightInitial.speed);
+
+	// React to external query-string changes (browser back/forward, same-route
+	// links). State reads/writes are untracked so slider edits don't retrigger
+	// this effect and snap values back to the URL (same pattern as
+	// VisualizationShell's config-loader untrack).
+	$effect(() => {
+		const url = $page.url;
+		untrack(() => {
+			const incoming = decodeComparisonState(url, 'arnold-cat');
+			const leftIncoming = clampParams(incoming?.left as ArnoldCatParameters | null);
+			const rightIncoming = clampParams(incoming?.right as ArnoldCatParameters | null);
+			if (leftIncoming.pointCount !== leftPointCount) leftPointCount = leftIncoming.pointCount;
+			if (leftIncoming.speed !== leftSpeed) leftSpeed = leftIncoming.speed;
+			if (rightIncoming.pointCount !== rightPointCount) rightPointCount = rightIncoming.pointCount;
+			if (rightIncoming.speed !== rightSpeed) rightSpeed = rightIncoming.speed;
+		});
+	});
 
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	$effect(() => {

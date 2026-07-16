@@ -77,6 +77,7 @@ describe('Arnold Cat Map compare page interactions', () => {
 	afterEach(() => {
 		cleanup();
 		mockGoto.mockClear();
+		vi.useRealTimers();
 	});
 
 	// ── Basic rendering ────────────────────────────────────────────────────
@@ -225,6 +226,51 @@ describe('Arnold Cat Map compare page interactions', () => {
 			expect(
 				Number((container.querySelector('#right-pointCount') as HTMLInputElement).value)
 			).toBe(5000);
+		});
+	});
+
+	// ── Reactive URL updates ───────────────────────────────────────────────
+
+	it('updates slider values when $page.url changes after mount', async () => {
+		const { container } = render(ArnoldCatComparePage);
+		const leftPointCount = container.querySelector('#left-pointCount') as HTMLInputElement;
+		// Default render: left pointCount is 3000
+		expect(Number(leftPointCount.value)).toBe(3000);
+
+		// Simulate browser back/forward or same-route navigation
+		const leftParams = encodeParams({ pointCount: 7000, speed: 12 });
+		const rightParams = encodeParams({ pointCount: 2000, speed: 8 });
+		setPageUrl(
+			`http://localhost/arnold-cat/compare?compare=true&left=${leftParams}&right=${rightParams}`
+		);
+
+		await waitFor(() => {
+			expect(
+				Number((container.querySelector('#left-pointCount') as HTMLInputElement).value)
+			).toBe(7000);
+			expect(Number((container.querySelector('#left-speed') as HTMLInputElement).value)).toBe(
+				12
+			);
+			expect(
+				Number((container.querySelector('#right-pointCount') as HTMLInputElement).value)
+			).toBe(2000);
+			expect(
+				Number((container.querySelector('#right-speed') as HTMLInputElement).value)
+			).toBe(8);
+		});
+	});
+
+	it('clamps out-of-range params when $page.url changes after mount', async () => {
+		const { container } = render(ArnoldCatComparePage);
+
+		const leftParams = encodeParams({ pointCount: 99999, speed: 50 });
+		setPageUrl(`http://localhost/arnold-cat/compare?compare=true&left=${leftParams}`);
+
+		await waitFor(() => {
+			const leftPointCount = container.querySelector('#left-pointCount') as HTMLInputElement;
+			const leftSpeed = container.querySelector('#left-speed') as HTMLInputElement;
+			expect(Number(leftPointCount.value)).toBeLessThanOrEqual(10000);
+			expect(Number(leftSpeed.value)).toBeLessThanOrEqual(30);
 		});
 	});
 
