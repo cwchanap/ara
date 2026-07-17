@@ -820,6 +820,34 @@ describe('handleWorkerMessage — tinkerbell', () => {
 	});
 });
 
+// ── gingerbreadman map messages ──────────────────────────────────────────────
+
+describe('handleWorkerMessage — gingerbreadman', () => {
+	test('returns a gingerbreadmanResult capped at maxPoints with finite points', () => {
+		responses.length = 0;
+		selfMock.onmessage?.({
+			data: {
+				type: 'gingerbreadman',
+				id: 9,
+				x0: -0.1,
+				y0: 0.0,
+				iterations: 1000,
+				maxPoints: 50
+			}
+		});
+		expect(responses[0]?.type).toBe('gingerbreadmanResult');
+		expect(responses[0]?.id).toBe(9);
+		if (responses[0]?.type === 'gingerbreadmanResult') {
+			expect(responses[0].points.length).toBe(50);
+			expect(responses[0].points[0].length).toBe(2);
+			for (const [x, y] of responses[0].points) {
+				expect(Number.isFinite(x)).toBe(true);
+				expect(Number.isFinite(y)).toBe(true);
+			}
+		}
+	});
+});
+
 // ── handler throw → typed ErrorResponse ──────────────────────────────────────
 //
 // The worker's onmessage wraps dispatch in try/catch so a thrown handler
