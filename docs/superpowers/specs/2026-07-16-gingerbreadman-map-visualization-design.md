@@ -3,7 +3,7 @@
 - **Linear issue:** [HPA-61](https://linear.app/cwchanap/issue/HPA-61/add-gingerbreadman-map-visualization-module)
 - **PRD:** [Additional Chaotic Map Visualizations](https://linear.app/cwchanap/document/prd-additional-chaotic-map-visualizations-1a69b476e276)
 - **Date:** 2026-07-16
-- **Status:** Design — pending review
+- **Status:** Design — approved with review clarifications (2026-07-16)
 
 ## Summary
 
@@ -185,28 +185,33 @@ Mirror Tinkerbell compare structure; **URL sync pattern from Arnold Cat compare*
 | `src/routes/gingerbreadman-page-interactions.svelte.test.ts` | Preset / reset / randomize / sliders |
 | `src/routes/gingerbreadman-config-loading.svelte.test.ts` | Config/share load + clamp + warnings |
 | `src/routes/gingerbreadman-compare-interactions.svelte.test.ts` | Compare URL encode/decode/clamp/swap |
-| `src/lib/comparison-url-state-gingerbreadman-preset.test.ts` | Defaults / preset wiring if sibling pattern requires it |
+| `src/lib/comparison-url-state-gingerbreadman-preset.test.ts` | **Required** (not optional): defaults from default preset + preset-state wiring. Sibling maps with a PRESETS array all ship this file (`clifford`, `tinkerbell`, `ikeda`, `gumowski-mira`, `double-pendulum`). Arnold Cat skips it only because it has no preset array. |
 
 ### 7. Migration
 
 `drizzle/0014_add_gingerbreadman_map_type.sql` — add `'gingerbreadman'` to both CHECK constraints (`check_valid_map_type` and `chk_shared_configurations_map_type`), following `0013_add_arnold_cat_map_type.sql`.
 
+- **Append at end** of each `IN (...)` list (after `'arnold-cat'`), preserving the shared ordering invariant with `VALID_MAP_TYPES`.
+- Update the migration comment from “all 19 map types” (0013 wording) to **“all 20 map types.”**
+- `schema.test.ts` asserts `constraintTypes.toHaveLength(VALID_MAP_TYPES.length)` against the latest migration SQL — both CHECK lists must gain the new type or that test fails.
+
 ## Files to modify (registration surface)
 
 | File | Change |
 |------|--------|
-| `src/lib/types.ts` | `ChaosMapType`, color-mode tuple/type, `GingerbreadmanParameters`, `ChaosMapParameters`, `SavedConfiguration` arm, `CHAOS_MAP_DISPLAY_NAMES`, `VALID_MAP_TYPES` |
+| `src/lib/types.ts` | `ChaosMapType`, color-mode tuple/type, `GingerbreadmanParameters`, `ChaosMapParameters`, `SavedConfiguration` arm, `CHAOS_MAP_DISPLAY_NAMES`, `VALID_MAP_TYPES` (**append** `'gingerbreadman'` at the end of the union/`VALID_MAP_TYPES` array, after `'arnold-cat'`) |
 | `src/lib/chaos-validation.ts` | `STABLE_RANGES.gingerbreadman`, `OPTIONAL_FIELDS.gingerbreadman`; no mandatory `checkParameterStability` special case |
 | `src/lib/comparison-url-state.ts` | `getDefaultParameters` case from default preset |
 | `src/lib/workers/types.ts` | `GingerbreadmanRequest` / `GingerbreadmanResponse` in request/response unions |
 | `src/lib/workers/chaosMapsHandler.ts` | `case 'gingerbreadman'` → `calculateGingerbreadmanTuples` → `gingerbreadmanResult` |
-| `src/routes/+page.svelte` | Homepage card (place near Tinkerbell / other discrete maps) |
+| `src/routes/+page.svelte` | Homepage card (visual placement near Tinkerbell / other discrete maps is fine; independent of `VALID_MAP_TYPES` order) |
+| `CLAUDE.md` | Project overview: **19 → 20** systems; append Gingerbreadman to the parenthetical map list. (`Agents.md` / `AGENTS.md` are symlinks to `CLAUDE.md` — one edit covers all three.) |
 | `drizzle/meta/_journal.json` | Entry `{ idx: 14, tag: '0014_add_gingerbreadman_map_type' }` |
-| `src/lib/types.test.ts` | Add `'gingerbreadman'` to `EXPECTED_MAP_TYPES`; display-name assertion if present |
-| `src/lib/api-validation.test.ts` | Add `'gingerbreadman'` to bi-directional expected types list |
-| `src/lib/server/db/schema.test.ts` | Journal test: tag `0013`→`0014`, idx `13`→`14` |
+| `src/lib/types.test.ts` | **Append** `'gingerbreadman'` to `EXPECTED_MAP_TYPES` (same end-of-list order as `VALID_MAP_TYPES`); display-name assertion if present |
+| `src/lib/api-validation.test.ts` | **Append** `'gingerbreadman'` to bi-directional `expectedTypes` list |
+| `src/lib/server/db/schema.test.ts` | **Add a parallel** `test('drizzle journal registers the 0014 gingerbreadman migration', …)` (idx `14`, tag `0014_add_gingerbreadman_map_type`). Do **not** replace the existing 0013 arnold-cat journal test. |
 | `src/lib/chaos-validation.test.ts` | Gingerbreadman parameter validation suite |
-| `src/lib/comparison-url-state.test.ts` | Exhaustive lists + round-trip describe (mirror Tinkerbell) |
+| `src/lib/comparison-url-state.test.ts` | Exhaustive lists + round-trip describe (mirror Tinkerbell); append type in any ordered type lists |
 | `src/lib/workers/chaosMapsWorker.test.ts` | Gingerbreadman request/response case |
 | `src/routes/page.svelte.test.ts` | Card/CTA counts **19 → 20**; add `{ name: 'Gingerbreadman Map', url: '/gingerbreadman' }` |
 
@@ -259,8 +264,10 @@ Concise DATA_LOG-style body:
 
 - Piecewise-linear map with an absolute value — simple rule, complex orbit
 - Successive points build a fractal-like “gingerbread” silhouette
-- Nearby starts can diverge even though the rule never changes
+- Nearby starts can separate even though the rule never changes (sensitivity is milder than maps like Lorenz/Hénon; frame as fractal silhouette + discrete iteration, not strong strange-attractor chaos)
 - Avoid long textbook proofs; formula lives in the control panel
+
+**Contextual note:** Gingerbreadman is weakly chaotic relative to most modules in this app (largely bounded / quasi-periodic fractal silhouette for typical ICs). The magnitude cap rarely fires in-range; it remains a safety guard, not a primary mechanism. No extra stability advisory.
 
 ### Empty / early-abort orbits
 
@@ -272,7 +279,8 @@ If the orbit aborts early, render collected finite points (possibly empty). No c
 
 - `gingerbreadman.test.ts` — produces points from default IC; respects `maxPoints`; breaks on non-finite; **breaks and drops** magnitude-cap points; `[]` for `iterations <= 0`; one-step recurrence fixture
 - Preset helpers — `getPreset` / `detectPresetId`
-- Extend `chaos-validation`, `types`, `api-validation`, `schema`, `comparison-url-state`, worker tests as listed above
+- **`comparison-url-state-gingerbreadman-preset.test.ts`** — required (mirror Tinkerbell preset comparison-url-state test)
+- Extend `chaos-validation`, `types`, `api-validation`, `schema` (parallel 0014 journal test; keep 0013), `comparison-url-state`, worker tests as listed above
 
 ### Component / page (jsdom)
 
@@ -307,8 +315,11 @@ bun run lint
 ## Implementation notes for the plan
 
 1. Clone path: **Tinkerbell** for math/renderer/page/worker/tests; **Arnold Cat compare** for URL↔slider `untrack` sync.
-2. Migration id **`0014`** (after Arnold Cat `0013`).
-3. Homepage card count tests: **19 → 20**.
-4. Prefer grepping sibling registration sites (`VALID_MAP_TYPES`, `EXPECTED_MAP_TYPES`, CHECK SQL lists) so no exhaustive switch is missed.
-5. Type/API/validation tests often list every map type — update all list copies in the same PR.
+2. Migration id **`0014`** (after Arnold Cat `0013`). SQL comment: **“all 20 map types.”**
+3. Homepage card count tests **and** `CLAUDE.md` overview prose: **19 → 20** (include Gingerbreadman in the map list).
+4. **Append-at-end ordering invariant:** append `'gingerbreadman'` at the **end** of `VALID_MAP_TYPES`, both CHECK `IN (...)` lists, `EXPECTED_MAP_TYPES`, and other bi-directional type lists — after `'arnold-cat'` — so the three canonical ordered lists stay synchronized. Homepage card visual order is independent.
+5. Prefer grepping sibling registration sites (`VALID_MAP_TYPES`, `EXPECTED_MAP_TYPES`, CHECK SQL lists, exhaustive switches) so no site is missed.
+6. Type/API/validation tests often list every map type — update all list copies in the same PR.
+7. **Required** test file: `comparison-url-state-gingerbreadman-preset.test.ts` (preset-array sibling pattern).
+8. Schema journal: **add** parallel 0014 test; keep 0013 arnold-cat test.
 )
