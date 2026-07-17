@@ -26,10 +26,10 @@ describe('Homepage (+page.svelte)', () => {
 		).toBeInTheDocument();
 	});
 
-	it('renders all 19 visualization cards', () => {
+	it('renders all 20 visualization cards', () => {
 		render(Page);
 		const links = screen.getAllByRole('link');
-		expect(links).toHaveLength(19);
+		expect(links).toHaveLength(20);
 	});
 
 	it('shows the Ikeda Map card linking to /ikeda', () => {
@@ -42,6 +42,12 @@ describe('Homepage (+page.svelte)', () => {
 		render(Page);
 		const link = screen.getByRole('link', { name: /Arnold Cat Map/i });
 		expect(link.getAttribute('href')).toContain('/arnold-cat');
+	});
+
+	it('shows the Gingerbreadman Map card linking to /gingerbreadman', () => {
+		render(Page);
+		const link = screen.getByRole('link', { name: /Gingerbreadman Map/i });
+		expect(link.getAttribute('href')).toContain('/gingerbreadman');
 	});
 
 	it('shows the Clifford Attractor card linking to /clifford', () => {
@@ -69,7 +75,8 @@ describe('Homepage (+page.svelte)', () => {
 		{ name: 'Chua Circuit', url: '/chua' },
 		{ name: 'Double Pendulum', url: '/double-pendulum' },
 		{ name: "Baker's Map", url: '/bakers-map' },
-		{ name: 'Arnold Cat Map', url: '/arnold-cat' }
+		{ name: 'Arnold Cat Map', url: '/arnold-cat' },
+		{ name: 'Gingerbreadman Map', url: '/gingerbreadman' }
 	];
 
 	for (const { name, url } of visualizations) {
@@ -86,7 +93,7 @@ describe('Homepage (+page.svelte)', () => {
 	it('renders "Initialize Module" call-to-action on each card', () => {
 		render(Page);
 		const ctaElements = screen.getAllByText('Initialize Module');
-		expect(ctaElements).toHaveLength(19);
+		expect(ctaElements).toHaveLength(20);
 	});
 
 	it('renders card descriptions', () => {
