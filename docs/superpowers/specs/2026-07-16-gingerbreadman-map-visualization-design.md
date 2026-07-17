@@ -3,11 +3,11 @@
 - **Linear issue:** [HPA-61](https://linear.app/cwchanap/issue/HPA-61/add-gingerbreadman-map-visualization-module)
 - **PRD:** [Additional Chaotic Map Visualizations](https://linear.app/cwchanap/document/prd-additional-chaotic-map-visualizations-1a69b476e276)
 - **Date:** 2026-07-16
-- **Status:** Design — approved with review clarifications (2026-07-16)
+- **Status:** Design — revised after second review (2026-07-16)
 
 ## Summary
 
-Add the **Gingerbreadman Map** as a new chaotic-map visualization module with **full feature parity** to its nearest sibling, the Tinkerbell Map. It is a 2D discrete-time piecewise-linear map whose orbit forms a distinctive fractal-like “gingerbread” figure. The map itself has **no free shape parameters**; the primary story knobs are **initial conditions** `(x0, y0)` plus iteration count and render controls.
+Add the **Gingerbreadman Map** as a new chaotic-map visualization module with **full feature parity** to its nearest sibling, the Tinkerbell Map, **plus the slider/fidelity pipeline** that Tinkerbell has not yet migrated to. It is a 2D discrete-time piecewise-linear map whose orbit forms a distinctive fractal-like “gingerbread” figure. The map itself has **no free shape parameters**; the primary story knobs are **initial conditions** `(x0, y0)` plus iteration count and render controls.
 
 **Route:** `/gingerbreadman` (+ `/gingerbreadman/compare` for parity).  
 **Homepage card:** Title `Gingerbreadman Map`, description `A simple chaotic map whose orbit forms a distinctive fractal-like figure`, CTA `Initialize Module`.  
@@ -38,23 +38,29 @@ Renderer also caps collected points (`maxPoints`, default **250 000**).
 
 ## Architecture decision
 
-**Clone-and-modify Tinkerbell** (Approach A — approved):
+**Clone Tinkerbell’s product surface, but do not clone its unmigrated slider path** (Approach A + responsiveness pipeline):
 
-- Math module, presets, renderer, page, compare page, worker case, and full registration surface mirror Tinkerbell.
-- Swap shape params `a/b/c/d` for **user-facing** `x0/y0`.
-- Compare URL↔slider sync follows the **Arnold Cat compare** template (`untrack` + debounce teardown on `$page.url` changes).
+| Layer | Source of truth |
+|-------|-----------------|
+| Math, worker, color modes, presets, registration | Tinkerbell (swap `a–d` → `x0`/`y0`) |
+| Page controls | **`ParameterSlider`** with `updatePolicy` (not raw `<input type="range">`) |
+| Renderer fidelity | Accept `fidelity` + `onRenderStateChange` from shell snippet (see [slider responsiveness design](./2026-07-13-slider-responsiveness-design.md) §3 / §5E) |
+| Compare URL sync | **Arnold Cat** `untrack` + debounce teardown — **extended** to shared styling state |
 
-A shared `PointCloudRenderer` abstraction remains a **non-goal** for this ticket (same deferral as Tinkerbell). Extraction can be a follow-up once three near-identical point-cloud maps are stable.
+**Why not a pure Tinkerbell clone for controls?** The shell already provides `SliderDragManager`, `fidelity`, and save/share/snapshot disable while `fidelity !== 'full'` or `renderState === 'rendering'`. Tinkerbell/Clifford still use raw range inputs and ignore the snippet’s `fidelity` / `onRenderStateChange` args. A greenfield module must wire the pipeline so intermediate preview frames cannot be saved, shared, or snapshotted. **No dependency** on a future Tinkerbell migration.
+
+A shared `PointCloudRenderer` abstraction remains a **non-goal** for this ticket. Extraction can be a follow-up once three near-identical point-cloud maps are stable.
 
 ## Product decisions (v1)
 
 | Decision | Choice |
 |----------|--------|
 | Feature parity | Full sibling parity (Tinkerbell): compare, worker, 5 color modes, presets, save/share |
+| Slider / fidelity pipeline | **Required at ship** — not deferred to a later Tinkerbell migration |
 | Story knobs | Initial conditions + iterations |
 | Color modes | `density`, `iteration`, `radius`, `angle`, `single` |
 | Default color mode | `iteration` (ticket emphasizes color-by-iteration; density still available) |
-| Presets | Curated `(x0, y0)` starts (+ light render style differences) |
+| Presets | Curated **orbit-rich** `(x0, y0)` starts (+ light render style differences); reject short cycles |
 | Animation | None — static point cloud only |
 | Multi-seed densify | No |
 | Click-to-set IC on canvas | No |
@@ -133,6 +139,7 @@ Defaults may be tuned slightly during implementation if the classic figure needs
 - `calculateGingerbreadmanTuples(params): [number, number][]` — single orbit from **user** `(x0, y0)`, capped at `maxPoints`, with finiteness + magnitude guards
 - `iterations <= 0` or `maxPoints <= 0` → `[]`
 - No fixed internal seed
+- Optional test helper (or inline in tests): unique-point count over N iterates for orbit-richness assertions
 
 ### 2. `src/lib/gingerbreadman-presets.ts` — presets
 
@@ -140,40 +147,82 @@ Mirror of `src/lib/tinkerbell-presets.ts`, IC-focused:
 
 - `GingerbreadmanPresetState { x0, y0, iterations; colorMode; zoom, pointSize, opacity }`
 - `GingerbreadmanPreset { id, label, state }`
-- `GINGERBREADMAN_PRESETS` array (see Presets below)
+- `GINGERBREADMAN_PRESETS` array (see Presets below — **orbit-rich only**)
 - `DEFAULT_GINGERBREADMAN_PRESET_ID = 'classic'`
 - `getPreset(id)`, `detectPresetId(state)` with `numbersClose` for floats
 
 ### 3. `src/lib/components/visualizations/GingerbreadmanRenderer.svelte` — renderer
 
-Clone of `TinkerbellRenderer.svelte`, adapted for `x0`/`y0`:
+Start from `TinkerbellRenderer.svelte`’s canvas/color-mode/worker wiring, then **add the fidelity contract** (do not ship a pure Tinkerbell clone):
 
-- d3 canvas + sci-fi svg axes, `MAX_POINTS = 250000`, debounced render (`DEBOUNCE_MS = 250`)
+- Props: `x0`, `y0`, `iterations`, `colorMode`, `zoom`, `pointSize`, `opacity`, `height?`, `containerElement?`, plus:
+  - `fidelity: Fidelity = 'full'` (default so compare pages stay full quality without the shell)
+  - `onRenderStateChange: (state: RenderState) => void = () => {}` (noop default)
+- d3 canvas + sci-fi svg axes; `MAX_POINTS = 250_000`
 - Five color modes (identical set + rendering logic to Tinkerbell/Clifford)
-- `zoom`, `pointSize`, `opacity` props; disable pointSize/opacity under `density`
+- `zoom`, `pointSize`, `opacity`; disable pointSize/opacity under `density`
 - Worker post `{ type: 'gingerbreadman', id, x0, y0, iterations, maxPoints }` → handle `gingerbreadmanResult`
 - Main-thread fallback → `calculateGingerbreadmanTuples`
 - `paramsValid()`: all numeric props finite, `iterations > 0`
 
+**Fidelity / work scaling (required):**
+
+| Signal | Behavior |
+|--------|----------|
+| Compute keys change (`x0`, `y0`, `iterations`) and `fidelity === 'preview'` | Request worker/main with reduced budget (~**25 000** points / effective iterations) |
+| Compute keys change and `fidelity === 'full'` | Full budget up to `MAX_POINTS` / requested iterations |
+| Style-only change (`colorMode`, `zoom`, `pointSize`, `opacity`) | Keep cached points; immediate **sampled** repaint (~25k), then debounced full repaint from cache (§5E pattern) |
+| Status | Call `onRenderStateChange('rendering')` when work starts; `'complete'` when full-quality paint (or empty/error path) finishes |
+
+Diff compute vs style keys with a `prevValues` ref inside the renderer (shell does not indicate which key changed).
+
 ### 4. `src/routes/gingerbreadman/+page.svelte` — main page
 
-Mirror of `src/routes/tinkerbell/+page.svelte` with IC controls:
+Page-owned state + shell, **with ParameterSlider policies** (not raw ranges):
 
 - Page-owned `$state` for `x0, y0, iterations, colorMode, zoom, pointSize, opacity` via `extraControls`
+- **Numeric controls use `<ParameterSlider>`** so they register with the shell’s `SliderDragManager`:
+
+  | Control | `updatePolicy` |
+  |---------|----------------|
+  | `x0`, `y0`, `iterations` | `'preview'` (recompute orbit) |
+  | `zoom`, `pointSize`, `opacity` | `'live'` (style only) |
+
+- `colorMode` remains a select/toggle group (non-slider); treat as live style change on the renderer
 - Presets bar, Initial conditions, Orbit, Render controls, Randomize + Reset
 - `createStabilityReporter({ mapType: 'gingerbreadman', getParams, reactive: true })` + tracking `$effect`
 - `buildParameters(): GingerbreadmanParameters` and `onExtraParametersLoaded` with clamps
+- Renderer snippet **must** thread shell args:
+
+  ```svelte
+  {#snippet renderer({ container, fidelity, onRenderStateChange })}
+  	<GingerbreadmanRenderer
+  		{x0} {y0} {iterations} {colorMode} {zoom} {pointSize} {opacity}
+  		{fidelity}
+  		{onRenderStateChange}
+  		bind:containerElement={container.el}
+  		height={VIZ_CONTAINER_HEIGHT}
+  	/>
+  {/snippet}
+  ```
+
 - `<VisualizationShell>`: `mapType="gingerbreadman"`, `title="GINGERBREADMAN_MAP"`, `paramDefs={[]}`, formula lines, educational `description`
 - **No `+page.server.ts`** — session from root layout (same as Tinkerbell/Clifford)
 
 ### 5. `src/routes/gingerbreadman/compare/+page.svelte` — comparison page
 
-Mirror Tinkerbell compare structure; **URL sync pattern from Arnold Cat compare**:
+Structure from Tinkerbell compare (dual panel + left-shared styling), **URL sync from Arnold Cat — including styling**:
 
 - `decodeComparisonState($page.url, 'gingerbreadman')`, `getDefaultParameters('gingerbreadman')`, `getStableRanges('gingerbreadman')!`
-- `clampParams` over `x0`, `y0`, `iterations`; shared styling from the **left** side
-- Left/right sliders for `x0`/`y0`/`iterations`; debounced URL sync with `untrack` on external URL changes; cleanup debounce on effect teardown
-- Two `GingerbreadmanRenderer` instances (`height={400}`)
+- `clampParams` over **all** persisted fields: `x0`, `y0`, `iterations`, and optional styling (`colorMode` enum clamp/fallback, `zoom`/`pointSize`/`opacity` numeric ranges)
+- Left/right **independent** `$state` for `x0`, `y0`, `iterations`
+- Shared styling is **`$state`**, not `const` from first paint only:
+  - `colorMode`, `zoom`, `pointSize`, `opacity` (left is the source of truth for both renderers)
+- **External URL sync (`untrack` effect)** must apply **both** left/right compute params **and** shared styling from the decoded left (and right compute) payload whenever `$page.url` changes (back/forward, same-route link). Do **not** leave styling frozen after mount (current Tinkerbell bug).
+- Debounced `goto` write-back must include styling in `getLeftParams` / `getRightParams` (right carries the shared style fields too so encode/decode is symmetric)
+- Debounce timer cleanup on effect teardown
+- Two `GingerbreadmanRenderer` instances (`height={400}`); default `fidelity='full'` (no shell)
+- Compare panel sliders may stay native ranges (compare routes do not use `VisualizationShell` / drag manager — same as responsiveness design § compare note)
 
 ### 6. Tests (new)
 
@@ -187,13 +236,31 @@ Mirror Tinkerbell compare structure; **URL sync pattern from Arnold Cat compare*
 | `src/routes/gingerbreadman-compare-interactions.svelte.test.ts` | Compare URL encode/decode/clamp/swap |
 | `src/lib/comparison-url-state-gingerbreadman-preset.test.ts` | **Required** (not optional): defaults from default preset + preset-state wiring. Sibling maps with a PRESETS array all ship this file (`clifford`, `tinkerbell`, `ikeda`, `gumowski-mira`, `double-pendulum`). Arnold Cat skips it only because it has no preset array. |
 
-### 7. Migration
+### 7. Migration (manual SQL + journal only)
 
-`drizzle/0014_add_gingerbreadman_map_type.sql` — add `'gingerbreadman'` to both CHECK constraints (`check_valid_map_type` and `chk_shared_configurations_map_type`), following `0013_add_arnold_cat_map_type.sql`.
+Mirror Arnold Cat’s constraint (see [arnold-cat design § DB Migration](./2026-07-15-arnold-cat-map-visualization-design.md)):
 
-- **Append at end** of each `IN (...)` list (after `'arnold-cat'`), preserving the shared ordering invariant with `VALID_MAP_TYPES`.
-- Update the migration comment from “all 19 map types” (0013 wording) to **“all 20 map types.”**
-- `schema.test.ts` asserts `constraintTypes.toHaveLength(VALID_MAP_TYPES.length)` against the latest migration SQL — both CHECK lists must gain the new type or that test fails.
+1. **`drizzle/0014_add_gingerbreadman_map_type.sql`**
+   - Drop and re-add both CHECK constraints (`check_valid_map_type` on `saved_configurations`, `chk_shared_configurations_map_type` on `shared_configurations`).
+   - List **all 20** map types (existing 19 + `'gingerbreadman'`).
+   - **Append** `'gingerbreadman'` at the end of each `IN (...)` list (after `'arnold-cat'`).
+   - Comment text: **“all 20 map types.”**
+   - Wrap in `BEGIN`/`COMMIT` like `0013`.
+2. **`drizzle/meta/_journal.json`** — append a **full** entry (not just `idx`/`tag`):
+
+   ```json
+   {
+     "idx": 14,
+     "version": "7",
+     "when": <monotonic-ms-timestamp-after-0013>,
+     "tag": "0014_add_gingerbreadman_map_type",
+     "breakpoints": true
+   }
+   ```
+
+3. **Do NOT run `drizzle-kit generate`.** Metadata snapshots stop at `0002_snapshot.json`; migrations `0003`–`0013` are manual SQL + journal only. Generating against the stale snapshot chain would create an unrelated or extra migration.
+4. **No new snapshot file.**
+5. `schema.test.ts` asserts `constraintTypes.toHaveLength(VALID_MAP_TYPES.length)` against the latest migration SQL — both CHECK lists must gain the new type or that test fails.
 
 ## Files to modify (registration surface)
 
@@ -206,7 +273,7 @@ Mirror Tinkerbell compare structure; **URL sync pattern from Arnold Cat compare*
 | `src/lib/workers/chaosMapsHandler.ts` | `case 'gingerbreadman'` → `calculateGingerbreadmanTuples` → `gingerbreadmanResult` |
 | `src/routes/+page.svelte` | Homepage card (visual placement near Tinkerbell / other discrete maps is fine; independent of `VALID_MAP_TYPES` order) |
 | `CLAUDE.md` | Project overview: **19 → 20** systems; append Gingerbreadman to the parenthetical map list. (`Agents.md` / `AGENTS.md` are symlinks to `CLAUDE.md` — one edit covers all three.) |
-| `drizzle/meta/_journal.json` | Entry `{ idx: 14, tag: '0014_add_gingerbreadman_map_type' }` |
+| `drizzle/meta/_journal.json` | Full entry: `idx: 14`, `version: "7"`, monotonic `when`, `tag: '0014_add_gingerbreadman_map_type'`, `breakpoints: true` — **no** `drizzle-kit generate`, **no** snapshot |
 | `src/lib/types.test.ts` | **Append** `'gingerbreadman'` to `EXPECTED_MAP_TYPES` (same end-of-list order as `VALID_MAP_TYPES`); display-name assertion if present |
 | `src/lib/api-validation.test.ts` | **Append** `'gingerbreadman'` to bi-directional `expectedTypes` list |
 | `src/lib/server/db/schema.test.ts` | **Add a parallel** `test('drizzle journal registers the 0014 gingerbreadman migration', …)` (idx `14`, tag `0014_add_gingerbreadman_map_type`). Do **not** replace the existing 0013 arnold-cat journal test. |
@@ -228,20 +295,26 @@ Mirror Tinkerbell compare structure; **URL sync pattern from Arnold Cat compare*
 
 ## Presets (initial set)
 
-Validated visually during implementation; replace any that diverge or look uninteresting.
+**Orbit-richness requirement:** every preset IC must produce a dense point cloud, not a short cycle. Dyadic-friendly seeds such as `(0.5, -0.5)` and `(3, -2)` collapse to **90** and **30** unique points respectively over 100 000 iterates (verified by direct simulation) and are **rejected**.
 
-| id | label | x0 | y0 | intent |
-|----|--------|-----|-----|--------|
-| `classic` (default) | Classic | `-0.1` | `0` | Recognizable gingerbread figure |
-| `near-origin` | Near Origin | `-0.3` | `0` | Alternate textbook-style seed |
-| `offset` | Offset Seed | `0.5` | `-0.5` | Different transient into the attractor |
-| `far-field` | Far Field | `3` | `-2` | Sensitivity: farther IC, same map |
+**Acceptance bar for each preset:** after 100 000 iterates (with magnitude guard), unique rounded points ≥ **1 000** (implementation test; prefer ≫ that for visual density). Prefer **non-dyadic** seeds (irrational-ish decimals) so the piecewise-linear map does not land on a short period.
+
+| id | label | x0 | y0 | intent | ~unique @ 1e5 (sim) |
+|----|--------|-----|-----|--------|---------------------|
+| `classic` (default) | Classic | `-0.1` | `0` | Recognizable gingerbread figure | ~100 000 |
+| `near-origin` | Near Origin | `-0.3` | `0` | Alternate textbook-style seed | ~100 000 |
+| `offset` | Offset Seed | `-0.75` | `0.1` | Different approach into the figure (non-dyadic) | ~100 000 |
+| `far-field` | Far Field | `-2.13` | `0.47` | Farther IC, same map; sensitivity story | ~100 000 |
+
+**Do not ship** the previously proposed `offset (0.5, -0.5)` or `far-field (3, -2)`.
 
 Shared defaults unless a preset overrides for discoverability:
 
 - `iterations: 100_000`
 - At least one preset uses `colorMode: 'density'`, one uses `'radius'` or `'angle'`; classic uses `'iteration'`
 - `zoom: 1`, `pointSize: 1.5`, `opacity: 0.6`
+
+Visual fine-tuning of seeds is allowed during implementation only if the replacement still passes the orbit-richness test.
 
 ## UX details
 
@@ -277,17 +350,19 @@ If the orbit aborts early, render collected finite points (possibly empty). No c
 
 ### Unit (node)
 
-- `gingerbreadman.test.ts` — produces points from default IC; respects `maxPoints`; breaks on non-finite; **breaks and drops** magnitude-cap points; `[]` for `iterations <= 0`; one-step recurrence fixture
+- `gingerbreadman.test.ts` — produces points from default IC; respects `maxPoints`; breaks on non-finite; **breaks and drops** magnitude-cap points; `[]` for `iterations <= 0`; one-step recurrence fixture; **orbit-richness**: each shipped preset’s `(x0, y0)` yields ≥ 1 000 unique points over 100 000 iterates (and explicit non-regression that dyadic traps like `(0.5,-0.5)` fail that bar if used as negative fixtures)
 - Preset helpers — `getPreset` / `detectPresetId`
 - **`comparison-url-state-gingerbreadman-preset.test.ts`** — required (mirror Tinkerbell preset comparison-url-state test)
 - Extend `chaos-validation`, `types`, `api-validation`, `schema` (parallel 0014 journal test; keep 0013), `comparison-url-state`, worker tests as listed above
 
 ### Component / page (jsdom)
 
-- Renderer smoke (+ worker test mirroring Tinkerbell)
-- Page interactions (preset / reset / randomize / sliders)
+- Renderer smoke (+ worker test mirroring Tinkerbell); optional fidelity smoke: `fidelity='preview'` reduces requested work / still calls `onRenderStateChange`
+- Page interactions (preset / reset / randomize / sliders via ParameterSlider)
 - Config-loading (configId / share / config param, clamp, warnings, dismiss)
-- Compare interactions (URL encode/decode/clamp, defaults, swap, URL sync)
+- Compare interactions:
+  - URL encode/decode/clamp, defaults, swap
+  - **External URL change** updates left/right **and shared styling** (`colorMode`, `zoom`, `pointSize`, `opacity`) — regression for the Tinkerbell const-style freeze
 
 ### Verification commands
 
@@ -310,16 +385,21 @@ bun run lint
 | Desktop + mobile usable | Inherited shell + responsive control grids |
 | Cap points; guard NaN / ∞ / runaway | `maxPoints` + finiteness + magnitude guards |
 | Full sibling parity | Compare route, 5 color modes, worker, presets, save/share registration |
-| DB accepts saved/shared configs | Migration `0014` CHECK constraints |
+| Slider/fidelity pipeline | ParameterSlider policies + renderer `fidelity` / `onRenderStateChange` |
+| Compare styling follows URL navigation | Shared styling `$state` + untrack sync + regression test |
+| Presets are real point clouds | Orbit-richness ≥ 1 000 unique pts @ 1e5 iterates |
+| DB accepts saved/shared configs | Migration `0014` CHECK constraints (manual SQL + full journal entry) |
 
 ## Implementation notes for the plan
 
-1. Clone path: **Tinkerbell** for math/renderer/page/worker/tests; **Arnold Cat compare** for URL↔slider `untrack` sync.
-2. Migration id **`0014`** (after Arnold Cat `0013`). SQL comment: **“all 20 map types.”**
+1. Product surface: **Tinkerbell** (math/worker/color modes/presets). Controls/fidelity: **responsiveness design** (`ParameterSlider` + `fidelity` / `onRenderStateChange`). Compare URL: **Arnold Cat `untrack`**, extended to **shared styling**.
+2. Migration id **`0014`** (after Arnold Cat `0013`). Full journal fields; **manual SQL only** — never `drizzle-kit generate`; no snapshot. Comment: **“all 20 map types.”**
 3. Homepage card count tests **and** `CLAUDE.md` overview prose: **19 → 20** (include Gingerbreadman in the map list).
 4. **Append-at-end ordering invariant:** append `'gingerbreadman'` at the **end** of `VALID_MAP_TYPES`, both CHECK `IN (...)` lists, `EXPECTED_MAP_TYPES`, and other bi-directional type lists — after `'arnold-cat'` — so the three canonical ordered lists stay synchronized. Homepage card visual order is independent.
 5. Prefer grepping sibling registration sites (`VALID_MAP_TYPES`, `EXPECTED_MAP_TYPES`, CHECK SQL lists, exhaustive switches) so no site is missed.
 6. Type/API/validation tests often list every map type — update all list copies in the same PR.
 7. **Required** test file: `comparison-url-state-gingerbreadman-preset.test.ts` (preset-array sibling pattern).
 8. Schema journal: **add** parallel 0014 test; keep 0013 arnold-cat test.
-)
+9. Do **not** treat current Tinkerbell page/renderer as a complete control template — copy color modes and worker shape only; implement sliders and fidelity as specified here.
+10. Preset ICs: orbit-richness test is load-bearing; do not reintroduce dyadic short-cycle seeds.
+
