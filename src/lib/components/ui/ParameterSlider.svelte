@@ -269,7 +269,7 @@
 		<label for={id} class="text-primary/80 text-xs uppercase tracking-widest font-bold">
 			{label}
 		</label>
-		<span class="font-mono text-accent">{displayValue}</span>
+		<span class="font-mono text-accent" data-testid={`value-${id}`}>{displayValue}</span>
 	</div>
 	<input
 		{id}
