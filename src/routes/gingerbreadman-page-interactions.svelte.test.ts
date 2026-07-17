@@ -80,9 +80,7 @@ describe('Gingerbreadman page interactions', () => {
 
 	it('renders the GINGERBREADMAN_MAP header and ParameterSlider test ids', () => {
 		render(GingerbreadmanPage, { props: unauthedPageProps });
-		expect(
-			screen.getByRole('heading', { level: 1, name: /GINGERBREADMAN_MAP/i })
-		).toBeTruthy();
+		expect(screen.getByRole('heading', { level: 1, name: /GINGERBREADMAN_MAP/i })).toBeTruthy();
 		expect(screen.getByTestId('slider-x0')).toBeTruthy();
 		expect(screen.getByTestId('slider-y0')).toBeTruthy();
 		expect(screen.getByTestId('slider-iterations')).toBeTruthy();

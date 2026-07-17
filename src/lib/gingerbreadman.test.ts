@@ -18,9 +18,10 @@ describe('orbitKey / countUniqueOrbitPoints', () => {
 
 	test('every shipped preset IC is orbit-rich', () => {
 		for (const p of GINGERBREADMAN_PRESETS) {
-			expect(countUniqueOrbitPoints(p.state.x0, p.state.y0), `preset ${p.id}`).toBeGreaterThanOrEqual(
-				1000
-			);
+			expect(
+				countUniqueOrbitPoints(p.state.x0, p.state.y0),
+				`preset ${p.id}`
+			).toBeGreaterThanOrEqual(1000);
 		}
 	});
 
@@ -37,9 +38,9 @@ describe('calculateGingerbreadmanTuples', () => {
 	});
 
 	test('returns empty when maxPoints is non-positive', () => {
-		expect(calculateGingerbreadmanTuples({ ...CLASSIC, iterations: 100, maxPoints: 0 })).toEqual(
-			[]
-		);
+		expect(
+			calculateGingerbreadmanTuples({ ...CLASSIC, iterations: 100, maxPoints: 0 })
+		).toEqual([]);
 	});
 
 	test('honors maxPoints cap', () => {

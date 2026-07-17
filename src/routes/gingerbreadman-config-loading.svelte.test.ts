@@ -166,7 +166,9 @@ describe('gingerbreadman page – config loading', () => {
 			expect((screen.getByTestId('slider-x0') as HTMLInputElement).value).toBe('1.5');
 		});
 		expect(screen.getByTestId('value-x0').textContent).toBe('1.50');
-		expect((screen.getByTestId('select-color-mode') as HTMLSelectElement).value).toBe('density');
+		expect((screen.getByTestId('select-color-mode') as HTMLSelectElement).value).toBe(
+			'density'
+		);
 	});
 
 	it('clamps out-of-range x0 and iterations from a loaded config', async () => {
