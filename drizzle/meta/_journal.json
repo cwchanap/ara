@@ -99,6 +99,13 @@
 			"when": 1784131200000,
 			"tag": "0013_add_arnold_cat_map_type",
 			"breakpoints": true
+		},
+		{
+			"idx": 14,
+			"version": "7",
+			"when": 1784217600000,
+			"tag": "0014_add_gingerbreadman_map_type",
+			"breakpoints": true
 		}
 	]
 }
