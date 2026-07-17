@@ -21,6 +21,10 @@ import {
 	getPreset as getTinkerbellPreset,
 	DEFAULT_TINKERBELL_PRESET_ID
 } from './tinkerbell-presets';
+import {
+	getPreset as getGingerbreadmanPreset,
+	DEFAULT_GINGERBREADMAN_PRESET_ID
+} from './gingerbreadman-presets';
 import { LORENZ_PRESETS } from './lorenz/presets';
 
 /**
@@ -140,6 +144,14 @@ export function getDefaultParameters(mapType: ChaosMapType): ChaosMapParameters 
 			return { type: 'bakers-map', pointCount: 3000, speed: 1 };
 		case 'arnold-cat':
 			return { type: 'arnold-cat', pointCount: 3000, speed: 5 };
+		case 'gingerbreadman': {
+			const preset = getGingerbreadmanPreset(DEFAULT_GINGERBREADMAN_PRESET_ID);
+			if (!preset)
+				throw new Error(
+					`Missing default Gingerbreadman preset: ${DEFAULT_GINGERBREADMAN_PRESET_ID}`
+				);
+			return { type: 'gingerbreadman', ...preset.state };
+		}
 	}
 }
 
