@@ -117,6 +117,12 @@
 			description: 'An area-preserving map that scrambles images through stretch-and-fold dynamics',
 			url: '/arnold-cat',
 			color: 'from-slate-400 to-cyan-600'
+		},
+		{
+			name: 'Gingerbreadman Map',
+			description: 'A simple chaotic map whose orbit forms a distinctive fractal-like figure',
+			url: '/gingerbreadman',
+			color: 'from-amber-500 to-rose-600'
 		}
 	];
 </script>
