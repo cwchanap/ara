@@ -329,10 +329,9 @@ describe('Gingerbreadman compare page interactions', () => {
 				Number((container.querySelector('#left-x0') as HTMLInputElement).value)
 			).toBeCloseTo(-0.75, 5);
 		});
-		expect(Number((container.querySelector('#right-x0') as HTMLInputElement).value)).toBeCloseTo(
-			-2.13,
-			5
-		);
+		expect(
+			Number((container.querySelector('#right-x0') as HTMLInputElement).value)
+		).toBeCloseTo(-2.13, 5);
 	});
 
 	// ── External URL sync (untrack pattern, including shared styling) ─────
@@ -446,8 +445,12 @@ describe('Gingerbreadman compare page interactions', () => {
 		setPageUrl(`http://localhost/gingerbreadman/compare?compare=true&left=${left}`);
 
 		await waitFor(() => {
-			expect(Number((container.querySelector('#left-x0') as HTMLInputElement).value)).toBe(10);
-			expect(Number((container.querySelector('#left-y0') as HTMLInputElement).value)).toBe(-10);
+			expect(Number((container.querySelector('#left-x0') as HTMLInputElement).value)).toBe(
+				10
+			);
+			expect(Number((container.querySelector('#left-y0') as HTMLInputElement).value)).toBe(
+				-10
+			);
 			expect(
 				Number((container.querySelector('#left-iterations') as HTMLInputElement).value)
 			).toBe(250000);

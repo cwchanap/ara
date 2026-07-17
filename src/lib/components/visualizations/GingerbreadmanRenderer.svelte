@@ -39,7 +39,7 @@
 		height = 500,
 		containerElement = $bindable(),
 		fidelity = 'full' as Fidelity,
-		onRenderStateChange = (_state: RenderState) => {}
+		onRenderStateChange = () => {}
 	}: Props = $props();
 
 	let container = $state<HTMLDivElement | undefined>(undefined);

@@ -15,8 +15,9 @@ vi.mock('$lib/gingerbreadman', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('$lib/gingerbreadman')>();
 	return {
 		...actual,
-		calculateGingerbreadmanTuples: vi.fn((params: Parameters<typeof actual.calculateGingerbreadmanTuples>[0]) =>
-			actual.calculateGingerbreadmanTuples(params)
+		calculateGingerbreadmanTuples: vi.fn(
+			(params: Parameters<typeof actual.calculateGingerbreadmanTuples>[0]) =>
+				actual.calculateGingerbreadmanTuples(params)
 		)
 	};
 });
