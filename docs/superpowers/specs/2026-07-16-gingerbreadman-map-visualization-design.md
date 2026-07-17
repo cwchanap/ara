@@ -3,7 +3,7 @@
 - **Linear issue:** [HPA-61](https://linear.app/cwchanap/issue/HPA-61/add-gingerbreadman-map-visualization-module)
 - **PRD:** [Additional Chaotic Map Visualizations](https://linear.app/cwchanap/document/prd-additional-chaotic-map-visualizations-1a69b476e276)
 - **Date:** 2026-07-16
-- **Status:** Design — revised after second review (2026-07-16)
+- **Status:** Design — revised after third review (2026-07-16)
 
 ## Summary
 
@@ -180,31 +180,56 @@ Diff compute vs style keys with a `prevValues` ref inside the renderer (shell do
 
 Page-owned state + shell, **with ParameterSlider policies** (not raw ranges):
 
-- Page-owned `$state` for `x0, y0, iterations, colorMode, zoom, pointSize, opacity` via `extraControls`
+#### Committed vs draft state (required for `preview` policy)
+
+`paramDefs={[]}` means the shell’s `draftValues` object is empty and **not** usable for Gingerbreadman compute params. `ParameterSlider` with `updatePolicy: 'preview'` does **not** write `bind:value` during drag — it only fires throttled `ondraft` ([`ParameterSlider.svelte`](../../../src/lib/components/ui/ParameterSlider.svelte)). The page **must** maintain its own draft mirrors.
+
+| State | Role |
+|-------|------|
+| `x0`, `y0`, `iterations` | **Committed** — bound to `ParameterSlider` `value`; updated only on release / programmatic set (preset, randomize, config load). Used by `buildParameters()`, save/share/compare, stability `$effect`. |
+| `draftX0`, `draftY0`, `draftIterations` | **Draft** — updated via `ondraft`; initialized equal to committed; reset to committed on cancel-drag (slider already re-fires `ondraft` with committed value). |
+| `colorMode`, `zoom`, `pointSize`, `opacity` | **Live** style — `updatePolicy: 'live'` updates bound state every input; no separate draft needed. |
+
+Sync rule for programmatic mutations (preset apply, reset, randomize, `onExtraParametersLoaded`): set committed **and** draft to the same values so a mid-drag cancel cannot leave drafts stale relative to a later preset.
+
+#### Controls
+
 - **Numeric controls use `<ParameterSlider>`** so they register with the shell’s `SliderDragManager`:
 
-  | Control | `updatePolicy` |
-  |---------|----------------|
-  | `x0`, `y0`, `iterations` | `'preview'` (recompute orbit) |
-  | `zoom`, `pointSize`, `opacity` | `'live'` (style only) |
+  | Control | `updatePolicy` | Binding |
+  |---------| | -------------- | ------- |
+  | `x0`, `y0`, `iterations` | `'preview'` | `bind:value={x0}` (etc.) + `ondraft={(v) => (draftX0 = v)}` |
+  | `zoom`, `pointSize`, `opacity` | `'live'` | `bind:value={zoom}` (etc.); optional `ondraft` not required |
 
 - `colorMode` remains a select/toggle group (non-slider); treat as live style change on the renderer
 - Presets bar, Initial conditions, Orbit, Render controls, Randomize + Reset
-- `createStabilityReporter({ mapType: 'gingerbreadman', getParams, reactive: true })` + tracking `$effect`
-- `buildParameters(): GingerbreadmanParameters` and `onExtraParametersLoaded` with clamps
-- Renderer snippet **must** thread shell args:
+- `createStabilityReporter({ mapType: 'gingerbreadman', getParams, reactive: true })` tracks **committed** `x0`/`y0`/`iterations` only (silent during preview drag; re-check on release — matches responsiveness design §1.6)
+- `buildParameters(): GingerbreadmanParameters` reads **committed** values only; `onExtraParametersLoaded` clamps then writes committed + drafts
 
-  ```svelte
-  {#snippet renderer({ container, fidelity, onRenderStateChange })}
-  	<GingerbreadmanRenderer
-  		{x0} {y0} {iterations} {colorMode} {zoom} {pointSize} {opacity}
-  		{fidelity}
-  		{onRenderStateChange}
-  		bind:containerElement={container.el}
-  		height={VIZ_CONTAINER_HEIGHT}
-  	/>
-  {/snippet}
-  ```
+#### Renderer snippet — consume drafts during preview
+
+```svelte
+{#snippet renderer({ container, fidelity, onRenderStateChange })}
+	{@const renderX0 = fidelity === 'preview' ? draftX0 : x0}
+	{@const renderY0 = fidelity === 'preview' ? draftY0 : y0}
+	{@const renderIterations = fidelity === 'preview' ? draftIterations : iterations}
+	<GingerbreadmanRenderer
+		x0={renderX0}
+		y0={renderY0}
+		iterations={renderIterations}
+		{colorMode}
+		{zoom}
+		{pointSize}
+		{opacity}
+		{fidelity}
+		{onRenderStateChange}
+		bind:containerElement={container.el}
+		height={VIZ_CONTAINER_HEIGHT}
+	/>
+{/snippet}
+```
+
+Without the draft branch, dragging a preview slider would leave the renderer on the last committed IC while the shell shows `PREVIEW` — broken UX and false status.
 
 - `<VisualizationShell>`: `mapType="gingerbreadman"`, `title="GINGERBREADMAN_MAP"`, `paramDefs={[]}`, formula lines, educational `description`
 - **No `+page.server.ts`** — session from root layout (same as Tinkerbell/Clifford)
@@ -295,16 +320,57 @@ Mirror Arnold Cat’s constraint (see [arnold-cat design § DB Migration](./2026
 
 ## Presets (initial set)
 
-**Orbit-richness requirement:** every preset IC must produce a dense point cloud, not a short cycle. Dyadic-friendly seeds such as `(0.5, -0.5)` and `(3, -2)` collapse to **90** and **30** unique points respectively over 100 000 iterates (verified by direct simulation) and are **rejected**.
+**Orbit-richness requirement:** every preset IC must produce a dense point cloud, not a short cycle. Dyadic-friendly seeds such as `(0.5, -0.5)` and `(3, -2)` collapse to short periods (verified by direct simulation) and are **rejected**.
 
-**Acceptance bar for each preset:** after 100 000 iterates (with magnitude guard), unique rounded points ≥ **1 000** (implementation test; prefer ≫ that for visual density). Prefer **non-dyadic** seeds (irrational-ish decimals) so the piecewise-linear map does not land on a short period.
+### Deterministic quantization rule (load-bearing)
 
-| id | label | x0 | y0 | intent | ~unique @ 1e5 (sim) |
-|----|--------|-----|-----|--------|---------------------|
-| `classic` (default) | Classic | `-0.1` | `0` | Recognizable gingerbread figure | ~100 000 |
-| `near-origin` | Near Origin | `-0.3` | `0` | Alternate textbook-style seed | ~100 000 |
-| `offset` | Offset Seed | `-0.75` | `0.1` | Different approach into the figure (non-dyadic) | ~100 000 |
-| `far-field` | Far Field | `-2.13` | `0.47` | Farther IC, same map; sensitivity story | ~100 000 |
+“Unique points” without a grid is ambiguous: the same orbit yields **~79** unique keys at integer precision, **~4 000** at one decimal, and **~100 000** at three or more decimals. Tests and acceptance **must** use this exact rule:
+
+```typescript
+/** Quantize to a 0.001 grid (3 decimal places) via integer keys. */
+function orbitKey(x: number, y: number): string {
+	// Math.round half-away-from-zero for |n| < 2^52 / 1000 — fine for |coord| ≤ MAGNITUDE_CAP
+	return `${Math.round(x * 1000)},${Math.round(y * 1000)}`;
+}
+
+function countUniqueOrbitPoints(x0: number, y0: number, iterations = 100_000): number {
+	const seen = new Set<string>();
+	let x = x0;
+	let y = y0;
+	for (let i = 0; i < iterations; i++) {
+		const xNew = 1 - y + Math.abs(x);
+		const yNew = x;
+		if (
+			!Number.isFinite(xNew) ||
+			!Number.isFinite(yNew) ||
+			Math.abs(xNew) > 1e4 ||
+			Math.abs(yNew) > 1e4
+		) {
+			break;
+		}
+		x = xNew;
+		y = yNew;
+		seen.add(orbitKey(x, y));
+	}
+	return seen.size;
+}
+```
+
+| Constant | Value | Rationale |
+|----------|-------|-----------|
+| Grid | **0.001** (`Math.round(coord * 1000)`) | Separates dense fills (~99k unique) from short cycles; integer keys avoid float-set instability |
+| Iterations | **100 000** | Matches default preset density |
+| Magnitude stop | **1e4** | Same as production orbit guard |
+| Pass bar | **`countUniqueOrbitPoints(x0, y0) ≥ 1_000`** | Short cycles (≤ ~90 unique even at fine grids) fail; shipped seeds pass at ~99 000 |
+
+Negative fixtures (must fail the bar): `(0.5, -0.5)`, `(3, -2)`.
+
+| id | label | x0 | y0 | intent | ~unique @ 1e5, 0.001 grid |
+|----|--------|-----|-----|--------|---------------------------|
+| `classic` (default) | Classic | `-0.1` | `0` | Recognizable gingerbread figure | ~99 754 |
+| `near-origin` | Near Origin | `-0.3` | `0` | Alternate textbook-style seed | ~99 623 |
+| `offset` | Offset Seed | `-0.75` | `0.1` | Different approach into the figure (non-dyadic) | ~99 797 |
+| `far-field` | Far Field | `-2.13` | `0.47` | Farther IC, same map; sensitivity story | ~99 849 |
 
 **Do not ship** the previously proposed `offset (0.5, -0.5)` or `far-field (3, -2)`.
 
@@ -314,7 +380,7 @@ Shared defaults unless a preset overrides for discoverability:
 - At least one preset uses `colorMode: 'density'`, one uses `'radius'` or `'angle'`; classic uses `'iteration'`
 - `zoom: 1`, `pointSize: 1.5`, `opacity: 0.6`
 
-Visual fine-tuning of seeds is allowed during implementation only if the replacement still passes the orbit-richness test.
+Visual fine-tuning of seeds is allowed during implementation only if the replacement still passes `countUniqueOrbitPoints ≥ 1_000` under the rule above (prefer exporting the helper from `gingerbreadman.ts` or a tiny `gingerbreadman-orbit-stats.ts` so tests and docs stay single-sourced).
 
 ## UX details
 
@@ -350,15 +416,21 @@ If the orbit aborts early, render collected finite points (possibly empty). No c
 
 ### Unit (node)
 
-- `gingerbreadman.test.ts` — produces points from default IC; respects `maxPoints`; breaks on non-finite; **breaks and drops** magnitude-cap points; `[]` for `iterations <= 0`; one-step recurrence fixture; **orbit-richness**: each shipped preset’s `(x0, y0)` yields ≥ 1 000 unique points over 100 000 iterates (and explicit non-regression that dyadic traps like `(0.5,-0.5)` fail that bar if used as negative fixtures)
+- `gingerbreadman.test.ts` — produces points from default IC; respects `maxPoints`; breaks on non-finite; **breaks and drops** magnitude-cap points; `[]` for `iterations <= 0`; one-step recurrence fixture
+- **Orbit-richness (required, deterministic):** for every shipped preset IC, `countUniqueOrbitPoints(x0, y0) ≥ 1_000` under the **0.001 grid** rule above; negative fixtures `(0.5, -0.5)` and `(3, -2)` assert `< 1_000` (or exact short-period counts if fixed)
 - Preset helpers — `getPreset` / `detectPresetId`
 - **`comparison-url-state-gingerbreadman-preset.test.ts`** — required (mirror Tinkerbell preset comparison-url-state test)
 - Extend `chaos-validation`, `types`, `api-validation`, `schema` (parallel 0014 journal test; keep 0013), `comparison-url-state`, worker tests as listed above
 
 ### Component / page (jsdom)
 
-- Renderer smoke (+ worker test mirroring Tinkerbell); optional fidelity smoke: `fidelity='preview'` reduces requested work / still calls `onRenderStateChange`
-- Page interactions (preset / reset / randomize / sliders via ParameterSlider)
+- Renderer smoke (+ worker test mirroring Tinkerbell)
+- **Fidelity pipeline (required — not optional):**
+  1. **Draft preview work:** with `fidelity='preview'`, renderer requests reduced budget (~25k / scaled iterations) and uses the **draft** compute props (page test: drag/`ondraft` changes what is rendered while committed `x0`/`y0`/`iterations` stay put for `buildParameters`)
+  2. **Full-quality release:** after commit / `fidelity='full'`, full budget and **committed** props drive the render
+  3. **Status callbacks:** `onRenderStateChange('rendering')` then `'complete'` on both preview and full paths (including empty/abort)
+  4. **Sampled style repaint:** style-only prop change (e.g. `pointSize` / `colorMode`) does not re-dispatch a new worker compute when points are cached; still ends in `'complete'` after full repaint from cache
+- Page interactions (preset / reset / randomize / ParameterSlider; drafts sync on preset/config load)
 - Config-loading (configId / share / config param, clamp, warnings, dismiss)
 - Compare interactions:
   - URL encode/decode/clamp, defaults, swap
@@ -385,14 +457,16 @@ bun run lint
 | Desktop + mobile usable | Inherited shell + responsive control grids |
 | Cap points; guard NaN / ∞ / runaway | `maxPoints` + finiteness + magnitude guards |
 | Full sibling parity | Compare route, 5 color modes, worker, presets, save/share registration |
-| Slider/fidelity pipeline | ParameterSlider policies + renderer `fidelity` / `onRenderStateChange` |
+| Slider/fidelity pipeline | ParameterSlider policies + page drafts + renderer `fidelity` / `onRenderStateChange` |
+| Preview uses drafts | `ondraft` → `draftX0`/`draftY0`/`draftIterations`; snippet picks drafts when `fidelity==='preview'` |
 | Compare styling follows URL navigation | Shared styling `$state` + untrack sync + regression test |
-| Presets are real point clouds | Orbit-richness ≥ 1 000 unique pts @ 1e5 iterates |
+| Presets are real point clouds | `countUniqueOrbitPoints ≥ 1_000` on **0.001** grid @ 1e5 iterates |
+| Fidelity coverage | Required tests: draft preview, full release, status callbacks, sampled style repaint |
 | DB accepts saved/shared configs | Migration `0014` CHECK constraints (manual SQL + full journal entry) |
 
 ## Implementation notes for the plan
 
-1. Product surface: **Tinkerbell** (math/worker/color modes/presets). Controls/fidelity: **responsiveness design** (`ParameterSlider` + `fidelity` / `onRenderStateChange`). Compare URL: **Arnold Cat `untrack`**, extended to **shared styling**.
+1. Product surface: **Tinkerbell** (math/worker/color modes/presets). Controls/fidelity: **responsiveness design** (`ParameterSlider` + page-local drafts + `fidelity` / `onRenderStateChange`). Compare URL: **Arnold Cat `untrack`**, extended to **shared styling**.
 2. Migration id **`0014`** (after Arnold Cat `0013`). Full journal fields; **manual SQL only** — never `drizzle-kit generate`; no snapshot. Comment: **“all 20 map types.”**
 3. Homepage card count tests **and** `CLAUDE.md` overview prose: **19 → 20** (include Gingerbreadman in the map list).
 4. **Append-at-end ordering invariant:** append `'gingerbreadman'` at the **end** of `VALID_MAP_TYPES`, both CHECK `IN (...)` lists, `EXPECTED_MAP_TYPES`, and other bi-directional type lists — after `'arnold-cat'` — so the three canonical ordered lists stay synchronized. Homepage card visual order is independent.
@@ -400,6 +474,7 @@ bun run lint
 6. Type/API/validation tests often list every map type — update all list copies in the same PR.
 7. **Required** test file: `comparison-url-state-gingerbreadman-preset.test.ts` (preset-array sibling pattern).
 8. Schema journal: **add** parallel 0014 test; keep 0013 arnold-cat test.
-9. Do **not** treat current Tinkerbell page/renderer as a complete control template — copy color modes and worker shape only; implement sliders and fidelity as specified here.
-10. Preset ICs: orbit-richness test is load-bearing; do not reintroduce dyadic short-cycle seeds.
+9. Do **not** treat current Tinkerbell page/renderer as a complete control template — copy color modes and worker shape only; implement sliders, **drafts**, and fidelity as specified here.
+10. Preset ICs: orbit-richness uses **0.001 grid** (`Math.round(x*1000)` keys); do not reintroduce dyadic short-cycle seeds.
+11. `paramDefs={[]}` ⇒ shell `draftValues` is useless for Gingerbreadman; page-owned `ondraft` mirrors are mandatory for preview.
 
