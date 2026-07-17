@@ -8,6 +8,7 @@ import { calculateIkedaMultiSeed } from '../ikeda';
 import { calculateCliffordTuples } from '../clifford';
 import { calculateTinkerbellTuples } from '../tinkerbell';
 import { calculateGumowskiMiraMultiSeed } from '../gumowski-mira';
+import { calculateGingerbreadmanTuples } from '../gingerbreadman';
 import { calculateChaos } from '../chaos-esthetique';
 import { standardMap } from '../standard';
 
@@ -69,6 +70,14 @@ export function handleWorkerMessage(data: ChaosMapsWorkerRequest): ChaosMapsWork
 			maxPoints: data.maxPoints
 		});
 		return { type: 'gumowskiMiraResult', id: data.id, points, seedIndices };
+	} else if (data.type === 'gingerbreadman') {
+		const points = calculateGingerbreadmanTuples({
+			x0: data.x0,
+			y0: data.y0,
+			iterations: data.iterations,
+			maxPoints: data.maxPoints
+		});
+		return { type: 'gingerbreadmanResult', id: data.id, points };
 	} else {
 		const fallback = data as Record<string, unknown>;
 		return {

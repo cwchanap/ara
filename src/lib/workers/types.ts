@@ -69,13 +69,23 @@ export interface GumowskiMiraRequest {
 	maxPoints: number;
 }
 
+export interface GingerbreadmanRequest {
+	type: 'gingerbreadman';
+	id: number;
+	x0: number;
+	y0: number;
+	iterations: number;
+	maxPoints: number;
+}
+
 export type ChaosMapsWorkerRequest =
 	| StandardMapRequest
 	| ChaosEsthetiqueRequest
 	| IkedaRequest
 	| CliffordRequest
 	| TinkerbellRequest
-	| GumowskiMiraRequest;
+	| GumowskiMiraRequest
+	| GingerbreadmanRequest;
 
 // Response types
 export interface StandardMapResponse {
@@ -116,6 +126,12 @@ export interface GumowskiMiraResponse {
 	seedIndices: number[];
 }
 
+export interface GingerbreadmanResponse {
+	type: 'gingerbreadmanResult';
+	id: number;
+	points: [number, number][];
+}
+
 export interface ErrorResponse {
 	type: 'error';
 	id: number;
@@ -129,4 +145,5 @@ export type ChaosMapsWorkerResponse =
 	| CliffordResponse
 	| TinkerbellResponse
 	| GumowskiMiraResponse
+	| GingerbreadmanResponse
 	| ErrorResponse;
