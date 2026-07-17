@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { calculateGingerbreadmanTuples, countUniqueOrbitPoints, orbitKey } from './gingerbreadman';
+import { GINGERBREADMAN_PRESETS } from './gingerbreadman-presets';
 
 const CLASSIC = { x0: -0.1, y0: 0 };
 
@@ -13,6 +14,14 @@ describe('orbitKey / countUniqueOrbitPoints', () => {
 		expect(countUniqueOrbitPoints(-0.3, 0)).toBeGreaterThanOrEqual(1000);
 		expect(countUniqueOrbitPoints(-0.75, 0.1)).toBeGreaterThanOrEqual(1000);
 		expect(countUniqueOrbitPoints(-2.13, 0.47)).toBeGreaterThanOrEqual(1000);
+	});
+
+	test('every shipped preset IC is orbit-rich', () => {
+		for (const p of GINGERBREADMAN_PRESETS) {
+			expect(countUniqueOrbitPoints(p.state.x0, p.state.y0), `preset ${p.id}`).toBeGreaterThanOrEqual(
+				1000
+			);
+		}
 	});
 
 	test('dyadic short cycles fail the richness bar', () => {
