@@ -88,6 +88,21 @@ describe('migration map_type constraints include all VALID_MAP_TYPES', () => {
 			expect(tags).toContain(file.replace(/\.sql$/, ''));
 		}
 	});
+
+	test('drizzle journal registers the 0014 gingerbreadman migration', () => {
+		const journal = JSON.parse(
+			readFileSync(resolve(migrationDir, 'meta/_journal.json'), 'utf-8')
+		) as { entries: { idx: number; tag: string }[] };
+		const entry = journal.entries.find((e) => e.tag === '0014_add_gingerbreadman_map_type');
+		expect(entry).toBeDefined();
+		expect(entry!.idx).toBe(14);
+		const tags = journal.entries.map((e) => e.tag);
+		const migrationFiles = readdirSync(migrationDir).filter((f) => f.endsWith('.sql'));
+		expect(migrationFiles.length).toBeGreaterThan(0);
+		for (const file of migrationFiles) {
+			expect(tags).toContain(file.replace(/\.sql$/, ''));
+		}
+	});
 });
 
 describe('database indexes', () => {
