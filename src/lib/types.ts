@@ -28,7 +28,8 @@ export type ChaosMapType =
 	| 'chua'
 	| 'double-pendulum'
 	| 'bakers-map'
-	| 'arnold-cat';
+	| 'arnold-cat'
+	| 'gingerbreadman';
 
 export type LorenzSolver = 'euler' | 'rk2' | 'rk4';
 export type LorenzColorMode = 'time' | 'speed' | 'zheight' | 'divergence' | 'single';
@@ -296,6 +297,34 @@ export interface ArnoldCatParameters {
 	speed: number;
 }
 
+/**
+ * Source of truth for the Gingerbreadman color-mode set. Mirrors the
+ * point-cloud density/iteration/radius/angle/single palette used by
+ * Tinkerbell/Clifford. The union is derived from this tuple so the runtime
+ * validator can reuse the same values without restating them.
+ */
+export const GINGERBREADMAN_COLOR_MODES = [
+	'density',
+	'iteration',
+	'radius',
+	'angle',
+	'single'
+] as const satisfies readonly string[];
+
+export type GingerbreadmanColorMode = (typeof GINGERBREADMAN_COLOR_MODES)[number];
+
+export interface GingerbreadmanParameters {
+	type: 'gingerbreadman';
+	x0: number;
+	y0: number;
+	iterations: number;
+	// Optional render state — persisted so save/share/snapshot reproduce exactly.
+	colorMode?: GingerbreadmanColorMode;
+	zoom?: number;
+	pointSize?: number;
+	opacity?: number;
+}
+
 // Union type for all chaos map parameters
 export type ChaosMapParameters =
 	| LorenzParameters
@@ -316,7 +345,8 @@ export type ChaosMapParameters =
 	| ChuaParameters
 	| DoublePendulumParameters
 	| BakersMapParameters
-	| ArnoldCatParameters;
+	| ArnoldCatParameters
+	| GingerbreadmanParameters;
 
 // Display names for chaos map types (UPPERCASE_SNAKE_CASE per constitution)
 export const CHAOS_MAP_DISPLAY_NAMES: Record<ChaosMapType, string> = {
@@ -338,7 +368,8 @@ export const CHAOS_MAP_DISPLAY_NAMES: Record<ChaosMapType, string> = {
 	chua: 'CHUA_CIRCUIT',
 	'double-pendulum': 'DOUBLE_PENDULUM',
 	'bakers-map': 'BAKERS_MAP',
-	'arnold-cat': 'ARNOLD_CAT_MAP'
+	'arnold-cat': 'ARNOLD_CAT_MAP',
+	gingerbreadman: 'GINGERBREADMAN_MAP'
 };
 
 // Valid chaos map types array for validation
@@ -361,7 +392,8 @@ export const VALID_MAP_TYPES: ChaosMapType[] = [
 	'chua',
 	'double-pendulum',
 	'bakers-map',
-	'arnold-cat'
+	'arnold-cat',
+	'gingerbreadman'
 ];
 
 // Saved configuration discriminated union (matches Drizzle schema)
@@ -447,5 +479,9 @@ export type SavedConfiguration = {
 	| {
 			mapType: 'arnold-cat';
 			parameters: ArnoldCatParameters;
+	  }
+	| {
+			mapType: 'gingerbreadman';
+			parameters: GingerbreadmanParameters;
 	  }
 );

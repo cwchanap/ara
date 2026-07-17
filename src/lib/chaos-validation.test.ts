@@ -3455,3 +3455,72 @@ describe('arnold-cat parameter validation', () => {
 		expect(result.warnings).toHaveLength(0);
 	});
 });
+
+describe('gingerbreadman parameter validation', () => {
+	const validParams = {
+		type: 'gingerbreadman' as const,
+		x0: -0.1,
+		y0: 0,
+		iterations: 100000
+	};
+
+	test('validates correct gingerbreadman parameters', () => {
+		const result = validateParameters('gingerbreadman', validParams);
+		expect(result.isValid).toBe(true);
+		expect(result.errors).toHaveLength(0);
+	});
+
+	test('rejects missing x0', () => {
+		const result = validateParameters('gingerbreadman', {
+			type: 'gingerbreadman',
+			y0: 0,
+			iterations: 100000
+		});
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('x0'))).toBe(true);
+	});
+
+	test('rejects missing y0', () => {
+		const result = validateParameters('gingerbreadman', {
+			type: 'gingerbreadman',
+			x0: -0.1,
+			iterations: 100000
+		});
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('y0'))).toBe(true);
+	});
+
+	test('rejects missing iterations', () => {
+		const result = validateParameters('gingerbreadman', {
+			type: 'gingerbreadman',
+			x0: -0.1,
+			y0: 0
+		});
+		expect(result.isValid).toBe(false);
+		expect(result.errors.some((e) => e.includes('iterations'))).toBe(true);
+	});
+
+	test('checkParameterStability reports out-of-range x0', () => {
+		const result = checkParameterStability('gingerbreadman', {
+			...validParams,
+			x0: 99
+		});
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('x0'))).toBe(true);
+	});
+
+	test('checkParameterStability reports out-of-range iterations', () => {
+		const result = checkParameterStability('gingerbreadman', {
+			...validParams,
+			iterations: 999999
+		});
+		expect(result.isStable).toBe(false);
+		expect(result.warnings.some((w) => w.includes('iterations'))).toBe(true);
+	});
+
+	test('checkParameterStability passes for in-range values', () => {
+		const result = checkParameterStability('gingerbreadman', validParams);
+		expect(result.isStable).toBe(true);
+		expect(result.warnings).toHaveLength(0);
+	});
+});

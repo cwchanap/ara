@@ -8,6 +8,7 @@
 import {
 	CLIFFORD_COLOR_MODES,
 	TINKERBELL_COLOR_MODES,
+	GINGERBREADMAN_COLOR_MODES,
 	type ChaosMapType,
 	type ChaosMapParameters
 } from '$lib/types';
@@ -144,6 +145,11 @@ const STABLE_RANGES: Record<ChaosMapType, StableRanges<Record<string, number>>> 
 	'arnold-cat': {
 		pointCount: { min: 100, max: 10000 },
 		speed: { min: 1, max: 30 }
+	},
+	gingerbreadman: {
+		x0: { min: -10, max: 10 },
+		y0: { min: -10, max: 10 },
+		iterations: { min: 1, max: 250000 }
 	}
 };
 
@@ -191,6 +197,12 @@ const OPTIONAL_FIELDS: Partial<Record<ChaosMapType, Record<string, OptionalField
 	},
 	tinkerbell: {
 		colorMode: { kind: 'enum', values: [...TINKERBELL_COLOR_MODES] },
+		zoom: { kind: 'number', min: 0.5, max: 5 },
+		pointSize: { kind: 'number', min: 0.5, max: 6 },
+		opacity: { kind: 'number', min: 0, max: 1 }
+	},
+	gingerbreadman: {
+		colorMode: { kind: 'enum', values: [...GINGERBREADMAN_COLOR_MODES] },
 		zoom: { kind: 'number', min: 0.5, max: 5 },
 		pointSize: { kind: 'number', min: 0.5, max: 6 },
 		opacity: { kind: 'number', min: 0, max: 1 }

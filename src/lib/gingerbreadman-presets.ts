@@ -1,14 +1,4 @@
-/**
- * Temporary local color-mode union until Task 3 registers
- * `GingerbreadmanColorMode` in `$lib/types`. Matches Tinkerbell's set plus `x`.
- */
-export type GingerbreadmanColorMode =
-	| 'single'
-	| 'iteration'
-	| 'radius'
-	| 'angle'
-	| 'density'
-	| 'x';
+import type { GingerbreadmanColorMode } from '$lib/types';
 
 /** The full set of user-controllable Gingerbreadman state (everything that affects the render). */
 export interface GingerbreadmanPresetState {

@@ -32,7 +32,8 @@ import type {
 	GumowskiMiraParameters,
 	TinkerbellParameters,
 	BakersMapParameters,
-	ArnoldCatParameters
+	ArnoldCatParameters,
+	GingerbreadmanParameters
 } from './types';
 
 describe('getDefaultParameters', () => {
@@ -1332,7 +1333,8 @@ describe('createComparisonStateFromCurrent – additional cases', () => {
 			'gumowski-mira',
 			'tinkerbell',
 			'bakers-map',
-			'arnold-cat'
+			'arnold-cat',
+			'gingerbreadman'
 		] as const;
 
 		for (const mapType of mapTypes) {
@@ -1747,5 +1749,78 @@ describe('arnold-cat comparison URL round-trip', () => {
 			pointCount: 3000,
 			speed: 5
 		});
+	});
+});
+
+describe('gingerbreadman comparison URL round-trip', () => {
+	test('getDefaultParameters returns the classic gingerbreadman preset', () => {
+		const params = getDefaultParameters('gingerbreadman') as GingerbreadmanParameters;
+		expect(params.type).toBe('gingerbreadman');
+		expect(params.x0).toBeCloseTo(-0.1, 5);
+		expect(params.y0).toBeCloseTo(0, 5);
+		expect(params.iterations).toBe(100000);
+		expect(params.colorMode).toBe('iteration');
+		expect(params.zoom).toBe(1);
+		expect(params.pointSize).toBeCloseTo(1.5, 5);
+		expect(params.opacity).toBeCloseTo(0.6, 5);
+	});
+
+	test('round-trips a gingerbreadman comparison state through the URL', () => {
+		const left = getDefaultParameters('gingerbreadman') as GingerbreadmanParameters;
+		const right: GingerbreadmanParameters = {
+			...left,
+			x0: -0.75,
+			y0: 0.1,
+			colorMode: 'angle',
+			zoom: 2,
+			pointSize: 3,
+			opacity: 0.3
+		};
+		const encoded = encodeComparisonState({ compare: true, left, right });
+		const url = new URL(`http://localhost/gingerbreadman/compare?${encoded.toString()}`);
+		const decoded = decodeComparisonState(url, 'gingerbreadman');
+
+		expect(decoded).not.toBeNull();
+		expect(decoded!.corrected).toBe(false);
+		expect((decoded!.left as GingerbreadmanParameters).x0).toBeCloseTo(-0.1, 5);
+		expect((decoded!.left as GingerbreadmanParameters).colorMode).toBe('iteration');
+		expect((decoded!.right as GingerbreadmanParameters).x0).toBeCloseTo(-0.75, 5);
+		expect((decoded!.right as GingerbreadmanParameters).colorMode).toBe('angle');
+		expect((decoded!.right as GingerbreadmanParameters).zoom).toBe(2);
+		expect((decoded!.right as GingerbreadmanParameters).pointSize).toBe(3);
+		expect((decoded!.right as GingerbreadmanParameters).opacity).toBeCloseTo(0.3, 5);
+	});
+
+	test('buildComparisonUrl produces a parseable gingerbreadman compare URL', () => {
+		const left = getDefaultParameters('gingerbreadman') as GingerbreadmanParameters;
+		const right: GingerbreadmanParameters = { ...left, x0: -0.3, y0: 0 };
+		const urlString = buildComparisonUrl('', 'gingerbreadman', {
+			compare: true,
+			left,
+			right
+		});
+		expect(urlString).toContain('/gingerbreadman/compare?');
+		const url = new URL(`http://localhost${urlString}`);
+		const decoded = decodeComparisonState(url, 'gingerbreadman');
+		expect(decoded).not.toBeNull();
+		expect((decoded!.right as GingerbreadmanParameters).x0).toBeCloseTo(-0.3, 5);
+		expect((decoded!.right as GingerbreadmanParameters).y0).toBeCloseTo(0, 5);
+	});
+
+	test('createComparisonStateFromCurrent for gingerbreadman uses defaults on right', () => {
+		const current: GingerbreadmanParameters = {
+			type: 'gingerbreadman',
+			x0: -2.13,
+			y0: 0.47,
+			iterations: 50000,
+			colorMode: 'density',
+			zoom: 1.5,
+			pointSize: 2,
+			opacity: 0.5
+		};
+		const state = createComparisonStateFromCurrent('gingerbreadman', current);
+		expect(state.compare).toBe(true);
+		expect((state.left as GingerbreadmanParameters).x0).toBeCloseTo(-2.13, 5);
+		expect((state.right as GingerbreadmanParameters).x0).toBeCloseTo(-0.1, 5);
 	});
 });
