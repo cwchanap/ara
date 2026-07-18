@@ -289,6 +289,21 @@ describe('Gingerbreadman compare page interactions', () => {
 		expect(Number(leftIter.value)).toBe(250000);
 	});
 
+	it('floors a non-integer iterations value to an integer', () => {
+		// iterations is an integer count; a shared URL with a fractional value
+		// (e.g. 50000.9) must be floored, not rounded, so the slider stays in
+		// sync with the renderer's integer loop bound.
+		const left = encodeParams({
+			x0: -0.1,
+			y0: 0,
+			iterations: 50000.9
+		});
+		setPageUrl(`http://localhost/gingerbreadman/compare?compare=true&left=${left}`);
+		const { container } = render(GingerbreadmanComparePage);
+		const leftIter = container.querySelector('#left-iterations') as HTMLInputElement;
+		expect(Number(leftIter.value)).toBe(50000);
+	});
+
 	it('falls back to default when a decoded value is non-finite', () => {
 		// Non-finite x0 fails validation → decode null → defaults (x0 = -0.1).
 		const left = encodeParams({

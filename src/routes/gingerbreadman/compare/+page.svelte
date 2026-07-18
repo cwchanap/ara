@@ -43,11 +43,13 @@
 			type: 'gingerbreadman',
 			x0: clampValue(source.x0, ranges.x0.min, ranges.x0.max, defaultParams.x0),
 			y0: clampValue(source.y0, ranges.y0.min, ranges.y0.max, defaultParams.y0),
-			iterations: clampValue(
-				source.iterations,
-				ranges.iterations.min,
-				ranges.iterations.max,
-				defaultParams.iterations
+			iterations: Math.floor(
+				clampValue(
+					source.iterations,
+					ranges.iterations.min,
+					ranges.iterations.max,
+					defaultParams.iterations
+				)
 			),
 			colorMode: clampColorMode(source.colorMode),
 			zoom: clampValue(
