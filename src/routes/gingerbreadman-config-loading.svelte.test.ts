@@ -225,6 +225,32 @@ describe('gingerbreadman page – config loading', () => {
 		});
 	});
 
+	it('floors non-integer iterations from a loaded config before committing', async () => {
+		// The renderer floors iterations in calculateGingerbreadmanTuples and
+		// the compare route floors in clampParams, so the page must also floor
+		// when applying a loaded config — otherwise the same configuration
+		// renders one iteration count while being persisted/shared/compared
+		// with another (e.g. 12345.7 renders 12345 but saves as 12345.7).
+		parseConfigParamMock.mockReturnValueOnce({
+			ok: true,
+			parameters: {
+				type: 'gingerbreadman',
+				x0: -0.1,
+				y0: 0,
+				iterations: 12345.7
+			}
+		});
+		setPageUrl('http://localhost/gingerbreadman?config=fractional-iters');
+		render(GingerbreadmanPage, { props: unauthedPageProps });
+
+		await waitFor(() => {
+			expect(parseConfigParamMock).toHaveBeenCalled();
+		});
+		await waitFor(() => {
+			expect(screen.getByTestId('value-iterations').textContent).toBe('12345');
+		});
+	});
+
 	it('ignores a loaded config whose type is not gingerbreadman', async () => {
 		parseConfigParamMock.mockReturnValueOnce({
 			ok: true,
