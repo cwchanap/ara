@@ -329,7 +329,7 @@ Mirror Arnold Cat’s constraint (see [arnold-cat design § DB Migration](./2026
 ```typescript
 /** Quantize to a 0.001 grid (3 decimal places) via integer keys. */
 function orbitKey(x: number, y: number): string {
-	// Math.round half-away-from-zero for |n| < 2^52 / 1000 — fine for |coord| ≤ MAGNITUDE_CAP
+	// Math.round ties toward +∞ for |n| < 2^52 / 1000 — fine for |coord| ≤ MAGNITUDE_CAP
 	return `${Math.round(x * 1000)},${Math.round(y * 1000)}`;
 }
 

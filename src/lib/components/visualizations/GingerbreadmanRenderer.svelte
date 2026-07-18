@@ -241,6 +241,9 @@
 		}
 		const img = ctx.createImageData(w, h);
 		const denom = Math.log(1 + maxCount) || 1;
+		// putImageData bypasses ctx.globalAlpha, so the configured opacity must
+		// be baked into the alpha channel directly. Clamp to the valid 0–255 range.
+		const alpha = Math.max(0, Math.min(255, Math.round(opacity * 255)));
 		for (let i = 0; i < counts.length; i++) {
 			const cnt = counts[i];
 			if (cnt === 0) continue;
@@ -250,7 +253,7 @@
 			img.data[o] = rgb.r;
 			img.data[o + 1] = rgb.g;
 			img.data[o + 2] = rgb.b;
-			img.data[o + 3] = 255;
+			img.data[o + 3] = alpha;
 		}
 		ctx.putImageData(img, 0, 0);
 	}
