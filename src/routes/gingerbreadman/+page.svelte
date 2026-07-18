@@ -85,7 +85,10 @@
 		if (p.type !== 'gingerbreadman') return;
 		x0 = clamp(p.x0, -10, 10);
 		y0 = clamp(p.y0, -10, 10);
-		iterations = clamp(p.iterations, 10000, 250000);
+		// Clamp to the stable range [1, 250000] (matches compare page and
+		// chaos-validation STABLE_RANGES), not the slider UI floor of 10000,
+		// so shared URLs with low iterations stay consistent across pages.
+		iterations = clamp(p.iterations, 1, 250000);
 		if (p.colorMode) colorMode = p.colorMode;
 		if (p.zoom != null) zoom = clamp(p.zoom, 0.5, 5);
 		if (p.pointSize != null) pointSize = clamp(p.pointSize, 0.5, 6);

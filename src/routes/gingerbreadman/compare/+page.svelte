@@ -244,7 +244,9 @@
 						<input
 							id="left-iterations"
 							type="range"
-							bind:value={leftIterations}
+							value={leftIterations}
+							oninput={(e) =>
+								(leftIterations = Number((e.currentTarget as HTMLInputElement).value))}
 							min="10000"
 							max="250000"
 							step="10000"
@@ -308,7 +310,9 @@
 						<input
 							id="right-iterations"
 							type="range"
-							bind:value={rightIterations}
+							value={rightIterations}
+							oninput={(e) =>
+								(rightIterations = Number((e.currentTarget as HTMLInputElement).value))}
 							min="10000"
 							max="250000"
 							step="10000"
