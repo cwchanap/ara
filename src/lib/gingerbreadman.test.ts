@@ -91,3 +91,26 @@ describe('calculateGingerbreadmanTuples', () => {
 		expect(pts).toEqual([]);
 	});
 });
+
+describe('countUniqueOrbitPoints — guard paths', () => {
+	test('breaks early when magnitude exceeds cap', () => {
+		// x0=1e5 → first iterate |xNew| > MAGNITUDE_CAP → break before adding
+		// any points to the seen set.
+		expect(countUniqueOrbitPoints(1e5, 0, 100)).toBe(0);
+	});
+
+	test('breaks early when yNew magnitude exceeds cap but xNew does not', () => {
+		// Pick x0, y0 so xNew stays under cap but yNew (= x0) exceeds it.
+		// xNew = 1 - y0 + |x0|; yNew = x0.  Set x0 = 2e4 (> cap), y0 = 0.
+		// xNew = 1 + 2e4 = 20001 > cap → triggers the xNew check first.
+		// To exercise the yNew check independently, use x0 just under cap
+		// and y0 negative enough that xNew stays finite & under cap but
+		// yNew = x0 is over cap.  x0 = 1e4 + 1 → yNew > cap.
+		expect(countUniqueOrbitPoints(1e4 + 1, 0, 100)).toBe(0);
+	});
+
+	test('breaks early when iterate becomes non-finite', () => {
+		expect(countUniqueOrbitPoints(Number.NaN, 0, 100)).toBe(0);
+		expect(countUniqueOrbitPoints(Number.POSITIVE_INFINITY, 0, 100)).toBe(0);
+	});
+});

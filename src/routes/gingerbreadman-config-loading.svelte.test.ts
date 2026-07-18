@@ -361,4 +361,33 @@ describe('gingerbreadman page – config loading', () => {
 		await new Promise((r) => setTimeout(r, 100));
 		expect(screen.queryByText('INVALID_CONFIGURATION')).not.toBeInTheDocument();
 	});
+
+	it('clamps non-finite config values to the minimum', async () => {
+		// clamp(n, min, max) returns min when n is non-finite (NaN/Infinity).
+		// This covers the `if (!Number.isFinite(n)) return min;` guard.
+		loadSavedConfigParametersMock.mockResolvedValueOnce({
+			ok: true,
+			parameters: {
+				type: 'gingerbreadman',
+				x0: Number.NaN,
+				y0: Number.POSITIVE_INFINITY,
+				iterations: Number.NaN
+			},
+			source: 'api'
+		});
+
+		setPageUrl('http://localhost/gingerbreadman?configId=non-finite-id');
+		render(GingerbreadmanPage, { props: unauthedPageProps });
+
+		await waitFor(() => {
+			expect(loadSavedConfigParametersMock).toHaveBeenCalled();
+		});
+		// x0=NaN → clamp returns min (-10); y0=∞ → clamp returns min (-10);
+		// iterations=NaN → clamp returns min (1).
+		await waitFor(() => {
+			expect(screen.getByTestId('value-x0').textContent).toBe('-10.00');
+			expect(screen.getByTestId('value-y0').textContent).toBe('-10.00');
+			expect(screen.getByTestId('value-iterations').textContent).toBe('1');
+		});
+	});
 });
