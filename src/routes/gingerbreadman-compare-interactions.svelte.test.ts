@@ -212,6 +212,20 @@ describe('Gingerbreadman compare page interactions', () => {
 		expect(Number(decoded.y0)).toBeCloseTo(1.25, 5);
 	});
 
+	it('encodes a comparison URL when the right x0 slider changes', async () => {
+		const { container } = render(GingerbreadmanComparePage);
+		const slider = container.querySelector('#right-x0') as HTMLInputElement;
+		await fireEvent.input(slider, { target: { value: '-3.5' } });
+		await waitFor(() => expect(mockGoto).toHaveBeenCalled());
+		const call = mockGoto.mock.calls.at(-1)![0] as string;
+		expect(call).toContain('/app/gingerbreadman/compare?');
+		const url = new URL(call, 'http://localhost');
+		const rightEncoded = url.searchParams.get('right');
+		expect(rightEncoded).toBeTruthy();
+		const decoded = JSON.parse(atob(rightEncoded!));
+		expect(Number(decoded.x0)).toBeCloseTo(-3.5, 5);
+	});
+
 	it('encodes a comparison URL when the left iterations slider changes', async () => {
 		const { container } = render(GingerbreadmanComparePage);
 		const slider = container.querySelector('#left-iterations') as HTMLInputElement;

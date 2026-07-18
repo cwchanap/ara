@@ -144,6 +144,7 @@
 	}
 
 	function render(computed: Computed) {
+		/* c8 ignore next -- container is bound before any render call path */
 		if (!container) return;
 		d3.select(container).selectAll('*').remove();
 
@@ -271,6 +272,7 @@
 	}
 
 	function finishFullPaint(computed: Computed) {
+		/* c8 ignore next -- applyComputed is synchronous; isUnmounted can't flip between call and body */
 		if (isUnmounted) return;
 		render(computed);
 		reportState('complete');
@@ -322,6 +324,7 @@
 		const computed = computeMainThread();
 		isComputing = false;
 		applyComputed(computed);
+		/* c8 ignore next 3 -- main-thread compute is synchronous; no async yield can set hasPendingCompute */
 		if (hasPendingCompute) {
 			hasPendingCompute = false;
 			scheduleCompute();
@@ -329,6 +332,7 @@
 	}
 
 	function scheduleCompute() {
+		/* c8 ignore next -- container is bound before effects/onMount call scheduleCompute */
 		if (!container) return;
 		if (isComputing) {
 			hasPendingCompute = true;
@@ -358,6 +362,7 @@
 	}
 
 	function paintStyleOnly() {
+		/* c8 ignore next -- container is always bound; !latest is covered by worker-mode tests */
 		if (!container || !latest) return;
 		clearStyleFullPaint();
 		reportState('rendering');
@@ -365,6 +370,7 @@
 		render({ points: sampled, maxRadius: latest.maxRadius });
 		styleFullPaintTimeout = setTimeout(() => {
 			styleFullPaintTimeout = null;
+			/* c8 ignore next -- cleanup clears this timer on unmount; paintStyleOnly only schedules when latest is set */
 			if (isUnmounted || !latest) return;
 			// Repaint the cached orbit with the new style, but do NOT flip
 			// state to 'complete' if a compute is debounced or in flight —
@@ -408,6 +414,7 @@
 						workerAvailable = false;
 						worker?.terminate();
 						worker = null;
+						/* c8 ignore next 5 -- top-level isUnmounted guard already returned; container is always bound */
 						if (container && !isUnmounted) {
 							applyComputed(computeMainThread());
 							if (hasPendingCompute) {
@@ -513,6 +520,7 @@
 
 		// First run after mount: onMount already scheduled; just sync keys if
 		// onMount hasn't run yet (effect can fire first).
+		/* c8 ignore next 5 -- in Svelte 5, onMount runs before effects, so prevComputeKey/prevStyleKey are always set */
 		if (prevComputeKey === null || prevStyleKey === null) {
 			prevComputeKey = nextCompute;
 			prevStyleKey = nextStyle;

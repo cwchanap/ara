@@ -1008,6 +1008,35 @@ describe('GingerbreadmanRenderer style-only sampling + edge cases', () => {
 		expect(ctxSpies.fill).not.toHaveBeenCalled();
 	});
 
+	it('uses the maxRadius=0 fallback in radius color mode when all points are at the origin', async () => {
+		vi.stubGlobal('Worker', MockWorker);
+		posted.length = 0;
+		render(GingerbreadmanRenderer, {
+			iterations: 500,
+			colorMode: 'radius',
+			height: 500
+		});
+		await FLUSH();
+		const req = posted[0] as { id: number };
+		ctxSpies.fill.mockClear();
+
+		// All points at [0, 0] → maxRadius=0 → the `: 0` ternary branch fires
+		// for every point in the radius color mode loop.
+		workerOnmessage?.({
+			data: {
+				type: 'gingerbreadmanResult',
+				id: req.id,
+				points: [
+					[0, 0],
+					[0, 0]
+				] as [number, number][]
+			}
+		});
+		await tick();
+		// fill is called for each point even though maxRadius=0.
+		expect(ctxSpies.fill).toHaveBeenCalled();
+	});
+
 	it('skips density pixels that fall outside the canvas bounds', async () => {
 		vi.stubGlobal('Worker', MockWorker);
 		posted.length = 0;
