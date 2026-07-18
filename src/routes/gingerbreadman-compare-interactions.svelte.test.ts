@@ -570,7 +570,7 @@ describe('Gingerbreadman compare page interactions', () => {
 		}
 	});
 
-	it('right iterations slider bind:value updates rightIterations state', async () => {
+	it('right iterations slider oninput updates rightIterations state', async () => {
 		const { container } = render(GingerbreadmanComparePage);
 		const rightIter = container.querySelector('#right-iterations') as HTMLInputElement;
 		await fireEvent.input(rightIter, { target: { value: '200000' } });

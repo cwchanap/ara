@@ -172,7 +172,7 @@ describe('gingerbreadman page – config loading', () => {
 	});
 
 	it('clamps out-of-range x0 and iterations from a loaded config', async () => {
-		// onExtraParametersLoaded clamps x0/y0 to [-10,10] and iterations to [10000, 250000].
+		// onExtraParametersLoaded clamps x0/y0 to [-10,10] and iterations to [1, 250000].
 		parseConfigParamMock.mockReturnValueOnce({
 			ok: true,
 			parameters: {
@@ -199,9 +199,11 @@ describe('gingerbreadman page – config loading', () => {
 		expect(screen.getByTestId('value-iterations').textContent).toBe('250000');
 	});
 
-	it('clamps undersized iterations up to the minimum of 10000 (slider still shows clamped committed)', async () => {
-		// clamp min is 10000 (shared with the slider UI min); the committed
-		// state is clamped to the page's clamp() bounds.
+	it('clamps undersized iterations up to the minimum of 1 (stable-range floor, not slider UI floor)', async () => {
+		// clamp min is 1 (STABLE_Ranges, matches compare page); the slider UI
+		// floor remains 10000, but the committed state preserves low-iteration
+		// shared URLs. ParameterSlider's value label reflects the committed
+		// state, not the browser-clamped slider thumb position.
 		parseConfigParamMock.mockReturnValueOnce({
 			ok: true,
 			parameters: {
@@ -217,9 +219,9 @@ describe('gingerbreadman page – config loading', () => {
 		await waitFor(() => {
 			expect(parseConfigParamMock).toHaveBeenCalled();
 		});
-		// After clamp to 10000, ParameterSlider display reflects the committed value.
+		// After clamp to 1, ParameterSlider display reflects the committed value.
 		await waitFor(() => {
-			expect(screen.getByTestId('value-iterations').textContent).toBe('10000');
+			expect(screen.getByTestId('value-iterations').textContent).toBe('1');
 		});
 	});
 
@@ -383,11 +385,11 @@ describe('gingerbreadman page – config loading', () => {
 			expect(loadSavedConfigParametersMock).toHaveBeenCalled();
 		});
 		// x0=NaN → clamp returns min (-10); y0=∞ → clamp returns min (-10);
-		// iterations=NaN → clamp returns min (10000).
+		// iterations=NaN → clamp returns min (1).
 		await waitFor(() => {
 			expect(screen.getByTestId('value-x0').textContent).toBe('-10.00');
 			expect(screen.getByTestId('value-y0').textContent).toBe('-10.00');
-			expect(screen.getByTestId('value-iterations').textContent).toBe('10000');
+			expect(screen.getByTestId('value-iterations').textContent).toBe('1');
 		});
 	});
 });
