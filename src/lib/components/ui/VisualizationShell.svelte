@@ -37,6 +37,19 @@
 		onRenderStateChange: (state: RenderState) => void;
 	}
 
+	/**
+	 * Arguments passed to the `extraControls` snippet. Pages whose sliders are
+	 * page-owned (rendered in `extraControls`, not the schema) mutate committed
+	 * `$state` directly from preset/randomize/reset handlers — the shell's
+	 * config-load `cancelActiveDrags` does not cover those paths. Pages call
+	 * `cancelActiveDrags` before such mutations so a mid-drag slider discards
+	 * its stale draft instead of overwriting the newly applied value on
+	 * release. Pages that don't use page-owned sliders can ignore the arg.
+	 */
+	interface ExtraControlsArgs {
+		cancelActiveDrags: () => void;
+	}
+
 	interface Props {
 		mapType: ChaosMapType;
 		title: string;
@@ -62,7 +75,16 @@
 		isAuthenticated: boolean;
 		showSnapshot?: boolean;
 		renderer: Snippet<[RendererArgs]>;
-		extraControls?: Snippet;
+		/**
+		 * Page-owned controls (sliders, selects, preset/randomize buttons)
+		 * rendered inside the shell's parameter panel. The shell passes
+		 * `{ cancelActiveDrags }` so pages with page-owned sliders can discard
+		 * any in-progress drag before mutating committed state from
+		 * preset/randomize/reset handlers. Pages that declare
+		 * `{#snippet extraControls()}` (no params) ignore the arg —
+		 * `Snippet<[]>` is assignable to `Snippet<[ExtraControlsArgs]>`.
+		 */
+		extraControls?: Snippet<[ExtraControlsArgs]>;
 		afterDescription?: Snippet;
 		/**
 		 * Optional normalizer run after `applyLoadedValues` sets each slider
@@ -158,6 +180,12 @@
 
 	const dragManager = new SliderDragManager();
 	setContext('slider-drag-manager', dragManager);
+
+	// Stable reference passed to the extraControls snippet so pages with
+	// page-owned sliders can cancel in-progress drags before preset/randomize/
+	// reset mutations. Defining it once avoids re-allocating the closure on
+	// every render.
+	const cancelActiveDrags = () => dragManager.cancelActiveDrags();
 
 	const draftValues = $state(paramDefaults(paramDefs));
 	const dragState = $derived<Readonly<DragState>>(dragManager.currentState);
@@ -382,7 +410,7 @@
 				updatePolicy={def.updatePolicy ?? 'live'}
 			/>
 		{/each}
-		{#if extraControls}{@render extraControls()}{/if}
+		{#if extraControls}{@render extraControls({ cancelActiveDrags })}{/if}
 	</ParameterPanel>
 
 	<VisualizationErrorBoundary {mapType}>

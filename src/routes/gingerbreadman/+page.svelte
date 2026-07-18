@@ -133,7 +133,7 @@
 	}}
 	isAuthenticated={!!data?.session}
 >
-	{#snippet extraControls()}
+	{#snippet extraControls({ cancelActiveDrags })}
 		<div class="space-y-6">
 			<!-- Presets -->
 			<div class="space-y-3">
@@ -154,7 +154,10 @@
 				<div class="flex flex-wrap gap-3">
 					{#each GINGERBREADMAN_PRESETS as preset (preset.id)}
 						<button
-							onclick={() => applyPreset(preset.id)}
+							onclick={() => {
+								cancelActiveDrags();
+								applyPreset(preset.id);
+							}}
 							aria-pressed={activePresetId === preset.id}
 							class="px-4 py-2 border rounded-sm uppercase tracking-widest text-xs font-bold transition-all {activePresetId ===
 							preset.id
@@ -179,14 +182,20 @@
 					<div class="flex gap-3">
 						<button
 							data-testid="btn-randomize"
-							onclick={randomizeParameters}
+							onclick={() => {
+								cancelActiveDrags();
+								randomizeParameters();
+							}}
 							class="px-4 py-2 bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 rounded-sm transition-all uppercase tracking-widest text-xs font-bold"
 						>
 							🎲 Randomize
 						</button>
 						<button
 							data-testid="btn-reset"
-							onclick={resetToDefault}
+							onclick={() => {
+								cancelActiveDrags();
+								resetToDefault();
+							}}
 							class="px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-sm transition-all uppercase tracking-widest text-xs font-bold"
 						>
 							↺ Reset
