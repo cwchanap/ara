@@ -293,19 +293,16 @@
 							disabled={colorMode === 'density'}
 						/>
 					</div>
-					<div class:opacity-40={colorMode === 'density'}>
-						<ParameterSlider
-							id="opacity"
-							label="Opacity"
-							bind:value={opacity}
-							min={0}
-							max={1}
-							step={0.05}
-							decimals={2}
-							updatePolicy="live"
-							disabled={colorMode === 'density'}
-						/>
-					</div>
+					<ParameterSlider
+						id="opacity"
+						label="Opacity"
+						bind:value={opacity}
+						min={0}
+						max={1}
+						step={0.05}
+						decimals={2}
+						updatePolicy="live"
+					/>
 				</div>
 			</div>
 		</div>

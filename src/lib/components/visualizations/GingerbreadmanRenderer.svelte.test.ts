@@ -786,6 +786,59 @@ describe('GingerbreadmanRenderer ResizeObserver', () => {
 		expect(ctxSpies.putImageData).toHaveBeenCalled();
 		expect(vi.mocked(calculateGingerbreadmanTuples).mock.calls.length).toBe(calls);
 	});
+
+	it('does not report complete from a resize repaint while a compute is debounced (stale-orbit capture guard)', async () => {
+		vi.useFakeTimers();
+		try {
+			const states: RenderState[] = [];
+			const { rerender } = render(GingerbreadmanRenderer, {
+				x0: -0.1,
+				y0: 0,
+				iterations: 500,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				height: 500,
+				onRenderStateChange: (s) => states.push(s)
+			});
+			// Flush the initial compute debounce.
+			await vi.advanceTimersByTimeAsync(300);
+			await vi.waitFor(() => {
+				expect(states).toContain('complete');
+			});
+			states.length = 0;
+
+			// Compute change → 250ms debounce. State flips to 'rendering'
+			// immediately so the shell keeps Snapshot/Share/Save gated.
+			await rerender({
+				x0: -0.5,
+				y0: 0,
+				iterations: 500,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				height: 500,
+				onRenderStateChange: (s) => states.push(s)
+			});
+			await tick();
+
+			// Container resizes during the debounce window. The resize
+			// callback repaints the cached (stale) orbit but must NOT flip
+			// state to 'complete' — otherwise the shell would ungate and
+			// allow capturing the stale orbit before the pending compute
+			// finishes.
+			resizeCallback?.();
+			expect(states).not.toContain('complete');
+			expect(states.at(-1)).toBe('rendering');
+
+			// Advance past the compute debounce; the main-thread compute
+			// runs synchronously and reports 'complete' with the new orbit.
+			await vi.advanceTimersByTimeAsync(260);
+			await vi.waitFor(() => {
+				expect(states).toContain('complete');
+			});
+		} finally {
+			vi.useRealTimers();
+		}
+	});
 });
 
 // ── Style-only sampling, rapid edits, and edge-case paths ───────────────────
