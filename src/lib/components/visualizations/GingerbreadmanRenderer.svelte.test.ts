@@ -46,8 +46,8 @@ function makeCtxSpies() {
 }
 
 let savedGetContext: typeof HTMLCanvasElement.prototype.getContext;
-let savedClientWidth: number;
-let savedClientHeight: number;
+let savedClientWidthDescriptor: PropertyDescriptor | undefined;
+let savedClientHeightDescriptor: PropertyDescriptor | undefined;
 
 function installCanvasMock() {
 	ctxSpies = makeCtxSpies();
@@ -64,8 +64,10 @@ function installCanvasMock() {
 
 function installDimensions(width: number, height: number) {
 	const proto = HTMLElement.prototype;
-	savedClientWidth = Object.getOwnPropertyDescriptor(proto, 'clientWidth')?.value as number;
-	savedClientHeight = Object.getOwnPropertyDescriptor(proto, 'clientHeight')?.value as number;
+	// Capture the complete original descriptors so restore can re-install them
+	// verbatim (accessor, configurability, enumerability, inheritance behavior).
+	savedClientWidthDescriptor = Object.getOwnPropertyDescriptor(proto, 'clientWidth');
+	savedClientHeightDescriptor = Object.getOwnPropertyDescriptor(proto, 'clientHeight');
 	Object.defineProperty(proto, 'clientWidth', {
 		configurable: true,
 		get: () => width
@@ -82,14 +84,16 @@ function restoreCanvasMock() {
 
 function restoreDimensions() {
 	const proto = HTMLElement.prototype;
-	Object.defineProperty(proto, 'clientWidth', {
-		configurable: true,
-		get: () => savedClientWidth
-	});
-	Object.defineProperty(proto, 'clientHeight', {
-		configurable: true,
-		get: () => savedClientHeight
-	});
+	if (savedClientWidthDescriptor) {
+		Object.defineProperty(proto, 'clientWidth', savedClientWidthDescriptor);
+	} else {
+		delete (proto as unknown as Record<string, unknown>).clientWidth;
+	}
+	if (savedClientHeightDescriptor) {
+		Object.defineProperty(proto, 'clientHeight', savedClientHeightDescriptor);
+	} else {
+		delete (proto as unknown as Record<string, unknown>).clientHeight;
+	}
 }
 
 // Flush the COMPUTE_DEBOUNCE_MS (250) + STYLE_FULL_PAINT_MS (150) timers.

@@ -28,10 +28,12 @@ export function orbitKey(x: number, y: number): string {
  * (default 100_000). Stops early on non-finite or magnitude > MAGNITUDE_CAP.
  */
 export function countUniqueOrbitPoints(x0: number, y0: number, iterations = 100_000): number {
+	if (!Number.isFinite(iterations) || iterations <= 0) return 0;
+	const steps = Math.floor(iterations);
 	const seen = new Set<string>();
 	let x = x0;
 	let y = y0;
-	for (let i = 0; i < iterations; i++) {
+	for (let i = 0; i < steps; i++) {
 		const xNew = 1 - y + Math.abs(x);
 		const yNew = x;
 		if (
@@ -51,14 +53,15 @@ export function countUniqueOrbitPoints(x0: number, y0: number, iterations = 100_
 
 export function calculateGingerbreadmanTuples(params: GingerbreadmanParams): [number, number][] {
 	const { x0, y0, iterations } = params;
-	if (iterations <= 0) return [];
+	if (!Number.isFinite(iterations) || iterations <= 0) return [];
+	const steps = Math.floor(iterations);
 	const cap = params.maxPoints ?? Infinity;
 	if (cap <= 0) return [];
 
 	const points: [number, number][] = [];
 	let x = x0;
 	let y = y0;
-	for (let i = 0; i < iterations && points.length < cap; i++) {
+	for (let i = 0; i < steps && points.length < cap; i++) {
 		const xNew = 1 - y + Math.abs(x);
 		const yNew = x;
 		if (

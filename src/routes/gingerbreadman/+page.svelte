@@ -85,7 +85,7 @@
 		if (p.type !== 'gingerbreadman') return;
 		x0 = clamp(p.x0, -10, 10);
 		y0 = clamp(p.y0, -10, 10);
-		iterations = clamp(p.iterations, 1, 250000);
+		iterations = clamp(p.iterations, 10000, 250000);
 		if (p.colorMode) colorMode = p.colorMode;
 		if (p.zoom != null) zoom = clamp(p.zoom, 0.5, 5);
 		if (p.pointSize != null) pointSize = clamp(p.pointSize, 0.5, 6);

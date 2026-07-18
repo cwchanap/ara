@@ -41,7 +41,7 @@ vi.mock('$app/stores', () => ({
 }));
 
 vi.mock('$app/paths', () => ({
-	base: ''
+	base: '/app'
 }));
 
 vi.mock('$app/navigation', () => ({
@@ -193,7 +193,7 @@ describe('Gingerbreadman compare page interactions', () => {
 		await fireEvent.input(slider, { target: { value: '-1.5' } });
 		await waitFor(() => expect(mockGoto).toHaveBeenCalled());
 		const call = mockGoto.mock.calls.at(-1)![0] as string;
-		expect(call).toContain('/gingerbreadman/compare?');
+		expect(call).toContain('/app/gingerbreadman/compare?');
 		const decoded = decodeLeftFromGotoCall(call);
 		expect(Number(decoded.x0)).toBeCloseTo(-1.5, 5);
 	});
@@ -204,7 +204,7 @@ describe('Gingerbreadman compare page interactions', () => {
 		await fireEvent.input(slider, { target: { value: '1.25' } });
 		await waitFor(() => expect(mockGoto).toHaveBeenCalled());
 		const call = mockGoto.mock.calls.at(-1)![0] as string;
-		expect(call).toContain('/gingerbreadman/compare?');
+		expect(call).toContain('/app/gingerbreadman/compare?');
 		const url = new URL(call, 'http://localhost');
 		const rightEncoded = url.searchParams.get('right');
 		expect(rightEncoded).toBeTruthy();
@@ -218,6 +218,7 @@ describe('Gingerbreadman compare page interactions', () => {
 		await fireEvent.input(slider, { target: { value: '200000' } });
 		await waitFor(() => expect(mockGoto).toHaveBeenCalled());
 		const call = mockGoto.mock.calls.at(-1)![0] as string;
+		expect(call).toContain('/app/gingerbreadman/compare?');
 		const decoded = decodeLeftFromGotoCall(call);
 		expect(Number(decoded.iterations)).toBe(200000);
 	});
@@ -422,7 +423,7 @@ describe('Gingerbreadman compare page interactions', () => {
 		// Debounced goto re-encodes shared styling (zoom included) on both sides.
 		await waitFor(() => expect(mockGoto).toHaveBeenCalled());
 		const call = mockGoto.mock.calls.at(-1)![0] as string;
-		expect(call).toContain('/gingerbreadman/compare?');
+		expect(call).toContain('/app/gingerbreadman/compare?');
 		const decodedLeft = decodeLeftFromGotoCall(call);
 		expect(decodedLeft.colorMode).toBe('density');
 		expect(decodedLeft.zoom).toBe(2);
@@ -463,6 +464,30 @@ describe('Gingerbreadman compare page interactions', () => {
 	it('cleans up on unmount without throwing', () => {
 		const { unmount } = render(GingerbreadmanComparePage);
 		expect(() => unmount()).not.toThrow();
+	});
+
+	it('cancels pending debounced navigation on unmount', async () => {
+		vi.useFakeTimers();
+		try {
+			const { container, unmount } = render(GingerbreadmanComparePage);
+			// Advance past the initial debounced encode triggered on mount.
+			await vi.advanceTimersByTimeAsync(400);
+			mockGoto.mockClear();
+
+			// A slider change schedules a new debounced navigation.
+			const slider = container.querySelector('#left-x0') as HTMLInputElement;
+			await fireEvent.input(slider, { target: { value: '-1.5' } });
+			await tick();
+
+			// Unmount before the debounce fires — teardown must cancel it.
+			expect(() => unmount()).not.toThrow();
+
+			// Advancing all timers must NOT trigger the pending goto.
+			await vi.advanceTimersByTimeAsync(1000);
+			expect(mockGoto).not.toHaveBeenCalled();
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	// ── Additional coverage: pointSize/opacity URL sync, debounce, cleanup ─
@@ -551,6 +576,7 @@ describe('Gingerbreadman compare page interactions', () => {
 		await fireEvent.input(rightIter, { target: { value: '200000' } });
 		await waitFor(() => expect(mockGoto).toHaveBeenCalled());
 		const call = mockGoto.mock.calls.at(-1)![0] as string;
+		expect(call).toContain('/app/gingerbreadman/compare?');
 		const url = new URL(call, 'http://localhost');
 		const rightEncoded = url.searchParams.get('right');
 		expect(rightEncoded).toBeTruthy();
