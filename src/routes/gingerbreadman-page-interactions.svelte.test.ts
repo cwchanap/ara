@@ -287,7 +287,7 @@ describe('Gingerbreadman page interactions', () => {
 		}
 	});
 
-	it('changes color mode via select and toggles pointSize/opacity disabled in density', async () => {
+	it('changes color mode via select and toggles pointSize disabled in density (opacity stays adjustable)', async () => {
 		render(GingerbreadmanPage, { props: unauthedPageProps });
 		// Classic preset uses colorMode=iteration → sliders enabled.
 		expect((screen.getByTestId('slider-pointSize') as HTMLInputElement).disabled).toBe(false);
@@ -296,8 +296,13 @@ describe('Gingerbreadman page interactions', () => {
 		const select = screen.getByTestId('select-color-mode') as HTMLSelectElement;
 		await fireEvent.change(select, { target: { value: 'density' } });
 		expect(select.value).toBe('density');
+		// pointSize genuinely does not apply to density (putImageData ignores
+		// arc radius), so it stays disabled. Opacity IS baked into the
+		// density alpha channel, so it must remain adjustable — otherwise a
+		// config loaded with opacity=0 in density mode would render an
+		// invisible plot with no way to recover via the slider.
 		expect((screen.getByTestId('slider-pointSize') as HTMLInputElement).disabled).toBe(true);
-		expect((screen.getByTestId('slider-opacity') as HTMLInputElement).disabled).toBe(true);
+		expect((screen.getByTestId('slider-opacity') as HTMLInputElement).disabled).toBe(false);
 	});
 
 	it('displays the recurrence equations and data log', () => {

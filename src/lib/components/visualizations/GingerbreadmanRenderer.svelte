@@ -460,7 +460,18 @@
 			resizeObserver = new ResizeObserver(() => {
 				if (container && latest) {
 					reportState('rendering');
-					finishFullPaint(latest);
+					// Repaint the cached orbit at the new dimensions, but do
+					// NOT flip state to 'complete' if a compute is debounced
+					// or in flight — otherwise the shell would ungate
+					// Snapshot/Share/Save and let the stale cached orbit be
+					// captured before the pending x0/y0/iterations result
+					// arrives. The pending compute reports 'complete' itself
+					// when its result lands. Mirrors the guard in
+					// paintStyleOnly.
+					render(latest);
+					if (!isComputePending()) {
+						reportState('complete');
+					}
 				}
 			});
 			resizeObserver.observe(container);
