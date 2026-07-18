@@ -181,6 +181,45 @@ describe('GingerbreadmanRenderer fidelity + main-thread paths', () => {
 		expect(completeIdx).toBeGreaterThan(renderingIdx);
 	});
 
+	it('reports rendering immediately when scheduling a debounced compute (action gate stays closed)', async () => {
+		vi.useFakeTimers();
+		try {
+			const states: RenderState[] = [];
+			const { rerender } = render(GingerbreadmanRenderer, {
+				x0: -0.1,
+				iterations: 500,
+				colorMode: 'iteration',
+				height: 500,
+				onRenderStateChange: (s) => states.push(s)
+			});
+			// Advance past the initial compute debounce so the first render
+			// completes.
+			await vi.advanceTimersByTimeAsync(300);
+			await vi.waitFor(() => {
+				expect(states).toContain('complete');
+			});
+			states.length = 0;
+
+			// Trigger a compute change → scheduleCompute installs a 250ms
+			// debounce timer. The renderer must report 'rendering' NOW, before
+			// the timer fires, so the shell keeps Snapshot/Share/Save gated
+			// during the debounce window (the canvas still shows the prior
+			// orbit).
+			await rerender({
+				x0: -0.5,
+				iterations: 500,
+				colorMode: 'iteration',
+				height: 500,
+				onRenderStateChange: (s) => states.push(s)
+			});
+			await tick();
+
+			expect(states).toContain('rendering');
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it('style-only changes do not recompute while still completing status', async () => {
 		const states: RenderState[] = [];
 		const { rerender } = render(GingerbreadmanRenderer, {

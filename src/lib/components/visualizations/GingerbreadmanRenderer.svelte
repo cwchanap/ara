@@ -335,6 +335,14 @@
 			return;
 		}
 		if (computeTimeout !== null) clearTimeout(computeTimeout);
+		// Signal rendering immediately so the shell keeps Snapshot/Share/Save
+		// gated during the debounce window. Without this, a preview slider
+		// release flips fidelity back to 'full' (unfreezing the action
+		// buttons) while the canvas still shows the reduced preview orbit —
+		// the 'rendering' state is not reported until requestPoints() runs
+		// after the 250ms timer, leaving a window where the stale canvas can
+		// be snapshotted/saved/shared.
+		reportState('rendering');
 		computeTimeout = setTimeout(() => {
 			computeTimeout = null;
 			requestPoints();

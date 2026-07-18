@@ -218,6 +218,75 @@ describe('Gingerbreadman page interactions', () => {
 		}
 	});
 
+	it('cancels an in-progress drag before applying a preset (no stale-drag clobber)', async () => {
+		vi.useFakeTimers();
+		try {
+			render(GingerbreadmanPage, { props: unauthedPageProps });
+			await vi.advanceTimersByTimeAsync(400);
+
+			// Start a pointer drag on x0 → internalValue=3.5, isDragging=true.
+			const slider = screen.getByTestId('slider-x0');
+			await fireEvent.pointerDown(slider);
+			await fireEvent.input(slider, { target: { value: '3.5' } });
+			await vi.advanceTimersByTimeAsync(PREVIEW_THROTTLE_MS + 20);
+			// Mid-drag: display tracks internal value, committed stays classic.
+			expect(screen.getByTestId('value-x0').textContent).toBe('3.50');
+			expect(screen.getByTestId('active-preset').textContent).toMatch(/classic/i);
+
+			// Click a preset while the drag is still active. The handler cancels
+			// the in-progress drag before mutating committed state, so the stale
+			// draft (3.5) is discarded instead of overwriting the preset on the
+			// eventual release/commit.
+			await fireEvent.click(screen.getByRole('button', { name: /Offset Seed/i }));
+			await vi.advanceTimersByTimeAsync(50);
+
+			// Committed x0 + slider display now reflect the preset, not the drag.
+			expect(screen.getByTestId('active-preset').textContent).toMatch(/offset seed/i);
+			expect(screen.getByTestId('value-x0').textContent).toBe('-0.75');
+			expect((screen.getByTestId('slider-x0') as HTMLInputElement).value).toBe('-0.75');
+
+			// Simulate the pointer release that would have committed the stale
+			// drag value without the cancel — it must be a no-op now.
+			await fireEvent.change(slider);
+			await fireEvent.pointerUp(slider);
+			await vi.advanceTimersByTimeAsync(50);
+			expect(screen.getByTestId('value-x0').textContent).toBe('-0.75');
+			expect((screen.getByTestId('slider-x0') as HTMLInputElement).value).toBe('-0.75');
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('cancels an in-progress drag before randomize (no stale-drag clobber)', async () => {
+		vi.useFakeTimers();
+		try {
+			render(GingerbreadmanPage, { props: unauthedPageProps });
+			await vi.advanceTimersByTimeAsync(400);
+
+			const slider = screen.getByTestId('slider-x0');
+			await fireEvent.pointerDown(slider);
+			await fireEvent.input(slider, { target: { value: '4.2' } });
+			await vi.advanceTimersByTimeAsync(PREVIEW_THROTTLE_MS + 20);
+			expect(screen.getByTestId('value-x0').textContent).toBe('4.20');
+
+			// Randomize cancels the drag first, so the stale 4.2 draft is
+			// discarded and the new random committed value takes hold.
+			await fireEvent.click(screen.getByTestId('btn-randomize'));
+			await vi.advanceTimersByTimeAsync(50);
+
+			// The display must NOT still show the stale drag value 4.20.
+			expect(screen.getByTestId('value-x0').textContent).not.toBe('4.20');
+			// Releasing the slider must not clobber the randomized value.
+			const afterRandom = (screen.getByTestId('slider-x0') as HTMLInputElement).value;
+			await fireEvent.change(slider);
+			await fireEvent.pointerUp(slider);
+			await vi.advanceTimersByTimeAsync(50);
+			expect((screen.getByTestId('slider-x0') as HTMLInputElement).value).toBe(afterRandom);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it('changes color mode via select and toggles pointSize/opacity disabled in density', async () => {
 		render(GingerbreadmanPage, { props: unauthedPageProps });
 		// Classic preset uses colorMode=iteration → sliders enabled.
