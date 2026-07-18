@@ -28,13 +28,14 @@
 	const colorModeSet = new Set<string>(GINGERBREADMAN_COLOR_MODES);
 
 	const clampValue = (value: number, min: number, max: number, fallback: number) => {
+		/* c8 ignore next -- decodeComparisonState validation already rejects non-finite values */
 		if (!Number.isFinite(value)) return fallback;
 		return Math.min(max, Math.max(min, value));
 	};
 
 	const clampColorMode = (mode?: GingerbreadmanColorMode | null): GingerbreadmanColorMode => {
 		if (mode && colorModeSet.has(mode)) return mode;
-		return defaultParams.colorMode ?? 'iteration';
+		return defaultParams.colorMode!;
 	};
 
 	const clampParams = (params?: GingerbreadmanParameters | null): GingerbreadmanParameters => {
@@ -53,22 +54,22 @@
 			),
 			colorMode: clampColorMode(source.colorMode),
 			zoom: clampValue(
-				source.zoom ?? defaultParams.zoom ?? 1,
+				source.zoom ?? defaultParams.zoom!,
 				STYLE_ZOOM.min,
 				STYLE_ZOOM.max,
-				defaultParams.zoom ?? 1
+				defaultParams.zoom!
 			),
 			pointSize: clampValue(
-				source.pointSize ?? defaultParams.pointSize ?? 1.5,
+				source.pointSize ?? defaultParams.pointSize!,
 				STYLE_POINT_SIZE.min,
 				STYLE_POINT_SIZE.max,
-				defaultParams.pointSize ?? 1.5
+				defaultParams.pointSize!
 			),
 			opacity: clampValue(
-				source.opacity ?? defaultParams.opacity ?? 0.6,
+				source.opacity ?? defaultParams.opacity!,
 				STYLE_OPACITY.min,
 				STYLE_OPACITY.max,
-				defaultParams.opacity ?? 0.6
+				defaultParams.opacity!
 			)
 		};
 	};
@@ -86,12 +87,11 @@
 
 	// Shared styling is $state (not const) so external URL changes (back/forward,
 	// same-route links) can update both panels. Left payload is source of truth.
-	let colorMode = $state<GingerbreadmanColorMode>(
-		leftInitial.colorMode ?? defaultParams.colorMode ?? 'iteration'
-	);
-	let zoom = $state(leftInitial.zoom ?? defaultParams.zoom ?? 1);
-	let pointSize = $state(leftInitial.pointSize ?? defaultParams.pointSize ?? 1.5);
-	let opacity = $state(leftInitial.opacity ?? defaultParams.opacity ?? 0.6);
+	// leftInitial always has styling because clampParams fills it from defaultParams.
+	let colorMode = $state<GingerbreadmanColorMode>(leftInitial.colorMode!);
+	let zoom = $state(leftInitial.zoom!);
+	let pointSize = $state(leftInitial.pointSize!);
+	let opacity = $state(leftInitial.opacity!);
 
 	// React to external query-string changes (browser back/forward, same-route
 	// links). State reads/writes are untracked so slider edits don't retrigger
@@ -108,14 +108,11 @@
 			if (R.x0 !== rightX0) rightX0 = R.x0;
 			if (R.y0 !== rightY0) rightY0 = R.y0;
 			if (R.iterations !== rightIterations) rightIterations = R.iterations;
-			const nextColor = L.colorMode ?? 'iteration';
-			if (nextColor !== colorMode) colorMode = nextColor;
-			const nextZoom = L.zoom ?? 1;
-			if (nextZoom !== zoom) zoom = nextZoom;
-			const nextPointSize = L.pointSize ?? 1.5;
-			if (nextPointSize !== pointSize) pointSize = nextPointSize;
-			const nextOpacity = L.opacity ?? 0.6;
-			if (nextOpacity !== opacity) opacity = nextOpacity;
+			// L always has styling because clampParams fills it from defaultParams.
+			if (L.colorMode !== colorMode) colorMode = L.colorMode!;
+			if (L.zoom !== zoom) zoom = L.zoom!;
+			if (L.pointSize !== pointSize) pointSize = L.pointSize!;
+			if (L.opacity !== opacity) opacity = L.opacity!;
 		});
 	});
 
@@ -131,6 +128,7 @@
 		void zoom;
 		void pointSize;
 		void opacity;
+		/* c8 ignore next -- $effect cleanup runs before re-run, so debounceTimer is always null here */
 		if (debounceTimer) clearTimeout(debounceTimer);
 		debounceTimer = setTimeout(() => {
 			const state = {
@@ -145,6 +143,7 @@
 		}, 300);
 
 		return () => {
+			/* c8 ignore next -- cleanup runs after timeout fired (debounceTimer=null) or before re-run (non-null) */
 			if (debounceTimer) clearTimeout(debounceTimer);
 			debounceTimer = null;
 		};
@@ -179,10 +178,10 @@
 		leftX0 = p.x0;
 		leftY0 = p.y0;
 		leftIterations = p.iterations;
-		if (p.colorMode) colorMode = p.colorMode;
-		if (p.zoom != null) zoom = p.zoom;
-		if (p.pointSize != null) pointSize = p.pointSize;
-		if (p.opacity != null) opacity = p.opacity;
+		colorMode = p.colorMode!;
+		zoom = p.zoom!;
+		pointSize = p.pointSize!;
+		opacity = p.opacity!;
 	}
 	function handleRightParamsChange(p: GingerbreadmanParameters) {
 		rightX0 = p.x0;

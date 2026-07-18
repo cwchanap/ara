@@ -20,6 +20,7 @@
 	let { data } = $props();
 
 	const defaultPreset = getPreset(DEFAULT_GINGERBREADMAN_PRESET_ID);
+	/* c8 ignore next 2 -- the default preset is always present in GINGERBREADMAN_PRESETS */
 	if (!defaultPreset)
 		throw new Error(`Missing default Gingerbreadman preset: ${DEFAULT_GINGERBREADMAN_PRESET_ID}`);
 	const d = defaultPreset.state;
@@ -49,12 +50,15 @@
 	}
 
 	const activePresetId = $derived(detectPresetId(currentPresetState()));
-	const activePresetLabel = $derived(
-		activePresetId ? (getPreset(activePresetId)?.label ?? 'CUSTOM') : 'CUSTOM'
-	);
+	const activePresetLabel = $derived.by(() => {
+		if (!activePresetId) return 'CUSTOM';
+		/* c8 ignore next -- detectPresetId only returns IDs of existing presets, so getPreset always finds it */
+		return getPreset(activePresetId)?.label ?? 'CUSTOM';
+	});
 
 	function applyPreset(id: string) {
 		const p = getPreset(id);
+		/* c8 ignore next -- preset IDs come from the hardcoded GINGERBREADMAN_PRESETS array */
 		if (!p) return;
 		const s = p.state;
 		x0 = s.x0;

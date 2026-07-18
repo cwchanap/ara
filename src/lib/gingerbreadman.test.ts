@@ -113,4 +113,11 @@ describe('countUniqueOrbitPoints — guard paths', () => {
 		expect(countUniqueOrbitPoints(Number.NaN, 0, 100)).toBe(0);
 		expect(countUniqueOrbitPoints(Number.POSITIVE_INFINITY, 0, 100)).toBe(0);
 	});
+
+	test('returns 0 for non-positive or non-finite iterations', () => {
+		expect(countUniqueOrbitPoints(-0.1, 0, 0)).toBe(0);
+		expect(countUniqueOrbitPoints(-0.1, 0, -1)).toBe(0);
+		expect(countUniqueOrbitPoints(-0.1, 0, Number.NaN)).toBe(0);
+		expect(countUniqueOrbitPoints(-0.1, 0, Number.POSITIVE_INFINITY)).toBe(0);
+	});
 });

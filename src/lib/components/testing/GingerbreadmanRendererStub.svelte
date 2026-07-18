@@ -20,9 +20,9 @@
 	};
 
 	let {
-		x0 = 0,
-		y0 = 0,
-		iterations = 0,
+		x0 = $bindable(0),
+		y0 = $bindable(0),
+		iterations = $bindable(0),
 		colorMode = '',
 		zoom = 1,
 		pointSize = 1,
@@ -34,6 +34,9 @@
 	}: Props = $props();
 
 	// Keep parent expressions evaluated so bindable / callback props are live.
+	void x0;
+	void y0;
+	void iterations;
 	void onRenderStateChange;
 	void containerElement;
 	void height;
