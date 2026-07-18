@@ -264,6 +264,72 @@ describe('GingerbreadmanRenderer fidelity + main-thread paths', () => {
 		expect(completeIdx).toBeGreaterThan(renderingIdx);
 	});
 
+	it('does not report complete from a style repaint while a compute is debounced (stale-orbit capture guard)', async () => {
+		vi.useFakeTimers();
+		try {
+			const states: RenderState[] = [];
+			const { rerender } = render(GingerbreadmanRenderer, {
+				x0: -0.1,
+				y0: 0,
+				iterations: 500,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				height: 500,
+				onRenderStateChange: (s) => states.push(s)
+			});
+			// Flush the initial compute debounce + style paint.
+			await vi.advanceTimersByTimeAsync(300);
+			await vi.waitFor(() => {
+				expect(states).toContain('complete');
+			});
+			states.length = 0;
+
+			// Compute change → 250ms debounce. State flips to 'rendering'
+			// immediately so the shell keeps Snapshot/Share/Save gated.
+			await rerender({
+				x0: -0.5,
+				y0: 0,
+				iterations: 500,
+				colorMode: 'iteration',
+				pointSize: 1.5,
+				height: 500,
+				onRenderStateChange: (s) => states.push(s)
+			});
+			await tick();
+
+			// Style change during the debounce window. paintStyleOnly runs an
+			// immediate sampled paint and schedules a 150ms full-paint timer.
+			// That timer must NOT flip state to 'complete' while the compute
+			// is still pending — otherwise the shell would ungate and allow
+			// capturing the stale cached orbit.
+			await rerender({
+				x0: -0.5,
+				y0: 0,
+				iterations: 500,
+				colorMode: 'iteration',
+				pointSize: 3,
+				height: 500,
+				onRenderStateChange: (s) => states.push(s)
+			});
+			await tick();
+
+			// Advance past STYLE_FULL_PAINT_MS (150ms) but stay inside the
+			// COMPUTE_DEBOUNCE_MS (250ms) window.
+			await vi.advanceTimersByTimeAsync(160);
+			expect(states).not.toContain('complete');
+			expect(states.at(-1)).toBe('rendering');
+
+			// Advance past the compute debounce; the main-thread compute
+			// runs synchronously and reports 'complete' with the new orbit.
+			await vi.advanceTimersByTimeAsync(100);
+			await vi.waitFor(() => {
+				expect(states).toContain('complete');
+			});
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it('computes on the main thread and draws the density buffer', async () => {
 		render(GingerbreadmanRenderer, {
 			x0: -0.1,

@@ -353,6 +353,10 @@
 	 * Style-only path: immediate sampled paint from cache, then debounced full
 	 * repaint. Does not re-dispatch compute.
 	 */
+	function isComputePending(): boolean {
+		return isComputing || computeTimeout !== null || hasPendingCompute;
+	}
+
 	function paintStyleOnly() {
 		if (!container || !latest) return;
 		clearStyleFullPaint();
@@ -362,7 +366,16 @@
 		styleFullPaintTimeout = setTimeout(() => {
 			styleFullPaintTimeout = null;
 			if (isUnmounted || !latest) return;
-			finishFullPaint(latest);
+			// Repaint the cached orbit with the new style, but do NOT flip
+			// state to 'complete' if a compute is debounced or in flight —
+			// otherwise the shell would ungate Snapshot/Share/Save and let
+			// the stale cached orbit be captured before the new x0/y0/
+			// iterations result arrives. The pending compute reports
+			// 'complete' itself when its result lands.
+			render(latest);
+			if (!isComputePending()) {
+				reportState('complete');
+			}
 		}, STYLE_FULL_PAINT_MS);
 	}
 
