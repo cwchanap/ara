@@ -678,3 +678,577 @@ describe('GingerbreadmanRenderer ResizeObserver', () => {
 		expect(vi.mocked(calculateGingerbreadmanTuples).mock.calls.length).toBe(calls);
 	});
 });
+
+// ── Style-only sampling, rapid edits, and edge-case paths ───────────────────
+
+describe('GingerbreadmanRenderer style-only sampling + edge cases', () => {
+	beforeEach(() => {
+		vi.stubGlobal('Worker', undefined);
+		installCanvasMock();
+		installDimensions(600, 500);
+		vi.mocked(calculateGingerbreadmanTuples).mockClear();
+	});
+
+	afterEach(() => {
+		restoreCanvasMock();
+		restoreDimensions();
+		vi.unstubAllGlobals();
+		cleanup();
+	});
+
+	it('samples down points in the style-only path when cache exceeds PREVIEW_MAX', async () => {
+		// Compute with > 25000 points so samplePoints takes the sampling branch.
+		const { rerender } = render(GingerbreadmanRenderer, {
+			x0: -0.1,
+			y0: 0,
+			iterations: 50000,
+			colorMode: 'iteration',
+			height: 500
+		});
+		await FLUSH();
+		await vi.waitFor(() => {
+			expect(vi.mocked(calculateGingerbreadmanTuples).mock.calls.length).toBeGreaterThan(0);
+		});
+		const computeCalls = vi.mocked(calculateGingerbreadmanTuples).mock.calls.length;
+
+		// Style-only change → paintStyleOnly → samplePoints takes the sampling
+		// branch (points.length > PREVIEW_MAX_POINTS).
+		await rerender({
+			x0: -0.1,
+			y0: 0,
+			iterations: 50000,
+			colorMode: 'radius',
+			height: 500
+		});
+		await tick();
+		await FLUSH_STYLE();
+		// No recompute occurred (style-only path).
+		expect(vi.mocked(calculateGingerbreadmanTuples).mock.calls.length).toBe(computeCalls);
+		expect(ctxSpies.beginPath).toHaveBeenCalled();
+	});
+
+	it('clears a pending style full-paint timer on a second rapid style change', async () => {
+		const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout');
+		const { rerender } = render(GingerbreadmanRenderer, {
+			iterations: 500,
+			colorMode: 'iteration',
+			height: 500
+		});
+		await FLUSH();
+
+		// First style change schedules a style full-paint timer.
+		await rerender({
+			iterations: 500,
+			colorMode: 'radius',
+			height: 500
+		});
+		await tick();
+		// Second style change before the first timer fires → clearStyleFullPaint
+		// must clear the pending timer.
+		clearTimeoutSpy.mockClear();
+		await rerender({
+			iterations: 500,
+			colorMode: 'angle',
+			height: 500
+		});
+		await tick();
+		expect(clearTimeoutSpy).toHaveBeenCalled();
+		clearTimeoutSpy.mockRestore();
+	});
+
+	it('clears a pending compute debounce on a second rapid compute change', async () => {
+		const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout');
+		const { rerender } = render(GingerbreadmanRenderer, {
+			iterations: 500,
+			colorMode: 'iteration',
+			height: 500
+		});
+		await FLUSH();
+		clearTimeoutSpy.mockClear();
+
+		// Two compute changes in rapid succession: the second scheduleCompute
+		// clears the first debounce timer.
+		await rerender({
+			x0: -0.5,
+			iterations: 500,
+			colorMode: 'iteration',
+			height: 500
+		});
+		await tick();
+		await rerender({
+			x0: -0.7,
+			iterations: 500,
+			colorMode: 'iteration',
+			height: 500
+		});
+		await tick();
+		expect(clearTimeoutSpy).toHaveBeenCalled();
+		clearTimeoutSpy.mockRestore();
+	});
+
+	it('skips style-only paint when there is no cached latest result', async () => {
+		vi.useFakeTimers();
+		try {
+			// Use a worker so compute is async and latest stays null until
+			// the worker responds.
+			vi.stubGlobal('Worker', MockWorker);
+			posted.length = 0;
+			workerOnmessage = null;
+			workerOnerror = null;
+			const { rerender } = render(GingerbreadmanRenderer, {
+				iterations: 500,
+				colorMode: 'iteration',
+				height: 500
+			});
+			// Advance past debounce → postMessage fires, but no response yet.
+			await vi.advanceTimersByTimeAsync(300);
+			expect(posted.length).toBeGreaterThan(0);
+
+			// Style-only change → styleChanged true but latest is null →
+			// paintStyleOnly returns early.
+			ctxSpies.fill.mockClear();
+			await rerender({
+				iterations: 500,
+				colorMode: 'radius',
+				pointSize: 3,
+				height: 500
+			});
+			await tick();
+			expect(ctxSpies.fill).not.toHaveBeenCalled();
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('renders radius color mode with maxRadius=0 (empty points from worker)', async () => {
+		vi.stubGlobal('Worker', MockWorker);
+		posted.length = 0;
+		render(GingerbreadmanRenderer, {
+			iterations: 500,
+			colorMode: 'radius',
+			height: 500
+		});
+		await FLUSH();
+		const req = posted[0] as { id: number };
+		ctxSpies.fill.mockClear();
+
+		// Worker returns empty points → maxRadius=0 → radius color mode uses
+		// the `: 0` fallback in the ternary.
+		workerOnmessage?.({
+			data: {
+				type: 'gingerbreadmanResult',
+				id: req.id,
+				points: [] as [number, number][]
+			}
+		});
+		await tick();
+		// No points → no fill calls, but the render path (axes) still runs.
+		expect(ctxSpies.fill).not.toHaveBeenCalled();
+	});
+
+	it('skips density pixels that fall outside the canvas bounds', async () => {
+		vi.stubGlobal('Worker', MockWorker);
+		posted.length = 0;
+		render(GingerbreadmanRenderer, {
+			iterations: 500,
+			colorMode: 'density',
+			height: 500
+		});
+		await FLUSH();
+		const req = posted[0] as { id: number };
+		ctxSpies.putImageData.mockClear();
+
+		workerOnmessage?.({
+			data: {
+				type: 'gingerbreadmanResult',
+				id: req.id,
+				// Points with huge coordinates → all map outside the canvas.
+				points: [
+					[1e6, 1e6],
+					[-1e6, -1e6]
+				] as [number, number][]
+			}
+		});
+		await tick();
+		// putImageData still called (density buffer created, just all zeros).
+		expect(ctxSpies.putImageData).toHaveBeenCalled();
+	});
+
+	it('does not recompute or repaint on an effect run with no key changes', async () => {
+		const { rerender } = render(GingerbreadmanRenderer, {
+			iterations: 500,
+			colorMode: 'iteration',
+			height: 500
+		});
+		await FLUSH();
+		const computeCalls = vi.mocked(calculateGingerbreadmanTuples).mock.calls.length;
+		ctxSpies.fill.mockClear();
+
+		await rerender({
+			iterations: 500,
+			colorMode: 'iteration',
+			height: 500
+		});
+		await tick();
+		await FLUSH_STYLE();
+		// No new compute, no new fill from the effect (keys unchanged).
+		expect(vi.mocked(calculateGingerbreadmanTuples).mock.calls.length).toBe(computeCalls);
+	});
+});
+
+// ── Worker error with pending compute + unmount guards ──────────────────────
+
+describe('GingerbreadmanRenderer worker pending-compute + unmount guards', () => {
+	beforeEach(() => {
+		posted.length = 0;
+		workerOnmessage = null;
+		workerOnerror = null;
+		vi.stubGlobal('Worker', MockWorker);
+		installCanvasMock();
+		installDimensions(600, 500);
+		vi.mocked(calculateGingerbreadmanTuples).mockClear();
+	});
+
+	afterEach(() => {
+		restoreCanvasMock();
+		restoreDimensions();
+		vi.unstubAllGlobals();
+		cleanup();
+	});
+
+	it('re-schedules compute after worker error response when a compute was pending', async () => {
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const { rerender } = render(GingerbreadmanRenderer, {
+			iterations: 500,
+			colorMode: 'iteration',
+			height: 500
+		});
+		await FLUSH();
+		expect(posted.length).toBe(1);
+
+		// Trigger a compute change while the worker is still computing →
+		// scheduleCompute sets hasPendingCompute = true.
+		await rerender({
+			x0: -0.5,
+			iterations: 500,
+			colorMode: 'iteration',
+			height: 500
+		});
+		await tick();
+		expect(posted.length).toBe(1);
+
+		// Send an error response → fallback to main-thread, then
+		// hasPendingCompute triggers a re-schedule.
+		workerOnmessage?.({
+			data: { type: 'error', message: 'boom' }
+		});
+		await tick();
+		await FLUSH();
+		expect(errorSpy).toHaveBeenCalledWith(
+			expect.stringContaining('worker error response'),
+			'boom'
+		);
+		expect(ctxSpies.fill).toHaveBeenCalled();
+		errorSpy.mockRestore();
+	});
+
+	it('re-schedules compute after worker onerror when a compute was pending', async () => {
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const { rerender } = render(GingerbreadmanRenderer, {
+			iterations: 500,
+			colorMode: 'iteration',
+			height: 500
+		});
+		await FLUSH();
+		expect(posted.length).toBe(1);
+
+		await rerender({
+			x0: -0.3,
+			iterations: 500,
+			colorMode: 'iteration',
+			height: 500
+		});
+		await tick();
+
+		workerOnerror?.({ message: 'crashed' } as ErrorEvent);
+		await tick();
+		await FLUSH();
+		expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('worker error'), 'crashed');
+		expect(ctxSpies.fill).toHaveBeenCalled();
+		errorSpy.mockRestore();
+	});
+
+	it('does not fall back to main-thread when worker errors after unmount', async () => {
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const { unmount } = render(GingerbreadmanRenderer, {
+			iterations: 500,
+			colorMode: 'iteration',
+			height: 500
+		});
+		await FLUSH();
+		ctxSpies.fill.mockClear();
+
+		unmount();
+		workerOnmessage?.({
+			data: { type: 'error', message: 'late error' }
+		});
+		await tick();
+		expect(ctxSpies.fill).not.toHaveBeenCalled();
+		errorSpy.mockRestore();
+	});
+
+	it('does not fall back to main-thread when worker onerror fires after unmount', async () => {
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const { unmount } = render(GingerbreadmanRenderer, {
+			iterations: 500,
+			colorMode: 'iteration',
+			height: 500
+		});
+		await FLUSH();
+		ctxSpies.fill.mockClear();
+
+		unmount();
+		workerOnerror?.({ message: 'late crash' } as ErrorEvent);
+		await tick();
+		expect(ctxSpies.fill).not.toHaveBeenCalled();
+		errorSpy.mockRestore();
+	});
+});
+
+// ── No-ResizeObserver environment + resize-without-latest ───────────────────
+
+describe('GingerbreadmanRenderer without ResizeObserver', () => {
+	let savedResizeObserver: typeof globalThis.ResizeObserver | undefined;
+
+	beforeEach(() => {
+		vi.stubGlobal('Worker', undefined);
+		installCanvasMock();
+		installDimensions(600, 500);
+		savedResizeObserver = globalThis.ResizeObserver;
+		delete (globalThis as unknown as Record<string, unknown>).ResizeObserver;
+		vi.mocked(calculateGingerbreadmanTuples).mockClear();
+	});
+
+	afterEach(() => {
+		restoreCanvasMock();
+		restoreDimensions();
+		if (savedResizeObserver) {
+			globalThis.ResizeObserver = savedResizeObserver;
+		}
+		vi.unstubAllGlobals();
+		cleanup();
+	});
+
+	it('mounts and renders without ResizeObserver (cleanup skips disconnect)', async () => {
+		const { unmount } = render(GingerbreadmanRenderer, {
+			iterations: 500,
+			colorMode: 'iteration',
+			height: 500
+		});
+		await FLUSH();
+		expect(ctxSpies.fill).toHaveBeenCalled();
+		expect(() => unmount()).not.toThrow();
+	});
+});
+
+describe('GingerbreadmanRenderer ResizeObserver with no latest', () => {
+	let disconnectSpy: ReturnType<typeof vi.fn>;
+	let observeSpy: ReturnType<typeof vi.fn>;
+	let resizeCallback: (() => void) | null = null;
+	let savedResizeObserver: typeof globalThis.ResizeObserver | undefined;
+
+	beforeEach(() => {
+		vi.stubGlobal('Worker', MockWorker);
+		installCanvasMock();
+		installDimensions(600, 500);
+		disconnectSpy = vi.fn();
+		observeSpy = vi.fn();
+		resizeCallback = null;
+		savedResizeObserver = globalThis.ResizeObserver;
+		globalThis.ResizeObserver = class {
+			constructor(fn: () => void) {
+				resizeCallback = fn;
+			}
+			observe = observeSpy;
+			disconnect = disconnectSpy;
+			unobserve = vi.fn();
+		} as unknown as typeof globalThis.ResizeObserver;
+		posted.length = 0;
+		workerOnmessage = null;
+		workerOnerror = null;
+		vi.mocked(calculateGingerbreadmanTuples).mockClear();
+	});
+
+	afterEach(() => {
+		restoreCanvasMock();
+		restoreDimensions();
+		if (savedResizeObserver) {
+			globalThis.ResizeObserver = savedResizeObserver;
+		} else {
+			delete (globalThis as unknown as Record<string, unknown>).ResizeObserver;
+		}
+		vi.unstubAllGlobals();
+		cleanup();
+	});
+
+	it('resize callback is a no-op when latest is null (no compute completed)', async () => {
+		render(GingerbreadmanRenderer, {
+			iterations: 500,
+			colorMode: 'density',
+			height: 500
+		});
+		await new Promise((r) => setTimeout(r, 300));
+		expect(posted.length).toBeGreaterThan(0);
+
+		ctxSpies.putImageData.mockClear();
+		resizeCallback?.();
+		expect(ctxSpies.putImageData).not.toHaveBeenCalled();
+	});
+});
+
+// ── Density zoom out-of-bounds + unmount before style full-paint ─────────────
+
+describe('GingerbreadmanRenderer density zoom + unmount-during-style-paint', () => {
+	beforeEach(() => {
+		vi.stubGlobal('Worker', MockWorker);
+		installCanvasMock();
+		installDimensions(600, 500);
+		posted.length = 0;
+		workerOnmessage = null;
+		workerOnerror = null;
+		vi.mocked(calculateGingerbreadmanTuples).mockClear();
+	});
+
+	afterEach(() => {
+		restoreCanvasMock();
+		restoreDimensions();
+		vi.unstubAllGlobals();
+		cleanup();
+	});
+
+	it('skips all density pixels when zoom shrinks the domain below point coords', async () => {
+		// With zoom > 1, zoomedDomain shrinks around the center.  Points near
+		// the extent edges will map outside the zoomed domain → the
+		// `if (sx < 0 || sx >= w || ...) continue` guard fires, and maxCount
+		// stays 0 → the `Math.log(1 + maxCount) || 1` fallback triggers.
+		render(GingerbreadmanRenderer, {
+			iterations: 500,
+			colorMode: 'density',
+			zoom: 10,
+			height: 500
+		});
+		await FLUSH();
+		const req = posted[0] as { id: number };
+		ctxSpies.putImageData.mockClear();
+
+		// Points at the extremes of the domain.  With zoom=10 the visible
+		// domain is 1/10th of the full extent around the center, so these
+		// edge points fall outside the canvas.
+		workerOnmessage?.({
+			data: {
+				type: 'gingerbreadmanResult',
+				id: req.id,
+				points: [
+					[-100, -100],
+					[100, 100],
+					[-100, 100],
+					[100, -100]
+				] as [number, number][]
+			}
+		});
+		await tick();
+		// putImageData still called (density buffer created, all zeros).
+		expect(ctxSpies.putImageData).toHaveBeenCalled();
+	});
+
+	it('does not finish full-paint after unmount (isUnmounted guard in finishFullPaint)', async () => {
+		vi.useFakeTimers();
+		try {
+			const { rerender, unmount } = render(GingerbreadmanRenderer, {
+				iterations: 500,
+				colorMode: 'iteration',
+				height: 500
+			});
+			// Advance past the compute debounce so the worker post fires.
+			await vi.advanceTimersByTimeAsync(300);
+			expect(posted.length).toBeGreaterThan(0);
+
+			// Respond to the worker so latest is set.
+			workerOnmessage?.({
+				data: {
+					type: 'gingerbreadmanResult',
+					id: (posted[0] as { id: number }).id,
+					points: [
+						[0, 0],
+						[1, 1]
+					] as [number, number][]
+				}
+			});
+			await tick();
+
+			// Trigger a style-only change to schedule a style full-paint timer.
+			await rerender({
+				iterations: 500,
+				colorMode: 'radius',
+				height: 500
+			});
+			await tick();
+
+			// Unmount before the style full-paint timer (150ms) fires.
+			ctxSpies.fill.mockClear();
+			unmount();
+			await vi.advanceTimersByTimeAsync(300);
+			// isUnmounted guard in finishFullPaint → no fill.
+			expect(ctxSpies.fill).not.toHaveBeenCalled();
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+});
+
+// ── Large point count from worker (capped branch) ───────────────────────────
+
+describe('GingerbreadmanRenderer large point cap', () => {
+	beforeEach(() => {
+		vi.stubGlobal('Worker', MockWorker);
+		installCanvasMock();
+		installDimensions(600, 500);
+		posted.length = 0;
+		workerOnmessage = null;
+		workerOnerror = null;
+		vi.mocked(calculateGingerbreadmanTuples).mockClear();
+	});
+
+	afterEach(() => {
+		restoreCanvasMock();
+		restoreDimensions();
+		vi.unstubAllGlobals();
+		cleanup();
+	});
+
+	it('caps points at MAX_POINTS (250k) in the render path', async () => {
+		render(GingerbreadmanRenderer, {
+			iterations: 500,
+			colorMode: 'iteration',
+			height: 500
+		});
+		await FLUSH();
+		const req = posted[0] as { id: number };
+
+		// Generate > 250k points to trigger the `capped` branch in render.
+		const bigPoints: [number, number][] = [];
+		for (let i = 0; i < 260000; i++) {
+			bigPoints.push([Math.sin(i * 0.01), Math.cos(i * 0.01)]);
+		}
+		workerOnmessage?.({
+			data: {
+				type: 'gingerbreadmanResult',
+				id: req.id,
+				points: bigPoints
+			}
+		});
+		await tick();
+		// Rendering 250k points should still produce fill calls.
+		expect(ctxSpies.fill).toHaveBeenCalled();
+	});
+});

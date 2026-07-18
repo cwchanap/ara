@@ -50,4 +50,7 @@
 	data-iterations={iterations}
 	data-fidelity={fidelity}
 	data-color-mode={colorMode}
+	data-zoom={zoom}
+	data-point-size={pointSize}
+	data-opacity={opacity}
 ></div>

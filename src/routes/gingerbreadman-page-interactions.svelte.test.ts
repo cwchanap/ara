@@ -283,4 +283,56 @@ describe('Gingerbreadman page interactions', () => {
 			vi.useRealTimers();
 		}
 	});
+
+	it('triggers ondraft for y0 and iterations sliders during drag', async () => {
+		vi.useFakeTimers();
+		try {
+			render(GingerbreadmanPage, { props: unauthedPageProps });
+			await vi.advanceTimersByTimeAsync(400);
+
+			// y0 slider drag → ondraft sets draftY0
+			const ySlider = screen.getByTestId('slider-y0');
+			await fireEvent.pointerDown(ySlider);
+			await fireEvent.input(ySlider, { target: { value: '2.5' } });
+			await vi.advanceTimersByTimeAsync(PREVIEW_THROTTLE_MS + 20);
+			const stub = screen.getByTestId('gingerbreadman-renderer-stub');
+			expect(stub.getAttribute('data-fidelity')).toBe('preview');
+			expect(stub.getAttribute('data-y0')).toBe('2.5');
+			await fireEvent.change(ySlider);
+			await fireEvent.pointerUp(ySlider);
+
+			// iterations slider drag → ondraft sets draftIterations
+			const iterSlider = screen.getByTestId('slider-iterations');
+			await fireEvent.pointerDown(iterSlider);
+			await fireEvent.input(iterSlider, { target: { value: '200000' } });
+			await vi.advanceTimersByTimeAsync(PREVIEW_THROTTLE_MS + 20);
+			expect(stub.getAttribute('data-iterations')).toBe('200000');
+			await fireEvent.change(iterSlider);
+			await fireEvent.pointerUp(iterSlider);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('updates zoom, pointSize, and opacity via live-policy slider edits', async () => {
+		render(GingerbreadmanPage, { props: unauthedPageProps });
+
+		// zoom is a live-policy slider → bind:value commits immediately.
+		const zoomSlider = screen.getByTestId('slider-zoom');
+		await fireEvent.input(zoomSlider, { target: { value: '2.5' } });
+		await fireEvent.change(zoomSlider);
+		expect(screen.getByTestId('value-zoom').textContent).toBe('2.5');
+
+		// pointSize is live-policy.
+		const psSlider = screen.getByTestId('slider-pointSize');
+		await fireEvent.input(psSlider, { target: { value: '3.0' } });
+		await fireEvent.change(psSlider);
+		expect(screen.getByTestId('value-pointSize').textContent).toBe('3.0');
+
+		// opacity is live-policy.
+		const opSlider = screen.getByTestId('slider-opacity');
+		await fireEvent.input(opSlider, { target: { value: '0.5' } });
+		await fireEvent.change(opSlider);
+		expect(screen.getByTestId('value-opacity').textContent).toBe('0.50');
+	});
 });
