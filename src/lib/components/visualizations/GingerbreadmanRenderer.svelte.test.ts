@@ -982,7 +982,7 @@ describe('GingerbreadmanRenderer style-only sampling + edge cases', () => {
 		}
 	});
 
-	it('renders radius color mode with maxRadius=0 (empty points from worker)', async () => {
+	it('renders radius color mode with maxRadius=0 (single zero-radius point from worker)', async () => {
 		vi.stubGlobal('Worker', MockWorker);
 		posted.length = 0;
 		render(GingerbreadmanRenderer, {
@@ -993,19 +993,24 @@ describe('GingerbreadmanRenderer style-only sampling + edge cases', () => {
 		await FLUSH();
 		const req = posted[0] as { id: number };
 		ctxSpies.fill.mockClear();
+		ctxSpies.arc.mockClear();
 
-		// Worker returns empty points → maxRadius=0 → radius color mode uses
-		// the `: 0` fallback in the ternary.
+		// Worker returns a single point at the origin → maxRadius=0 → the
+		// per-point radius color calc executes the `maxRadius === 0` fallback
+		// (`: 0` branch in colorFor) rather than short-circuiting on an empty
+		// points array.
 		workerOnmessage?.({
 			data: {
 				type: 'gingerbreadmanResult',
 				id: req.id,
-				points: [] as [number, number][]
+				points: [[0, 0]] as [number, number][]
 			}
 		});
 		await tick();
-		// No points → no fill calls, but the render path (axes) still runs.
-		expect(ctxSpies.fill).not.toHaveBeenCalled();
+		// Exactly one point rendered → one fill/arc call, exercising the
+		// maxRadius=0 fallback path in the radius color calculation.
+		expect(ctxSpies.fill).toHaveBeenCalledTimes(1);
+		expect(ctxSpies.arc).toHaveBeenCalledTimes(1);
 	});
 
 	it('uses the maxRadius=0 fallback in radius color mode when all points are at the origin', async () => {
@@ -1431,6 +1436,10 @@ describe('GingerbreadmanRenderer large point cap', () => {
 		for (let i = 0; i < 260000; i++) {
 			bigPoints.push([Math.sin(i * 0.01), Math.cos(i * 0.01)]);
 		}
+		// Clear the point-primitive spy so the count reflects only the
+		// capped render (no prior calls bleed in from initial render setup).
+		ctxSpies.fill.mockClear();
+		ctxSpies.arc.mockClear();
 		workerOnmessage?.({
 			data: {
 				type: 'gingerbreadmanResult',
@@ -1439,7 +1448,8 @@ describe('GingerbreadmanRenderer large point cap', () => {
 			}
 		});
 		await tick();
-		// Rendering 250k points should still produce fill calls.
-		expect(ctxSpies.fill).toHaveBeenCalled();
+		// Capped to MAX_POINTS (250k) → exactly one fill/arc per rendered point.
+		expect(ctxSpies.fill).toHaveBeenCalledTimes(MAX_POINTS);
+		expect(ctxSpies.arc).toHaveBeenCalledTimes(MAX_POINTS);
 	});
 });
