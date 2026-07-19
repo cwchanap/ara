@@ -270,18 +270,28 @@ describe('Gingerbreadman page interactions', () => {
 			expect(screen.getByTestId('value-x0').textContent).toBe('4.20');
 
 			// Randomize cancels the drag first, so the stale 4.2 draft is
-			// discarded and the new random committed value takes hold.
-			await fireEvent.click(screen.getByTestId('btn-randomize'));
-			await vi.advanceTimersByTimeAsync(50);
+			// discarded and the new random committed value takes hold. Stub
+			// Math.random to a fixed value (0.5 -> r()=0.00) so the generated
+			// x0 can never coincidentally equal the stale drag value 4.20.
+			const originalMathRandom = Math.random;
+			Math.random = () => 0.5;
+			try {
+				await fireEvent.click(screen.getByTestId('btn-randomize'));
+				await vi.advanceTimersByTimeAsync(50);
 
-			// The display must NOT still show the stale drag value 4.20.
-			expect(screen.getByTestId('value-x0').textContent).not.toBe('4.20');
-			// Releasing the slider must not clobber the randomized value.
-			const afterRandom = (screen.getByTestId('slider-x0') as HTMLInputElement).value;
-			await fireEvent.change(slider);
-			await fireEvent.pointerUp(slider);
-			await vi.advanceTimersByTimeAsync(50);
-			expect((screen.getByTestId('slider-x0') as HTMLInputElement).value).toBe(afterRandom);
+				// The display must NOT still show the stale drag value 4.20.
+				expect(screen.getByTestId('value-x0').textContent).not.toBe('4.20');
+				// Releasing the slider must not clobber the randomized value.
+				const afterRandom = (screen.getByTestId('slider-x0') as HTMLInputElement).value;
+				await fireEvent.change(slider);
+				await fireEvent.pointerUp(slider);
+				await vi.advanceTimersByTimeAsync(50);
+				expect((screen.getByTestId('slider-x0') as HTMLInputElement).value).toBe(
+					afterRandom
+				);
+			} finally {
+				Math.random = originalMathRandom;
+			}
 		} finally {
 			vi.useRealTimers();
 		}

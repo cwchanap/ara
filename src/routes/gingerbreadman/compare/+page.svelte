@@ -178,10 +178,12 @@
 		leftX0 = p.x0;
 		leftY0 = p.y0;
 		leftIterations = p.iterations;
-		colorMode = p.colorMode!;
-		zoom = p.zoom!;
-		pointSize = p.pointSize!;
-		opacity = p.opacity!;
+		// Preserve current shared styling when the incoming payload omits the
+		// field (e.g. a partial params object). Only overwrite when present.
+		if (p.colorMode) colorMode = p.colorMode;
+		if (p.zoom !== undefined && p.zoom !== null) zoom = p.zoom;
+		if (p.pointSize !== undefined && p.pointSize !== null) pointSize = p.pointSize;
+		if (p.opacity !== undefined && p.opacity !== null) opacity = p.opacity;
 	}
 	function handleRightParamsChange(p: GingerbreadmanParameters) {
 		rightX0 = p.x0;

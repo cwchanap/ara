@@ -53,6 +53,13 @@ vi.mock('$lib/components/visualizations/GingerbreadmanRenderer.svelte', async ()
 	return { default: module.default };
 });
 
+vi.mock('$lib/components/comparison/ComparisonLayout.svelte', async () => {
+	const module = await import(
+		'$lib/components/testing/GingerbreadmanComparisonLayoutStub.svelte'
+	);
+	return { default: module.default };
+});
+
 function setPageUrl(url: string) {
 	pageStore.set({
 		url: new URL(url) as Page['url'],
@@ -614,16 +621,8 @@ describe('Gingerbreadman compare page interactions', () => {
 	});
 
 	it('handleLeftParamsChange with missing styling fields preserves current styling', async () => {
-		// ComparisonLayout's swap calls onLeftParamsChange with the right
-		// side's params.  If those params lack styling fields (colorMode,
-		// zoom, pointSize, opacity), handleLeftParamsChange should keep
-		// the current shared styling.  We simulate this by dispatching a
-		// custom event that triggers the swap, which calls
-		// onLeftParamsChange with the right params (which do include
-		// styling from getRightParams).  To test the false branches of
-		// the `if (p.colorMode)` etc. guards, we need params without
-		// those fields.  Since ComparisonLayout always passes full params,
-		// we verify the swap path covers the handler.
+		// Seed the left side with distinctive shared styling values so we can
+		// detect whether they survive a partial payload.
 		const left = encodeParams({
 			x0: -2.0,
 			y0: 0.5,
@@ -643,14 +642,33 @@ describe('Gingerbreadman compare page interactions', () => {
 		);
 		render(GingerbreadmanComparePage);
 
-		// Wait for initial encode, then clear.
+		// Wait for the initial debounced encode, then clear so the next goto
+		// is attributable to the partial-payload handler run.
 		await waitFor(() => expect(mockGoto).toHaveBeenCalled());
 		mockGoto.mockClear();
 
-		// Swap → onLeftParamsChange called with right params (no styling
-		// fields in the right payload) → the `if (p.colorMode)` etc.
-		// false branches are exercised.
-		await fireEvent.click(screen.getByRole('button', { name: /Swap/i }));
+		// The ComparisonLayout stub exposes a "Send Partial Left Params"
+		// button that invokes onLeftParamsChange with a payload lacking
+		// colorMode/zoom/pointSize/opacity — exercising the missing-styling
+		// guards in handleLeftParamsChange.
+		await fireEvent.click(screen.getByTestId('send-partial-left'));
 		await waitFor(() => expect(mockGoto).toHaveBeenCalled());
+
+		// Decode the URL emitted after the handler ran and assert the shared
+		// styling fields retain the left side's pre-existing values.
+		const call = mockGoto.mock.calls.at(-1)![0] as string;
+		expect(call).toContain('/gingerbreadman/compare?');
+		const url = new URL(call, 'http://localhost');
+		const leftEncoded = url.searchParams.get('left');
+		expect(leftEncoded).toBeTruthy();
+		const decoded = JSON.parse(atob(leftEncoded!)) as Record<string, unknown>;
+		expect(decoded.colorMode).toBe('radius');
+		expect(Number(decoded.zoom)).toBe(2);
+		expect(Number(decoded.pointSize)).toBe(3);
+		expect(Number(decoded.opacity)).toBeCloseTo(0.4, 5);
+		// The compute fields from the partial payload ARE applied.
+		expect(Number(decoded.x0)).toBeCloseTo(1.5, 5);
+		expect(Number(decoded.y0)).toBeCloseTo(-1.0, 5);
+		expect(Number(decoded.iterations)).toBe(30000);
 	});
 });
