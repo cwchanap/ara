@@ -287,20 +287,3 @@ The registrar returns an unsubscribe function; the shell invokes it on teardown 
 ### 3. Config-load-only (neither prop)
 
 Pages that pass neither `reactiveStability` nor `stabilityReporter` rely solely on the shell's internal `onCheckStability`, which runs `checkParameterStability` once against the raw loaded params when a `?config=` payload is applied. Slider edits do not re-check stability. Used by: Chua.
-
-## Cursor Cloud specific instructions
-
-- **Package manager/runtime is Bun** (not npm — the README is out of date). Bun is installed at `~/.bun/bin`; if `bun` is not on `PATH`, run `export PATH="$HOME/.bun/bin:$PATH"`. Use the `bun run <script>` commands documented above.
-- **A `.env` file is required for the server to boot.** `src/hooks.server.ts` throws on every request if no Neon Auth URL is set, and `src/lib/server/db/index.ts` throws at import if `DATABASE_URL`/`NETLIFY_DATABASE_URL` is missing. This repo's `.env` is gitignored (not pulled on fresh clones), so if it is absent recreate it with placeholder values before starting anything:
-  ```bash
-  cat > .env <<'EOF'
-  NEON_AUTH_BASE_URL=https://placeholder.neon.auth
-  VITE_NEON_AUTH_URL=https://placeholder.neon.auth
-  PUBLIC_NEON_AUTH_URL=https://placeholder.neon.auth
-  DATABASE_URL=postgresql://placeholder:placeholder@localhost:5432/placeholder
-  EOF
-  ```
-  Placeholders are enough to boot the dev server and render all 20 visualizations (this mirrors CI). The **core product = the visualizations**, and they work fully logged-out with placeholders.
-- **DB/Auth-backed features need real credentials.** Google OAuth login, save/load/rename configs, share links, and profile pages require a real Neon Postgres (`DATABASE_URL`) plus real Neon Auth URLs. With placeholders those routes render but fail at query/auth time. Apply migrations with `bunx drizzle-kit migrate` once a real `DATABASE_URL` is set.
-- **E2E tests need a build + Playwright chromium.** `bun run test:e2e` auto-starts `bun run preview` on port `:4173`, which requires `bun run build` to have produced `./build` first, and the chromium browser installed via `bunx playwright install --with-deps chromium`. Unit tests (`bun run test`) need neither.
-- Dev server runs on `:5173` (`bun run dev`); preview on `:4173`.
