@@ -111,6 +111,9 @@ test.describe('Lozi Map Page', () => {
 	test('info panel contains Lozi description', async ({ page }) => {
 		await page.goto('/lozi');
 
+		// The description body starts collapsed
+		await page.getByRole('button', { name: /DATA_LOG: LOZI_MAP/i }).click();
+
 		// Check for informational content about Lozi
 		await expect(page.getByText(/René Lozi|piecewise-linear|1978/i)).toBeVisible();
 	});
