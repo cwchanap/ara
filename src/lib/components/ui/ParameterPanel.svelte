@@ -6,6 +6,8 @@
 -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import CollapsiblePanel from '$lib/components/ui/CollapsiblePanel.svelte';
+	import { PANEL_STORAGE_KEYS } from '$lib/chaos-panel-storage';
 
 	interface Props {
 		title?: string;
@@ -43,24 +45,27 @@
 	<div class="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-primary"></div>
 	<div class="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-primary"></div>
 
-	<h2 class="text-xl font-['Orbitron'] font-semibold text-primary flex items-center gap-2">
-		<span class="inline-block w-2 h-2 bg-primary rounded-full animate-pulse"></span>
+	<CollapsiblePanel
 		{title}
-	</h2>
-
-	<div class="grid grid-cols-1 {COLS[paramColumns]} gap-8">
-		{@render children()}
-	</div>
-
-	{#if formula && formula.length > 0}
-		<div
-			class="grid grid-cols-1 {COLS[
-				equationColumns
-			]} gap-4 text-xs text-muted-foreground font-mono bg-black/20 p-4 rounded border border-white/5"
-		>
-			{#each formula as line, i (i)}
-				<p>{line}</p>
-			{/each}
+		storageKey={PANEL_STORAGE_KEYS.parameters}
+		defaultOpen={true}
+		bodyId="chaos-panel-parameters-body"
+		titleLevel="h2"
+	>
+		<div class="grid grid-cols-1 {COLS[paramColumns]} gap-8">
+			{@render children()}
 		</div>
-	{/if}
+
+		{#if formula && formula.length > 0}
+			<div
+				class="grid grid-cols-1 {COLS[
+					equationColumns
+				]} gap-4 text-xs text-muted-foreground font-mono bg-black/20 p-4 rounded border border-white/5"
+			>
+				{#each formula as line, i (i)}
+					<p>{line}</p>
+				{/each}
+			</div>
+		{/if}
+	</CollapsiblePanel>
 </div>
