@@ -5,14 +5,12 @@ export const PANEL_STORAGE_KEYS = {
 
 export type PanelStorageKey = (typeof PANEL_STORAGE_KEYS)[keyof typeof PANEL_STORAGE_KEYS];
 
-function canUseLocalStorage(): boolean {
-	return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
-}
-
 export function readPanelOpen(key: PanelStorageKey, defaultOpen: boolean): boolean {
-	if (!canUseLocalStorage()) return defaultOpen;
+	if (typeof window === 'undefined') return defaultOpen;
 	try {
-		const raw = window.localStorage.getItem(key);
+		const storage = window.localStorage;
+		if (typeof storage === 'undefined') return defaultOpen;
+		const raw = storage.getItem(key);
 		if (raw === 'true') return true;
 		if (raw === 'false') return false;
 		return defaultOpen;
@@ -22,10 +20,12 @@ export function readPanelOpen(key: PanelStorageKey, defaultOpen: boolean): boole
 }
 
 export function writePanelOpen(key: PanelStorageKey, open: boolean): void {
-	if (!canUseLocalStorage()) return;
+	if (typeof window === 'undefined') return;
 	try {
-		window.localStorage.setItem(key, open ? 'true' : 'false');
+		const storage = window.localStorage;
+		if (typeof storage === 'undefined') return;
+		storage.setItem(key, open ? 'true' : 'false');
 	} catch {
-		// quota / blocked — ignore
+		// quota / blocked / SecurityError on getter — ignore
 	}
 }

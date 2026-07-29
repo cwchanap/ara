@@ -68,6 +68,17 @@ describe('chaos-panel-storage', () => {
 		expect(() => writePanelOpen(PANEL_STORAGE_KEYS.description, true)).not.toThrow();
 	});
 
+	it('returns defaultOpen when accessing window.localStorage throws', () => {
+		vi.stubGlobal('window', {
+			get localStorage(): Storage {
+				throw new Error('SecurityError');
+			}
+		});
+		expect(readPanelOpen(PANEL_STORAGE_KEYS.parameters, true)).toBe(true);
+		expect(readPanelOpen(PANEL_STORAGE_KEYS.description, false)).toBe(false);
+		expect(() => writePanelOpen(PANEL_STORAGE_KEYS.parameters, false)).not.toThrow();
+	});
+
 	it('returns defaultOpen when window is undefined (SSR path)', () => {
 		const original = globalThis.window;
 		// @ts-expect-error intentional SSR simulation

@@ -49,7 +49,7 @@ This design adds a shared `CollapsiblePanel` wrapper, a tiny storage helper, and
 
 ## Architecture
 
-```
+```text
 chaos-panel-storage.ts     read/write localStorage (typed keys)
 chaos-panel-open-store.ts  per-key open boolean; seed/evict; notify subscribers
 

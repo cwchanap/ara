@@ -314,7 +314,8 @@ describe('CollapsiblePanel', () => {
 		first.unmount();
 		cleanup();
 
-		// Other-tab style overwrite while unmounted
+		// Other-tab style overwrite while unmounted — opposing defaultOpen so
+		// the assertion fails if remount ignores localStorage.
 		localStorage.setItem(PANEL_STORAGE_KEYS.parameters, 'true');
 		resetPanelOpenStoresForTests(); // ensure map empty if unmount race; eviction should already clear
 
@@ -322,7 +323,7 @@ describe('CollapsiblePanel', () => {
 			props: {
 				title: 'SYSTEM_PARAMETERS',
 				storageKey: PANEL_STORAGE_KEYS.parameters,
-				defaultOpen: true,
+				defaultOpen: false,
 				bodyId: 'chaos-panel-parameters-body',
 				children: body
 			}
