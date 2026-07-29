@@ -29,6 +29,14 @@ describe('ComparisonParameterPanel', () => {
 		expect(screen.getByText('PARAMETERS')).toBeInTheDocument();
 	});
 
+	it('renders the title as a compact level 3 heading containing the toggle', () => {
+		render(ComparisonParameterPanel, { props: { side: 'left', children: childSnippet } });
+		const heading = screen.getByRole('heading', { level: 3, name: /PARAMETERS/i });
+		const toggle = screen.getByRole('button', { name: /PARAMETERS/i });
+		expect(heading).toContainElement(toggle);
+		expect(toggle).toHaveClass('text-sm');
+	});
+
 	it('renders a custom title when provided', () => {
 		render(ComparisonParameterPanel, {
 			props: { side: 'left', title: 'LORENZ_CONTROLS', children: childSnippet }

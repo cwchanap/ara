@@ -9,59 +9,69 @@
 		defaultOpen: boolean;
 		bodyId: string;
 		titleLevel?: 'h2' | 'h3';
+		/** Type-scale classes for the title. Defaults to text-xl for h2, text-sm for h3. */
+		titleClass?: string;
 		children: Snippet;
 	}
 
-	let { title, storageKey, defaultOpen, bodyId, titleLevel = 'h2', children }: Props = $props();
+	let {
+		title,
+		storageKey,
+		defaultOpen,
+		bodyId,
+		titleLevel = 'h2',
+		titleClass,
+		children
+	}: Props = $props();
 
 	let open = $state(defaultOpen);
 	let toggleEl: HTMLButtonElement | undefined = $state();
 	let bodyEl: HTMLDivElement | undefined = $state();
 
+	const resolvedTitleClass = $derived(titleClass ?? (titleLevel === 'h3' ? 'text-sm' : 'text-xl'));
+	const dotClass = $derived(resolvedTitleClass.includes('text-sm') ? 'w-1.5 h-1.5' : 'w-2 h-2');
+
 	$effect(() => {
 		const store = getPanelOpenStore(storageKey, defaultOpen);
 		return store.subscribe((value) => {
+			// Collapsing can be driven by another panel sharing this storage key, so
+			// rescue focus here rather than only in the local toggle handler.
+			if (!value) reclaimFocusFromBody();
 			open = value;
 		});
 	});
 
-	function toggle() {
-		const next = !open;
-		if (!next && bodyEl && document.activeElement && bodyEl.contains(document.activeElement)) {
+	function reclaimFocusFromBody() {
+		if (bodyEl && document.activeElement && bodyEl.contains(document.activeElement)) {
 			toggleEl?.focus();
 		}
-		getPanelOpenStore(storageKey, defaultOpen).setOpen(next);
+	}
+
+	function toggle() {
+		getPanelOpenStore(storageKey, defaultOpen).setOpen(!open);
 	}
 </script>
 
 <div class="space-y-4">
-	<button
-		bind:this={toggleEl}
-		type="button"
-		class="w-full text-left flex items-center gap-2 text-primary font-['Orbitron'] font-semibold group/toggle"
-		class:text-xl={titleLevel === 'h2'}
-		class:text-sm={titleLevel === 'h3'}
-		aria-expanded={open}
-		aria-controls={bodyId}
-		onclick={toggle}
-	>
-		<span
-			class="inline-block w-2 h-2 bg-primary rounded-full animate-pulse shrink-0"
-			class:w-1.5={titleLevel === 'h3'}
-			class:h-1.5={titleLevel === 'h3'}
-		></span>
-		{#if titleLevel === 'h3'}
-			<span class="flex-1">{title}</span>
-		{:else}
-			<span class="flex-1 text-xl font-['Orbitron'] font-semibold">{title}</span>
-		{/if}
-		<span
-			aria-hidden="true"
-			class="inline-block transition-transform duration-200 motion-reduce:transition-none {open
-				? 'rotate-180'
-				: 'rotate-0'}">▾</span
+	<svelte:element this={titleLevel} class="contents">
+		<button
+			bind:this={toggleEl}
+			type="button"
+			class="w-full text-left flex items-center gap-2 text-primary font-['Orbitron'] font-semibold group/toggle {resolvedTitleClass}"
+			aria-expanded={open}
+			aria-controls={bodyId}
+			onclick={toggle}
 		>
-	</button>
+			<span class="inline-block bg-primary rounded-full animate-pulse shrink-0 {dotClass}"></span>
+			<span class="flex-1">{title}</span>
+			<span
+				aria-hidden="true"
+				class="inline-block transition-transform duration-200 motion-reduce:transition-none {open
+					? 'rotate-180'
+					: 'rotate-0'}">▾</span
+			>
+		</button>
+	</svelte:element>
 
 	<div id={bodyId} bind:this={bodyEl} class="space-y-6" class:hidden={!open}>
 		{@render children()}

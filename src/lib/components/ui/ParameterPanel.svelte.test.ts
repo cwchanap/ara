@@ -23,6 +23,15 @@ describe('ParameterPanel', () => {
 		expect(screen.getByText('SYSTEM_PARAMETERS')).toBeInTheDocument();
 	});
 
+	it('renders the title as a level 2 heading containing the toggle', () => {
+		render(ParameterPanel, { props: { children: childSnippet } });
+		const heading = screen.getByRole('heading', { level: 2, name: /SYSTEM_PARAMETERS/i });
+		expect(heading).toContainElement(
+			screen.getByRole('button', { name: /SYSTEM_PARAMETERS/i })
+		);
+		expect(screen.getByRole('button', { name: /SYSTEM_PARAMETERS/i })).toHaveClass('text-xl');
+	});
+
 	it('renders a custom title', () => {
 		render(ParameterPanel, {
 			props: { title: 'CONTROL_PANEL', children: childSnippet }

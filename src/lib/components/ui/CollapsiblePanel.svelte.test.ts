@@ -133,6 +133,92 @@ describe('CollapsiblePanel', () => {
 		expect(document.activeElement).toBe(toggle);
 	});
 
+	it('exposes the toggle inside a real heading at the requested level', async () => {
+		render(CollapsiblePanel, {
+			props: {
+				title: 'SYSTEM_PARAMETERS',
+				storageKey: PANEL_STORAGE_KEYS.parameters,
+				defaultOpen: true,
+				bodyId: 'chaos-panel-parameters-body',
+				children: body
+			}
+		});
+		const heading = await screen.findByRole('heading', {
+			level: 2,
+			name: /SYSTEM_PARAMETERS/i
+		});
+		expect(heading.tagName).toBe('H2');
+		expect(heading).toContainElement(
+			screen.getByRole('button', { name: /SYSTEM_PARAMETERS/i })
+		);
+
+		const mount = document.createElement('div');
+		document.body.appendChild(mount);
+		render(CollapsiblePanel, {
+			target: mount,
+			props: {
+				title: 'DATA_LOG',
+				storageKey: PANEL_STORAGE_KEYS.description,
+				defaultOpen: false,
+				bodyId: 'chaos-panel-description-body',
+				titleLevel: 'h3',
+				children: body
+			}
+		});
+		const subHeading = await screen.findByRole('heading', { level: 3, name: /DATA_LOG/i });
+		expect(subHeading.tagName).toBe('H3');
+	});
+
+	it('sizes the title from titleLevel unless titleClass overrides it', async () => {
+		const { unmount } = render(CollapsiblePanel, {
+			props: {
+				title: 'SYSTEM_PARAMETERS',
+				storageKey: PANEL_STORAGE_KEYS.parameters,
+				defaultOpen: true,
+				bodyId: 'chaos-panel-parameters-body',
+				children: body
+			}
+		});
+		expect(screen.getByRole('button', { name: /SYSTEM_PARAMETERS/i })).toHaveClass('text-xl');
+		unmount();
+		cleanup();
+		resetPanelOpenStoresForTests();
+
+		const compact = render(CollapsiblePanel, {
+			props: {
+				title: 'PARAMETERS',
+				storageKey: PANEL_STORAGE_KEYS.parameters,
+				defaultOpen: true,
+				bodyId: 'chaos-panel-parameters-body',
+				titleLevel: 'h3',
+				children: body
+			}
+		});
+		const compactToggle = screen.getByRole('button', { name: /PARAMETERS/i });
+		expect(compactToggle).toHaveClass('text-sm');
+		expect(compactToggle).not.toHaveClass('text-xl');
+		expect(compactToggle.querySelector('.animate-pulse')).toHaveClass('w-1.5', 'h-1.5');
+		compact.unmount();
+		cleanup();
+		resetPanelOpenStoresForTests();
+
+		render(CollapsiblePanel, {
+			props: {
+				title: 'DATA_LOG',
+				storageKey: PANEL_STORAGE_KEYS.description,
+				defaultOpen: false,
+				bodyId: 'chaos-panel-description-body',
+				titleLevel: 'h3',
+				titleClass: 'text-lg',
+				children: body
+			}
+		});
+		const overridden = screen.getByRole('button', { name: /DATA_LOG/i });
+		expect(overridden).toHaveClass('text-lg');
+		expect(overridden).not.toHaveClass('text-sm');
+		expect(overridden.querySelector('.animate-pulse')).toHaveClass('w-2', 'h-2');
+	});
+
 	it('keeps unique body ids and live-syncs two panels on the same storageKey', async () => {
 		const { container } = render(CollapsiblePanel, {
 			props: {
@@ -172,6 +258,44 @@ describe('CollapsiblePanel', () => {
 			expect(rightToggle).toHaveAttribute('aria-expanded', 'false');
 		});
 		unmount();
+	});
+
+	it('rescues focus when another panel on the same storageKey collapses it', async () => {
+		const { container } = render(CollapsiblePanel, {
+			props: {
+				title: 'LEFT',
+				storageKey: PANEL_STORAGE_KEYS.parameters,
+				defaultOpen: true,
+				bodyId: 'chaos-panel-parameters-body-left',
+				titleLevel: 'h3',
+				children: body
+			}
+		});
+		const mount = document.createElement('div');
+		container.appendChild(mount);
+		const right = render(CollapsiblePanel, {
+			target: mount,
+			props: {
+				title: 'RIGHT',
+				storageKey: PANEL_STORAGE_KEYS.parameters,
+				defaultOpen: true,
+				bodyId: 'chaos-panel-parameters-body-right',
+				titleLevel: 'h3',
+				children: body
+			}
+		});
+
+		const insideRight = document
+			.getElementById('chaos-panel-parameters-body-right')!
+			.querySelector<HTMLButtonElement>('[data-testid="inside-body"]')!;
+		insideRight.focus();
+		expect(document.activeElement).toBe(insideRight);
+
+		await fireEvent.click(screen.getByRole('button', { name: /LEFT/i }));
+		await waitFor(() => {
+			expect(document.activeElement).toBe(screen.getByRole('button', { name: /RIGHT/i }));
+		});
+		right.unmount();
 	});
 
 	it('re-seeds from localStorage after unmount eviction', async () => {

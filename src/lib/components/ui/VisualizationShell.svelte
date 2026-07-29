@@ -453,6 +453,7 @@
 			defaultOpen={false}
 			bodyId="chaos-panel-description-body"
 			titleLevel="h3"
+			titleClass="text-lg"
 		>
 			<p class="text-muted-foreground text-sm leading-relaxed max-w-3xl">{description.body}</p>
 		</CollapsiblePanel>
