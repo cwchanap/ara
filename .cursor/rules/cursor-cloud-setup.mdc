@@ -6,16 +6,18 @@ alwaysApply: true
 # Cursor Cloud specific instructions
 
 - **Package manager/runtime is Bun** (not npm — the README is out of date). Bun is installed at `~/.bun/bin`; if `bun` is not on `PATH`, run `export PATH="$HOME/.bun/bin:$PATH"`. Use the `bun run <script>` commands from `CLAUDE.md`.
-- **A `.env` file is required for the server to boot.** `src/hooks.server.ts` throws on every request if no Neon Auth URL is set, and `src/lib/server/db/index.ts` throws at import if `DATABASE_URL`/`NETLIFY_DATABASE_URL` is missing. This repo's `.env` is gitignored (not pulled on fresh clones), so if it is absent recreate it with placeholder values before starting anything:
-  ```bash
-  cat > .env <<'EOF'
-  NEON_AUTH_BASE_URL=https://placeholder.neon.auth
-  VITE_NEON_AUTH_URL=https://placeholder.neon.auth
-  PUBLIC_NEON_AUTH_URL=https://placeholder.neon.auth
-  DATABASE_URL=postgresql://placeholder:placeholder@localhost:5432/placeholder
-  EOF
-  ```
-  Placeholders are enough to boot the dev server and render all 20 visualizations (this mirrors CI). The **core product = the visualizations**, and they work fully logged-out with placeholders.
-- **DB/Auth-backed features need real credentials.** Google OAuth login, save/load/rename configs, share links, and profile pages require a real Neon Postgres (`DATABASE_URL`) plus real Neon Auth URLs. With placeholders those routes render but fail at query/auth time. Apply migrations with `bunx drizzle-kit migrate` once a real `DATABASE_URL` is set.
+- **A `.env` file is required for the server to boot.** `src/hooks.server.ts` throws on every request if no Neon Auth URL is set, and `src/lib/server/db/index.ts` throws at import if `DATABASE_URL`/`NETLIFY_DATABASE_URL` is missing. This repo's `.env` is gitignored (not pulled on fresh clones), so if it is absent recreate it before starting anything. Two options:
+  - **Real DB (preferred, via Neon MCP):** this repo maps to the Neon project **`ara`** (`autumn-meadow-95556458`, org `org-dawn-king-42156683`). Use the Neon MCP to populate `.env`: `get_connection_string` → `DATABASE_URL`; `get_neon_auth_config` → its `base_url` for `NEON_AUTH_BASE_URL`/`VITE_NEON_AUTH_URL`/`PUBLIC_NEON_AUTH_URL`. Do NOT commit these values (`.env` is gitignored).
+  - **Placeholders (offline):** any values boot the server and render all 20 visualizations (mirrors CI), but DB/Auth routes fail at query/auth time.
+    ```bash
+    cat > .env <<'EOF'
+    NEON_AUTH_BASE_URL=https://placeholder.neon.auth
+    VITE_NEON_AUTH_URL=https://placeholder.neon.auth
+    PUBLIC_NEON_AUTH_URL=https://placeholder.neon.auth
+    DATABASE_URL=postgresql://placeholder:placeholder@localhost:5432/placeholder
+    EOF
+    ```
+  The **core product = the visualizations**, and they work fully logged-out with placeholders.
+- **DB/Auth-backed features need the real DB + migrations.** Google OAuth login, save/load/rename configs, share links, and profile pages require the real Neon Postgres + Neon Auth URLs above. App tables (`profiles`, `saved_configurations`, `shared_configurations`) live in the `public` schema; if missing, create them with `bunx drizzle-kit migrate` (use the direct, non-`-pooler` host in `DATABASE_URL` for the migrate step). The `neon_auth` schema is managed by Neon Auth. The public share route `/s/<8-char-code>` is a no-login way to exercise a DB read+write (it increments `view_count`).
 - **E2E tests need a build + Playwright chromium.** `bun run test:e2e` auto-starts `bun run preview` on port `:4173`, which requires `bun run build` to have produced `./build` first, and the chromium browser installed via `bunx playwright install --with-deps chromium`. Unit tests (`bun run test`) need neither.
 - Dev server runs on `:5173` (`bun run dev`); preview on `:4173`.
