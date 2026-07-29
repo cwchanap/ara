@@ -95,6 +95,9 @@ test.describe('Rössler Attractor Page', () => {
 	test('info panel contains Rössler description', async ({ page }) => {
 		await page.goto('/rossler');
 
+		// The description body starts collapsed
+		await page.getByRole('button', { name: /DATA_LOG: RÖSSLER_SYSTEM/i }).click();
+
 		// Check for informational content about Rössler
 		await expect(page.getByText(/Otto Rössler|Rössler attractor|1970s/i)).toBeVisible();
 	});
