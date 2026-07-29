@@ -11,6 +11,7 @@ import {
 import VisualizationShell from './VisualizationShell.svelte';
 import PageOwnedSliderShell from '$lib/components/testing/PageOwnedSliderShell.svelte';
 import DragStateShell from '$lib/components/testing/DragStateShell.svelte';
+import { resetPanelOpenStoresForTests } from '$lib/chaos-panel-open-store';
 import type { ParamDef } from '$lib/viz/types';
 
 vi.mock('$app/stores', async () => {
@@ -145,6 +146,8 @@ describe('VisualizationShell', () => {
 		restoreFetch();
 		resetMockPageStore();
 		cleanup();
+		resetPanelOpenStoresForTests();
+		localStorage.clear();
 	});
 
 	it('renders title, the renderer snippet, and an auto slider from the schema', () => {
@@ -186,6 +189,50 @@ describe('VisualizationShell', () => {
 			} as never
 		});
 		expect(screen.getByTestId('after-desc')).toBeInTheDocument();
+		expect(screen.getByTestId('after-desc')).toBeVisible();
+	});
+
+	it('starts with description body collapsed and afterDescription still visible', async () => {
+		const afterDescription = createRawSnippet(() => ({
+			render: () => '<div data-testid="after-desc">λₘₐₓ live</div>'
+		}));
+		render(VisualizationShell, {
+			props: {
+				mapType: 'henon',
+				title: 'HÉNON_MAP',
+				moduleNumber: '02',
+				paramDefs: defs,
+				buildParameters: (v: Record<string, number>) => ({
+					type: 'henon',
+					a: v.a,
+					b: 0.3,
+					iterations: 2000
+				}),
+				formula: ['x(n+1) = …'],
+				description: { heading: 'DATA_LOG: HÉNON_MAP', body: 'desc body copy' },
+				isAuthenticated: true,
+				renderer,
+				afterDescription,
+				...authedPageProps
+			} as never
+		});
+
+		await waitFor(() => {
+			const toggle = screen.getByRole('button', { name: /DATA_LOG: HÉNON_MAP/i });
+			expect(toggle).toHaveAttribute('aria-expanded', 'false');
+			expect(toggle).toHaveAttribute('aria-controls', 'chaos-panel-description-body');
+		});
+		expect(
+			document.getElementById('chaos-panel-description-body')!.classList.contains('hidden')
+		).toBe(true);
+		expect(screen.getByTestId('after-desc')).toBeVisible();
+		expect(screen.getByTestId('after-desc')).toHaveTextContent('λₘₐₓ live');
+
+		await fireEvent.click(screen.getByRole('button', { name: /DATA_LOG: HÉNON_MAP/i }));
+		expect(
+			document.getElementById('chaos-panel-description-body')!.classList.contains('hidden')
+		).toBe(false);
+		expect(screen.getByText('desc body copy')).toBeVisible();
 	});
 
 	// --- Shell-level stability / error / URL wiring ---
