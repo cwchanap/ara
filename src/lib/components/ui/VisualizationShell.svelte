@@ -21,6 +21,8 @@
 	import SaveConfigDialog from '$lib/components/ui/SaveConfigDialog.svelte';
 	import ShareDialog from '$lib/components/ui/ShareDialog.svelte';
 	import SnapshotButton from '$lib/components/ui/SnapshotButton.svelte';
+	import CollapsiblePanel from '$lib/components/ui/CollapsiblePanel.svelte';
+	import { PANEL_STORAGE_KEYS } from '$lib/chaos-panel-storage';
 	import { checkParameterStability } from '$lib/chaos-validation';
 	import { useConfigLoader, createInitialConfigLoaderState } from '$lib/use-config-loader';
 	import { createSaveHandler, createInitialSaveState } from '$lib/use-visualization-save';
@@ -445,8 +447,15 @@
 		<div
 			class="absolute top-0 left-0 w-1 h-full bg-linear-to-b from-primary to-transparent opacity-50"
 		></div>
-		<h3 class="text-lg font-['Orbitron'] font-semibold text-primary mb-2">{description.heading}</h3>
-		<p class="text-muted-foreground text-sm leading-relaxed max-w-3xl">{description.body}</p>
+		<CollapsiblePanel
+			title={description.heading}
+			storageKey={PANEL_STORAGE_KEYS.description}
+			defaultOpen={false}
+			bodyId="chaos-panel-description-body"
+			titleLevel="h3"
+		>
+			<p class="text-muted-foreground text-sm leading-relaxed max-w-3xl">{description.body}</p>
+		</CollapsiblePanel>
 		{#if afterDescription}{@render afterDescription()}{/if}
 	</div>
 </div>
