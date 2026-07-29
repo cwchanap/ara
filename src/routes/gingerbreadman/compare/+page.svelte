@@ -211,7 +211,7 @@
 >
 	{#snippet leftPanel()}
 		<div class="space-y-4">
-			<ComparisonParameterPanel title="LEFT_PARAMETERS">
+			<ComparisonParameterPanel side="left" title="LEFT_PARAMETERS">
 				<div class="grid grid-cols-2 gap-3">
 					{#each leftControls as ctrl (ctrl.id)}
 						<div class="space-y-1">
@@ -277,7 +277,7 @@
 
 	{#snippet rightPanel()}
 		<div class="space-y-4">
-			<ComparisonParameterPanel title="RIGHT_PARAMETERS">
+			<ComparisonParameterPanel side="right" title="RIGHT_PARAMETERS">
 				<div class="grid grid-cols-2 gap-3">
 					{#each rightControls as ctrl (ctrl.id)}
 						<div class="space-y-1">

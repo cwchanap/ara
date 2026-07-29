@@ -106,6 +106,7 @@
 </script>
 
 {#snippet comparePanel(
+	side: 'left' | 'right',
 	title: string,
 	pointCount: number,
 	speed: number,
@@ -115,7 +116,7 @@
 	onSpeed: (v: number) => void
 )}
 	<div class="space-y-4">
-		<ComparisonParameterPanel {title}>
+		<ComparisonParameterPanel {side} {title}>
 			<div class="grid grid-cols-2 gap-3">
 				<div class="space-y-1">
 					<div class="flex justify-between items-end">
@@ -173,6 +174,7 @@
 >
 	{#snippet leftPanel()}
 		{@render comparePanel(
+			'left',
 			'LEFT_PARAMETERS',
 			leftPointCount,
 			leftSpeed,
@@ -185,6 +187,7 @@
 
 	{#snippet rightPanel()}
 		{@render comparePanel(
+			'right',
 			'RIGHT_PARAMETERS',
 			rightPointCount,
 			rightSpeed,
