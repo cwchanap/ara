@@ -222,6 +222,11 @@ describe('VisualizationShell', () => {
 			expect(toggle).toHaveAttribute('aria-expanded', 'false');
 			expect(toggle).toHaveAttribute('aria-controls', 'chaos-panel-description-body');
 		});
+		const descHeading = screen.getByRole('heading', { level: 3, name: /DATA_LOG: HÉNON_MAP/i });
+		expect(descHeading).toContainElement(
+			screen.getByRole('button', { name: /DATA_LOG: HÉNON_MAP/i })
+		);
+		expect(screen.getByRole('button', { name: /DATA_LOG: HÉNON_MAP/i })).toHaveClass('text-lg');
 		expect(
 			document.getElementById('chaos-panel-description-body')!.classList.contains('hidden')
 		).toBe(true);
