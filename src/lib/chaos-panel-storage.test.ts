@@ -55,14 +55,15 @@ describe('chaos-panel-storage', () => {
 	});
 
 	it('returns defaultOpen when localStorage.getItem throws', () => {
-		vi.stubGlobal('localStorage', {
+		const throwingStorage = {
 			getItem: () => {
 				throw new Error('blocked');
 			},
 			setItem: () => {
 				throw new Error('blocked');
 			}
-		});
+		};
+		vi.stubGlobal('window', { localStorage: throwingStorage });
 		expect(readPanelOpen(PANEL_STORAGE_KEYS.description, false)).toBe(false);
 		expect(() => writePanelOpen(PANEL_STORAGE_KEYS.description, true)).not.toThrow();
 	});
