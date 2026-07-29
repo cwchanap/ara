@@ -8,7 +8,7 @@
 
 Chaos visualization pages stack chrome above and below the canvas: a `SYSTEM_PARAMETERS` panel (sliders + formula) and a description panel. Compare routes duplicate parameter chrome in left/right `ComparisonParameterPanel`s. None of these collapse today, so the canvas competes with always-open controls.
 
-This design adds a shared `CollapsiblePanel` wrapper, a tiny storage helper, and a module-level open-state store so users can collapse panels to a title-bar toggle. Preferences persist in `localStorage` under two shared keys (not per map). Same-page subscribers sharing a key stay live-synced (so compare left/right never desync). Defaults favor interaction first: parameters open, description closed. The description collapse covers **heading + descriptive copy only**; `afterDescription` stays outside the collapsed body so live status slots (e.g. Chua Lyapunov readout) remain visible.
+This design adds a shared `CollapsiblePanel` wrapper, a tiny storage helper, and a module-level open-state store so users can collapse panels to a title-bar toggle. Preferences persist in `localStorage` under two shared keys (not per map). Same-page subscribers sharing a key stay live-synced (so compare left/right never desync). Defaults favor interaction first: parameters open, description closed. On the description card, the **heading remains the always-visible toggle**; only `description.body` collapses. `afterDescription` stays outside the collapsible body so live status slots (e.g. Chua Lyapunov readout) remain visible.
 
 ### Design decisions (from brainstorming + review)
 
@@ -21,8 +21,9 @@ This design adds a shared `CollapsiblePanel` wrapper, a tiny storage helper, and
 | Architecture | Shared `CollapsiblePanel` wrapper + storage helper + per-key open-state store |
 | Compare sync | Same storage key for left/right; **live same-page sync** via shared store |
 | Body when collapsed | Class-based hide (`hidden` / `display: none`); nodes stay in the DOM |
-| Body `id` | Host-supplied `bodyId` (deterministic; unique on compare) |
-| Description slot boundary | Collapse `description.body` only; **`afterDescription` stays outside** the collapsible body |
+| Body `id` | `CollapsiblePanel` requires `bodyId`; main hosts hardcode; compare derives from required `side` |
+| Description slot boundary | Heading = toggle (always visible); collapse `description.body` only; **`afterDescription` stays outside** |
+| Compare panel body | Children **and** `equations` collapse together; host passes `side` to derive `bodyId` |
 | Store lifecycle | Evict key entry when subscriber count hits 0; next mount re-seeds from `localStorage` |
 | SSR flash | Accept chrome-only hydrate flash; no pre-hydration inline script in v1 |
 | Motion | Chevron transition respects `prefers-reduced-motion` |
@@ -97,15 +98,13 @@ Only these two pages use `afterDescription` today. Both keep the slot outside th
 |------|--------|
 | `src/lib/components/ui/ParameterPanel.svelte` | Integrate `CollapsiblePanel`; pass `bodyId`; heading becomes toggle; body = children + formula |
 | `src/lib/components/ui/ParameterPanel.svelte.test.ts` | Default expanded; toggle collapses body via class hide |
-| `src/lib/components/ui/VisualizationShell.svelte` | Wrap `description.heading` + `description.body` in `CollapsiblePanel`; render `afterDescription` as sibling outside the collapsible body, still inside the host card |
-| `src/lib/components/ui/VisualizationShell.svelte.test.ts` | Description default collapsed; expand reveals copy; `afterDescription` visible while description collapsed |
-| `src/lib/components/comparison/ComparisonParameterPanel.svelte` | Integrate `CollapsiblePanel`; accept/pass side-specific `bodyId` |
-| `src/lib/components/comparison/ComparisonParameterPanel.svelte.test.ts` | Default expanded; collapse; parameters key; distinct ids when two mounted |
-| Chua page / shell regression | Assert Lyapunov readout (`afterDescription`) remains visible when description starts collapsed |
+| `src/lib/components/ui/VisualizationShell.svelte` | Pass `description.heading` as `CollapsiblePanel` title; children = `description.body` only; render `afterDescription` as sibling outside the collapsible body, still inside the host card |
+| `src/lib/components/ui/VisualizationShell.svelte.test.ts` | Description default collapsed; expand reveals copy; `afterDescription` visible while description collapsed (required shell-level regression) |
+| `src/lib/components/comparison/ComparisonParameterPanel.svelte` | Add required `side: 'left' \| 'right'`; derive `bodyId` as `chaos-panel-parameters-body-${side}`; collapsible body = children + `equations` |
+| `src/lib/components/comparison/ComparisonParameterPanel.svelte.test.ts` | Default expanded; collapse hides children+equations; parameters key; two panels with left/right sides → distinct ids + live sync |
+| `src/routes/*/compare/+page.svelte` (20 files) | Pass `side="left"` / `side="right"` on each `ComparisonParameterPanel` |
 
-Compare routes that render two `ComparisonParameterPanel`s must pass distinct `bodyId`s (e.g. `…-left` / `…-right`). Prefer a small prop on `ComparisonParameterPanel` (`side: 'left' \| 'right'` or `bodyId`) so each compare page sets it once. If `bodyId` is derived inside the comparison panel from `side`, compare pages only need a `side` prop — minimize per-route churn.
-
-All main viz routes inherit via the shell. No per-route main-page edits required unless a test asserted description visibility without expanding first.
+**Route churn:** Main viz pages need no edits (shell inherits). All **20** compare pages need a one-line `side` prop on each of the two panels. No other compare markup changes.
 
 ## Component API
 
@@ -153,8 +152,8 @@ export function resetPanelOpenStoresForTests(): void;
 
 **Lifecycle**
 
-1. `getPanelOpenStore(key, defaultOpen)` — if no entry for `key`, create one seeded from `readPanelOpen(key, defaultOpen)`.
-2. `subscribe` increments the subscriber count and immediately calls `fn` with the current value; returned unsubscribe decrements the count.
+1. `getPanelOpenStore(key, defaultOpen)` — if no entry for `key`, create one seeded from `readPanelOpen(key, defaultOpen)`. If an entry already exists, return it and **ignore** the passed `defaultOpen` (callers for a given key must always pass the same default: parameters → `true`, description → `false`).
+2. `subscribe` increments the subscriber count and immediately calls `fn` with the current value; returned unsubscribe decrements the count. **Production UI must subscribe** (not only call `getOpen`); subscriber count drives eviction.
 3. `setOpen` updates in-memory state, notifies all subscribers, and calls `writePanelOpen`.
 4. When subscriber count reaches **0**, **evict** the key entry from the module map. A later `getPanelOpenStore` for that key re-seeds from `localStorage` (picks up other-tab writes that happened while no panel was mounted; also resets Vitest state after Testing Library cleanup unmounts components).
 5. Two `CollapsiblePanel`s with the same `storageKey` (compare left/right) stay live-synced while both are mounted.
@@ -186,11 +185,13 @@ interface Props {
 
 **Behavior**
 
-- Subscribe to `getPanelOpenStore(storageKey, defaultOpen)` for open state (SSR / first paint: use `defaultOpen` until the store is read in the browser; see Errors & SSR). Unsubscribe on destroy so eviction can run.
+- **First paint / SSR:** component `$state` initializes to `defaultOpen` so markup is deterministic without touching `localStorage` during render.
+- **Client subscribe:** in a mount `$effect` (or `onMount`), call `getPanelOpenStore(storageKey, defaultOpen)`, `subscribe` to sync `$state` from the store, and return unsubscribe on teardown so eviction can run. This is when a stored preference may flip the UI after hydrate (see Errors & SSR).
 - Toggle button flips via `setOpen(!open)` (store write-through handles `localStorage`).
-- Collapsed: title bar + chevron only. Body element keeps `id={bodyId}` and stays in the DOM, but is visually and interactively hidden via a dedicated class (e.g. Tailwind `hidden` → `display: none`), **not** the bare HTML `hidden` attribute alone. Reason: body content uses `grid`/`flex` utilities; those can override the UA stylesheet for `[hidden]`. Class-based `display: none` wins without `!important` wars.
-- Expanded: existing body layout unchanged.
-- Host outer card stays visible whether open or closed. For the description host, `afterDescription` may still render below the title bar when the body is collapsed.
+- **Collapsed (CollapsiblePanel itself):** title bar + chevron only. Body keeps `id={bodyId}` and stays in the DOM, but is visually and interactively hidden via a dedicated class (e.g. Tailwind `hidden` → `display: none`), **not** the bare HTML `hidden` attribute alone. Reason: body content uses `grid`/`flex` utilities; those can override the UA stylesheet for `[hidden]`. Class-based `display: none` wins without `!important` wars.
+- **Host siblings:** the description host may still show `afterDescription` below the title bar when the description body is collapsed — that content is outside `CollapsiblePanel`, not a contradiction of “title bar + chevron only.”
+- Expanded: existing body layout unchanged (params: sliders + formula; compare: children + equations; description: `description.body`).
+- Host outer card stays visible whether open or closed.
 - Chevron rotates to indicate state; transition is disabled (instant) when `prefers-reduced-motion: reduce`.
 
 ### Defaults
@@ -239,10 +240,9 @@ Left and right share `PANEL_STORAGE_KEYS.parameters` and the same open-state sto
    - Two instances same `storageKey`, distinct `bodyId`s: ids unique; each `aria-controls` matches its body; toggling one updates both open states (live sync).
    - Unmount cleanup leaves store evicted (next mount can seed a different stored value without `vi.resetModules()`).
 4. **`ParameterPanel` tests** — default expanded; collapse hides body.
-5. **`VisualizationShell` tests** — description starts collapsed; expanding reveals description copy; **`afterDescription` remains visible/queryable while description is collapsed**.
-6. **`ComparisonParameterPanel` tests** — default expanded; parameters key; when two panels mount with left/right ids, ids differ and sync holds.
-7. **Chua regression** — with description default-collapsed, Lyapunov analysis strip (`afterDescription`) is still in the document and visible (not inside the hidden description body). Prefer a shell-level test with a Chua-like `afterDescription` snippet, and/or a focused Chua page test.
-8. **Regression** — full `bun run test` stays green. Fix assertions that assumed description body was visible without expanding first.
+5. **`VisualizationShell` tests** — description starts collapsed; expanding reveals description copy; **`afterDescription` remains visible/queryable while description is collapsed** (required; covers the Chua slot-boundary contract without needing a full Chua page mount).
+6. **`ComparisonParameterPanel` tests** — default expanded; collapse hides children and equations; `side` derives distinct `bodyId`s; when two panels mount with left/right, ids differ and sync holds.
+7. **Regression** — full `bun run test` stays green. Fix assertions that assumed description body was visible without expanding first.
 
 No new E2E required unless an existing Playwright spec fails because it targeted collapsed description content.
 
@@ -252,8 +252,9 @@ Not part of the design-doc PR. After this spec is approved, implementation plan 
 
 1. Add storage helper + open store (with eviction) + tests.
 2. Add `CollapsiblePanel` + tests (including two-instance id + live sync + focus + unmount eviction).
-3. Wire `ParameterPanel`, shell description (**body only**; `afterDescription` sibling), `ComparisonParameterPanel` (+ compare `side`/`bodyId` plumbing as needed).
-4. Add Chua / shell `afterDescription` visibility regression; update affected component tests; run full Vitest suite.
+3. Wire `ParameterPanel`, shell description (**body only**; `afterDescription` sibling), `ComparisonParameterPanel` (`side` prop + equations in body).
+4. Add `side="left"|"right"` to all 20 compare pages.
+5. Add shell `afterDescription` visibility regression; update affected component tests; run full Vitest suite.
 
 ## Resolved review items
 
@@ -268,9 +269,21 @@ Not part of the design-doc PR. After this spec is approved, implementation plan 
 | Type DRY | `PanelStorageKey` from `PANEL_STORAGE_KEYS` |
 | `prefers-reduced-motion` | Instant chevron when reduced motion |
 | Doc hygiene | Status Approved; rollout labeled post-approval |
-| `afterDescription` vs default-closed description | Collapse descriptive copy only; slot stays outside body; Chua regression |
+| `afterDescription` vs default-closed description | Collapse `description.body` only; slot stays outside body; shell regression required |
 | Store eviction / test isolation | Evict on last unsubscribe; test-only `resetPanelOpenStoresForTests`; cross-tab claim scoped to unmounted re-seed + full refresh |
+| Compare `bodyId` plumbing | Required `side` prop; derived `bodyId`; 20 compare pages updated |
+| Compare `equations` | Collapse with children (same as main formula) |
+| First-paint vs store | `$state(defaultOpen)` then mount `$effect` subscribe |
+
+## Self-review (2026-07-29)
+
+| Check | Result |
+|-------|--------|
+| Placeholders / TBDs | Cleared; removed soft “prefer / and-or” forks |
+| Internal consistency | Fixed heading-vs-body wording; host siblings vs “title bar only”; equations = body |
+| Scope | Still one implementation plan; explicit 20-file compare `side` churn |
+| Ambiguity | Locked `side` (not free-form `bodyId`); locked subscribe-on-mount; locked shell-level afterDescription test |
 
 ## Open questions
 
-None remaining after review resolution.
+None remaining after self-review.
