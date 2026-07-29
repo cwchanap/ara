@@ -1,11 +1,17 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createRawSnippet } from 'svelte';
-import { cleanup, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { PANEL_STORAGE_KEYS } from '$lib/chaos-panel-storage';
+import { resetPanelOpenStoresForTests } from '$lib/chaos-panel-open-store';
 import ParameterPanel from './ParameterPanel.svelte';
 
 describe('ParameterPanel', () => {
 	afterEach(() => {
 		cleanup();
+		resetPanelOpenStoresForTests();
+		if (typeof localStorage !== 'undefined') {
+			localStorage.clear();
+		}
 	});
 
 	const childSnippet = createRawSnippet(() => ({
@@ -54,6 +60,21 @@ describe('ParameterPanel', () => {
 		expect(panel).toBeInTheDocument();
 		expect(panel?.classList.contains('relative')).toBe(true);
 	});
+
+	it('collapses children and formula behind the title toggle', async () => {
+		render(ParameterPanel, {
+			props: { children: childSnippet, formula: ['x = f(y)'] }
+		});
+		expect(screen.getByTestId('param-child')).toBeVisible();
+		expect(screen.getByText('x = f(y)')).toBeVisible();
+		const toggle = screen.getByRole('button', { name: /SYSTEM_PARAMETERS/i });
+		expect(toggle).toHaveAttribute('aria-controls', 'chaos-panel-parameters-body');
+		await fireEvent.click(toggle);
+		expect(
+			document.getElementById('chaos-panel-parameters-body')!.classList.contains('hidden')
+		).toBe(true);
+		expect(localStorage.getItem(PANEL_STORAGE_KEYS.parameters)).toBe('false');
+	});
 });
 
 describe('ParameterPanel columns', () => {
@@ -64,6 +85,10 @@ describe('ParameterPanel columns', () => {
 
 	afterEach(() => {
 		cleanup();
+		resetPanelOpenStoresForTests();
+		if (typeof localStorage !== 'undefined') {
+			localStorage.clear();
+		}
 	});
 
 	it('applies equationColumns to the equations grid', () => {
