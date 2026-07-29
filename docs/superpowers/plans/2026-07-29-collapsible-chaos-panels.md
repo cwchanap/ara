@@ -32,26 +32,26 @@
 
 ### New files
 
-| File | Responsibility |
-|------|----------------|
-| `src/lib/chaos-panel-storage.ts` | `PANEL_STORAGE_KEYS`, `PanelStorageKey`, `readPanelOpen`, `writePanelOpen` |
-| `src/lib/chaos-panel-storage.test.ts` | Node unit tests for storage helper |
-| `src/lib/chaos-panel-open-store.ts` | Per-key store: subscribe / setOpen / getOpen / eviction / test reset |
-| `src/lib/chaos-panel-open-store.test.ts` | Node unit tests for open store |
-| `src/lib/components/ui/CollapsiblePanel.svelte` | Title toggle + collapsible body |
-| `src/lib/components/ui/CollapsiblePanel.svelte.test.ts` | Jsdom component tests |
+| File                                                    | Responsibility                                                             |
+| ------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `src/lib/chaos-panel-storage.ts`                        | `PANEL_STORAGE_KEYS`, `PanelStorageKey`, `readPanelOpen`, `writePanelOpen` |
+| `src/lib/chaos-panel-storage.test.ts`                   | Node unit tests for storage helper                                         |
+| `src/lib/chaos-panel-open-store.ts`                     | Per-key store: subscribe / setOpen / getOpen / eviction / test reset       |
+| `src/lib/chaos-panel-open-store.test.ts`                | Node unit tests for open store                                             |
+| `src/lib/components/ui/CollapsiblePanel.svelte`         | Title toggle + collapsible body                                            |
+| `src/lib/components/ui/CollapsiblePanel.svelte.test.ts` | Jsdom component tests                                                      |
 
 ### Modified files
 
-| File | Change |
-|------|--------|
-| `src/lib/components/ui/ParameterPanel.svelte` | Integrate `CollapsiblePanel`; body = children + formula |
-| `src/lib/components/ui/ParameterPanel.svelte.test.ts` | Collapse/expand coverage; reset stores in `afterEach` |
-| `src/lib/components/ui/VisualizationShell.svelte` | Description `CollapsiblePanel`; `afterDescription` sibling |
-| `src/lib/components/ui/VisualizationShell.svelte.test.ts` | Description default collapsed; afterDescription visible |
-| `src/lib/components/comparison/ComparisonParameterPanel.svelte` | Required `side`; integrate `CollapsiblePanel` |
-| `src/lib/components/comparison/ComparisonParameterPanel.svelte.test.ts` | Pass `side`; collapse + two-instance sync |
-| `src/routes/{arnold-cat,bakers-map,bifurcation-henon,bifurcation-logistic,chaos-esthetique,chua,clifford,double-pendulum,gingerbreadman,gumowski-mira,henon,ikeda,logistic,lorenz,lozi,lyapunov,newton,rossler,standard,tinkerbell}/compare/+page.svelte` | `side="left"` / `side="right"` |
+| File                                                                                                                                                                                                                                                      | Change                                                     |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `src/lib/components/ui/ParameterPanel.svelte`                                                                                                                                                                                                             | Integrate `CollapsiblePanel`; body = children + formula    |
+| `src/lib/components/ui/ParameterPanel.svelte.test.ts`                                                                                                                                                                                                     | Collapse/expand coverage; reset stores in `afterEach`      |
+| `src/lib/components/ui/VisualizationShell.svelte`                                                                                                                                                                                                         | Description `CollapsiblePanel`; `afterDescription` sibling |
+| `src/lib/components/ui/VisualizationShell.svelte.test.ts`                                                                                                                                                                                                 | Description default collapsed; afterDescription visible    |
+| `src/lib/components/comparison/ComparisonParameterPanel.svelte`                                                                                                                                                                                           | Required `side`; integrate `CollapsiblePanel`              |
+| `src/lib/components/comparison/ComparisonParameterPanel.svelte.test.ts`                                                                                                                                                                                   | Pass `side`; collapse + two-instance sync                  |
+| `src/routes/{arnold-cat,bakers-map,bifurcation-henon,bifurcation-logistic,chaos-esthetique,chua,clifford,double-pendulum,gingerbreadman,gumowski-mira,henon,ikeda,logistic,lorenz,lozi,lyapunov,newton,rossler,standard,tinkerbell}/compare/+page.svelte` | `side="left"` / `side="right"`                             |
 
 ---
 
@@ -72,11 +72,7 @@ Create `src/lib/chaos-panel-storage.test.ts`:
 
 ```typescript
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-	PANEL_STORAGE_KEYS,
-	readPanelOpen,
-	writePanelOpen
-} from './chaos-panel-storage';
+import { PANEL_STORAGE_KEYS, readPanelOpen, writePanelOpen } from './chaos-panel-storage';
 
 function installMemoryStorage() {
 	const map = new Map<string, string>();
@@ -347,11 +343,7 @@ Expected: FAIL — cannot resolve `./chaos-panel-open-store`.
 Create `src/lib/chaos-panel-open-store.ts`:
 
 ```typescript
-import {
-	type PanelStorageKey,
-	readPanelOpen,
-	writePanelOpen
-} from './chaos-panel-storage';
+import { type PanelStorageKey, readPanelOpen, writePanelOpen } from './chaos-panel-storage';
 
 interface PanelOpenStore {
 	subscribe: (fn: (open: boolean) => void) => () => void;
@@ -533,9 +525,9 @@ describe('CollapsiblePanel', () => {
 		const toggle = await screen.findByRole('button', { name: /SYSTEM_PARAMETERS/i });
 		await fireEvent.click(toggle);
 		expect(toggle).toHaveAttribute('aria-expanded', 'false');
-		expect(document.getElementById('chaos-panel-parameters-body')!.classList.contains('hidden')).toBe(
-			true
-		);
+		expect(
+			document.getElementById('chaos-panel-parameters-body')!.classList.contains('hidden')
+		).toBe(true);
 		expect(localStorage.getItem(PANEL_STORAGE_KEYS.parameters)).toBe('false');
 		await fireEvent.click(toggle);
 		expect(toggle).toHaveAttribute('aria-expanded', 'true');
@@ -681,14 +673,7 @@ Create `src/lib/components/ui/CollapsiblePanel.svelte`:
 		children: Snippet;
 	}
 
-	let {
-		title,
-		storageKey,
-		defaultOpen,
-		bodyId,
-		titleLevel = 'h2',
-		children
-	}: Props = $props();
+	let { title, storageKey, defaultOpen, bodyId, titleLevel = 'h2', children }: Props = $props();
 
 	let open = $state(defaultOpen);
 	let toggleEl: HTMLButtonElement | undefined = $state();
@@ -721,7 +706,11 @@ Create `src/lib/components/ui/CollapsiblePanel.svelte`:
 		aria-controls={bodyId}
 		onclick={toggle}
 	>
-		<span class="inline-block w-2 h-2 bg-primary rounded-full animate-pulse shrink-0" class:w-1.5={titleLevel === 'h3'} class:h-1.5={titleLevel === 'h3'}></span>
+		<span
+			class="inline-block w-2 h-2 bg-primary rounded-full animate-pulse shrink-0"
+			class:w-1.5={titleLevel === 'h3'}
+			class:h-1.5={titleLevel === 'h3'}
+		></span>
 		{#if titleLevel === 'h3'}
 			<span class="flex-1">{title}</span>
 		{:else}
@@ -731,8 +720,7 @@ Create `src/lib/components/ui/CollapsiblePanel.svelte`:
 			aria-hidden="true"
 			class="inline-block transition-transform duration-200 motion-reduce:transition-none {open
 				? 'rotate-180'
-				: 'rotate-0'}"
-			>▾</span
+				: 'rotate-0'}">▾</span
 		>
 	</button>
 
@@ -953,16 +941,16 @@ it('starts with description body collapsed and afterDescription still visible', 
 		expect(toggle).toHaveAttribute('aria-expanded', 'false');
 		expect(toggle).toHaveAttribute('aria-controls', 'chaos-panel-description-body');
 	});
-	expect(document.getElementById('chaos-panel-description-body')!.classList.contains('hidden')).toBe(
-		true
-	);
+	expect(
+		document.getElementById('chaos-panel-description-body')!.classList.contains('hidden')
+	).toBe(true);
 	expect(screen.getByTestId('after-desc')).toBeVisible();
 	expect(screen.getByTestId('after-desc')).toHaveTextContent('λₘₐₓ live');
 
 	await fireEvent.click(screen.getByRole('button', { name: /DATA_LOG: HÉNON_MAP/i }));
-	expect(document.getElementById('chaos-panel-description-body')!.classList.contains('hidden')).toBe(
-		false
-	);
+	expect(
+		document.getElementById('chaos-panel-description-body')!.classList.contains('hidden')
+	).toBe(false);
 	expect(screen.getByText('desc body copy')).toBeVisible();
 });
 ```
@@ -982,34 +970,34 @@ Expected: FAIL on the new collapsed-description assertion.
 Near the bottom of `VisualizationShell.svelte`, replace:
 
 ```svelte
-	<div class="bg-card/30 backdrop-blur-md border border-primary/20 rounded-sm p-6 relative">
-		<div
-			class="absolute top-0 left-0 w-1 h-full bg-linear-to-b from-primary to-transparent opacity-50"
-		></div>
-		<h3 class="text-lg font-['Orbitron'] font-semibold text-primary mb-2">{description.heading}</h3>
-		<p class="text-muted-foreground text-sm leading-relaxed max-w-3xl">{description.body}</p>
-		{#if afterDescription}{@render afterDescription()}{/if}
-	</div>
+<div class="bg-card/30 backdrop-blur-md border border-primary/20 rounded-sm p-6 relative">
+	<div
+		class="absolute top-0 left-0 w-1 h-full bg-linear-to-b from-primary to-transparent opacity-50"
+	></div>
+	<h3 class="text-lg font-['Orbitron'] font-semibold text-primary mb-2">{description.heading}</h3>
+	<p class="text-muted-foreground text-sm leading-relaxed max-w-3xl">{description.body}</p>
+	{#if afterDescription}{@render afterDescription()}{/if}
+</div>
 ```
 
 with:
 
 ```svelte
-	<div class="bg-card/30 backdrop-blur-md border border-primary/20 rounded-sm p-6 relative">
-		<div
-			class="absolute top-0 left-0 w-1 h-full bg-linear-to-b from-primary to-transparent opacity-50"
-		></div>
-		<CollapsiblePanel
-			title={description.heading}
-			storageKey={PANEL_STORAGE_KEYS.description}
-			defaultOpen={false}
-			bodyId="chaos-panel-description-body"
-			titleLevel="h3"
-		>
-			<p class="text-muted-foreground text-sm leading-relaxed max-w-3xl">{description.body}</p>
-		</CollapsiblePanel>
-		{#if afterDescription}{@render afterDescription()}{/if}
-	</div>
+<div class="bg-card/30 backdrop-blur-md border border-primary/20 rounded-sm p-6 relative">
+	<div
+		class="absolute top-0 left-0 w-1 h-full bg-linear-to-b from-primary to-transparent opacity-50"
+	></div>
+	<CollapsiblePanel
+		title={description.heading}
+		storageKey={PANEL_STORAGE_KEYS.description}
+		defaultOpen={false}
+		bodyId="chaos-panel-description-body"
+		titleLevel="h3"
+	>
+		<p class="text-muted-foreground text-sm leading-relaxed max-w-3xl">{description.body}</p>
+	</CollapsiblePanel>
+	{#if afterDescription}{@render afterDescription()}{/if}
+</div>
 ```
 
 Add imports at the top of the script:
@@ -1301,17 +1289,17 @@ If working tree clean, skip the commit.
 
 ## Plan Self-Review
 
-| Spec requirement | Task |
-|------------------|------|
-| `chaos-panel-storage` + typed keys + SSR/throw safety | Task 1 |
-| Open store + live sync + eviction + test reset | Task 2 |
-| `CollapsiblePanel` a11y, class hide, focus, reduced motion, bodyId | Task 3 |
-| `ParameterPanel` integration | Task 4 |
-| Shell description collapse; `afterDescription` outside | Task 5 |
-| `ComparisonParameterPanel` + `side` + equations in body | Task 6 |
-| 20 compare pages `side` props | Task 7 |
-| Full suite regression | Task 8 |
-| No E2E / no FOUC script / no storage listeners | Honored in Global Constraints + Non-Goals |
+| Spec requirement                                                   | Task                                      |
+| ------------------------------------------------------------------ | ----------------------------------------- |
+| `chaos-panel-storage` + typed keys + SSR/throw safety              | Task 1                                    |
+| Open store + live sync + eviction + test reset                     | Task 2                                    |
+| `CollapsiblePanel` a11y, class hide, focus, reduced motion, bodyId | Task 3                                    |
+| `ParameterPanel` integration                                       | Task 4                                    |
+| Shell description collapse; `afterDescription` outside             | Task 5                                    |
+| `ComparisonParameterPanel` + `side` + equations in body            | Task 6                                    |
+| 20 compare pages `side` props                                      | Task 7                                    |
+| Full suite regression                                              | Task 8                                    |
+| No E2E / no FOUC script / no storage listeners                     | Honored in Global Constraints + Non-Goals |
 
 **Placeholder scan:** none intentional.  
 **Type consistency:** `PanelStorageKey` / `PANEL_STORAGE_KEYS` / `getPanelOpenStore` / `resetPanelOpenStoresForTests` / `bodyId` / `side` names match across tasks.
