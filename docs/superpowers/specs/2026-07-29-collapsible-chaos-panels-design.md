@@ -67,11 +67,12 @@ VisualizationShell
     │   └── description.body only
     └── afterDescription (sibling; NOT inside collapsed body)
 
-ComparisonParameterPanel ──► CollapsiblePanel
-                             key: parameters, defaultOpen: true
-                             bodyId: chaos-panel-parameters-body-left | …-right
+ComparisonParameterPanel (side: left|right)
+  └── CollapsiblePanel
+      key: parameters, defaultOpen: true
+      bodyId: chaos-panel-parameters-body-${side}
+      └── children + equations
 ```
-
 ### Slot audit (`afterDescription`)
 
 | Page | Slot content | Collapse? |
