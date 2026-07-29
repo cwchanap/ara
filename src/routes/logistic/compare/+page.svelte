@@ -84,7 +84,7 @@
 >
 	{#snippet leftPanel()}
 		<div class="space-y-4">
-			<ComparisonParameterPanel title="LEFT_PARAMETERS">
+			<ComparisonParameterPanel side="left" title="LEFT_PARAMETERS">
 				<div class="space-y-3">
 					<div class="space-y-1">
 						<div class="flex justify-between items-end">
@@ -155,7 +155,7 @@
 
 	{#snippet rightPanel()}
 		<div class="space-y-4">
-			<ComparisonParameterPanel title="RIGHT_PARAMETERS">
+			<ComparisonParameterPanel side="right" title="RIGHT_PARAMETERS">
 				<div class="space-y-3">
 					<div class="space-y-1">
 						<div class="flex justify-between items-end">
