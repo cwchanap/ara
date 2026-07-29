@@ -18,6 +18,7 @@ alwaysApply: true
     EOF
     ```
   The **core product = the visualizations**, and they work fully logged-out with placeholders.
+- **If `DATABASE_URL`, `NEON_AUTH_BASE_URL`, and `PUBLIC_NEON_AUTH_URL` are set as Cloud env secrets, no `.env` is needed.** The app reads them via SvelteKit `$env/dynamic/{private,public}`, which resolves from the process environment at runtime (verified: with `.env` removed and only those vars exported, the dev server boots and DB queries succeed). `PUBLIC_NEON_AUTH_URL` (not `VITE_NEON_AUTH_URL`) is the browser-facing one required to start OAuth.
 - **DB/Auth-backed features need the real DB + migrations.** Google OAuth login, save/load/rename configs, share links, and profile pages require the real Neon Postgres + Neon Auth URLs above. App tables (`profiles`, `saved_configurations`, `shared_configurations`) live in the `public` schema; if missing, create them with `bunx drizzle-kit migrate` (use the direct, non-`-pooler` host in `DATABASE_URL` for the migrate step). The `neon_auth` schema is managed by Neon Auth. The public share route `/s/<8-char-code>` is a no-login way to exercise a DB read+write (it increments `view_count`).
 - **E2E tests need a build + Playwright chromium.** `bun run test:e2e` auto-starts `bun run preview` on port `:4173`, which requires `bun run build` to have produced `./build` first, and the chromium browser installed via `bunx playwright install --with-deps chromium`. Unit tests (`bun run test`) need neither.
 - Dev server runs on `:5173` (`bun run dev`); preview on `:4173`.
