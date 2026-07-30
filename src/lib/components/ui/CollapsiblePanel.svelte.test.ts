@@ -315,9 +315,10 @@ describe('CollapsiblePanel', () => {
 		cleanup();
 
 		// Other-tab style overwrite while unmounted — opposing defaultOpen so
-		// the assertion fails if remount ignores localStorage.
+		// the assertion fails if remount ignores localStorage. Do NOT call
+		// resetPanelOpenStoresForTests() here: that would clear a stale entry
+		// even when the component failed to unsubscribe, masking broken eviction.
 		localStorage.setItem(PANEL_STORAGE_KEYS.parameters, 'true');
-		resetPanelOpenStoresForTests(); // ensure map empty if unmount race; eviction should already clear
 
 		render(CollapsiblePanel, {
 			props: {
