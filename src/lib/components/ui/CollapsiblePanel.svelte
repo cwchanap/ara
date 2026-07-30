@@ -53,7 +53,7 @@
 </script>
 
 <div class="space-y-4">
-	<svelte:element this={titleLevel} class="contents">
+	<svelte:element this={titleLevel}>
 		<button
 			bind:this={toggleEl}
 			type="button"
